@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Construction Pricing App</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="p-8 bg-gray-100">
+  <h1 class="text-2xl font-bold mb-4">Construction Pricing Calculator</h1>
+  <div class="bg-white p-6 rounded shadow-md mb-4">
+    <label class="block mb-2">Job ID:</label>
+    <input id="jobId" type="text" class="border p-2 w-full mb-4" placeholder="e.g., JOB-100">
+    <label class="block mb-2">Activity Code:</label>
+    <select id="activityCode" class="border p-2 w-full mb-4">
+      <option value="">Select Activity</option>
+    </select>
+    <label class="block mb-2">Quantity:</label>
+    <input id="quantity" type="number" step="0.01" class="border p-2 w-full mb-4" placeholder="e.g., 225">
+    <button onclick="calculateCost()" class="bg-blue-500 text-white p-2 rounded">Calculate</button>
+  </div>
+  <div id="results" class="bg-white p-6 rounded shadow-md hidden">
+    <h2 class="text-xl font-bold mb-2">Cost Breakdown</h2>
+    <p id="totalDirect"></p>
+    <p id="totalIndirect"></p>
+    <p id="totalPrice"></p>
+    <p id="variance"></p>
+  </div>
+
+  <script>
+    const supabaseUrl = 'https://your-project.supabase.co'; // Replace with your Supabase URL
+    const supabaseKey = 'your-anon-key'; // Replace with your Supabase anon key
+    const supabase = Supabase.createClient(supabaseUrl, supabaseKey);
+
+    // Load activities on page load
+    window.onload = async () => {
+      const { data: activities } = await supabase.from('activities_catalog').select('activity_code, activity_name');
+      const select = document.getElementById('activityCode');
+      activities.forEach(activity => {
+        const option = document.createElement('option');
+        option.value = activity.activity_code;
+        option.text = `${activity.activity_code} - ${activity.activity_name}`;
+        select.add(option);
+      });
+    };
+
+    async function calculateCost() {
+      const jobId = document.getElementById('jobId').value;
+      const activityCode = document.getElementById('activityCode').value;
+      const quantity = parseFloat(document.getElementById('quantity').value) || 0;
+
+      if (!activityCode || quantity === 0) {
+        alert('Please select an activity and enter quantity');
+        return;
+      }
+
+      // Fetch activity defaults
+      const { data: activity } = await supabase.from('activities_catalog').select('*').eq('activity_code', activityCode).single();
+
+      // Fetch rates (simplified - fetch labor, equip, mat)
+      const { data: labor } = await supabase.from('labor_roles').select('*').eq('role', activity.default_role1).single();
+      const { data: equip } = await supabase.from('equipment').select('*').eq('equip_type', activity.default_equip1).single();
+      const { data: mat } = await supabase.from('materials').select('*').eq('sku', activity.default_mat1_sku).single();
+
+      // Calculate costs (simplified example)
+      const laborCost = (labor.base_rate * (1 + labor.burden_pct)) * activity.default_role1_hrs_per_unit * quantity;
+      const equipCost = equip.rate * activity.default_equip1_hrs_per_unit * quantity;
+      const matCost = mat.unit_cost * activity.default_mat1_qty_per_unit * quantity * (1 + mat.waste_pct);
+      const totalDirect = laborCost + equipCost + matCost;
+
+      // Fetch config
+      const { data: gna } = await supabase.from('config').select('value').eq('parameter', 'G&A_%_of_Direct').single();
+      const { data: profit } = await supabase.from('config').select('value').eq('parameter', 'Default_Profit_Margin_%').single();
+      const totalIndirect = totalDirect * gna.value;
+      const totalPrice = (totalDirect + totalIndirect) * (1 + profit.value);
+
+      // Show results
+      document.getElementById('totalDirect').innerHTML = `Total Direct Cost: $${totalDirect.toFixed(2)}`;
+      document.getElementById('totalIndirect').innerHTML = `Total Indirect Cost: $${totalIndirect.toFixed(2)}`;
+      document.getElementById('totalPrice').innerHTML = `Total Price: $${totalPrice.toFixed(2)}`;
+      document.getElementById('results').classList.remove('hidden');
+    }
+  </script>
+</body>
+</html>
