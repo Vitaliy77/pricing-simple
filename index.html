@@ -230,13 +230,13 @@
   }
 
 // Calculate cost with benchmarks
+<script>
 async function calculateCost() {
-  const jobId = document.getElementById('jobId').value;
   const activityCode = document.getElementById('activityCode').value;
-  const quantity = parseFloat(document.getElementById('quantity').value) || 0;
-  const laborHrs1 = parseFloat(document.getElementById('laborHrs1').value) || 0;
-  const equipHrs1 = parseFloat(document.getElementById('equipHrs1').value) || 0;
-  const matQty = parseFloat(document.getElementById('matQty').value) || 0;
+  const quantity     = parseFloat(document.getElementById('quantity').value)   || 0;
+  const laborHrs1    = parseFloat(document.getElementById('laborHrs1').value)  || 0;
+  const equipHrs1    = parseFloat(document.getElementById('equipHrs1').value)  || 0;
+  const matQty       = parseFloat(document.getElementById('matQty').value)     || 0;
 
   if (!activityCode || quantity === 0) {
     alert('Please select an activity and enter quantity');
@@ -244,75 +244,102 @@ async function calculateCost() {
   }
 
   try {
-    // Fetch rates
-    const { data: labor } = await client.from('labor_roles').select('base_rate, burden_pct').eq('role', document.getElementById('laborRole1').value).single();
-    const { data: equip } = await client.from('equipment').select('rate').eq('equip_type', document.getElementById('equipType1').value).single();
-    const { data: mat } = await client.from('materials').select('unit_cost, waste_pct').eq('sku', document.getElementById('matSku').value).single();
+    // --- Labor rate (loaded) ---
+    const roleName = document.getElementById('laborRole1').value;
+    let loadedLaborRate = 0;
+    if (roleName) {
+      const { data: labor, error: laborErr } = await client
+        .from('labor_roles')
+        .select('base_rate, burden_pct')
+        .eq('role', roleName)
+        .maybeSingle();
+      if (laborErr) throw laborErr;
+      loadedLaborRate = (Number(labor?.base_rate ?? 0)) * (1 + Number(labor?.burden_pct ?? 0));
+    }
 
-    // Calculate costs
-    const laborCost = (labor.base_rate * (1 + labor.burden_pct)) * laborHrs1 * quantity;
-    const equipCost = equip.rate * equipHrs1 * quantity;
-    const matCost = mat.unit_cost * matQty * quantity * (1 + mat.waste_pct);
+    // --- Equipment rate ---
+    const equipType = document.getElementById('equipType1').value;
+    let equipRate = 0;
+    if (equipType) {
+      const { data: equip, error: equipErr } = await client
+        .from('equipment')         // our compatibility VIEW
+        .select('rate')
+        .eq('type', equipType)     // NOTE: column is 'type' (not 'equip_type')
+        .maybeSingle();
+      if (equipErr) throw equipErr;
+      equipRate = Number(equip?.rate ?? 0);
+    }
+
+    // --- Material cost + waste ---
+    const sku = document.getElementById('matSku').value;
+    let unitCost = 0, wastePct = 0;
+    if (sku) {
+      const { data: mat, error: matErr } = await client
+        .from('materials')
+        .select('unit_cost, waste_pct')
+        .eq('sku', sku)
+        .maybeSingle();
+      if (matErr) throw matErr;
+      unitCost = Number(mat?.unit_cost ?? 0);
+      wastePct = Number(mat?.waste_pct ?? 0);
+    }
+
+    // --- Direct costs ---
+    const laborCost = loadedLaborRate * laborHrs1 * quantity;
+    const equipCost = equipRate       * equipHrs1 * quantity;
+    const matCost   = unitCost * (1 + wastePct) * matQty * quantity;
     const totalDirect = laborCost + equipCost + matCost;
 
-    // Fetch config
-    const { data: gna } = await client.from('config').select('value').eq('parameter', 'G&A_%_of_Direct').single();
-    const { data: profit } = await client.from('config').select('value').eq('parameter', 'Default_Profit_Margin_%').single();
-    const { data: alertThreshold } = await client.from('config').select('value').eq('parameter', 'Benchmark_Variance_Alert_%').single();
-    const totalIndirect = totalDirect * gna.value;
-    const totalPrice = (totalDirect + totalIndirect) * (1 + profit.value);
+    // --- Indirects & profit ---
+    const { data: gna }    = await client.from('config').select('value').eq('parameter','G&A_%_of_Direct').maybeSingle();
+    const { data: profit } = await client.from('config').select('value').eq('parameter','Default_Profit_Margin_%').maybeSingle();
+    const gnaPct    = Number(gna?.value ?? 0);
+    const profitPct = Number(profit?.value ?? 0);
 
-    // Fetch benchmarks (medians from history for this activity)
-    const { data: benchmarks } = await client
+    const totalIndirect = totalDirect * gnaPct;
+    const totalPrice    = (totalDirect + totalIndirect) * (1 + profitPct);
+
+    // --- Benchmarks (simple averages for demo) ---
+    const { data: benchmarks, error: bErr } = await client
       .from('history')
       .select('labor_hours_per_unit, equip_hours_per_unit, mat_qty_per_unit')
       .eq('activity_code', activityCode);
+    if (bErr) throw bErr;
+    const avg = (arr, key) => arr.length ? arr.reduce((s,x)=>s + Number(x[key] ?? 0), 0)/arr.length : 0;
 
-    // Calculate medians (simple average for demo; use SQL median in production)
-    const medianLaborHrs = benchmarks.length > 0 ? benchmarks.reduce((a, b) => a + b.labor_hours_per_unit, 0) / benchmarks.length : laborHrs1;
-    const medianEquipHrs = benchmarks.length > 0 ? benchmarks.reduce((a, b) => a + b.equip_hours_per_unit, 0) / benchmarks.length : equipHrs1;
-    const medianMatQty = benchmarks.length > 0 ? benchmarks.reduce((a, b) => a + b.mat_qty_per_unit, 0) / benchmarks.length : matQty;
+    const medianLaborHrs = avg(benchmarks, 'labor_hours_per_unit') || laborHrs1;
+    const medianEquipHrs = avg(benchmarks, 'equip_hours_per_unit') || equipHrs1;
+    const medianMatQty   = avg(benchmarks, 'mat_qty_per_unit')     || matQty;
 
-    // Calculate variances
-    const laborVariance = ((laborHrs1 - medianLaborHrs) / medianLaborHrs * 100).toFixed(1);
-    const equipVariance = ((equipHrs1 - medianEquipHrs) / medianEquipHrs * 100).toFixed(1);
-    const matVariance = ((matQty - medianMatQty) / medianMatQty * 100).toFixed(1);
+    const laborVar = medianLaborHrs ? ((laborHrs1 - medianLaborHrs)/medianLaborHrs*100) : 0;
+    const equipVar = medianEquipHrs ? ((equipHrs1 - medianEquipHrs)/medianEquipHrs*100) : 0;
+    const matVar   = medianMatQty   ? ((matQty   - medianMatQty)  /medianMatQty*100)   : 0;
 
-    // Alert class
-    function getAlertClass(variance) {
-      const absVar = Math.abs(variance);
-      if (absVar < 10) return 'text-green-600';
-      if (absVar < 15) return 'text-yellow-600';
+    const alertClass = (v) => {
+      const a = Math.abs(v);
+      if (a < 10) return 'text-green-600';
+      if (a < 15) return 'text-yellow-600';
       return 'text-red-600';
-    }
+    };
 
-    // Show results
-    document.getElementById('totalDirect').innerHTML = `Total Direct Cost: $${totalDirect.toFixed(2)}`;
-    document.getElementById('totalIndirect').innerHTML = `Total Indirect Cost: $${totalIndirect.toFixed(2)}`;
-    document.getElementById('totalPrice').innerHTML = `Total Price: $${totalPrice.toFixed(2)}`;
-
-    // Add variance section
+    // --- Render ---
+    document.getElementById('totalDirect').innerText   = `Total Direct Cost: $${totalDirect.toFixed(2)}`;
+    document.getElementById('totalIndirect').innerText = `Total Indirect Cost: $${totalIndirect.toFixed(2)}`;
+    document.getElementById('totalPrice').innerText    = `Total Price: $${totalPrice.toFixed(2)}`;
     document.getElementById('variance').innerHTML = `
       <h3 class="text-lg font-bold mb-2">Benchmark Comparison</h3>
-      <p class="${getAlertClass(laborVariance)}">Labor Variance: ${laborVariance}% (vs median ${medianLaborHrs.toFixed(2)} hrs/unit)</p>
-      <p class="${getAlertClass(equipVariance)}">Equipment Variance: ${equipVariance}% (vs median ${medianEquipHrs.toFixed(2)} hrs/unit)</p>
-      <p class="${getAlertClass(matVariance)}">Material Variance: ${matVariance}% (vs median ${medianMatQty.toFixed(2)} qty/unit)</p>
+      <p class="${alertClass(laborVar)}">Labor Variance: ${laborVar.toFixed(1)}% (vs ${medianLaborHrs.toFixed(2)} hrs/unit)</p>
+      <p class="${alertClass(equipVar)}">Equipment Variance: ${equipVar.toFixed(1)}% (vs ${medianEquipHrs.toFixed(2)} hrs/unit)</p>
+      <p class="${alertClass(matVar)}">Material Variance: ${matVar.toFixed(1)}% (vs ${medianMatQty.toFixed(2)} qty/unit)</p>
     `;
     document.getElementById('results').classList.remove('hidden');
-  } catch (error) {
-    console.error('Error calculating cost:', error);
-    alert('Calculation error: ' + error.message);
+  } catch (err) {
+    console.error('Error calculating cost:', err);
+    alert('Calculation error: ' + (err?.message ?? err));
   }
-}
+};
+</script>
 
-  // Call load functions on page load
-  window.onload = async () => {
-    console.log('Window loaded, starting loads...');
-    await loadActivities();
-    await loadLaborRoles();
-    await loadEquipTypes();
-    await loadMatTypes();
-  };
 </script>
 </body>
 </html>
