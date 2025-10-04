@@ -60,169 +60,83 @@
   </div>
 
 <script>
-  const supabaseUrl = 'https://yonpinjixytqooqyyzdh.supabase.co'; // Replace with your Supabase URL
-  const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlvbnBpbmppeHl0cW9vcXl5emRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkzNjkwMzIsImV4cCI6MjA3NDk0NTAzMn0.8g9iNl4kmIm77u7TT8cylgcV872D45pzZGHJWBnZBGo'; // Replace with your Supabase anon key
+  console.log('Script started'); // Debug 1: Script loads
+
+  const supabaseUrl = 'https://your-project.supabase.co'; // Replace with your Supabase URL
+  const supabaseKey = 'your-anon-key'; // Replace with your Supabase anon key
+  console.log('Supabase URL:', supabaseUrl); // Debug 2: URL set
+  console.log('Supabase Key:', supabaseKey.substring(0,10) + '...'); // Debug 3: Key set (partial for security)
+
   const client = supabase.createClient(supabaseUrl, supabaseKey);
+  console.log('Supabase client created:', client); // Debug 4: Client created
 
-async function loadDefaults() {
-  const activityCode = document.getElementById('activityCode').value;
-  if (!activityCode) return;
-  
-  const { data: activity } = await client.from('activities_catalog').select('*').eq('activity_code', activityCode).single();
-  if (activity) {
-    // Load labor defaults
-    document.getElementById('laborRole1').value = activity.default_role1 || '';
-    loadLaborRate('1');
-    document.getElementById('laborHrs1').value = activity.default_role1_hrs_per_unit || 0;
-    
-    // Load equipment defaults
-    document.getElementById('equipType1').value = activity.default_equip1 || '';
-    loadEquipRate('1');
-    document.getElementById('equipHrs1').value = activity.default_equip1_hrs_per_unit || 0;
-    
-    // Load material defaults
-    document.getElementById('matSku').value = activity.default_mat1_sku || '';
-    loadMatRate();
-    document.getElementById('matQty').value = activity.default_mat1_qty_per_unit || 0;
-  }
-}
-
-// Load labor roles dropdown
-async function loadLaborRoles() {
-  try {
-    const { data: roles, error } = await client.from('labor_roles').select('role');
-    if (error) throw error;
-    console.log('Labor roles loaded:', roles); // Debug
-    const select1 = document.getElementById('laborRole1');
-    roles.forEach(role => {
-      const option = document.createElement('option');
-      option.value = role.role;
-      option.text = role.role;
-      select1.add(option);
-    });
-  } catch (error) {
-    console.error('Error loading labor roles:', error);
-    alert('Failed to load labor roles: ' + error.message);
-  }
-}
-
-// Load labor rate
-async function loadLaborRate(num) {
-  const role = document.getElementById('laborRole1').value;
-  if (!role) return;
-  const { data: labor } = await client.from('labor_roles').select('base_rate, burden_pct').eq('role', role).single();
-  const loadedRate = (labor.base_rate * (1 + labor.burden_pct)).toFixed(2);
-  document.getElementById('laborRate1').innerHTML = `Loaded Rate: $${loadedRate}`;
-}
-
-// Load equipment dropdown
-async function loadEquipTypes() {
-  try {
-    const { data: equip, error } = await client.from('equipment').select('equip_type');
-    if (error) throw error;
-    console.log('Equipment loaded:', equip); // Debug
-    const select1 = document.getElementById('equipType1');
-    equip.forEach(e => {
-      const option = document.createElement('option');
-      option.value = e.equip_type;
-      option.text = e.equip_type;
-      select1.add(option);
-    });
-  } catch (error) {
-    console.error('Error loading equipment:', error);
-    alert('Failed to load equipment: ' + error.message);
-  }
-}
-
-async function loadEquipRate(num) {
-  const equipType = document.getElementById('equipType1').value;
-  if (!equipType) return;
-  const { data: equip } = await client.from('equipment').select('rate').eq('equip_type', equipType).single();
-  document.getElementById('equipRate1').innerHTML = `Rate: $${equip.rate.toFixed(2)}`;
-}
-
-// Load materials dropdown
-async function loadMatTypes() {
-  try {
-    const { data: mat, error } = await client.from('materials').select('sku, description');
-    if (error) throw error;
-    console.log('Materials loaded:', mat); // Debug
-    const select = document.getElementById('matSku');
-    mat.forEach(m => {
-      const option = document.createElement('option');
-      option.value = m.sku;
-      option.text = `${m.sku} - ${m.description}`;
-      select.add(option);
-    });
-  } catch (error) {
-    console.error('Error loading materials:', error);
-    alert('Failed to load materials: ' + error.message);
-  }
-}
-
-async function loadMatRate() {
-  const sku = document.getElementById('matSku').value;
-  if (!sku) return;
-  const { data: mat } = await client.from('materials').select('unit_cost, waste_pct').eq('sku', sku).single();
-  const costWithWaste = mat.unit_cost * (1 + mat.waste_pct);
-  document.getElementById('matRate').innerHTML = `Unit Cost: $${costWithWaste.toFixed(2)} (incl. waste)`;
-}
-
-// Call load functions on page load
-window.onload = async () => {
-  await loadLaborRoles();
-  await loadEquipTypes();
-  await loadMatTypes();
-};
-  
-  // Load activities on page load
-  window.onload = async () => {
-    const { data: activities } = await client.from('activities_catalog').select('activity_code, activity_name');
-    const select = document.getElementById('activityCode');
-    activities.forEach(activity => {
-      const option = document.createElement('option');
-      option.value = activity.activity_code;
-      option.text = `${activity.activity_code} - ${activity.activity_name}`;
-      select.add(option);
-    });
-  };
-
-  async function calculateCost() {
-    const jobId = document.getElementById('jobId').value;
-    const activityCode = document.getElementById('activityCode').value;
-    const quantity = parseFloat(document.getElementById('quantity').value) || 0;
-
-    if (!activityCode || quantity === 0) {
-      alert('Please select an activity and enter quantity');
-      return;
+  // Load labor roles dropdown
+  async function loadLaborRoles() {
+    try {
+      console.log('Loading labor roles...'); // Debug 5
+      const { data: roles, error } = await client.from('labor_roles').select('role');
+      if (error) throw error;
+      console.log('Labor roles loaded:', roles); // Debug 6
+      const select1 = document.getElementById('laborRole1');
+      roles.forEach(role => {
+        const option = document.createElement('option');
+        option.value = role.role;
+        option.text = role.role;
+        select1.add(option);
+      });
+    } catch (error) {
+      console.error('Error loading labor roles:', error);
+      alert('Failed to load labor roles: ' + error.message);
     }
-
-    // Fetch activity defaults
-    const { data: activity } = await client.from('activities_catalog').select('*').eq('activity_code', activityCode).single();
-
-    // Fetch rates (simplified)
-    const { data: labor } = await client.from('labor_roles').select('*').eq('role', activity.default_role1).single();
-    const { data: equip } = await client.from('equipment').select('*').eq('equip_type', activity.default_equip1).single();
-    const { data: mat } = await client.from('materials').select('*').eq('sku', activity.default_mat1_sku).single();
-
-    // Calculate costs
-    const laborCost = (labor.base_rate * (1 + labor.burden_pct)) * activity.default_role1_hrs_per_unit * quantity;
-    const equipCost = equip.rate * activity.default_equip1_hrs_per_unit * quantity;
-    const matCost = mat.unit_cost * activity.default_mat1_qty_per_unit * quantity * (1 + mat.waste_pct);
-    const totalDirect = laborCost + equipCost + matCost;
-
-    // Fetch config
-    const { data: gna } = await client.from('config').select('value').eq('parameter', 'G&A_%_of_Direct').single();
-    const { data: profit } = await client.from('config').select('value').eq('parameter', 'Default_Profit_Margin_%').single();
-    const totalIndirect = totalDirect * gna.value;
-    const totalPrice = (totalDirect + totalIndirect) * (1 + profit.value);
-
-    // Show results
-    document.getElementById('totalDirect').innerHTML = `Total Direct Cost: $${totalDirect.toFixed(2)}`;
-    document.getElementById('totalIndirect').innerHTML = `Total Indirect Cost: $${totalIndirect.toFixed(2)}`;
-    document.getElementById('totalPrice').innerHTML = `Total Price: $${totalPrice.toFixed(2)}`;
-    document.getElementById('results').classList.remove('hidden');
   }
+
+  // Load equipment dropdown
+  async function loadEquipTypes() {
+    try {
+      console.log('Loading equipment...'); // Debug 7
+      const { data: equip, error } = await client.from('equipment').select('equip_type');
+      if (error) throw error;
+      console.log('Equipment loaded:', equip); // Debug 8
+      const select1 = document.getElementById('equipType1');
+      equip.forEach(e => {
+        const option = document.createElement('option');
+        option.value = e.equip_type;
+        option.text = e.equip_type;
+        select1.add(option);
+      });
+    } catch (error) {
+      console.error('Error loading equipment:', error);
+      alert('Failed to load equipment: ' + error.message);
+    }
+  }
+
+  // Load materials dropdown
+  async function loadMatTypes() {
+    try {
+      console.log('Loading materials...'); // Debug 9
+      const { data: mat, error } = await client.from('materials').select('sku, description');
+      if (error) throw error;
+      console.log('Materials loaded:', mat); // Debug 10
+      const select = document.getElementById('matSku');
+      mat.forEach(m => {
+        const option = document.createElement('option');
+        option.value = m.sku;
+        option.text = `${m.sku} - ${m.description}`;
+        select.add(option);
+      });
+    } catch (error) {
+      console.error('Error loading materials:', error);
+      alert('Failed to load materials: ' + error.message);
+    }
+  }
+
+  // Call load functions on page load
+  window.onload = async () => {
+    console.log('Window loaded, starting loads...'); // Debug 11
+    await loadLaborRoles();
+    await loadEquipTypes();
+    await loadMatTypes();
+  };
 </script>
 </body>
 </html>
