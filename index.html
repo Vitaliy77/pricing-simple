@@ -50,6 +50,7 @@
   <p id="matRate" class="text-sm text-gray-600 mb-4">Unit Cost: $0.00 (incl. waste)</p>
   
   <button onclick="calculateCost()" class="bg-blue-500 text-white p-2 rounded">Calculate</button>
+  <p id="saveStatus" class="text-sm mt-2 hidden"></p>
 </div>
   <div id="results" class="bg-white p-6 rounded shadow-md hidden">
     <h2 class="text-xl font-bold mb-2">Cost Breakdown</h2>
@@ -58,7 +59,7 @@
     <p id="totalPrice"></p>
     <p id="variance"></p>
   </div>
-
+  
 <script>
   // --- Supabase client (CDN) ---
   const supabaseUrl = 'https://yonpinjixytqooqyyzdh.supabase.co';
@@ -331,12 +332,122 @@
         <p class="${alertClass(matVar)}">Material Variance: ${matVar.toFixed(1)}% (vs ${medianMatQty.toFixed(2)} qty/unit)</p>
       `;
       document.getElementById('results').classList.remove('hidden');
-    } catch (err) {
+    } 
+    await saveEstimateSnapshot({ totalDirect, totalIndirect, totalPrice });
+
+    catch (err) {
       console.error('Error calculating cost:', err);
       alert('Calculation error: ' + (err?.message ?? err));
     }
   }
 
+    async function saveEstimateSnapshot({ totalDirect, totalIndirect, totalPrice }) {
+      try {
+        // ...existing upsert code you already have...
+    
+        // ✅ success message
+        const el = document.getElementById('saveStatus');
+        if (el) {
+          el.textContent = `Saved at ${new Date().toLocaleTimeString()}`;
+          el.classList.remove('hidden', 'text-red-600');
+          el.classList.add('text-green-600');
+          setTimeout(() => el.classList.add('hidden'), 2500);
+        }
+      } catch (err) {
+        console.error('Save snapshot error:', err);
+        const el = document.getElementById('saveStatus');
+        if (el) {
+          el.textContent = `Save failed: ${err?.message ?? err}`;
+          el.classList.remove('hidden', 'text-green-600');
+          el.classList.add('text-red-600');
+        }
+      }
+    }
+
+    // 2) Upsert the parent estimate (one per session)
+    const { data: est } = await client
+      .from('estimates')
+      .upsert({ session_key: sessionKey, project_name: 'Ad-hoc' }, { onConflict: 'session_key' })
+      .select('id')
+      .maybeSingle();
+
+    if (!est?.id) return; // safety guard
+
+    // 3) Insert an item snapshot
+    const activity_code = document.getElementById('activityCode').value;
+    const quantity      = Number(document.getElementById('quantity').value || 0);
+
+    const { data: item } = await client
+      .from('estimate_items')
+      .insert({
+        estimate_id: est.id,
+        activity_code,
+        quantity,
+        direct_cost: totalDirect,
+        indirect_cost: totalIndirect,
+        total_price: totalPrice
+      })
+      .select('id')
+      .single();
+
+    // 4) Optional component snapshots at time of save
+    // Labor
+    const role = document.getElementById('laborRole1').value;
+    const lhrs = Number(document.getElementById('laborHrs1').value || 0);
+    if (role && lhrs) {
+      const { data: lr } = await client
+        .from('labor_roles')
+        .select('base_rate, burden_pct')
+        .eq('role', role)
+        .maybeSingle();
+      const loaded = Number(lr?.base_rate ?? 0) * (1 + Number(lr?.burden_pct ?? 0));
+      await client.from('estimate_item_labor').upsert({
+        estimate_item_id: item.id,
+        role,
+        hours_per_unit: lhrs,
+        loaded_rate_snapshot: loaded
+      });
+    }
+
+    // Equipment
+    const equipType = document.getElementById('equipType1').value;
+    const ehrs      = Number(document.getElementById('equipHrs1').value || 0);
+    if (equipType && ehrs) {
+      const { data: er } = await client
+        .from('equipment')      // the VIEW we made
+        .select('rate')
+        .eq('type', equipType)
+        .maybeSingle();
+      await client.from('estimate_item_equipment').upsert({
+        estimate_item_id: item.id,
+        equipment_type: equipType,
+        hours_per_unit: ehrs,
+        rate_snapshot: Number(er?.rate ?? 0)
+      });
+    }
+
+    // Materials
+    const sku  = document.getElementById('matSku').value;
+    const mqty = Number(document.getElementById('matQty').value || 0);
+    if (sku && mqty) {
+      const { data: mr } = await client
+        .from('materials')
+        .select('unit_cost, waste_pct')
+        .eq('sku', sku)
+        .maybeSingle();
+      await client.from('estimate_item_materials').upsert({
+        estimate_item_id: item.id,
+        sku,
+        qty_per_unit: mqty,
+        unit_cost_snapshot: Number(mr?.unit_cost ?? 0),
+        waste_pct_snapshot: Number(mr?.waste_pct ?? 0)
+      });
+    }
+  } catch (err) {
+    console.error('Save snapshot error:', err);
+  }
+}
+  
   // --- Initial loads on page ready ---
   window.addEventListener('load', async () => {
     await loadActivities();
