@@ -89,14 +89,21 @@ async function loadDefaults() {
 
 // Load labor roles dropdown
 async function loadLaborRoles() {
-  const { data: roles } = await client.from('labor_roles').select('role');
-  const select1 = document.getElementById('laborRole1');
-  roles.forEach(role => {
-    const option = document.createElement('option');
-    option.value = role.role;
-    option.text = role.role;
-    select1.add(option);
-  });
+  try {
+    const { data: roles, error } = await client.from('labor_roles').select('role');
+    if (error) throw error;
+    console.log('Labor roles loaded:', roles); // Debug
+    const select1 = document.getElementById('laborRole1');
+    roles.forEach(role => {
+      const option = document.createElement('option');
+      option.value = role.role;
+      option.text = role.role;
+      select1.add(option);
+    });
+  } catch (error) {
+    console.error('Error loading labor roles:', error);
+    alert('Failed to load labor roles: ' + error.message);
+  }
 }
 
 // Load labor rate
@@ -108,16 +115,23 @@ async function loadLaborRate(num) {
   document.getElementById('laborRate1').innerHTML = `Loaded Rate: $${loadedRate}`;
 }
 
-// Load equipment dropdown and rate
+// Load equipment dropdown
 async function loadEquipTypes() {
-  const { data: equip } = await client.from('equipment').select('equip_type');
-  const select1 = document.getElementById('equipType1');
-  equip.forEach(e => {
-    const option = document.createElement('option');
-    option.value = e.equip_type;
-    option.text = e.equip_type;
-    select1.add(option);
-  });
+  try {
+    const { data: equip, error } = await client.from('equipment').select('equip_type');
+    if (error) throw error;
+    console.log('Equipment loaded:', equip); // Debug
+    const select1 = document.getElementById('equipType1');
+    equip.forEach(e => {
+      const option = document.createElement('option');
+      option.value = e.equip_type;
+      option.text = e.equip_type;
+      select1.add(option);
+    });
+  } catch (error) {
+    console.error('Error loading equipment:', error);
+    alert('Failed to load equipment: ' + error.message);
+  }
 }
 
 async function loadEquipRate(num) {
@@ -127,16 +141,23 @@ async function loadEquipRate(num) {
   document.getElementById('equipRate1').innerHTML = `Rate: $${equip.rate.toFixed(2)}`;
 }
 
-// Load materials dropdown and rate
+// Load materials dropdown
 async function loadMatTypes() {
-  const { data: mat } = await client.from('materials').select('sku, description');
-  const select = document.getElementById('matSku');
-  mat.forEach(m => {
-    const option = document.createElement('option');
-    option.value = m.sku;
-    option.text = `${m.sku} - ${m.description}`;
-    select.add(option);
-  });
+  try {
+    const { data: mat, error } = await client.from('materials').select('sku, description');
+    if (error) throw error;
+    console.log('Materials loaded:', mat); // Debug
+    const select = document.getElementById('matSku');
+    mat.forEach(m => {
+      const option = document.createElement('option');
+      option.value = m.sku;
+      option.text = `${m.sku} - ${m.description}`;
+      select.add(option);
+    });
+  } catch (error) {
+    console.error('Error loading materials:', error);
+    alert('Failed to load materials: ' + error.message);
+  }
 }
 
 async function loadMatRate() {
