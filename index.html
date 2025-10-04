@@ -60,23 +60,21 @@
   </div>
 
 <script>
-  console.log('Script started'); // Debug: Script loads
+  console.log('Script started');
 
-  const supabaseUrl = 'https://yonpinjixytqooqyyzdh.supabase.co'; // Your Supabase URL
-  const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlvbnBpbmppeHl0cW9vcXl5emRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkzNjkwMzIsImV4cCI6MjA3NDk0NTAzMn0.8g9iNl4kmIm77u7TT8cylgcV872D45pzZGHJWBnZBGo'; // Your anon key
-  console.log('Supabase URL:', supabaseUrl); // Debug: URL set
-  console.log('Supabase Key:', supabaseKey.substring(0,10) + '...'); // Debug: Key set (partial)
+  const supabaseUrl = 'https://yonpinjixytqooqyyzdh.supabase.co';
+  const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlvbnBpbmppeHl0cW9vcXl5emRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkzNjkwMzIsImV4cCI6MjA3NDk0NTAzMn0.8g9iNl4kmIm77u7TT8cylgcV872D45pzZGHJWBnZBGo';
   
   const client = supabase.createClient(supabaseUrl, supabaseKey);
-  console.log('Supabase client created:', client); // Debug: Client created
+  console.log('Supabase client created');
 
   // Load activities dropdown
   async function loadActivities() {
     try {
-      console.log('Loading activities...'); // Debug
+      console.log('Loading activities...');
       const { data: activities, error } = await client.from('activities_catalog').select('activity_code, activity_name');
       if (error) throw error;
-      console.log('Activities loaded:', activities); // Debug
+      console.log('Activities loaded:', activities);
       const select = document.getElementById('activityCode');
       activities.forEach(activity => {
         const option = document.createElement('option');
@@ -93,10 +91,10 @@
   // Load labor roles dropdown
   async function loadLaborRoles() {
     try {
-      console.log('Loading labor roles...'); // Debug
+      console.log('Loading labor roles...');
       const { data: roles, error } = await client.from('labor_roles').select('role');
       if (error) throw error;
-      console.log('Labor roles loaded:', roles); // Debug
+      console.log('Labor roles loaded:', roles);
       const select1 = document.getElementById('laborRole1');
       roles.forEach(role => {
         const option = document.createElement('option');
@@ -113,10 +111,10 @@
   // Load equipment dropdown
   async function loadEquipTypes() {
     try {
-      console.log('Loading equipment...'); // Debug
+      console.log('Loading equipment...');
       const { data: equip, error } = await client.from('equipment').select('equip_type');
       if (error) throw error;
-      console.log('Equipment loaded:', equip); // Debug
+      console.log('Equipment loaded:', equip);
       const select1 = document.getElementById('equipType1');
       equip.forEach(e => {
         const option = document.createElement('option');
@@ -133,10 +131,10 @@
   // Load materials dropdown
   async function loadMatTypes() {
     try {
-      console.log('Loading materials...'); // Debug
+      console.log('Loading materials...');
       const { data: mat, error } = await client.from('materials').select('sku, description');
       if (error) throw error;
-      console.log('Materials loaded:', mat); // Debug
+      console.log('Materials loaded:', mat);
       const select = document.getElementById('matSku');
       mat.forEach(m => {
         const option = document.createElement('option');
@@ -261,7 +259,7 @@
 
   // Call load functions on page load
   window.onload = async () => {
-    console.log('Window loaded, starting loads...'); // Debug
+    console.log('Window loaded, starting loads...');
     await loadActivities();
     await loadLaborRoles();
     await loadEquipTypes();
