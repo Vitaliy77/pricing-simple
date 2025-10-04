@@ -9,17 +9,48 @@
 </head>
 <body class="p-8 bg-gray-100">
   <h1 class="text-2xl font-bold mb-4">Construction Pricing Calculator</h1>
-  <div class="bg-white p-6 rounded shadow-md mb-4">
-    <label class="block mb-2">Job ID:</label>
-    <input id="jobId" type="text" class="border p-2 w-full mb-4" placeholder="e.g., JOB-100">
-    <label class="block mb-2">Activity Code:</label>
-    <select id="activityCode" class="border p-2 w-full mb-4">
-      <option value="">Select Activity</option>
-    </select>
-    <label class="block mb-2">Quantity:</label>
-    <input id="quantity" type="number" step="0.01" class="border p-2 w-full mb-4" placeholder="e.g., 225">
-    <button onclick="calculateCost()" class="bg-blue-500 text-white p-2 rounded">Calculate</button>
-  </div>
+<div class="bg-white p-6 rounded shadow-md mb-4">
+  <h2 class="text-xl font-bold mb-4">Job Details</h2>
+  <label class="block mb-2">Job ID:</label>
+  <input id="jobId" type="text" class="border p-2 w-full mb-4" placeholder="e.g., JOB-100">
+  
+  <label class="block mb-2">Activity Code:</label>
+  <select id="activityCode" class="border p-2 w-full mb-4" onchange="loadDefaults()">
+    <option value="">Select Activity</option>
+  </select>
+  
+  <label class="block mb-2">Quantity:</label>
+  <input id="quantity" type="number" step="0.01" class="border p-2 w-full mb-4" placeholder="e.g., 225" onchange="calculateCost()">
+  
+  <h2 class="text-xl font-bold mb-4">Labor</h2>
+  <label class="block mb-2">Role 1:</label>
+  <select id="laborRole1" class="border p-2 w-full mb-2" onchange="loadLaborRate('1')">
+    <option value="">Select Role</option>
+  </select>
+  <label class="block mb-2">Hours per Unit (Role 1):</label>
+  <input id="laborHrs1" type="number" step="0.01" class="border p-2 w-full mb-2" placeholder="e.g., 0.2" onchange="calculateCost()">
+  <p id="laborRate1" class="text-sm text-gray-600 mb-4">Loaded Rate: $0.00</p>
+  
+  <h2 class="text-xl font-bold mb-4">Equipment</h2>
+  <label class="block mb-2">Equipment 1:</label>
+  <select id="equipType1" class="border p-2 w-full mb-2" onchange="loadEquipRate('1')">
+    <option value="">Select Equipment</option>
+  </select>
+  <label class="block mb-2">Hours per Unit (Equipment 1):</label>
+  <input id="equipHrs1" type="number" step="0.01" class="border p-2 w-full mb-4" placeholder="e.g., 0.2" onchange="calculateCost()">
+  <p id="equipRate1" class="text-sm text-gray-600 mb-4">Rate: $0.00</p>
+  
+  <h2 class="text-xl font-bold mb-4">Materials</h2>
+  <label class="block mb-2">Material SKU:</label>
+  <select id="matSku" class="border p-2 w-full mb-2" onchange="loadMatRate()">
+    <option value="">Select Material</option>
+  </select>
+  <label class="block mb-2">Quantity per Unit:</label>
+  <input id="matQty" type="number" step="0.01" class="border p-2 w-full mb-4" placeholder="e.g., 1" onchange="calculateCost()">
+  <p id="matRate" class="text-sm text-gray-600 mb-4">Unit Cost: $0.00 (incl. waste)</p>
+  
+  <button onclick="calculateCost()" class="bg-blue-500 text-white p-2 rounded">Calculate</button>
+</div>
   <div id="results" class="bg-white p-6 rounded shadow-md hidden">
     <h2 class="text-xl font-bold mb-2">Cost Breakdown</h2>
     <p id="totalDirect"></p>
@@ -33,6 +64,96 @@
   const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlvbnBpbmppeHl0cW9vcXl5emRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkzNjkwMzIsImV4cCI6MjA3NDk0NTAzMn0.8g9iNl4kmIm77u7TT8cylgcV872D45pzZGHJWBnZBGo'; // Replace with your Supabase anon key
   const client = supabase.createClient(supabaseUrl, supabaseKey);
 
+async function loadDefaults() {
+  const activityCode = document.getElementById('activityCode').value;
+  if (!activityCode) return;
+  
+  const { data: activity } = await client.from('activities_catalog').select('*').eq('activity_code', activityCode).single();
+  if (activity) {
+    // Load labor defaults
+    document.getElementById('laborRole1').value = activity.default_role1 || '';
+    loadLaborRate('1');
+    document.getElementById('laborHrs1').value = activity.default_role1_hrs_per_unit || 0;
+    
+    // Load equipment defaults
+    document.getElementById('equipType1').value = activity.default_equip1 || '';
+    loadEquipRate('1');
+    document.getElementById('equipHrs1').value = activity.default_equip1_hrs_per_unit || 0;
+    
+    // Load material defaults
+    document.getElementById('matSku').value = activity.default_mat1_sku || '';
+    loadMatRate();
+    document.getElementById('matQty').value = activity.default_mat1_qty_per_unit || 0;
+  }
+}
+
+// Load labor roles dropdown
+async function loadLaborRoles() {
+  const { data: roles } = await client.from('labor_roles').select('role');
+  const select1 = document.getElementById('laborRole1');
+  roles.forEach(role => {
+    const option = document.createElement('option');
+    option.value = role.role;
+    option.text = role.role;
+    select1.add(option);
+  });
+}
+
+// Load labor rate
+async function loadLaborRate(num) {
+  const role = document.getElementById('laborRole1').value;
+  if (!role) return;
+  const { data: labor } = await client.from('labor_roles').select('base_rate, burden_pct').eq('role', role).single();
+  const loadedRate = (labor.base_rate * (1 + labor.burden_pct)).toFixed(2);
+  document.getElementById('laborRate1').innerHTML = `Loaded Rate: $${loadedRate}`;
+}
+
+// Load equipment dropdown and rate
+async function loadEquipTypes() {
+  const { data: equip } = await client.from('equipment').select('equip_type');
+  const select1 = document.getElementById('equipType1');
+  equip.forEach(e => {
+    const option = document.createElement('option');
+    option.value = e.equip_type;
+    option.text = e.equip_type;
+    select1.add(option);
+  });
+}
+
+async function loadEquipRate(num) {
+  const equipType = document.getElementById('equipType1').value;
+  if (!equipType) return;
+  const { data: equip } = await client.from('equipment').select('rate').eq('equip_type', equipType).single();
+  document.getElementById('equipRate1').innerHTML = `Rate: $${equip.rate.toFixed(2)}`;
+}
+
+// Load materials dropdown and rate
+async function loadMatTypes() {
+  const { data: mat } = await client.from('materials').select('sku, description');
+  const select = document.getElementById('matSku');
+  mat.forEach(m => {
+    const option = document.createElement('option');
+    option.value = m.sku;
+    option.text = `${m.sku} - ${m.description}`;
+    select.add(option);
+  });
+}
+
+async function loadMatRate() {
+  const sku = document.getElementById('matSku').value;
+  if (!sku) return;
+  const { data: mat } = await client.from('materials').select('unit_cost, waste_pct').eq('sku', sku).single();
+  const costWithWaste = mat.unit_cost * (1 + mat.waste_pct);
+  document.getElementById('matRate').innerHTML = `Unit Cost: $${costWithWaste.toFixed(2)} (incl. waste)`;
+}
+
+// Call load functions on page load
+window.onload = async () => {
+  await loadLaborRoles();
+  await loadEquipTypes();
+  await loadMatTypes();
+};
+  
   // Load activities on page load
   window.onload = async () => {
     const { data: activities } = await client.from('activities_catalog').select('activity_code, activity_name');
