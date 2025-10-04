@@ -111,15 +111,16 @@
   // Load equipment dropdown
   async function loadEquipTypes() {
     try {
-      console.log('Loading equipment...');
-      const { data: equip, error } = await client.from('equipment').select('equip_type');
+      const { data: equip, error } = await client
+        .from('equipment')
+        .select('type');                 // ⟵ was 'equip_type'
       if (error) throw error;
-      console.log('Equipment loaded:', equip);
+
       const select1 = document.getElementById('equipType1');
       equip.forEach(e => {
         const option = document.createElement('option');
-        option.value = e.equip_type;
-        option.text = e.equip_type;
+        option.value = e.type;           // ⟵ was e.equip_type
+        option.text  = e.type;           // ⟵ was e.equip_type
         select1.add(option);
       });
     } catch (error) {
@@ -194,10 +195,17 @@
     const equipType = document.getElementById('equipType1').value;
     if (!equipType) return;
     try {
-      const { data: equip } = await client.from('equipment').select('rate').eq('equip_type', equipType).single();
-      document.getElementById('equipRate1').innerHTML = `Rate: $${equip.rate.toFixed(2)}`;
+      const { data: equip } = await client
+        .from('equipment')
+        .select('rate')
+        .eq('type', equipType)           // ⟵ was .eq('equip_type', …)
+        .single();
+
+      document.getElementById('equipRate1').innerHTML =
+        `Rate: $${equip.rate.toFixed(2)}`;
     } catch (error) {
       console.error('Error loading equipment rate:', error);
+      alert('Failed to load equipment rate: ' + error.message);
     }
   }
 
