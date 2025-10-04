@@ -7,457 +7,138 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
-<body class="p-8 bg-gray-100">
-  <h1 class="text-2xl font-bold mb-4">Construction Pricing Calculator</h1>
-<div class="bg-white p-6 rounded shadow-md mb-4">
-  <h2 class="text-xl font-bold mb-4">Job Details</h2>
-  <label class="block mb-2">Job ID:</label>
-  <input id="jobId" type="text" class="border p-2 w-full mb-4" placeholder="e.g., JOB-100">
-  
-  <label class="block mb-2">Activity Code:</label>
-  <select id="activityCode" class="border p-2 w-full mb-4" onchange="loadDefaults()">
-    <option value="">Select Activity</option>
-  </select>
-  
-  <label class="block mb-2">Quantity:</label>
-  <input id="quantity" type="number" step="0.01" class="border p-2 w-full mb-4" placeholder="e.g., 225" onchange="calculateCost()">
-  
-  <h2 class="text-xl font-bold mb-4">Labor</h2>
-  <label class="block mb-2">Role 1:</label>
-  <select id="laborRole1" class="border p-2 w-full mb-2" onchange="loadLaborRate('1')">
-    <option value="">Select Role</option>
-  </select>
-  <label class="block mb-2">Hours per Unit (Role 1):</label>
-  <input id="laborHrs1" type="number" step="0.01" class="border p-2 w-full mb-2" placeholder="e.g., 0.2" onchange="calculateCost()">
-  <p id="laborRate1" class="text-sm text-gray-600 mb-4">Loaded Rate: $0.00</p>
-  
-  <h2 class="text-xl font-bold mb-4">Equipment</h2>
-  <label class="block mb-2">Equipment 1:</label>
-  <select id="equipType1" class="border p-2 w-full mb-2" onchange="loadEquipRate('1')">
-    <option value="">Select Equipment</option>
-  </select>
-  <label class="block mb-2">Hours per Unit (Equipment 1):</label>
-  <input id="equipHrs1" type="number" step="0.01" class="border p-2 w-full mb-4" placeholder="e.g., 0.2" onchange="calculateCost()">
-  <p id="equipRate1" class="text-sm text-gray-600 mb-4">Rate: $0.00</p>
-  
-  <h2 class="text-xl font-bold mb-4">Materials</h2>
-  <label class="block mb-2">Material SKU:</label>
-  <select id="matSku" class="border p-2 w-full mb-2" onchange="loadMatRate()">
-    <option value="">Select Material</option>
-  </select>
-  <label class="block mb-2">Quantity per Unit:</label>
-  <input id="matQty" type="number" step="0.01" class="border p-2 w-full mb-4" placeholder="e.g., 1" onchange="calculateCost()">
-  <p id="matRate" class="text-sm text-gray-600 mb-4">Unit Cost: $0.00 (incl. waste)</p>
-  
-  <button onclick="calculateCost()" class="bg-blue-500 text-white p-2 rounded">Calculate</button>
-  <p id="saveStatus" class="text-sm mt-2 hidden"></p>
-</div>
-  <div id="results" class="bg-white p-6 rounded shadow-md hidden">
-    <h2 class="text-xl font-bold mb-2">Cost Breakdown</h2>
-    <p id="totalDirect"></p>
-    <p id="totalIndirect"></p>
-    <p id="totalPrice"></p>
-    <p id="variance"></p>
-  </div>
-  
-<script>
-  // --- Supabase client (CDN) ---
-  const supabaseUrl = 'https://yonpinjixytqooqyyzdh.supabase.co';
-  const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlvbnBpbmppeHl0cW9vcXl5emRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkzNjkwMzIsImV4cCI6MjA3NDk0NTAzMn0.8g9iNl4kmIm77u7TT8cylgcV872D45pzZGHJWBnZBGo';
-  const client = window.supabase.createClient(supabaseUrl, supabaseKey);
+<body class="bg-gray-100">
+  <!-- Header -->
+  <header class="bg-white border-b">
+    <div class="max-w-6xl mx-auto p-4 flex items-center justify-between">
+      <h1 class="text-xl font-semibold">Construction Pricing Calculator</h1>
+      <div class="text-xs text-gray-500">Supabase • GitHub • DigitalOcean</div>
+    </div>
+  </header>
 
-  // --- Helpers to populate dropdowns ---
-  async function loadActivities() {
-    try {
-      const { data: activities, error } = await client
-        .from('activities_catalog')
-        .select('activity_code, activity_name');
-      if (error) throw error;
-      const select = document.getElementById('activityCode');
-      activities.forEach(a => {
-        const opt = document.createElement('option');
-        opt.value = a.activity_code;
-        opt.text = `${a.activity_code} - ${a.activity_name}`;
-        select.add(opt);
-      });
-    } catch (err) {
-      console.error('Error loading activities:', err);
-      alert('Failed to load activities: ' + (err?.message ?? err));
-    }
-  }
+  <!-- Main -->
+  <main class="max-w-6xl mx-auto p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Left: Inputs -->
+    <section class="lg:col-span-2 space-y-6">
+      <!-- Job & Activity -->
+      <div class="bg-white p-5 rounded-xl shadow-sm space-y-4">
+        <h2 class="text-lg font-semibold">Job & Activity</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label class="block text-sm text-gray-600 mb-1">Job ID</label>
+            <input id="jobId" type="text" class="border rounded-md p-2 w-full" placeholder="e.g., JOB-100">
+          </div>
+          <div>
+            <label class="block text-sm text-gray-600 mb-1">Activity Code</label>
+            <select id="activityCode" class="border rounded-md p-2 w-full" onchange="loadDefaults()">
+              <option value="">Select Activity</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm text-gray-600 mb-1">Quantity</label>
+            <input id="quantity" type="number" step="0.01" class="border rounded-md p-2 w-full" placeholder="e.g., 225" onchange="calculateCost()">
+          </div>
+        </div>
+      </div>
 
-  async function loadLaborRoles() {
-    try {
-      const { data: roles, error } = await client
-        .from('labor_roles')
-        .select('role');
-      if (error) throw error;
-      const sel = document.getElementById('laborRole1');
-      roles.forEach(r => {
-        const opt = document.createElement('option');
-        opt.value = r.role;
-        opt.text = r.role;
-        sel.add(opt);
-      });
-    } catch (err) {
-      console.error('Error loading labor roles:', err);
-      alert('Failed to load labor roles: ' + (err?.message ?? err));
-    }
-  }
+      <!-- Labor -->
+      <div class="bg-white p-5 rounded-xl shadow-sm space-y-3">
+        <div class="flex items-center justify-between">
+          <h2 class="text-lg font-semibold">Labor</h2>
+          <span id="laborRate1" class="text-sm text-gray-600">Loaded Rate: $0.00</span>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm text-gray-600 mb-1">Role</label>
+            <select id="laborRole1" class="border rounded-md p-2 w-full" onchange="loadLaborRate('1')">
+              <option value="">Select Role</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm text-gray-600 mb-1">Hours per Unit</label>
+            <input id="laborHrs1" type="number" step="0.01" class="border rounded-md p-2 w-full" placeholder="e.g., 0.2" onchange="calculateCost()">
+          </div>
+        </div>
+      </div>
 
-  async function loadEquipTypes() {
-    try {
-      // NOTE: querying the compatibility view "equipment" which exposes column "type"
-      const { data: equip, error } = await client
-        .from('equipment')
-        .select('type');
-      if (error) throw error;
-      const sel = document.getElementById('equipType1');
-      equip.forEach(e => {
-        const opt = document.createElement('option');
-        opt.value = e.type;
-        opt.text = e.type;
-        sel.add(opt);
-      });
-    } catch (err) {
-      console.error('Error loading equipment:', err);
-      alert('Failed to load equipment: ' + (err?.message ?? err));
-    }
-  }
+      <!-- Equipment -->
+      <div class="bg-white p-5 rounded-xl shadow-sm space-y-3">
+        <div class="flex items-center justify-between">
+          <h2 class="text-lg font-semibold">Equipment</h2>
+          <span id="equipRate1" class="text-sm text-gray-600">Rate: $0.00</span>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm text-gray-600 mb-1">Type</label>
+            <select id="equipType1" class="border rounded-md p-2 w-full" onchange="loadEquipRate('1')">
+              <option value="">Select Equipment</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm text-gray-600 mb-1">Hours per Unit</label>
+            <input id="equipHrs1" type="number" step="0.01" class="border rounded-md p-2 w-full" placeholder="e.g., 0.2" onchange="calculateCost()">
+          </div>
+        </div>
+      </div>
 
-  async function loadMatTypes() {
-    try {
-      const { data: mat, error } = await client
-        .from('materials')
-        .select('sku, description');
-      if (error) throw error;
-      const sel = document.getElementById('matSku');
-      mat.forEach(m => {
-        const opt = document.createElement('option');
-        opt.value = m.sku;
-        opt.text = `${m.sku} - ${m.description}`;
-        sel.add(opt);
-      });
-    } catch (err) {
-      console.error('Error loading materials:', err);
-      alert('Failed to load materials: ' + (err?.message ?? err));
-    }
-  }
+      <!-- Materials -->
+      <div class="bg-white p-5 rounded-xl shadow-sm space-y-3">
+        <div class="flex items-center justify-between">
+          <h2 class="text-lg font-semibold">Materials</h2>
+          <span id="matRate" class="text-sm text-gray-600">Unit Cost: $0.00 (incl. waste)</span>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div class="md:col-span-2">
+            <label class="block text-sm text-gray-600 mb-1">Material SKU</label>
+            <select id="matSku" class="border rounded-md p-2 w-full" onchange="loadMatRate()">
+              <option value="">Select Material</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm text-gray-600 mb-1">Qty per Unit</label>
+            <input id="matQty" type="number" step="0.01" class="border rounded-md p-2 w-full" placeholder="e.g., 1" onchange="calculateCost()">
+          </div>
+        </div>
 
-  // --- On activity change, load defaults from catalog ---
-  async function loadDefaults() {
-    const activityCode = document.getElementById('activityCode').value;
-    if (!activityCode) return;
-    try {
-      const { data: activity, error } = await client
-        .from('activities_catalog')
-        .select('*')
-        .eq('activity_code', activityCode)
-        .maybeSingle();
-      if (error) throw error;
-      if (!activity) return;
+        <div class="flex items-center gap-3 pt-2">
+          <button onclick="calculateCost()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md">
+            Calculate
+          </button>
+          <span id="saveStatus" class="text-sm text-green-600 hidden"></span>
+        </div>
+      </div>
+    </section>
 
-      // Labor
-      document.getElementById('laborRole1').value = activity.default_role1 || '';
-      await loadLaborRate('1');
-      document.getElementById('laborHrs1').value = activity.default_role1_hrs_per_unit || 0;
+    <!-- Right: Results -->
+    <aside class="lg:col-span-1">
+      <div class="sticky top-6 space-y-6">
+        <div class="bg-white p-5 rounded-xl shadow-sm">
+          <h2 class="text-lg font-semibold mb-3">Cost Breakdown</h2>
+          <dl class="space-y-2">
+            <div class="flex items-center justify-between">
+              <dt class="text-sm text-gray-600">Total Direct</dt>
+              <dd id="totalDirect" class="font-medium">$0.00</dd>
+            </div>
+            <div class="flex items-center justify-between">
+              <dt class="text-sm text-gray-600">Total Indirect</dt>
+              <dd id="totalIndirect" class="font-medium">$0.00</dd>
+            </div>
+            <div class="flex items-center justify-between border-t pt-2">
+              <dt class="text-sm text-gray-800">Total Price</dt>
+              <dd id="totalPrice" class="text-lg font-semibold">$0.00</dd>
+            </div>
+          </dl>
+        </div>
 
-      // Equipment
-      document.getElementById('equipType1').value = activity.default_equip1 || '';
-      await loadEquipRate('1');
-      document.getElementById('equipHrs1').value = activity.default_equip1_hrs_per_unit || 0;
-
-      // Material
-      document.getElementById('matSku').value = activity.default_mat1_sku || '';
-      await loadMatRate();
-      document.getElementById('matQty').value = activity.default_mat1_qty_per_unit || 0;
-    } catch (err) {
-      console.error('Error loading defaults:', err);
-    }
-  }
-
-  async function loadLaborRate(num) {
-    const role = document.getElementById('laborRole1').value;
-    if (!role) return;
-    try {
-      const { data: labor, error } = await client
-        .from('labor_roles')
-        .select('base_rate, burden_pct')
-        .eq('role', role)
-        .maybeSingle();
-      if (error) throw error;
-      const loadedRate = (Number(labor?.base_rate ?? 0) * (1 + Number(labor?.burden_pct ?? 0))).toFixed(2);
-      document.getElementById('laborRate1').innerText = `Loaded Rate: $${loadedRate}`;
-    } catch (err) {
-      console.error('Error loading labor rate:', err);
-    }
-  }
-
-  async function loadEquipRate(num) {
-    const equipType = document.getElementById('equipType1').value;
-    if (!equipType) return;
-    try {
-      const { data: equip, error } = await client
-        .from('equipment')
-        .select('rate')
-        .eq('type', equipType) // NOTE: column name is "type"
-        .maybeSingle();
-      if (error) throw error;
-      const rate = Number(equip?.rate ?? 0).toFixed(2);
-      document.getElementById('equipRate1').innerText = `Rate: $${rate}`;
-    } catch (err) {
-      console.error('Error loading equipment rate:', err);
-    }
-  }
-
-  async function loadMatRate() {
-    const sku = document.getElementById('matSku').value;
-    if (!sku) return;
-    try {
-      const { data: mat, error } = await client
-        .from('materials')
-        .select('unit_cost, waste_pct')
-        .eq('sku', sku)
-        .maybeSingle();
-      if (error) throw error;
-      const costWithWaste = Number(mat?.unit_cost ?? 0) * (1 + Number(mat?.waste_pct ?? 0));
-      document.getElementById('matRate').innerText = `Unit Cost: $${costWithWaste.toFixed(2)} (incl. waste)`;
-    } catch (err) {
-      console.error('Error loading material rate:', err);
-    }
-  }
-
-  // --- Pricing calculation (benchmarked) ---
-  async function calculateCost() {
-    const activityCode = document.getElementById('activityCode').value;
-    const quantity     = parseFloat(document.getElementById('quantity').value)  || 0;
-    const laborHrs1    = parseFloat(document.getElementById('laborHrs1').value) || 0;
-    const equipHrs1    = parseFloat(document.getElementById('equipHrs1').value) || 0;
-    const matQty       = parseFloat(document.getElementById('matQty').value)    || 0;
-
-    if (!activityCode || quantity === 0) {
-      alert('Please select an activity and enter quantity');
-      return;
-    }
-
-    try {
-      // Labor (loaded)
-      let loadedLaborRate = 0;
-      const roleName = document.getElementById('laborRole1').value;
-      if (roleName) {
-        const { data: labor, error: laborErr } = await client
-          .from('labor_roles')
-          .select('base_rate, burden_pct')
-          .eq('role', roleName)
-          .maybeSingle();
-        if (laborErr) throw laborErr;
-        loadedLaborRate = Number(labor?.base_rate ?? 0) * (1 + Number(labor?.burden_pct ?? 0));
-      }
-
-      // Equipment rate
-      let equipRate = 0;
-      const equipType = document.getElementById('equipType1').value;
-      if (equipType) {
-        const { data: equip, error: equipErr } = await client
-          .from('equipment')
-          .select('rate')
-          .eq('type', equipType)
-          .maybeSingle();
-        if (equipErr) throw equipErr;
-        equipRate = Number(equip?.rate ?? 0);
-      }
-
-      // Material
-      let unitCost = 0, wastePct = 0;
-      const sku = document.getElementById('matSku').value;
-      if (sku) {
-        const { data: mat, error: matErr } = await client
-          .from('materials')
-          .select('unit_cost, waste_pct')
-          .eq('sku', sku)
-          .maybeSingle();
-        if (matErr) throw matErr;
-        unitCost = Number(mat?.unit_cost ?? 0);
-        wastePct = Number(mat?.waste_pct ?? 0);
-      }
-
-      // Direct costs
-      const laborCost = loadedLaborRate * laborHrs1 * quantity;
-      const equipCost = equipRate       * equipHrs1 * quantity;
-      const matCost   = unitCost * (1 + wastePct) * matQty * quantity;
-      const totalDirect = laborCost + equipCost + matCost;
-
-      // Indirects & profit
-      const { data: gna }    = await client.from('config').select('value').eq('parameter','G&A_%_of_Direct').maybeSingle();
-      const { data: profit } = await client.from('config').select('value').eq('parameter','Default_Profit_Margin_%').maybeSingle();
-      const gnaPct    = Number(gna?.value ?? 0);
-      const profitPct = Number(profit?.value ?? 0);
-
-      const totalIndirect = totalDirect * gnaPct;
-      const totalPrice    = (totalDirect + totalIndirect) * (1 + profitPct);
-
-      // Benchmarks (avg for demo)
-      const { data: benchmarks, error: bErr } = await client
-        .from('history')
-        .select('labor_hours_per_unit, equip_hours_per_unit, mat_qty_per_unit')
-        .eq('activity_code', activityCode);
-      if (bErr) throw bErr;
-      const avg = (arr, key) => (arr && arr.length)
-        ? arr.reduce((s,x)=> s + Number(x[key] ?? 0), 0) / arr.length
-        : 0;
-
-      const medianLaborHrs = avg(benchmarks, 'labor_hours_per_unit') || laborHrs1;
-      const medianEquipHrs = avg(benchmarks, 'equip_hours_per_unit') || equipHrs1;
-      const medianMatQty   = avg(benchmarks, 'mat_qty_per_unit')     || matQty;
-
-      const laborVar = medianLaborHrs ? ((laborHrs1 - medianLaborHrs)/medianLaborHrs*100) : 0;
-      const equipVar = medianEquipHrs ? ((equipHrs1 - medianEquipHrs)/medianEquipHrs*100) : 0;
-      const matVar   = medianMatQty   ? ((matQty   - medianMatQty)  /medianMatQty*100)   : 0;
-
-      const alertClass = (v) => {
-        const a = Math.abs(v);
-        if (a < 10) return 'text-green-600';
-        if (a < 15) return 'text-yellow-600';
-        return 'text-red-600';
-      };
-
-      // Render
-      document.getElementById('totalDirect').innerText   = `Total Direct Cost: $${totalDirect.toFixed(2)}`;
-      document.getElementById('totalIndirect').innerText = `Total Indirect Cost: $${totalIndirect.toFixed(2)}`;
-      document.getElementById('totalPrice').innerText    = `Total Price: $${totalPrice.toFixed(2)}`;
-      document.getElementById('variance').innerHTML = `
-        <h3 class="text-lg font-bold mb-2">Benchmark Comparison</h3>
-        <p class="${alertClass(laborVar)}">Labor Variance: ${laborVar.toFixed(1)}% (vs ${medianLaborHrs.toFixed(2)} hrs/unit)</p>
-        <p class="${alertClass(equipVar)}">Equipment Variance: ${equipVar.toFixed(1)}% (vs ${medianEquipHrs.toFixed(2)} hrs/unit)</p>
-        <p class="${alertClass(matVar)}">Material Variance: ${matVar.toFixed(1)}% (vs ${medianMatQty.toFixed(2)} qty/unit)</p>
-      `;
-      document.getElementById('results').classList.remove('hidden');
-    } 
-    await saveEstimateSnapshot({ totalDirect, totalIndirect, totalPrice });
-
-    catch (err) {
-      console.error('Error calculating cost:', err);
-      alert('Calculation error: ' + (err?.message ?? err));
-    }
-  }
-
-    async function saveEstimateSnapshot({ totalDirect, totalIndirect, totalPrice }) {
-      try {
-        // ...existing upsert code you already have...
-    
-        // ✅ success message
-        const el = document.getElementById('saveStatus');
-        if (el) {
-          el.textContent = `Saved at ${new Date().toLocaleTimeString()}`;
-          el.classList.remove('hidden', 'text-red-600');
-          el.classList.add('text-green-600');
-          setTimeout(() => el.classList.add('hidden'), 2500);
-        }
-      } catch (err) {
-        console.error('Save snapshot error:', err);
-        const el = document.getElementById('saveStatus');
-        if (el) {
-          el.textContent = `Save failed: ${err?.message ?? err}`;
-          el.classList.remove('hidden', 'text-green-600');
-          el.classList.add('text-red-600');
-        }
-      }
-    }
-
-    // 2) Upsert the parent estimate (one per session)
-    const { data: est } = await client
-      .from('estimates')
-      .upsert({ session_key: sessionKey, project_name: 'Ad-hoc' }, { onConflict: 'session_key' })
-      .select('id')
-      .maybeSingle();
-
-    if (!est?.id) return; // safety guard
-
-    // 3) Insert an item snapshot
-    const activity_code = document.getElementById('activityCode').value;
-    const quantity      = Number(document.getElementById('quantity').value || 0);
-
-    const { data: item } = await client
-      .from('estimate_items')
-      .insert({
-        estimate_id: est.id,
-        activity_code,
-        quantity,
-        direct_cost: totalDirect,
-        indirect_cost: totalIndirect,
-        total_price: totalPrice
-      })
-      .select('id')
-      .single();
-
-    // 4) Optional component snapshots at time of save
-    // Labor
-    const role = document.getElementById('laborRole1').value;
-    const lhrs = Number(document.getElementById('laborHrs1').value || 0);
-    if (role && lhrs) {
-      const { data: lr } = await client
-        .from('labor_roles')
-        .select('base_rate, burden_pct')
-        .eq('role', role)
-        .maybeSingle();
-      const loaded = Number(lr?.base_rate ?? 0) * (1 + Number(lr?.burden_pct ?? 0));
-      await client.from('estimate_item_labor').upsert({
-        estimate_item_id: item.id,
-        role,
-        hours_per_unit: lhrs,
-        loaded_rate_snapshot: loaded
-      });
-    }
-
-    // Equipment
-    const equipType = document.getElementById('equipType1').value;
-    const ehrs      = Number(document.getElementById('equipHrs1').value || 0);
-    if (equipType && ehrs) {
-      const { data: er } = await client
-        .from('equipment')      // the VIEW we made
-        .select('rate')
-        .eq('type', equipType)
-        .maybeSingle();
-      await client.from('estimate_item_equipment').upsert({
-        estimate_item_id: item.id,
-        equipment_type: equipType,
-        hours_per_unit: ehrs,
-        rate_snapshot: Number(er?.rate ?? 0)
-      });
-    }
-
-    // Materials
-    const sku  = document.getElementById('matSku').value;
-    const mqty = Number(document.getElementById('matQty').value || 0);
-    if (sku && mqty) {
-      const { data: mr } = await client
-        .from('materials')
-        .select('unit_cost, waste_pct')
-        .eq('sku', sku)
-        .maybeSingle();
-      await client.from('estimate_item_materials').upsert({
-        estimate_item_id: item.id,
-        sku,
-        qty_per_unit: mqty,
-        unit_cost_snapshot: Number(mr?.unit_cost ?? 0),
-        waste_pct_snapshot: Number(mr?.waste_pct ?? 0)
-      });
-    }
-  } catch (err) {
-    console.error('Save snapshot error:', err);
-  }
-}
-  
-  // --- Initial loads on page ready ---
-  window.addEventListener('load', async () => {
-    await loadActivities();
-    await loadLaborRoles();
-    await loadEquipTypes();
-    await loadMatTypes();
-  });
-</script>
-
-
-</script>
+        <div class="bg-white p-5 rounded-xl shadow-sm">
+          <h3 class="text-lg font-semibold mb-2">Benchmark Comparison</h3>
+          <div id="variance" class="text-sm text-gray-700">
+            <p class="text-gray-500">Run a calculation to see benchmark variances.</p>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </main>
 </body>
+
 </html>
