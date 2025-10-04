@@ -192,14 +192,21 @@
 
   // Load equipment rate
   async function loadEquipRate(num) {
-    const equipType = document.getElementById('equipType1').value;
-    if (!equipType) return;
-    try {
-      const { data: equip } = await client
-        .from('equipment')
-        .select('rate')
-        .eq('type', equipType)           // ⟵ was .eq('equip_type', …)
-        .single();
+  const equipType = document.getElementById('equipType1').value;
+  const { data: equip, error: equipErr } = await client
+    .from('equipment')
+    .select('rate')
+    .eq('type', equipType)     // was .eq('equip_type', ...)
+    .maybeSingle();            // safer than .single()
+
+  if (equipErr) throw equipErr;
+  const equipRate = equip?.rate ?? 0;
+
+  const { data: mat } = await client
+    .from('materials')
+    .select('unit_cost, waste_pct')
+    .eq('sku', document.getElementById('matSku').value)
+    .single();
 
       document.getElementById('equipRate1').innerHTML =
         `Rate: $${equip.rate.toFixed(2)}`;
