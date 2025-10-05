@@ -139,6 +139,35 @@
       </div>
     </aside>
   </main>
+  <script>
+  // if you don't already have this in another script block, include it here:
+  const supabaseUrl = 'https://yonpinjixytqooqyyzdh.supabase.co';
+  const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlvbnBpbmppeHl0cW9vcXl5emRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkzNjkwMzIsImV4cCI6MjA3NDk0NTAzMn0.8g9iNl4kmIm77u7TT8cylgcV872D45pzZGHJWBnZBGo'; // keep your actual key if this is a private repo
+  const client = window.supabase.createClient(supabaseUrl, supabaseKey);
+
+  // ... all your existing functions: loadActivities, loadLaborRoles, loadEquipTypes, loadMatTypes,
+  //     loadDefaults, loadLaborRate, loadEquipRate, loadMatRate, calculateCost, saveEstimateSnapshot, etc. ...
+</script>
+
+<!-- 3) Init lists after DOM is ready -->
+<script>
+  async function initLists() {
+    console.log('initLists: populating dropdowns…');
+    await loadActivities();
+    await loadLaborRoles();
+    await loadEquipTypes();
+    await loadMatTypes();
+    const el = document.getElementById('saveStatus');
+    if (el) { el.textContent = 'Lists loaded'; el.classList.remove('hidden'); }
+  }
+
+  document.addEventListener('DOMContentLoaded', initLists);
+
+  // Optional extra guard if the DOM is already parsed
+  if (document.readyState === 'interactive' || document.readyState === 'complete') {
+    initLists();
+  }
+</script>
 </body>
 
 </html>
