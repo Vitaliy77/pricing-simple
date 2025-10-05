@@ -1,12 +1,17 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Construction Pricing App</title>
+
+  <!-- Tailwind (CDN – fine for now) -->
   <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Supabase JS (must load before our app code) -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
+
 <body class="bg-gray-100">
   <!-- Header -->
   <header class="bg-white border-b">
@@ -139,35 +144,434 @@
       </div>
     </aside>
   </main>
+
+  <!-- ===== App Code ===== -->
   <script>
-  // if you don't already have this in another script block, include it here:
-  const supabaseUrl = 'https://yonpinjixytqooqyyzdh.supabase.co';
-  const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlvbnBpbmppeHl0cW9vcXl5emRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkzNjkwMzIsImV4cCI6MjA3NDk0NTAzMn0.8g9iNl4kmIm77u7TT8cylgcV872D45pzZGHJWBnZBGo'; // keep your actual key if this is a private repo
-  const client = window.supabase.createClient(supabaseUrl, supabaseKey);
+    // Supabase client
+    const supabaseUrl = 'https://yonpinjixytqooqyyzdh.supabase.co';
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlvbnBpbmppeHl0cW9vcXl5emRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkzNjkwMzIsImV4cCI6MjA3NDk0NTAzMn0.8g9iNl4kmIm77u7TT8cylgcV872D45pzZGHJWBnZBGo';
+    const client = window.supabase.createClient(supabaseUrl, supabaseKey);
 
-  // ... all your existing functions: loadActivities, loadLaborRoles, loadEquipTypes, loadMatTypes,
-  //     loadDefaults, loadLaborRate, loadEquipRate, loadMatRate, calculateCost, saveEstimateSnapshot, etc. ...
-</script>
+    // ---------- Loaders ----------
+    async function loadActivities() {
+      try {
+        const { data, error } = await client
+          .from('activities_catalog')
+          .select('activity_code, activity_name');
+        if (error) throw error;
 
-<!-- 3) Init lists after DOM is ready -->
-<script>
-  async function initLists() {
-    console.log('initLists: populating dropdowns…');
-    await loadActivities();
-    await loadLaborRoles();
-    await loadEquipTypes();
-    await loadMatTypes();
-    const el = document.getElementById('saveStatus');
-    if (el) { el.textContent = 'Lists loaded'; el.classList.remove('hidden'); }
-  }
+        const select = document.getElementById('activityCode');
+        select.innerHTML = '<option value="">Select Activity</option>';
+        data.forEach(a => {
+          const opt = document.createElement('option');
+          opt.value = a.activity_code;
+          opt.text = `${a.activity_code} - ${a.activity_name}`;
+          select.add(opt);
+        });
+      } catch (err) {
+        console.error('loadActivities:', err);
+        alert('Failed to load activities: ' + (err?.message ?? err));
+      }
+    }
 
-  document.addEventListener('DOMContentLoaded', initLists);
+    async function loadLaborRoles() {
+      try {
+        const { data, error } = await client
+          .from('labor_roles')
+          .select('role');
+        if (error) throw error;
 
-  // Optional extra guard if the DOM is already parsed
-  if (document.readyState === 'interactive' || document.readyState === 'complete') {
-    initLists();
-  }
-</script>
+        const sel = document.getElementById('laborRole1');
+        sel.innerHTML = '<option value="">Select Role</option>';
+        data.forEach(r => {
+          const opt = document.createElement('option');
+          opt.value = r.role;
+          opt.text = r.role;
+          sel.add(opt);
+        });
+      } catch (err) {
+        console.error('loadLaborRoles:', err);
+        alert('Failed to load labor roles: ' + (err?.message ?? err));
+      }
+    }
+
+    async function loadEquipTypes() {
+      try {
+        // using the compatibility VIEW "equipment" (column is "type")
+        const { data, error } = await client
+          .from('equipment')
+          .select('type');
+        if (error) throw error;
+
+        const sel = document.getElementById('equipType1');
+        sel.innerHTML = '<option value="">Select Equipment</option>';
+        data.forEach(e => {
+          const opt = document.createElement('option');
+          opt.value = e.type;
+          opt.text = e.type;
+          sel.add(opt);
+        });
+      } catch (err) {
+        console.error('loadEquipTypes:', err);
+        alert('Failed to load equipment: ' + (err?.message ?? err));
+      }
+    }
+
+    async function loadMatTypes() {
+      try {
+        // currently reading your existing "materials" table
+        const { data, error } = await client
+          .from('materials')
+          .select('sku, description');
+        if (error) throw error;
+
+        const sel = document.getElementById('matSku');
+        sel.innerHTML = '<option value="">Select Material</option>';
+        data.forEach(m => {
+          const opt = document.createElement('option');
+          opt.value = m.sku;
+          opt.text = `${m.sku} - ${m.description}`;
+          sel.add(opt);
+        });
+      } catch (err) {
+        console.error('loadMatTypes:', err);
+        alert('Failed to load materials: ' + (err?.message ?? err));
+      }
+    }
+
+    // ---------- Defaults & Rates ----------
+    async function loadDefaults() {
+      const activityCode = document.getElementById('activityCode').value;
+      if (!activityCode) return;
+      try {
+        const { data: activity, error } = await client
+          .from('activities_catalog')
+          .select('*')
+          .eq('activity_code', activityCode)
+          .maybeSingle();
+        if (error) throw error;
+        if (!activity) return;
+
+        // Labor
+        document.getElementById('laborRole1').value = activity.default_role1 || '';
+        await loadLaborRate('1');
+        document.getElementById('laborHrs1').value = activity.default_role1_hrs_per_unit || 0;
+
+        // Equipment
+        document.getElementById('equipType1').value = activity.default_equip1 || '';
+        await loadEquipRate('1');
+        document.getElementById('equipHrs1').value = activity.default_equip1_hrs_per_unit || 0;
+
+        // Material
+        document.getElementById('matSku').value = activity.default_mat1_sku || '';
+        await loadMatRate();
+        document.getElementById('matQty').value = activity.default_mat1_qty_per_unit || 0;
+      } catch (err) {
+        console.error('loadDefaults:', err);
+      }
+    }
+
+    async function loadLaborRate(_num) {
+      const role = document.getElementById('laborRole1').value;
+      if (!role) return;
+      try {
+        const { data, error } = await client
+          .from('labor_roles')
+          .select('base_rate, burden_pct')
+          .eq('role', role)
+          .maybeSingle();
+        if (error) throw error;
+        const loaded = Number(data?.base_rate ?? 0) * (1 + Number(data?.burden_pct ?? 0));
+        document.getElementById('laborRate1').innerText = `Loaded Rate: $${loaded.toFixed(2)}`;
+      } catch (err) {
+        console.error('loadLaborRate:', err);
+      }
+    }
+
+    async function loadEquipRate(_num) {
+      const equipType = document.getElementById('equipType1').value;
+      if (!equipType) return;
+      try {
+        const { data, error } = await client
+          .from('equipment')
+          .select('rate')
+          .eq('type', equipType)
+          .maybeSingle();
+        if (error) throw error;
+        const rate = Number(data?.rate ?? 0);
+        document.getElementById('equipRate1').innerText = `Rate: $${rate.toFixed(2)}`;
+      } catch (err) {
+        console.error('loadEquipRate:', err);
+      }
+    }
+
+    async function loadMatRate() {
+      const sku = document.getElementById('matSku').value;
+      if (!sku) return;
+      try {
+        const { data, error } = await client
+          .from('materials')
+          .select('unit_cost, waste_pct')
+          .eq('sku', sku)
+          .maybeSingle();
+        if (error) throw error;
+        const costWithWaste = Number(data?.unit_cost ?? 0) * (1 + Number(data?.waste_pct ?? 0));
+        document.getElementById('matRate').innerText = `Unit Cost: $${costWithWaste.toFixed(2)} (incl. waste)`;
+      } catch (err) {
+        console.error('loadMatRate:', err);
+      }
+    }
+
+    // ---------- Calculate (with benchmarks) ----------
+    async function calculateCost() {
+      const activityCode = document.getElementById('activityCode').value;
+      const quantity     = parseFloat(document.getElementById('quantity').value)  || 0;
+      const laborHrs1    = parseFloat(document.getElementById('laborHrs1').value) || 0;
+      const equipHrs1    = parseFloat(document.getElementById('equipHrs1').value) || 0;
+      const matQty       = parseFloat(document.getElementById('matQty').value)    || 0;
+
+      if (!activityCode || quantity === 0) {
+        alert('Please select an activity and enter quantity');
+        return;
+      }
+
+      try {
+        // Labor loaded rate
+        let loadedLaborRate = 0;
+        const roleName = document.getElementById('laborRole1').value;
+        if (roleName) {
+          const { data: lr, error: lrErr } = await client
+            .from('labor_roles')
+            .select('base_rate, burden_pct')
+            .eq('role', roleName)
+            .maybeSingle();
+          if (lrErr) throw lrErr;
+          loadedLaborRate = Number(lr?.base_rate ?? 0) * (1 + Number(lr?.burden_pct ?? 0));
+        }
+
+        // Equipment rate
+        let equipRate = 0;
+        const equipType = document.getElementById('equipType1').value;
+        if (equipType) {
+          const { data: er, error: erErr } = await client
+            .from('equipment')
+            .select('rate')
+            .eq('type', equipType)
+            .maybeSingle();
+          if (erErr) throw erErr;
+          equipRate = Number(er?.rate ?? 0);
+        }
+
+        // Material cost
+        let unitCost = 0, wastePct = 0;
+        const sku = document.getElementById('matSku').value;
+        if (sku) {
+          const { data: mr, error: mrErr } = await client
+            .from('materials')
+            .select('unit_cost, waste_pct')
+            .eq('sku', sku)
+            .maybeSingle();
+          if (mrErr) throw mrErr;
+          unitCost = Number(mr?.unit_cost ?? 0);
+          wastePct = Number(mr?.waste_pct ?? 0);
+        }
+
+        // Direct costs
+        const laborCost = loadedLaborRate * laborHrs1 * quantity;
+        const equipCost = equipRate       * equipHrs1 * quantity;
+        const matCost   = unitCost * (1 + wastePct) * matQty * quantity;
+        const totalDirect = laborCost + equipCost + matCost;
+
+        // Indirects & profit
+        const { data: gna }    = await client.from('config').select('value').eq('parameter','G&A_%_of_Direct').maybeSingle();
+        const { data: profit } = await client.from('config').select('value').eq('parameter','Default_Profit_Margin_%').maybeSingle();
+        const gnaPct    = Number(gna?.value ?? 0);
+        const profitPct = Number(profit?.value ?? 0);
+
+        const totalIndirect = totalDirect * gnaPct;
+        const totalPrice    = (totalDirect + totalIndirect) * (1 + profitPct);
+
+        // Benchmarks (average for demo)
+        const { data: benchmarks, error: bErr } = await client
+          .from('history')
+          .select('labor_hours_per_unit, equip_hours_per_unit, mat_qty_per_unit')
+          .eq('activity_code', activityCode);
+        if (bErr) throw bErr;
+        const avg = (arr, key) => (arr && arr.length)
+          ? arr.reduce((s,x)=> s + Number(x[key] ?? 0), 0) / arr.length
+          : 0;
+
+        const medianLaborHrs = avg(benchmarks, 'labor_hours_per_unit') || laborHrs1;
+        const medianEquipHrs = avg(benchmarks, 'equip_hours_per_unit') || equipHrs1;
+        const medianMatQty   = avg(benchmarks, 'mat_qty_per_unit')     || matQty;
+
+        const laborVar = medianLaborHrs ? ((laborHrs1 - medianLaborHrs)/medianLaborHrs*100) : 0;
+        const equipVar = medianEquipHrs ? ((equipHrs1 - medianEquipHrs)/medianEquipHrs*100) : 0;
+        const matVar   = medianMatQty   ? ((matQty   - medianMatQty)  /medianMatQty*100)   : 0;
+
+        const alertClass = (v) => {
+          const a = Math.abs(v);
+          if (a < 10) return 'text-green-600';
+          if (a < 15) return 'text-yellow-600';
+          return 'text-red-600';
+        };
+
+        // Render
+        document.getElementById('totalDirect').innerText   = `$${totalDirect.toFixed(2)}`;
+        document.getElementById('totalIndirect').innerText = `$${totalIndirect.toFixed(2)}`;
+        document.getElementById('totalPrice').innerText    = `$${totalPrice.toFixed(2)}`;
+        document.getElementById('variance').innerHTML = `
+          <h3 class="text-lg font-bold mb-2">Benchmark Comparison</h3>
+          <p class="${alertClass(laborVar)}">Labor Variance: ${laborVar.toFixed(1)}% (vs ${medianLaborHrs.toFixed(2)} hrs/unit)</p>
+          <p class="${alertClass(equipVar)}">Equipment Variance: ${equipVar.toFixed(1)}% (vs ${medianEquipHrs.toFixed(2)} hrs/unit)</p>
+          <p class="${alertClass(matVar)}">Material Variance: ${matVar.toFixed(1)}% (vs ${medianMatQty.toFixed(2)} qty/unit)</p>
+        `;
+
+        // Save snapshot (non-blocking)
+        await saveEstimateSnapshot({ totalDirect, totalIndirect, totalPrice });
+      } catch (err) {
+        console.error('calculateCost:', err);
+        alert('Calculation error: ' + (err?.message ?? err));
+      }
+    }
+
+    // ---------- Save Snapshot ----------
+    async function saveEstimateSnapshot({ totalDirect, totalIndirect, totalPrice }) {
+      try {
+        // 1) stable session key
+        let sessionKey = localStorage.getItem('pricing_session_key');
+        if (!sessionKey) {
+          sessionKey = (crypto?.randomUUID?.() || String(Date.now()));
+          localStorage.setItem('pricing_session_key', sessionKey);
+        }
+
+        // 2) upsert parent estimate
+        const { data: est } = await client
+          .from('estimates')
+          .upsert({ session_key: sessionKey, project_name: 'Ad-hoc' }, { onConflict: 'session_key' })
+          .select('id')
+          .maybeSingle();
+        if (!est?.id) return;
+
+        // 3) insert item snapshot
+        const activity_code = document.getElementById('activityCode').value;
+        const quantity      = Number(document.getElementById('quantity').value || 0);
+        const { data: item } = await client
+          .from('estimate_items')
+          .insert({
+            estimate_id: est.id,
+            activity_code,
+            quantity,
+            direct_cost: totalDirect,
+            indirect_cost: totalIndirect,
+            total_price: totalPrice
+          })
+          .select('id')
+          .single();
+
+        // 4) optional component snapshots
+        const role = document.getElementById('laborRole1').value;
+        const lhrs = Number(document.getElementById('laborHrs1').value || 0);
+        if (role && lhrs) {
+          const { data: lr } = await client
+            .from('labor_roles')
+            .select('base_rate, burden_pct')
+            .eq('role', role)
+            .maybeSingle();
+          const loaded = Number(lr?.base_rate ?? 0) * (1 + Number(lr?.burden_pct ?? 0));
+          await client.from('estimate_item_labor').upsert({
+            estimate_item_id: item.id,
+            role,
+            hours_per_unit: lhrs,
+            loaded_rate_snapshot: loaded
+          });
+        }
+
+        const equipType = document.getElementById('equipType1').value;
+        const ehrs      = Number(document.getElementById('equipHrs1').value || 0);
+        if (equipType && ehrs) {
+          const { data: er } = await client
+            .from('equipment')
+            .select('rate')
+            .eq('type', equipType)
+            .maybeSingle();
+          await client.from('estimate_item_equipment').upsert({
+            estimate_item_id: item.id,
+            equipment_type: equipType,
+            hours_per_unit: ehrs,
+            rate_snapshot: Number(er?.rate ?? 0)
+          });
+        }
+
+        const sku  = document.getElementById('matSku').value;
+        const mqty = Number(document.getElementById('matQty').value || 0);
+        if (sku && mqty) {
+          const { data: mr } = await client
+            .from('materials')
+            .select('unit_cost, waste_pct')
+            .eq('sku', sku)
+            .maybeSingle();
+          await client.from('estimate_item_materials').upsert({
+            estimate_item_id: item.id,
+            sku,
+            qty_per_unit: mqty,
+            unit_cost_snapshot: Number(mr?.unit_cost ?? 0),
+            waste_pct_snapshot: Number(mr?.waste_pct ?? 0)
+          });
+        }
+
+        // Success toast
+        const el = document.getElementById('saveStatus');
+        if (el) {
+          el.textContent = `Saved at ${new Date().toLocaleTimeString()}`;
+          el.classList.remove('hidden', 'text-red-600');
+          el.classList.add('text-green-600');
+          setTimeout(() => el.classList.add('hidden'), 2500);
+        }
+      } catch (err) {
+        console.error('saveEstimateSnapshot:', err);
+        const el = document.getElementById('saveStatus');
+        if (el) {
+          el.textContent = `Save failed: ${err?.message ?? err}`;
+          el.classList.remove('hidden', 'text-green-600');
+          el.classList.add('text-red-600');
+        }
+      }
+    }
+
+    // Expose functions globally (so inline handlers & other scripts can call them)
+    Object.assign(window, {
+      loadActivities,
+      loadLaborRoles,
+      loadEquipTypes,
+      loadMatTypes,
+      loadDefaults,
+      loadLaborRate,
+      loadEquipRate,
+      loadMatRate,
+      calculateCost,
+      saveEstimateSnapshot
+    });
+  </script>
+
+  <!-- Init lists after DOM is ready -->
+  <script>
+    async function initLists() {
+      console.log('initLists: populating dropdowns…');
+      await loadActivities();
+      await loadLaborRoles();
+      await loadEquipTypes();
+      await loadMatTypes();
+      const el = document.getElementById('saveStatus');
+      if (el) { el.textContent = 'Lists loaded'; el.classList.remove('hidden'); }
+    }
+
+    document.addEventListener('DOMContentLoaded', initLists);
+
+    // Extra guard if DOM already parsed
+    if (document.readyState === 'interactive' || document.readyState === 'complete') {
+      initLists();
+    }
+  </script>
 </body>
-
 </html>
