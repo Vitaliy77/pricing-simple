@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>EAC Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-gray-50">
+  <!-- Header -->
+  <header class="bg-white border-b">
+    <div class="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+      <h1 class="text-xl font-semibold">EAC Dashboard</h1>
+      <nav class="text-sm text-gray-500 space-x-4">
+        <a href="./index.html" class="hover:text-gray-700">Pricing Tool</a>
+        <span class="text-gray-300">|</span>
+        <span class="text-gray-700 font-medium">EAC</span>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Main -->
+  <main class="max-w-7xl mx-auto px-4 py-6 space-y-6">
+    <!-- Project picker + model -->
+    <section class="bg-white rounded-xl shadow-sm p-5">
+      <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+        <div class="flex-1">
+          <label class="block text-xs text-gray-500 mb-1">Project</label>
+          <div class="flex gap-2">
+            <select id="projectSelect" class="border rounded-md p-2 w-full"></select>
+            <button id="refreshBtn" class="px-3 py-2 bg-gray-100 border rounded-md hover:bg-gray-200">Refresh</button>
+          </div>
+          <p id="projectMeta" class="text-xs text-gray-500 mt-1"></p>
+        </div>
+        <div>
+          <label class="block text-xs text-gray-500 mb-1">Revenue Model</label>
+          <span id="revModelBadge" class="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium bg-blue-50 text-blue-700">—</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- KPIs -->
+    <section class="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-4">
+      <div class="bg-white rounded-xl shadow-sm p-4">
+        <div class="text-xs text-gray-500">BAC</div>
+        <div id="kpiBAC" class="text-lg font-semibold">$0</div>
+      </div>
+      <div class="bg-white rounded-xl shadow-sm p-4">
+        <div class="text-xs text-gray-500">AC (to date)</div>
+        <div id="kpiAC" class="text-lg font-semibold">$0</div>
+      </div>
+      <div class="bg-white rounded-xl shadow-sm p-4">
+        <div class="text-xs text-gray-500">EV</div>
+        <div id="kpiEV" class="text-lg font-semibold">$0</div>
+      </div>
+      <div class="bg-white rounded-xl shadow-sm p-4">
+        <div class="text-xs text-gray-500">CPI</div>
+        <div id="kpiCPI" class="text-lg font-semibold">—</div>
+      </div>
+      <div class="bg-white rounded-xl shadow-sm p-4">
+        <div class="text-xs text-gray-500">ETC (CPI)</div>
+        <div id="kpiETC" class="text-lg font-semibold">$0</div>
+      </div>
+      <div class="bg-white rounded-xl shadow-sm p-4">
+        <div class="text-xs text-gray-500">EAC</div>
+        <div id="kpiEAC" class="text-lg font-semibold">$0</div>
+      </div>
+      <div class="bg-white rounded-xl shadow-sm p-4">
+        <div class="text-xs text-gray-500">VAC</div>
+        <div id="kpiVAC" class="text-lg font-semibold">$0</div>
+      </div>
+      <div class="bg-white rounded-xl shadow-sm p-4">
+        <div class="text-xs text-gray-500">% Complete (EV/BAC)</div>
+        <div id="kpiPct" class="text-lg font-semibold">0%</div>
+      </div>
+    </section>
+
+    <!-- Monthly P&L -->
+    <section class="bg-white rounded-xl shadow-sm p-5">
+      <div class="flex items-center justify-between">
+        <h2 class="text-lg font-semibold">Monthly P&amp;L</h2>
+        <div class="text-xs text-gray-500" id="plHint"></div>
+      </div>
+      <div class="overflow-x-auto mt-3">
+        <table class="min-w-full text-sm">
+          <thead class="text-xs text-gray-500 bg-gray-50">
+            <tr>
+              <th class="text-left px-3 py-2">Month</th>
+              <th class="text-right px-3 py-2">Revenue</th>
+              <th class="text-right px-3 py-2">Labor</th>
+              <th class="text-right px-3 py-2">Equip</th>
+              <th class="text-right px-3 py-2">Materials</th>
+              <th class="text-right px-3 py-2">Subs</th>
+              <th class="text-right px-3 py-2">Fringe</th>
+              <th class="text-right px-3 py-2">Overhead</th>
+              <th class="text-right px-3 py-2">G&amp;A</th>
+              <th class="text-right px-3 py-2 font-semibold">Profit</th>
+            </tr>
+          </thead>
+          <tbody id="plBody" class="divide-y"></tbody>
+          <tfoot class="bg-gray-50">
+            <tr class="font-semibold">
+              <td class="px-3 py-2 text-right">Totals</td>
+              <td id="totRevenue"   class="px-3 py-2 text-right">$0</td>
+              <td id="totLabor"     class="px-3 py-2 text-right">$0</td>
+              <td id="totEquip"     class="px-3 py-2 text-right">$0</td>
+              <td id="totMat"       class="px-3 py-2 text-right">$0</td>
+              <td id="totSubs"      class="px-3 py-2 text-right">$0</td>
+              <td id="totFringe"    class="px-3 py-2 text-right">$0</td>
+              <td id="totOH"        class="px-3 py-2 text-right">$0</td>
+              <td id="totGNA"       class="px-3 py-2 text-right">$0</td>
+              <td id="totProfit"    class="px-3 py-2 text-right">$0</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    // ---- CONFIG ----
+    const supabaseUrl = 'https://yonpinjixytqooqyyzdh.supabase.co';
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlvbnBpbmppeHl0cW9vcXl5emRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkzNjkwMzIsImV4cCI6MjA3NDk0NTAzMn0.8g9iNl4kmIm77u7TT8cylgcV872D45pzZGHJWBnZBGo';
+    const client = window.supabase.createClient(supabaseUrl, supabaseKey);
+
+    // Default to your project UUID; UI lets you pick others
+    const DEFAULT_PROJECT_ID = 'bd5e7f00-ed56-4596-8414-62679107cae7';
+
+    // ---- HELPERS ----
+    const fmt$ = (n) => (isFinite(n) ? n : 0).toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+    const fmtPct = (n) => isFinite(n) ? `${(n*100).toFixed(1)}%` : '—';
+    const monthKey = (d) => {
+      const dt = new Date(d);
+      return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth()+1).padStart(2,'0')}-01`;
+    };
+    const monthLabel = (key) => {
+      const [y,m] = key.split('-').map(Number);
+      return new Date(Date.UTC(y, m-1, 1)).toLocaleString(undefined,{ month:'short', year:'numeric' });
+    };
+    const sum = (arr, fn = (x)=>x) => arr.reduce((a,b)=>a + (fn(b)||0), 0);
+    const safe = (x) => (x==null || isNaN(x)) ? 0 : Number(x);
+
+    // ---- LOAD PROJECTS ----
+    async function loadProjects() {
+      const sel = document.getElementById('projectSelect');
+      sel.innerHTML = '';
+      const { data, error } = await client.from('projects').select('id, name, revenue_model, funding_ceiling, fee_pct').order('name');
+      if (error) { console.error(error); return; }
+      data.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.id; opt.textContent = p.name;
+        sel.appendChild(opt);
+      });
+      sel.value = data.find(p => p.id === DEFAULT_PROJECT_ID)?.id || (data[0]?.id ?? '');
+      sel.addEventListener('change', () => loadAll(sel.value));
+      // show metadata
+      showProjectMeta(data.find(p => p.id === sel.value));
+      return sel.value;
+    }
+
+    function showProjectMeta(p) {
+      const m = document.getElementById('projectMeta');
+      const badge = document.getElementById('revModelBadge');
+      if (!p) { m.textContent = ''; badge.textContent='—'; return; }
+      m.textContent = `Funding Ceiling: ${p.funding_ceiling ? fmt$(p.funding_ceiling) : 'n/a'} • Fee%: ${p.fee_pct ? (p.fee_pct*100).toFixed(1)+'%' : '0%'}`;
+      const label = {unit:'Unit-based', tm:'Time & Materials', fixed_price:'Fixed Price', cost_plus:'Cost-Plus Fee'}[p.revenue_model] || p.revenue_model;
+      badge.textContent = label;
+    }
+
+    // ---- FETCH DATASETS ----
+    async function getBaseline(projectId) {
+      // estimate_items: activity_code, quantity, total_price
+      const { data, error } = await client.from('estimate_items')
+        .select('activity_code, quantity, total_price')
+        .eq('project_id', projectId);
+      if (error) { console.warn('baseline error', error); return []; }
+      return data || [];
+    }
+
+    async function getProgress(projectId) {
+      const { data, error } = await client.from('activity_progress')
+        .select('dt, activity_code, qty_completed')
+        .eq('project_id', projectId);
+      if (error) { console.warn('progress error', error); return []; }
+      return data || [];
+    }
+
+    async function getActuals(projectId) {
+      const grab = async (table, cols) => {
+        const { data, error } = await client.from(table).select(cols).eq('project_id', projectId);
+        if (error) { console.warn(`${table} error`, error); return []; }
+        return data || [];
+      };
+      return {
+        labor:     await grab('labor_actuals',     'dt, employee_id, hours, cost_snapshot'),
+        equip:     await grab('equipment_actuals', 'dt, equipment_type, hours, cost_snapshot, free_text_type'),
+        materials: await grab('materials_actuals', 'dt, sku, qty, cost_snapshot'),
+        subs:      await grab('sub_actuals',       'dt, subcontractor_id, cost')
+      };
+    }
+
+    async function getConfig() {
+      const cfg = { fringe:0.35, oh:0.10, gna:0.08, matMarkup:0, subMarkup:0 };
+      // indirect_rates
+      const { data:ind } = await client.from('indirect_rates').select('*').limit(1).maybeSingle();
+      if (ind) { cfg.fringe = safe(ind.fringe_pct); cfg.oh = safe(ind.overhead_pct); cfg.gna = safe(ind.gna_pct); }
+      // billing markups default
+      const { data:bm } = await client.from('billing_markups').select('*').limit(1).maybeSingle();
+      if (bm) { cfg.matMarkup = safe(bm.materials_markup_pct); cfg.subMarkup = safe(bm.subs_markup_pct); }
+      return cfg;
+    }
+
+    async function getBilling() {
+      const [{ data:brL }, { data:brE }, { data:emps }] = await Promise.all([
+        client.from('billing_rates_labor').select('role, bill_rate'),
+        client.from('billing_rates_equipment').select('type, bill_rate'),
+        client.from('employees').select('id, role')
+      ]);
+      const rateL = Object.fromEntries((brL||[]).map(r => [r.role, safe(r.bill_rate)]));
+      const rateE = Object.fromEntries((brE||[]).map(r => [r.type, safe(r.bill_rate)]));
+      const empRole = Object.fromEntries((emps||[]).map(e => [e.id, e.role]));
+      return { rateL, rateE, empRole };
+    }
+
+    async function getProject(projectId) {
+      const { data, error } = await client.from('projects')
+        .select('id, name, revenue_model, funding_ceiling, fee_pct')
+        .eq('id', projectId).maybeSingle();
+      if (error) { console.error(error); return null; }
+      return data;
+    }
+
+    // ---- CALCULATIONS ----
+    function baselineMaps(baselineRows) {
+      const perAct = {};
+      baselineRows.forEach(r => {
+        const qty = safe(r.quantity);
+        const price = safe(r.total_price);
+        if (!perAct[r.activity_code]) perAct[r.activity_code] = { qty:0, price:0 };
+        perAct[r.activity_code].qty += qty;
+        perAct[r.activity_code].price += price;
+      });
+      const unitRate = {};
+      Object.entries(perAct).forEach(([act, agg]) => {
+        unitRate[act] = agg.qty > 0 ? (agg.price / agg.qty) : 0;
+      });
+      const BAC = sum(Object.values(perAct), v => v.price);
+      const baselineQty = sum(Object.values(perAct), v => v.qty); // not used globally for %; EV handles weighting
+      return { perAct, unitRate, BAC, baselineQty };
+    }
+
+    function progressByMonth(progressRows) {
+      // qty_done per activity per month + cumulative
+      const byMonthAct = {}; // {monthKey: {act: qty}}
+      progressRows.forEach(r => {
+        const mk = monthKey(r.dt);
+        byMonthAct[mk] ||= {};
+        byMonthAct[mk][r.activity_code] = (byMonthAct[mk][r.activity_code] || 0) + safe(r.qty_completed);
+      });
+      // cum per activity by chronological months
+      const months = Object.keys(byMonthAct).sort();
+      const cumAct = {};
+      const perMonth = months.map(mk => {
+        const acts = byMonthAct[mk];
+        const out = {};
+        Object.entries(acts).forEach(([act, qty]) => {
+          cumAct[act] = (cumAct[act] || 0) + qty;
+          out[act] = { monthQty: qty, cumQty: cumAct[act] };
+        });
+        return [mk, out];
+      });
+      return { months, perMonth }; // array of [mk, {act:{monthQty,cumQty}}]
+    }
+
+    function actualCostsByMonth(actuals) {
+      const acc = {}; // {month: {labor,equip,mat,subs}}
+      const bump = (mk, k, v) => {
+        acc[mk] ||= { labor:0,equip:0,mat:0,subs:0 };
+        acc[mk][k] += safe(v);
+      };
+      actuals.labor.forEach(r => bump(monthKey(r.dt),'labor', r.cost_snapshot));
+      actuals.equip.forEach(r => bump(monthKey(r.dt),'equip', r.cost_snapshot));
+      actuals.materials.forEach(r => bump(monthKey(r.dt),'mat', r.cost_snapshot));
+      actuals.subs.forEach(r => bump(monthKey(r.dt),'subs', r.cost));
+      return acc;
+    }
+
+    async function revenueByMonth(project, maps, prog, actuals, cfg) {
+      const model = project.revenue_model;
+      const acc = {}; // {month: revenue}
+
+      if (model === 'unit') {
+        // revenue = monthQty * unit_rate (per activity), summed
+        prog.perMonth.forEach(([mk, acts]) => {
+          let rev = 0;
+          Object.entries(acts).forEach(([act, info]) => {
+            const ur = maps.unitRate[act] || 0;
+            rev += ur * info.monthQty;
+          });
+          acc[mk] = (acc[mk] || 0) + rev;
+        });
+
+      } else if (model === 'tm') {
+        // revenue = labor(hours * bill_rate_role) + equip(hours * bill_rate_equip) + materials*(1+markup) + subs*(1+markup)
+        const { rateL, rateE, empRole } = await getBilling();
+
+        // build month sets from actuals
+        const months = new Set();
+        actuals.labor.forEach(r=>months.add(monthKey(r.dt)));
+        actuals.equip.forEach(r=>months.add(monthKey(r.dt)));
+        actuals.materials.forEach(r=>months.add(monthKey(r.dt)));
+        actuals.subs.forEach(r=>months.add(monthKey(r.dt)));
+        [...months].forEach(mk => acc[mk] = 0);
+
+        // labor
+        actuals.labor.forEach(r => {
+          const mk = monthKey(r.dt);
+          const role = empRole[r.employee_id];
+          const rate = role ? rateL[role] : null;
+          if (rate != null) acc[mk] += safe(r.hours) * rate;
+          else acc[mk] += safe(r.cost_snapshot); // fallback
+        });
+        // equipment
+        actuals.equip.forEach(r => {
+          const mk = monthKey(r.dt);
+          const key = r.equipment_type || r.free_text_type;
+          const rate = key ? rateE[key] : null;
+          if (rate != null) acc[mk] += safe(r.hours) * rate;
+          else acc[mk] += safe(r.cost_snapshot);
+        });
+        // materials
+        actuals.materials.forEach(r => {
+          const mk = monthKey(r.dt);
+          acc[mk] += safe(r.cost_snapshot) * (1 + cfg.matMarkup);
+        });
+        // subs
+        actuals.subs.forEach(r => {
+          const mk = monthKey(r.dt);
+          acc[mk] += safe(r.cost) * (1 + cfg.subMarkup);
+        });
+
+      } else if (model === 'fixed_price') {
+        // revenue = funding_ceiling * %complete (cumulative) → take month-to-month delta
+        const fund = safe(project.funding_ceiling);
+        if (fund <= 0) return acc;
+        // EV/BAC = weighted % complete using money; compute cumulative per month
+        const months = prog.months;
+        let prevCumRev = 0;
+        months.forEach(mk => {
+          // Cum EV at mk:
+          let EVcum = 0;
+          Object.entries((prog.perMonth.find(([m]) => m===mk)?.[1]) || {}).forEach(([act, info]) => {
+            const perAct = maps.perAct[act];
+            if (perAct && perAct.qty > 0) {
+              const share = perAct.price; // money-weight
+              EVcum += share * (info.cumQty / perAct.qty);
+            }
+          });
+          const pct = (maps.BAC > 0) ? (EVcum / maps.BAC) : 0;
+          const cumRev = fund * Math.min(Math.max(pct, 0), 1);
+          const monthRev = cumRev - prevCumRev;
+          acc[mk] = (acc[mk] || 0) + monthRev;
+          prevCumRev = cumRev;
+        });
+
+      } else if (model === 'cost_plus') {
+        // revenue = (direct costs per month) * (1 + fee_pct)
+        const fee = safe(project.fee_pct);
+        // Build direct costs by month
+        const costs = actualCostsByMonth(actuals);
+        Object.entries(costs).forEach(([mk, c]) => {
+          const direct = safe(c.labor) + safe(c.equip) + safe(c.mat) + safe(c.subs);
+          acc[mk] = direct * (1 + fee);
+        });
+      }
+
+      return acc;
+    }
+
+    function indirectsByMonth(costsMonth, cfg) {
+      const out = {}; // {month: {fringe, oh, gna}}
+      Object.entries(costsMonth).forEach(([mk, c]) => {
+        const labor = safe(c.labor), direct = labor + safe(c.equip) + safe(c.mat) + safe(c.subs);
+        out[mk] = {
+          fringe: labor * cfg.fringe,
+          oh:     direct * cfg.oh,
+          gna:    direct * cfg.gna
+        };
+      });
+      return out;
+    }
+
+    function computeAC(costsMonth) {
+      let total = 0;
+      Object.values(costsMonth).forEach(c => {
+        total += safe(c.labor) + safe(c.equip) + safe(c.mat) + safe(c.subs);
+      });
+      return total;
+    }
+
+    function computeEVtoDate(maps, prog) {
+      // money-weighted earned value at latest month
+      if (!prog.months.length) return 0;
+      const last = prog.perMonth[prog.perMonth.length - 1][1]; // acts map
+      let EV = 0;
+      Object.entries(last).forEach(([act, info]) => {
+        const perAct = maps.perAct[act];
+        if (perAct && perAct.qty > 0) {
+          EV += perAct.price * (info.cumQty / perAct.qty);
+        }
+      });
+      return EV;
+    }
+
+    // ---- RENDER ----
+    function renderKPIs({ BAC, AC, EV, CPI, ETC, EAC, VAC }) {
+      document.getElementById('kpiBAC').textContent = fmt$(BAC);
+      document.getElementById('kpiAC').textContent  = fmt$(AC);
+      document.getElementById('kpiEV').textContent  = fmt$(EV);
+      document.getElementById('kpiCPI').textContent = (CPI && isFinite(CPI)) ? CPI.toFixed(2) : '—';
+      document.getElementById('kpiETC').textContent = fmt$(ETC);
+      document.getElementById('kpiEAC').textContent = fmt$(EAC);
+      document.getElementById('kpiVAC').textContent = fmt$(VAC);
+      document.getElementById('kpiPct').textContent = (BAC>0) ? ((EV/BAC)*100).toFixed(1)+'%' : '0%';
+    }
+
+    function renderPL(project, revenueMonth, costsMonth, indirectsMonth) {
+      const tbody = document.getElementById('plBody');
+      tbody.innerHTML = '';
+      const months = Array.from(new Set([
+        ...Object.keys(revenueMonth),
+        ...Object.keys(costsMonth)
+      ])).sort();
+
+      let tRev=0,tLab=0,tEq=0,tMat=0,tSub=0,tFr=0,tOH=0,tGNA=0,tProfit=0;
+
+      months.forEach(mk => {
+        const rev = safe(revenueMonth[mk]);
+        const c  = costsMonth[mk] || {labor:0,equip:0,mat:0,subs:0};
+        const ind = indirectsMonth[mk] || {fringe:0,oh:0,gna:0};
+        const profit = rev - (safe(c.labor)+safe(c.equip)+safe(c.mat)+safe(c.subs)) - (ind.fringe+ind.oh+ind.gna);
+
+        tRev+=rev; tLab+=safe(c.labor); tEq+=safe(c.equip); tMat+=safe(c.mat); tSub+=safe(c.subs);
+        tFr+=ind.fringe; tOH+=ind.oh; tGNA+=ind.gna; tProfit+=profit;
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="px-3 py-2">${monthLabel(mk)}</td>
+          <td class="px-3 py-2 text-right">${fmt$(rev)}</td>
+          <td class="px-3 py-2 text-right">${fmt$(c.labor)}</td>
+          <td class="px-3 py-2 text-right">${fmt$(c.equip)}</td>
+          <td class="px-3 py-2 text-right">${fmt$(c.mat)}</td>
+          <td class="px-3 py-2 text-right">${fmt$(c.subs)}</td>
+          <td class="px-3 py-2 text-right">${fmt$(ind.fringe)}</td>
+          <td class="px-3 py-2 text-right">${fmt$(ind.oh)}</td>
+          <td class="px-3 py-2 text-right">${fmt$(ind.gna)}</td>
+          <td class="px-3 py-2 text-right font-semibold ${profit>=0?'text-emerald-700':'text-red-600'}">${fmt$(profit)}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      document.getElementById('totRevenue').textContent = fmt$(tRev);
+      document.getElementById('totLabor').textContent   = fmt$(tLab);
+      document.getElementById('totEquip').textContent   = fmt$(tEq);
+      document.getElementById('totMat').textContent     = fmt$(tMat);
+      document.getElementById('totSubs').textContent    = fmt$(tSub);
+      document.getElementById('totFringe').textContent  = fmt$(tFr);
+      document.getElementById('totOH').textContent      = fmt$(tOH);
+      document.getElementById('totGNA').textContent     = fmt$(tGNA);
+      document.getElementById('totProfit').textContent  = fmt$(tProfit);
+
+      const hint = document.getElementById('plHint');
+      const label = {unit:'Unit-based', tm:'T&M', fixed_price:'Fixed Price', cost_plus:'Cost-Plus Fee'}[project.revenue_model] || project.revenue_model;
+      hint.textContent = `Revenue model: ${label}`;
+    }
+
+    // ---- MAIN LOAD ----
+    async function loadAll(projectId) {
+      const project = await getProject(projectId);
+      showProjectMeta(project);
+
+      // pull datasets
+      const [baselineRows, progressRows, actuals, cfg] = await Promise.all([
+        getBaseline(projectId),
+        getProgress(projectId),
+        getActuals(projectId),
+        getConfig()
+      ]);
+
+      // maps & aggregates
+      const maps = baselineMaps(baselineRows);
+      const prog = progressByMonth(progressRows);
+      const costsMonth = actualCostsByMonth(actuals);
+
+      // revenue by model
+      const revenueMonth = await revenueByMonth(project, maps, prog, actuals, cfg);
+      const indirectsMonth = indirectsByMonth(costsMonth, cfg);
+
+      // KPIs
+      const BAC = maps.BAC;
+      const AC  = computeAC(costsMonth);
+      const EV  = computeEVtoDate(maps, prog);
+      const CPI = (AC > 0) ? (EV / AC) : null;
+      const cpiFloor = 0.70;
+      const effCPI = (CPI==null || CPI<=0) ? 1 : Math.max(CPI, cpiFloor);
+      const ETC = Math.max(0, BAC - EV) / effCPI;
+      const EAC = AC + ETC;
+      const VAC = BAC - EAC;
+
+      renderKPIs({ BAC, AC, EV, CPI, ETC, EAC, VAC });
+      renderPL(project, revenueMonth, costsMonth, indirectsMonth);
+    }
+
+    // Init
+    window.addEventListener('DOMContentLoaded', async () => {
+      const firstId = await loadProjects();
+      document.getElementById('refreshBtn').addEventListener('click', async () => {
+        await loadAll(document.getElementById('projectSelect').value);
+      });
+      await loadAll(firstId || DEFAULT_PROJECT_ID);
+    });
+  </script>
+</body>
+</html>
