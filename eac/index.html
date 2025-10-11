@@ -13,7 +13,7 @@
     <div class="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
       <h1 class="text-xl font-semibold">EAC Dashboard</h1>
       <nav class="text-sm text-gray-500 space-x-4">
-        <a href="./index.html" class="hover:text-gray-700">Pricing Tool</a>
+        <a href="/" class="hover:text-gray-700">Pricing Tool</a>
         <span class="text-gray-300">|</span>
         <span class="text-gray-700 font-medium">EAC</span>
       </nav>
@@ -22,6 +22,7 @@
 
   <!-- Main -->
   <main class="max-w-7xl mx-auto px-4 py-6 space-y-6">
+
     <!-- Project picker + model -->
     <section class="bg-white rounded-xl shadow-sm p-5">
       <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
@@ -42,41 +43,120 @@
 
     <!-- KPIs -->
     <section class="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-4">
-      <div class="bg-white rounded-xl shadow-sm p-4">
-        <div class="text-xs text-gray-500">BAC</div>
-        <div id="kpiBAC" class="text-lg font-semibold">$0</div>
-      </div>
-      <div class="bg-white rounded-xl shadow-sm p-4">
-        <div class="text-xs text-gray-500">AC (to date)</div>
-        <div id="kpiAC" class="text-lg font-semibold">$0</div>
-      </div>
-      <div class="bg-white rounded-xl shadow-sm p-4">
-        <div class="text-xs text-gray-500">EV</div>
-        <div id="kpiEV" class="text-lg font-semibold">$0</div>
-      </div>
-      <div class="bg-white rounded-xl shadow-sm p-4">
-        <div class="text-xs text-gray-500">CPI</div>
-        <div id="kpiCPI" class="text-lg font-semibold">—</div>
-      </div>
-      <div class="bg-white rounded-xl shadow-sm p-4">
-        <div class="text-xs text-gray-500">ETC (CPI)</div>
-        <div id="kpiETC" class="text-lg font-semibold">$0</div>
-      </div>
-      <div class="bg-white rounded-xl shadow-sm p-4">
-        <div class="text-xs text-gray-500">EAC</div>
-        <div id="kpiEAC" class="text-lg font-semibold">$0</div>
-      </div>
-      <div class="bg-white rounded-xl shadow-sm p-4">
-        <div class="text-xs text-gray-500">VAC</div>
-        <div id="kpiVAC" class="text-lg font-semibold">$0</div>
-      </div>
-      <div class="bg-white rounded-xl shadow-sm p-4">
-        <div class="text-xs text-gray-500">% Complete (EV/BAC)</div>
-        <div id="kpiPct" class="text-lg font-semibold">0%</div>
-      </div>
+      <div class="bg-white rounded-xl shadow-sm p-4"><div class="text-xs text-gray-500">BAC</div><div id="kpiBAC" class="text-lg font-semibold">$0</div></div>
+      <div class="bg-white rounded-xl shadow-sm p-4"><div class="text-xs text-gray-500">AC (to date)</div><div id="kpiAC" class="text-lg font-semibold">$0</div></div>
+      <div class="bg-white rounded-xl shadow-sm p-4"><div class="text-xs text-gray-500">EV</div><div id="kpiEV" class="text-lg font-semibold">$0</div></div>
+      <div class="bg-white rounded-xl shadow-sm p-4"><div class="text-xs text-gray-500">CPI</div><div id="kpiCPI" class="text-lg font-semibold">—</div></div>
+      <div class="bg-white rounded-xl shadow-sm p-4"><div class="text-xs text-gray-500">ETC (CPI)</div><div id="kpiETC" class="text-lg font-semibold">$0</div></div>
+      <div class="bg-white rounded-xl shadow-sm p-4"><div class="text-xs text-gray-500">EAC</div><div id="kpiEAC" class="text-lg font-semibold">$0</div></div>
+      <div class="bg-white rounded-xl shadow-sm p-4"><div class="text-xs text-gray-500">VAC</div><div id="kpiVAC" class="text-lg font-semibold">$0</div></div>
+      <div class="bg-white rounded-xl shadow-sm p-4"><div class="text-xs text-gray-500">% Complete (EV/BAC)</div><div id="kpiPct" class="text-lg font-semibold">0%</div></div>
     </section>
 
-    <!-- Monthly P&L -->
+    <!-- Data Entry (Actuals & Progress) -->
+    <section class="bg-white rounded-xl shadow-sm p-5">
+      <details open>
+        <summary class="cursor-pointer text-lg font-semibold">Data Entry (Actuals & Progress)</summary>
+        <p class="text-xs text-gray-500 mt-1">Add rows directly to Supabase. These forms are minimal by design—enter the amounts you want recognized this month.</p>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 mt-4">
+          <!-- Progress -->
+          <div class="border rounded-lg p-4">
+            <h3 class="font-semibold mb-2">Progress (Qty Complete)</h3>
+            <label class="block text-xs text-gray-600">Date</label>
+            <input id="prgDate" type="date" class="border rounded p-2 w-full mb-2">
+            <label class="block text-xs text-gray-600">Activity</label>
+            <select id="prgActivity" class="border rounded p-2 w-full mb-2"></select>
+            <label class="block text-xs text-gray-600">Qty Completed</label>
+            <input id="prgQty" type="number" step="0.01" class="border rounded p-2 w-full mb-3">
+            <button id="btnAddProgress" class="bg-emerald-600 text-white px-3 py-2 rounded hover:bg-emerald-700">Add Progress</button>
+            <div id="prgMsg" class="text-xs mt-2"></div>
+          </div>
+
+          <!-- Labor Actuals -->
+          <div class="border rounded-lg p-4">
+            <h3 class="font-semibold mb-2">Labor Actuals</h3>
+            <label class="block text-xs text-gray-600">Date</label>
+            <input id="labDate" type="date" class="border rounded p-2 w-full mb-2">
+            <label class="block text-xs text-gray-600">Activity</label>
+            <select id="labActivity" class="border rounded p-2 w-full mb-2"></select>
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs text-gray-600">Hours</label>
+                <input id="labHours" type="number" step="0.01" class="border rounded p-2 w-full mb-2">
+              </div>
+              <div>
+                <label class="block text-xs text-gray-600">Cost (snapshot)</label>
+                <input id="labCost" type="number" step="0.01" class="border rounded p-2 w-full mb-2" placeholder="e.g., 480">
+              </div>
+            </div>
+            <button id="btnAddLabor" class="bg-blue-600 text-white px-3 py-2 rounded hover:bg-blue-700">Add Labor</button>
+            <div id="labMsg" class="text-xs mt-2"></div>
+          </div>
+
+          <!-- Equipment Actuals -->
+          <div class="border rounded-lg p-4">
+            <h3 class="font-semibold mb-2">Equipment Actuals</h3>
+            <label class="block text-xs text-gray-600">Date</label>
+            <input id="eqDate" type="date" class="border rounded p-2 w-full mb-2">
+            <label class="block text-xs text-gray-600">Activity</label>
+            <select id="eqActivity" class="border rounded p-2 w-full mb-2"></select>
+            <label class="block text-xs text-gray-600">Equipment</label>
+            <select id="eqType" class="border rounded p-2 w-full mb-2"></select>
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs text-gray-600">Hours</label>
+                <input id="eqHours" type="number" step="0.01" class="border rounded p-2 w-full mb-2">
+              </div>
+              <div>
+                <label class="block text-xs text-gray-600">Cost (snapshot)</label>
+                <input id="eqCost" type="number" step="0.01" class="border rounded p-2 w-full mb-2">
+              </div>
+            </div>
+            <button id="btnAddEquip" class="bg-blue-600 text-white px-3 py-2 rounded hover:bg-blue-700">Add Equipment</button>
+            <div id="eqMsg" class="text-xs mt-2"></div>
+          </div>
+
+          <!-- Materials Actuals -->
+          <div class="border rounded-lg p-4">
+            <h3 class="font-semibold mb-2">Materials Actuals</h3>
+            <label class="block text-xs text-gray-600">Date</label>
+            <input id="matDate" type="date" class="border rounded p-2 w-full mb-2">
+            <label class="block text-xs text-gray-600">Activity</label>
+            <select id="matActivity" class="border rounded p-2 w-full mb-2"></select>
+            <label class="block text-xs text-gray-600">Material</label>
+            <select id="matSku" class="border rounded p-2 w-full mb-2"></select>
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs text-gray-600">Qty</label>
+                <input id="matQty" type="number" step="0.01" class="border rounded p-2 w-full mb-2">
+              </div>
+              <div>
+                <label class="block text-xs text-gray-600">Cost (snapshot)</label>
+                <input id="matCost" type="number" step="0.01" class="border rounded p-2 w-full mb-2">
+              </div>
+            </div>
+            <button id="btnAddMat" class="bg-blue-600 text-white px-3 py-2 rounded hover:bg-blue-700">Add Material</button>
+            <div id="matMsg" class="text-xs mt-2"></div>
+          </div>
+
+          <!-- Subcontractor Actuals -->
+          <div class="border rounded-lg p-4">
+            <h3 class="font-semibold mb-2">Subcontractor Actuals</h3>
+            <label class="block text-xs text-gray-600">Date</label>
+            <input id="subDate" type="date" class="border rounded p-2 w-full mb-2">
+            <label class="block text-xs text-gray-600">Activity</label>
+            <select id="subActivity" class="border rounded p-2 w-full mb-2"></select>
+            <label class="block text-xs text-gray-600">Cost</label>
+            <input id="subCost" type="number" step="0.01" class="border rounded p-2 w-full mb-3">
+            <button id="btnAddSub" class="bg-blue-600 text-white px-3 py-2 rounded hover:bg-blue-700">Add Sub Cost</button>
+            <div id="subMsg" class="text-xs mt-2"></div>
+          </div>
+        </div>
+      </details>
+    </section>
+
+    <!-- Monthly P&L (pivot: months = columns, line items = rows) -->
     <section class="bg-white rounded-xl shadow-sm p-5">
       <div class="flex items-center justify-between">
         <h2 class="text-lg font-semibold">Monthly P&amp;L</h2>
@@ -84,35 +164,9 @@
       </div>
       <div class="overflow-x-auto mt-3">
         <table class="min-w-full text-sm">
-          <thead class="text-xs text-gray-500 bg-gray-50">
-            <tr>
-              <th class="text-left px-3 py-2">Month</th>
-              <th class="text-right px-3 py-2">Revenue</th>
-              <th class="text-right px-3 py-2">Labor</th>
-              <th class="text-right px-3 py-2">Equip</th>
-              <th class="text-right px-3 py-2">Materials</th>
-              <th class="text-right px-3 py-2">Subs</th>
-              <th class="text-right px-3 py-2">Fringe</th>
-              <th class="text-right px-3 py-2">Overhead</th>
-              <th class="text-right px-3 py-2">G&amp;A</th>
-              <th class="text-right px-3 py-2 font-semibold">Profit</th>
-            </tr>
-          </thead>
-          <tbody id="plBody" class="divide-y"></tbody>
-          <tfoot class="bg-gray-50">
-            <tr class="font-semibold">
-              <td class="px-3 py-2 text-right">Totals</td>
-              <td id="totRevenue"   class="px-3 py-2 text-right">$0</td>
-              <td id="totLabor"     class="px-3 py-2 text-right">$0</td>
-              <td id="totEquip"     class="px-3 py-2 text-right">$0</td>
-              <td id="totMat"       class="px-3 py-2 text-right">$0</td>
-              <td id="totSubs"      class="px-3 py-2 text-right">$0</td>
-              <td id="totFringe"    class="px-3 py-2 text-right">$0</td>
-              <td id="totOH"        class="px-3 py-2 text-right">$0</td>
-              <td id="totGNA"       class="px-3 py-2 text-right">$0</td>
-              <td id="totProfit"    class="px-3 py-2 text-right">$0</td>
-            </tr>
-          </tfoot>
+          <thead class="text-xs text-gray-500 bg-gray-50" id="plHead"></thead>
+          <tbody id="plBodyPivot" class="divide-y"></tbody>
+          <tfoot class="bg-gray-50" id="plFootPivot"></tfoot>
         </table>
       </div>
     </section>
@@ -123,42 +177,27 @@
     const supabaseUrl = 'https://yonpinjixytqooqyyzdh.supabase.co';
     const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlvbnBpbmppeHl0cW9vcXl5emRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkzNjkwMzIsImV4cCI6MjA3NDk0NTAzMn0.8g9iNl4kmIm77u7TT8cylgcV872D45pzZGHJWBnZBGo';
     const client = window.supabase.createClient(supabaseUrl, supabaseKey);
-
-    // Default to your project UUID; UI lets you pick others
     const DEFAULT_PROJECT_ID = 'bd5e7f00-ed56-4596-8414-62679107cae7';
 
     // ---- HELPERS ----
     const fmt$ = (n) => (isFinite(n) ? n : 0).toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
-    const fmtPct = (n) => isFinite(n) ? `${(n*100).toFixed(1)}%` : '—';
-    const monthKey = (d) => {
-      const dt = new Date(d);
-      return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth()+1).padStart(2,'0')}-01`;
-    };
-    const monthLabel = (key) => {
-      const [y,m] = key.split('-').map(Number);
-      return new Date(Date.UTC(y, m-1, 1)).toLocaleString(undefined,{ month:'short', year:'numeric' });
-    };
+    const monthKey = (d) => { const dt = new Date(d); return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth()+1).padStart(2,'0')}-01`; };
+    const monthLabel = (key) => { const [y,m] = key.split('-').map(Number); return new Date(Date.UTC(y, m-1, 1)).toLocaleString(undefined,{ month:'short', year:'numeric' }); };
     const sum = (arr, fn = (x)=>x) => arr.reduce((a,b)=>a + (fn(b)||0), 0);
     const safe = (x) => (x==null || isNaN(x)) ? 0 : Number(x);
 
-    // ---- LOAD PROJECTS ----
+    // ---- PROJECTS ----
     async function loadProjects() {
       const sel = document.getElementById('projectSelect');
       sel.innerHTML = '';
       const { data, error } = await client.from('projects').select('id, name, revenue_model, funding_ceiling, fee_pct').order('name');
       if (error) { console.error(error); return; }
-      data.forEach(p => {
-        const opt = document.createElement('option');
-        opt.value = p.id; opt.textContent = p.name;
-        sel.appendChild(opt);
-      });
+      data.forEach(p => { const opt = document.createElement('option'); opt.value = p.id; opt.textContent = p.name; sel.appendChild(opt); });
       sel.value = data.find(p => p.id === DEFAULT_PROJECT_ID)?.id || (data[0]?.id ?? '');
       sel.addEventListener('change', () => loadAll(sel.value));
-      // show metadata
       showProjectMeta(data.find(p => p.id === sel.value));
       return sel.value;
     }
-
     function showProjectMeta(p) {
       const m = document.getElementById('projectMeta');
       const badge = document.getElementById('revModelBadge');
@@ -167,17 +206,19 @@
       const label = {unit:'Unit-based', tm:'Time & Materials', fixed_price:'Fixed Price', cost_plus:'Cost-Plus Fee'}[p.revenue_model] || p.revenue_model;
       badge.textContent = label;
     }
+    async function getProject(projectId) {
+      const { data } = await client.from('projects').select('id, name, revenue_model, funding_ceiling, fee_pct').eq('id', projectId).maybeSingle();
+      return data;
+    }
 
-    // ---- FETCH DATASETS ----
+    // ---- BASELINE / PROGRESS / ACTUALS ----
     async function getBaseline(projectId) {
-      // estimate_items: activity_code, quantity, total_price
       const { data, error } = await client.from('estimate_items')
         .select('activity_code, quantity, total_price')
         .eq('project_id', projectId);
       if (error) { console.warn('baseline error', error); return []; }
       return data || [];
     }
-
     async function getProgress(projectId) {
       const { data, error } = await client.from('activity_progress')
         .select('dt, activity_code, qty_completed')
@@ -185,7 +226,6 @@
       if (error) { console.warn('progress error', error); return []; }
       return data || [];
     }
-
     async function getActuals(projectId) {
       const grab = async (table, cols) => {
         const { data, error } = await client.from(table).select(cols).eq('project_id', projectId);
@@ -193,227 +233,113 @@
         return data || [];
       };
       return {
-        labor:     await grab('labor_actuals',     'dt, employee_id, hours, cost_snapshot'),
-        equip:     await grab('equipment_actuals', 'dt, equipment_type, hours, cost_snapshot, free_text_type'),
-        materials: await grab('materials_actuals', 'dt, sku, qty, cost_snapshot'),
-        subs:      await grab('sub_actuals',       'dt, subcontractor_id, cost')
+        labor:     await grab('labor_actuals',     'dt, hours, cost_snapshot'),
+        equip:     await grab('equipment_actuals', 'dt, hours, cost_snapshot'),
+        materials: await grab('materials_actuals', 'dt, qty, cost_snapshot'),
+        subs:      await grab('sub_actuals',       'dt, cost')
       };
     }
-
     async function getConfig() {
       const cfg = { fringe:0.35, oh:0.10, gna:0.08, matMarkup:0, subMarkup:0 };
-      // indirect_rates
       const { data:ind } = await client.from('indirect_rates').select('*').limit(1).maybeSingle();
       if (ind) { cfg.fringe = safe(ind.fringe_pct); cfg.oh = safe(ind.overhead_pct); cfg.gna = safe(ind.gna_pct); }
-      // billing markups default
       const { data:bm } = await client.from('billing_markups').select('*').limit(1).maybeSingle();
       if (bm) { cfg.matMarkup = safe(bm.materials_markup_pct); cfg.subMarkup = safe(bm.subs_markup_pct); }
       return cfg;
     }
 
-    async function getBilling() {
-      const [{ data:brL }, { data:brE }, { data:emps }] = await Promise.all([
-        client.from('billing_rates_labor').select('role, bill_rate'),
-        client.from('billing_rates_equipment').select('type, bill_rate'),
-        client.from('employees').select('id, role')
-      ]);
-      const rateL = Object.fromEntries((brL||[]).map(r => [r.role, safe(r.bill_rate)]));
-      const rateE = Object.fromEntries((brE||[]).map(r => [r.type, safe(r.bill_rate)]));
-      const empRole = Object.fromEntries((emps||[]).map(e => [e.id, e.role]));
-      return { rateL, rateE, empRole };
-    }
-
-    async function getProject(projectId) {
-      const { data, error } = await client.from('projects')
-        .select('id, name, revenue_model, funding_ceiling, fee_pct')
-        .eq('id', projectId).maybeSingle();
-      if (error) { console.error(error); return null; }
-      return data;
-    }
-
-    // ---- CALCULATIONS ----
-    function baselineMaps(baselineRows) {
+    // ---- MAPS / CALCS ----
+    function baselineMaps(rows) {
       const perAct = {};
-      baselineRows.forEach(r => {
-        const qty = safe(r.quantity);
-        const price = safe(r.total_price);
-        if (!perAct[r.activity_code]) perAct[r.activity_code] = { qty:0, price:0 };
-        perAct[r.activity_code].qty += qty;
-        perAct[r.activity_code].price += price;
+      rows.forEach(r => {
+        const qty = safe(r.quantity), price = safe(r.total_price);
+        perAct[r.activity_code] ||= { qty:0, price:0 };
+        perAct[r.activity_code].qty += qty; perAct[r.activity_code].price += price;
       });
       const unitRate = {};
-      Object.entries(perAct).forEach(([act, agg]) => {
-        unitRate[act] = agg.qty > 0 ? (agg.price / agg.qty) : 0;
-      });
-      const BAC = sum(Object.values(perAct), v => v.price);
-      const baselineQty = sum(Object.values(perAct), v => v.qty); // not used globally for %; EV handles weighting
-      return { perAct, unitRate, BAC, baselineQty };
+      Object.entries(perAct).forEach(([act, agg]) => unitRate[act] = agg.qty > 0 ? agg.price/agg.qty : 0);
+      return { perAct, unitRate, BAC: sum(Object.values(perAct), v => v.price) };
     }
-
-    function progressByMonth(progressRows) {
-      // qty_done per activity per month + cumulative
-      const byMonthAct = {}; // {monthKey: {act: qty}}
-      progressRows.forEach(r => {
-        const mk = monthKey(r.dt);
-        byMonthAct[mk] ||= {};
-        byMonthAct[mk][r.activity_code] = (byMonthAct[mk][r.activity_code] || 0) + safe(r.qty_completed);
-      });
-      // cum per activity by chronological months
-      const months = Object.keys(byMonthAct).sort();
-      const cumAct = {};
-      const perMonth = months.map(mk => {
-        const acts = byMonthAct[mk];
-        const out = {};
-        Object.entries(acts).forEach(([act, qty]) => {
-          cumAct[act] = (cumAct[act] || 0) + qty;
-          out[act] = { monthQty: qty, cumQty: cumAct[act] };
+    function progressByMonth(rows) {
+      const byMonthAct = {}; // {month: {act: {monthQty,cumQty}}}
+      const monthActRaw = {};
+      rows.forEach(r => { const mk = monthKey(r.dt); monthActRaw[mk] ||= {}; monthActRaw[mk][r.activity_code] = (monthActRaw[mk][r.activity_code] || 0) + safe(r.qty_completed); });
+      const months = Object.keys(monthActRaw).sort();
+      const cumByAct = {};
+      months.forEach(mk => {
+        byMonthAct[mk] = {};
+        Object.entries(monthActRaw[mk]).forEach(([act, monthQty]) => {
+          cumByAct[act] = (cumByAct[act] || 0) + monthQty;
+          byMonthAct[mk][act] = { monthQty, cumQty: cumByAct[act] };
         });
-        return [mk, out];
       });
-      return { months, perMonth }; // array of [mk, {act:{monthQty,cumQty}}]
+      return { months, byMonthAct };
     }
-
     function actualCostsByMonth(actuals) {
       const acc = {}; // {month: {labor,equip,mat,subs}}
-      const bump = (mk, k, v) => {
-        acc[mk] ||= { labor:0,equip:0,mat:0,subs:0 };
-        acc[mk][k] += safe(v);
-      };
+      const bump = (mk, k, v) => { acc[mk] ||= { labor:0,equip:0,mat:0,subs:0 }; acc[mk][k] += safe(v); };
       actuals.labor.forEach(r => bump(monthKey(r.dt),'labor', r.cost_snapshot));
       actuals.equip.forEach(r => bump(monthKey(r.dt),'equip', r.cost_snapshot));
       actuals.materials.forEach(r => bump(monthKey(r.dt),'mat', r.cost_snapshot));
       actuals.subs.forEach(r => bump(monthKey(r.dt),'subs', r.cost));
       return acc;
     }
-
     async function revenueByMonth(project, maps, prog, actuals, cfg) {
-      const model = project.revenue_model;
-      const acc = {}; // {month: revenue}
-
+      const acc = {}; const model = project.revenue_model;
       if (model === 'unit') {
-        // revenue = monthQty * unit_rate (per activity), summed
-        prog.perMonth.forEach(([mk, acts]) => {
+        prog.months.forEach(mk => {
           let rev = 0;
-          Object.entries(acts).forEach(([act, info]) => {
-            const ur = maps.unitRate[act] || 0;
-            rev += ur * info.monthQty;
-          });
-          acc[mk] = (acc[mk] || 0) + rev;
+          const acts = prog.byMonthAct[mk] || {};
+          Object.entries(acts).forEach(([act, info]) => rev += (maps.unitRate[act]||0) * info.monthQty);
+          acc[mk] = rev;
         });
-
       } else if (model === 'tm') {
-        // revenue = labor(hours * bill_rate_role) + equip(hours * bill_rate_equip) + materials*(1+markup) + subs*(1+markup)
-        const { rateL, rateE, empRole } = await getBilling();
-
-        // build month sets from actuals
         const months = new Set();
         actuals.labor.forEach(r=>months.add(monthKey(r.dt)));
         actuals.equip.forEach(r=>months.add(monthKey(r.dt)));
         actuals.materials.forEach(r=>months.add(monthKey(r.dt)));
         actuals.subs.forEach(r=>months.add(monthKey(r.dt)));
         [...months].forEach(mk => acc[mk] = 0);
-
-        // labor
-        actuals.labor.forEach(r => {
-          const mk = monthKey(r.dt);
-          const role = empRole[r.employee_id];
-          const rate = role ? rateL[role] : null;
-          if (rate != null) acc[mk] += safe(r.hours) * rate;
-          else acc[mk] += safe(r.cost_snapshot); // fallback
-        });
-        // equipment
-        actuals.equip.forEach(r => {
-          const mk = monthKey(r.dt);
-          const key = r.equipment_type || r.free_text_type;
-          const rate = key ? rateE[key] : null;
-          if (rate != null) acc[mk] += safe(r.hours) * rate;
-          else acc[mk] += safe(r.cost_snapshot);
-        });
-        // materials
-        actuals.materials.forEach(r => {
-          const mk = monthKey(r.dt);
-          acc[mk] += safe(r.cost_snapshot) * (1 + cfg.matMarkup);
-        });
-        // subs
-        actuals.subs.forEach(r => {
-          const mk = monthKey(r.dt);
-          acc[mk] += safe(r.cost) * (1 + cfg.subMarkup);
-        });
-
+        actuals.labor.forEach(r => { const mk = monthKey(r.dt); acc[mk] += safe(r.cost_snapshot); });
+        actuals.equip.forEach(r => { const mk = monthKey(r.dt); acc[mk] += safe(r.cost_snapshot); });
+        actuals.materials.forEach(r => { const mk = monthKey(r.dt); acc[mk] += safe(r.cost_snapshot) * (1 + cfg.matMarkup); });
+        actuals.subs.forEach(r => { const mk = monthKey(r.dt); acc[mk] += safe(r.cost) * (1 + cfg.subMarkup); });
       } else if (model === 'fixed_price') {
-        // revenue = funding_ceiling * %complete (cumulative) → take month-to-month delta
-        const fund = safe(project.funding_ceiling);
-        if (fund <= 0) return acc;
-        // EV/BAC = weighted % complete using money; compute cumulative per month
-        const months = prog.months;
-        let prevCumRev = 0;
+        const fund = safe(project.funding_ceiling); if (fund <= 0) return acc;
+        const months = prog.months; let prevCumRev = 0;
         months.forEach(mk => {
-          // Cum EV at mk:
           let EVcum = 0;
-          Object.entries((prog.perMonth.find(([m]) => m===mk)?.[1]) || {}).forEach(([act, info]) => {
-            const perAct = maps.perAct[act];
-            if (perAct && perAct.qty > 0) {
-              const share = perAct.price; // money-weight
-              EVcum += share * (info.cumQty / perAct.qty);
-            }
-          });
-          const pct = (maps.BAC > 0) ? (EVcum / maps.BAC) : 0;
+          const acts = prog.byMonthAct[mk] || {};
+          Object.entries(acts).forEach(([act, info]) => { const b = maps.perAct[act]; if (b && b.qty>0) EVcum += b.price * (info.cumQty / b.qty); });
+          const pct = (maps.BAC>0) ? (EVcum / maps.BAC) : 0;
           const cumRev = fund * Math.min(Math.max(pct, 0), 1);
-          const monthRev = cumRev - prevCumRev;
-          acc[mk] = (acc[mk] || 0) + monthRev;
-          prevCumRev = cumRev;
+          acc[mk] = cumRev - prevCumRev; prevCumRev = cumRev;
         });
-
       } else if (model === 'cost_plus') {
-        // revenue = (direct costs per month) * (1 + fee_pct)
-        const fee = safe(project.fee_pct);
-        // Build direct costs by month
         const costs = actualCostsByMonth(actuals);
-        Object.entries(costs).forEach(([mk, c]) => {
-          const direct = safe(c.labor) + safe(c.equip) + safe(c.mat) + safe(c.subs);
-          acc[mk] = direct * (1 + fee);
-        });
+        Object.entries(costs).forEach(([mk, c]) => { const direct = safe(c.labor)+safe(c.equip)+safe(c.mat)+safe(c.subs); acc[mk] = direct * (1 + safe(project.fee_pct)); });
       }
-
       return acc;
     }
-
     function indirectsByMonth(costsMonth, cfg) {
-      const out = {}; // {month: {fringe, oh, gna}}
+      const out = {};
       Object.entries(costsMonth).forEach(([mk, c]) => {
         const labor = safe(c.labor), direct = labor + safe(c.equip) + safe(c.mat) + safe(c.subs);
-        out[mk] = {
-          fringe: labor * cfg.fringe,
-          oh:     direct * cfg.oh,
-          gna:    direct * cfg.gna
-        };
+        out[mk] = { fringe: labor*cfg.fringe, oh: direct*cfg.oh, gna: direct*cfg.gna };
       });
       return out;
     }
-
     function computeAC(costsMonth) {
-      let total = 0;
-      Object.values(costsMonth).forEach(c => {
-        total += safe(c.labor) + safe(c.equip) + safe(c.mat) + safe(c.subs);
-      });
-      return total;
+      let t=0; Object.values(costsMonth).forEach(c=>{ t += safe(c.labor)+safe(c.equip)+safe(c.mat)+safe(c.subs); }); return t;
     }
-
     function computeEVtoDate(maps, prog) {
-      // money-weighted earned value at latest month
       if (!prog.months.length) return 0;
-      const last = prog.perMonth[prog.perMonth.length - 1][1]; // acts map
-      let EV = 0;
-      Object.entries(last).forEach(([act, info]) => {
-        const perAct = maps.perAct[act];
-        if (perAct && perAct.qty > 0) {
-          EV += perAct.price * (info.cumQty / perAct.qty);
-        }
-      });
+      const lastMonth = prog.months[prog.months.length-1]; const acts = prog.byMonthAct[lastMonth] || {};
+      let EV=0; Object.entries(acts).forEach(([act, info]) => { const b = maps.perAct[act]; if (b && b.qty>0) EV += b.price * (info.cumQty / b.qty); });
       return EV;
     }
 
-    // ---- RENDER ----
+    // ---- RENDER: KPIs ----
     function renderKPIs({ BAC, AC, EV, CPI, ETC, EAC, VAC }) {
       document.getElementById('kpiBAC').textContent = fmt$(BAC);
       document.getElementById('kpiAC').textContent  = fmt$(AC);
@@ -425,99 +351,179 @@
       document.getElementById('kpiPct').textContent = (BAC>0) ? ((EV/BAC)*100).toFixed(1)+'%' : '0%';
     }
 
-    function renderPL(project, revenueMonth, costsMonth, indirectsMonth) {
-      const tbody = document.getElementById('plBody');
-      tbody.innerHTML = '';
-      const months = Array.from(new Set([
-        ...Object.keys(revenueMonth),
-        ...Object.keys(costsMonth)
-      ])).sort();
+    // ---- RENDER: P&L PIVOT (months as columns) ----
+    function renderPLPivot(project, revenueMonth, costsMonth, indirectsMonth) {
+      const months = Array.from(new Set([...Object.keys(revenueMonth), ...Object.keys(costsMonth)])).sort();
+      const head = document.getElementById('plHead');
+      const body = document.getElementById('plBodyPivot');
+      const foot = document.getElementById('plFootPivot');
+      head.innerHTML = ''; body.innerHTML = ''; foot.innerHTML='';
 
-      let tRev=0,tLab=0,tEq=0,tMat=0,tSub=0,tFr=0,tOH=0,tGNA=0,tProfit=0;
+      // Header
+      const th = document.createElement('tr');
+      th.innerHTML = `<th class="text-left px-3 py-2">Line Item</th>`
+        + months.map(mk => `<th class="text-right px-3 py-2">${monthLabel(mk)}</th>`).join('')
+        + `<th class="text-right px-3 py-2">Total</th>`;
+      head.appendChild(th);
 
-      months.forEach(mk => {
-        const rev = safe(revenueMonth[mk]);
-        const c  = costsMonth[mk] || {labor:0,equip:0,mat:0,subs:0};
-        const ind = indirectsMonth[mk] || {fringe:0,oh:0,gna:0};
-        const profit = rev - (safe(c.labor)+safe(c.equip)+safe(c.mat)+safe(c.subs)) - (ind.fringe+ind.oh+ind.gna);
-
-        tRev+=rev; tLab+=safe(c.labor); tEq+=safe(c.equip); tMat+=safe(c.mat); tSub+=safe(c.subs);
-        tFr+=ind.fringe; tOH+=ind.oh; tGNA+=ind.gna; tProfit+=profit;
-
+      // Helper to build a row
+      const row = (label, getter) => {
+        let total = 0;
+        const tds = months.map(mk => { const v = getter(mk); total += safe(v); return `<td class="px-3 py-2 text-right">${fmt$(v)}</td>`; }).join('');
         const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td class="px-3 py-2">${monthLabel(mk)}</td>
-          <td class="px-3 py-2 text-right">${fmt$(rev)}</td>
-          <td class="px-3 py-2 text-right">${fmt$(c.labor)}</td>
-          <td class="px-3 py-2 text-right">${fmt$(c.equip)}</td>
-          <td class="px-3 py-2 text-right">${fmt$(c.mat)}</td>
-          <td class="px-3 py-2 text-right">${fmt$(c.subs)}</td>
-          <td class="px-3 py-2 text-right">${fmt$(ind.fringe)}</td>
-          <td class="px-3 py-2 text-right">${fmt$(ind.oh)}</td>
-          <td class="px-3 py-2 text-right">${fmt$(ind.gna)}</td>
-          <td class="px-3 py-2 text-right font-semibold ${profit>=0?'text-emerald-700':'text-red-600'}">${fmt$(profit)}</td>
-        `;
-        tbody.appendChild(tr);
-      });
+        tr.innerHTML = `<td class="px-3 py-2">${label}</td>${tds}<td class="px-3 py-2 text-right font-semibold">${fmt$(total)}</td>`;
+        body.appendChild(tr);
+      };
 
-      document.getElementById('totRevenue').textContent = fmt$(tRev);
-      document.getElementById('totLabor').textContent   = fmt$(tLab);
-      document.getElementById('totEquip').textContent   = fmt$(tEq);
-      document.getElementById('totMat').textContent     = fmt$(tMat);
-      document.getElementById('totSubs').textContent    = fmt$(tSub);
-      document.getElementById('totFringe').textContent  = fmt$(tFr);
-      document.getElementById('totOH').textContent      = fmt$(tOH);
-      document.getElementById('totGNA').textContent     = fmt$(tGNA);
-      document.getElementById('totProfit').textContent  = fmt$(tProfit);
+      // Build rows
+      row('Revenue',   mk => safe(revenueMonth[mk]));
+      row('Labor',     mk => safe((costsMonth[mk]||{}).labor));
+      row('Equip',     mk => safe((costsMonth[mk]||{}).equip));
+      row('Materials', mk => safe((costsMonth[mk]||{}).mat));
+      row('Subs',      mk => safe((costsMonth[mk]||{}).subs));
+      row('Fringe',    mk => safe((indirectsMonth[mk]||{}).fringe));
+      row('Overhead',  mk => safe((indirectsMonth[mk]||{}).oh));
+      row('G&A',       mk => safe((indirectsMonth[mk]||{}).gna));
 
-      const hint = document.getElementById('plHint');
-      const label = {unit:'Unit-based', tm:'T&M', fixed_price:'Fixed Price', cost_plus:'Cost-Plus Fee'}[project.revenue_model] || project.revenue_model;
-      hint.textContent = `Revenue model: ${label}`;
+      // Profit row
+      const profitGetter = mk => {
+        const rev = safe(revenueMonth[mk]);
+        const c   = costsMonth[mk] || {labor:0,equip:0,mat:0,subs:0};
+        const ind = indirectsMonth[mk] || {fringe:0,oh:0,gna:0};
+        return rev - (safe(c.labor)+safe(c.equip)+safe(c.mat)+safe(c.subs)) - (ind.fringe+ind.oh+ind.gna);
+      };
+      row('Profit', profitGetter);
+
+      document.getElementById('plHint').textContent =
+        `Revenue model: ${({unit:'Unit-based', tm:'T&M', fixed_price:'Fixed Price', cost_plus:'Cost-Plus Fee'})[project.revenue_model] || project.revenue_model}`;
+    }
+
+    // ---- LOAD AUX LISTS for forms ----
+    async function loadActivitiesInto(selectId) {
+      const { data } = await client.from('activities_catalog').select('activity_code, activity_name').order('activity_code');
+      const sel = document.getElementById(selectId); sel.innerHTML = '<option value="">Select…</option>';
+      (data||[]).forEach(a => { const o=document.createElement('option'); o.value=a.activity_code; o.textContent=`${a.activity_code} — ${a.activity_name}`; sel.appendChild(o); });
+    }
+    async function loadEquipmentInto(selectId) {
+      const { data } = await client.from('equipment').select('type').order('type');
+      const sel = document.getElementById(selectId); sel.innerHTML = '<option value="">Select…</option>';
+      (data||[]).forEach(e => { const o=document.createElement('option'); o.value=e.type; o.textContent=e.type; sel.appendChild(o); });
+    }
+    async function loadMaterialsInto(selectId) {
+      const { data } = await client.from('materials').select('sku, description').order('sku');
+      const sel = document.getElementById(selectId); sel.innerHTML = '<option value="">Select…</option>';
+      (data||[]).forEach(m => { const o=document.createElement('option'); o.value=m.sku; o.textContent=`${m.sku} — ${m.description}`; sel.appendChild(o); });
+    }
+
+    // ---- SAVE HANDLERS ----
+    function setMsg(el, text, ok=true) { el.textContent = text; el.className = `text-xs mt-2 ${ok?'text-emerald-700':'text-red-600'}`; }
+
+    async function addProgress(projectId) {
+      const dt = document.getElementById('prgDate').value;
+      const act= document.getElementById('prgActivity').value;
+      const qty= parseFloat(document.getElementById('prgQty').value||'0');
+      const msg= document.getElementById('prgMsg');
+      if (!dt || !act || qty<=0) return setMsg(msg, 'Please enter date, activity, and positive quantity.', false);
+      const { error } = await client.from('activity_progress').insert({ dt, project_id:projectId, activity_code:act, qty_completed:qty });
+      if (error) return setMsg(msg, `Error: ${error.message}`, false);
+      setMsg(msg, 'Progress added.'); await loadAll(projectId);
+    }
+    async function addLabor(projectId) {
+      const dt = document.getElementById('labDate').value;
+      const act= document.getElementById('labActivity').value;
+      const hrs= parseFloat(document.getElementById('labHours').value||'0');
+      const cost=parseFloat(document.getElementById('labCost').value||'0');
+      const msg= document.getElementById('labMsg');
+      if (!dt || !act || hrs<=0 || cost<=0) return setMsg(msg, 'Please enter date, activity, hours and cost.', false);
+      const { error } = await client.from('labor_actuals').insert({ dt, project_id:projectId, activity_code:act, hours:hrs, cost_snapshot:cost });
+      if (error) return setMsg(msg, `Error: ${error.message}`, false);
+      setMsg(msg, 'Labor actual added.'); await loadAll(projectId);
+    }
+    async function addEquip(projectId) {
+      const dt = document.getElementById('eqDate').value;
+      const act= document.getElementById('eqActivity').value;
+      const type=document.getElementById('eqType').value;
+      const hrs= parseFloat(document.getElementById('eqHours').value||'0');
+      const cost=parseFloat(document.getElementById('eqCost').value||'0');
+      const msg= document.getElementById('eqMsg');
+      if (!dt || !act || !type || hrs<=0 || cost<=0) return setMsg(msg, 'Enter date, activity, equipment, hours, and cost.', false);
+      const { error } = await client.from('equipment_actuals').insert({ dt, project_id:projectId, activity_code:act, equipment_type:type, hours:hrs, cost_snapshot:cost });
+      if (error) return setMsg(msg, `Error: ${error.message}`, false);
+      setMsg(msg, 'Equipment actual added.'); await loadAll(projectId);
+    }
+    async function addMat(projectId) {
+      const dt = document.getElementById('matDate').value;
+      const act= document.getElementById('matActivity').value;
+      const sku=document.getElementById('matSku').value;
+      const qty= parseFloat(document.getElementById('matQty').value||'0');
+      const cost=parseFloat(document.getElementById('matCost').value||'0');
+      const msg= document.getElementById('matMsg');
+      if (!dt || !act || !sku || qty<=0 || cost<=0) return setMsg(msg, 'Enter date, activity, material, qty, and cost.', false);
+      const { error } = await client.from('materials_actuals').insert({ dt, project_id:projectId, activity_code:act, sku, qty, cost_snapshot:cost });
+      if (error) return setMsg(msg, `Error: ${error.message}`, false);
+      setMsg(msg, 'Material actual added.'); await loadAll(projectId);
+    }
+    async function addSub(projectId) {
+      const dt = document.getElementById('subDate').value;
+      const act= document.getElementById('subActivity').value;
+      const cost=parseFloat(document.getElementById('subCost').value||'0');
+      const msg= document.getElementById('subMsg');
+      if (!dt || !act || cost<=0) return setMsg(msg, 'Enter date, activity, and cost.', false);
+      const { error } = await client.from('sub_actuals').insert({ dt, project_id:projectId, activity_code:act, cost });
+      if (error) return setMsg(msg, `Error: ${error.message}`, false);
+      setMsg(msg, 'Subcontract cost added.'); await loadAll(projectId);
     }
 
     // ---- MAIN LOAD ----
     async function loadAll(projectId) {
-      const project = await getProject(projectId);
-      showProjectMeta(project);
+      const project = await getProject(projectId); showProjectMeta(project);
 
-      // pull datasets
       const [baselineRows, progressRows, actuals, cfg] = await Promise.all([
-        getBaseline(projectId),
-        getProgress(projectId),
-        getActuals(projectId),
-        getConfig()
+        getBaseline(projectId), getProgress(projectId), getActuals(projectId), getConfig()
       ]);
 
-      // maps & aggregates
       const maps = baselineMaps(baselineRows);
       const prog = progressByMonth(progressRows);
       const costsMonth = actualCostsByMonth(actuals);
-
-      // revenue by model
-      const revenueMonth = await revenueByMonth(project, maps, prog, actuals, cfg);
+      const revenueMonth = await revenueByMonth(project, maps, {months:prog.months, byMonthAct:prog.byMonthAct}, actuals, cfg);
       const indirectsMonth = indirectsByMonth(costsMonth, cfg);
 
-      // KPIs
       const BAC = maps.BAC;
       const AC  = computeAC(costsMonth);
-      const EV  = computeEVtoDate(maps, prog);
-      const CPI = (AC > 0) ? (EV / AC) : null;
-      const cpiFloor = 0.70;
-      const effCPI = (CPI==null || CPI<=0) ? 1 : Math.max(CPI, cpiFloor);
+      const EV  = computeEVtoDate(maps, {months:prog.months, byMonthAct:prog.byMonthAct});
+      const CPI = (AC>0) ? (EV/AC) : null;
+      const effCPI = (CPI==null || CPI<=0) ? 1 : Math.max(CPI, 0.70);
       const ETC = Math.max(0, BAC - EV) / effCPI;
       const EAC = AC + ETC;
       const VAC = BAC - EAC;
 
       renderKPIs({ BAC, AC, EV, CPI, ETC, EAC, VAC });
-      renderPL(project, revenueMonth, costsMonth, indirectsMonth);
+      renderPLPivot(project, revenueMonth, costsMonth, indirectsMonth);
     }
 
-    // Init
+    // ---- INIT ----
     window.addEventListener('DOMContentLoaded', async () => {
       const firstId = await loadProjects();
-      document.getElementById('refreshBtn').addEventListener('click', async () => {
-        await loadAll(document.getElementById('projectSelect').value);
-      });
+
+      // Load dropdown options for forms
+      await Promise.all([
+        loadActivitiesInto('prgActivity'),
+        loadActivitiesInto('labActivity'),
+        loadActivitiesInto('eqActivity'),
+        loadEquipmentInto('eqType'),
+        loadActivitiesInto('matActivity'),
+        loadMaterialsInto('matSku'),
+        loadActivitiesInto('subActivity'),
+      ]);
+
+      // Buttons
+      document.getElementById('refreshBtn').addEventListener('click', async () => loadAll(document.getElementById('projectSelect').value));
+      document.getElementById('btnAddProgress').addEventListener('click', async ()=> addProgress(document.getElementById('projectSelect').value));
+      document.getElementById('btnAddLabor').addEventListener('click', async ()=> addLabor(document.getElementById('projectSelect').value));
+      document.getElementById('btnAddEquip').addEventListener('click', async ()=> addEquip(document.getElementById('projectSelect').value));
+      document.getElementById('btnAddMat').addEventListener('click', async ()=> addMat(document.getElementById('projectSelect').value));
+      document.getElementById('btnAddSub').addEventListener('click', async ()=> addSub(document.getElementById('projectSelect').value));
+
       await loadAll(firstId || DEFAULT_PROJECT_ID);
     });
   </script>
