@@ -22,7 +22,6 @@
 
   <!-- Main -->
   <main class="max-w-7xl mx-auto px-4 py-6 space-y-6">
-
     <!-- Project picker + model -->
     <section class="bg-white rounded-xl shadow-sm p-5">
       <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
@@ -33,6 +32,7 @@
             <button id="refreshBtn" class="px-3 py-2 bg-gray-100 border rounded-md hover:bg-gray-200">Refresh</button>
           </div>
           <p id="projectMeta" class="text-xs text-gray-500 mt-1"></p>
+          <p id="actualsMeta" class="text-xs text-gray-500"></p>
         </div>
         <div>
           <label class="block text-xs text-gray-500 mb-1">Revenue Model</label>
@@ -53,104 +53,53 @@
       <div class="bg-white rounded-xl shadow-sm p-4"><div class="text-xs text-gray-500">% Complete (EV/BAC)</div><div id="kpiPct" class="text-lg font-semibold">0%</div></div>
     </section>
 
-    <!-- Data Entry (Actuals & Progress) -->
+    <!-- PLAN entry (future months) -->
     <section class="bg-white rounded-xl shadow-sm p-5">
       <details open>
-        <summary class="cursor-pointer text-lg font-semibold">Data Entry (Actuals & Progress)</summary>
-        <p class="text-xs text-gray-500 mt-1">Add rows directly to Supabase. These forms are minimal by design—enter the amounts you want recognized this month.</p>
+        <summary class="cursor-pointer text-lg font-semibold">Plan Entry (Future Months)</summary>
+        <p class="text-xs text-gray-500 mt-1">Actuals are read-only (fed by ERP). Enter plan values for months after the last actual month.</p>
 
         <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 mt-4">
-          <!-- Progress -->
+          <!-- Plan Costs -->
           <div class="border rounded-lg p-4">
-            <h3 class="font-semibold mb-2">Progress (Qty Complete)</h3>
-            <label class="block text-xs text-gray-600">Date</label>
-            <input id="prgDate" type="date" class="border rounded p-2 w-full mb-2">
-            <label class="block text-xs text-gray-600">Activity</label>
-            <select id="prgActivity" class="border rounded p-2 w-full mb-2"></select>
-            <label class="block text-xs text-gray-600">Qty Completed</label>
-            <input id="prgQty" type="number" step="0.01" class="border rounded p-2 w-full mb-3">
-            <button id="btnAddProgress" class="bg-emerald-600 text-white px-3 py-2 rounded hover:bg-emerald-700">Add Progress</button>
-            <div id="prgMsg" class="text-xs mt-2"></div>
-          </div>
-
-          <!-- Labor Actuals -->
-          <div class="border rounded-lg p-4">
-            <h3 class="font-semibold mb-2">Labor Actuals</h3>
-            <label class="block text-xs text-gray-600">Date</label>
-            <input id="labDate" type="date" class="border rounded p-2 w-full mb-2">
-            <label class="block text-xs text-gray-600">Activity</label>
-            <select id="labActivity" class="border rounded p-2 w-full mb-2"></select>
+            <h3 class="font-semibold mb-2">Monthly Plan Costs</h3>
+            <label class="block text-xs text-gray-600">Month</label>
+            <input id="planCostsMonth" type="month" class="border rounded p-2 w-full mb-2">
             <div class="grid grid-cols-2 gap-3">
               <div>
-                <label class="block text-xs text-gray-600">Hours</label>
-                <input id="labHours" type="number" step="0.01" class="border rounded p-2 w-full mb-2">
+                <label class="block text-xs text-gray-600">Labor ($)</label>
+                <input id="planLabor" type="number" step="0.01" class="border rounded p-2 w-full mb-2">
               </div>
               <div>
-                <label class="block text-xs text-gray-600">Cost (snapshot)</label>
-                <input id="labCost" type="number" step="0.01" class="border rounded p-2 w-full mb-2" placeholder="e.g., 480">
+                <label class="block text-xs text-gray-600">Equip ($)</label>
+                <input id="planEquip" type="number" step="0.01" class="border rounded p-2 w-full mb-2">
+              </div>
+              <div>
+                <label class="block text-xs text-gray-600">Materials ($)</label>
+                <input id="planMat" type="number" step="0.01" class="border rounded p-2 w-full mb-2">
+              </div>
+              <div>
+                <label class="block text-xs text-gray-600">Subs ($)</label>
+                <input id="planSubs" type="number" step="0.01" class="border rounded p-2 w-full mb-2">
               </div>
             </div>
-            <button id="btnAddLabor" class="bg-blue-600 text-white px-3 py-2 rounded hover:bg-blue-700">Add Labor</button>
-            <div id="labMsg" class="text-xs mt-2"></div>
+            <label class="block text-xs text-gray-600">Notes</label>
+            <input id="planNotes" type="text" class="border rounded p-2 w-full mb-3" placeholder="Optional">
+            <button id="btnSavePlanCosts" class="bg-blue-600 text-white px-3 py-2 rounded hover:bg-blue-700">Save Plan Costs</button>
+            <div id="planCostsMsg" class="text-xs mt-2"></div>
           </div>
 
-          <!-- Equipment Actuals -->
+          <!-- Planned Progress -->
           <div class="border rounded-lg p-4">
-            <h3 class="font-semibold mb-2">Equipment Actuals</h3>
-            <label class="block text-xs text-gray-600">Date</label>
-            <input id="eqDate" type="date" class="border rounded p-2 w-full mb-2">
+            <h3 class="font-semibold mb-2">Monthly Planned Progress (Unit Model / Fixed-Price % Complete)</h3>
+            <label class="block text-xs text-gray-600">Month</label>
+            <input id="planProgMonth" type="month" class="border rounded p-2 w-full mb-2">
             <label class="block text-xs text-gray-600">Activity</label>
-            <select id="eqActivity" class="border rounded p-2 w-full mb-2"></select>
-            <label class="block text-xs text-gray-600">Equipment</label>
-            <select id="eqType" class="border rounded p-2 w-full mb-2"></select>
-            <div class="grid grid-cols-2 gap-3">
-              <div>
-                <label class="block text-xs text-gray-600">Hours</label>
-                <input id="eqHours" type="number" step="0.01" class="border rounded p-2 w-full mb-2">
-              </div>
-              <div>
-                <label class="block text-xs text-gray-600">Cost (snapshot)</label>
-                <input id="eqCost" type="number" step="0.01" class="border rounded p-2 w-full mb-2">
-              </div>
-            </div>
-            <button id="btnAddEquip" class="bg-blue-600 text-white px-3 py-2 rounded hover:bg-blue-700">Add Equipment</button>
-            <div id="eqMsg" class="text-xs mt-2"></div>
-          </div>
-
-          <!-- Materials Actuals -->
-          <div class="border rounded-lg p-4">
-            <h3 class="font-semibold mb-2">Materials Actuals</h3>
-            <label class="block text-xs text-gray-600">Date</label>
-            <input id="matDate" type="date" class="border rounded p-2 w-full mb-2">
-            <label class="block text-xs text-gray-600">Activity</label>
-            <select id="matActivity" class="border rounded p-2 w-full mb-2"></select>
-            <label class="block text-xs text-gray-600">Material</label>
-            <select id="matSku" class="border rounded p-2 w-full mb-2"></select>
-            <div class="grid grid-cols-2 gap-3">
-              <div>
-                <label class="block text-xs text-gray-600">Qty</label>
-                <input id="matQty" type="number" step="0.01" class="border rounded p-2 w-full mb-2">
-              </div>
-              <div>
-                <label class="block text-xs text-gray-600">Cost (snapshot)</label>
-                <input id="matCost" type="number" step="0.01" class="border rounded p-2 w-full mb-2">
-              </div>
-            </div>
-            <button id="btnAddMat" class="bg-blue-600 text-white px-3 py-2 rounded hover:bg-blue-700">Add Material</button>
-            <div id="matMsg" class="text-xs mt-2"></div>
-          </div>
-
-          <!-- Subcontractor Actuals -->
-          <div class="border rounded-lg p-4">
-            <h3 class="font-semibold mb-2">Subcontractor Actuals</h3>
-            <label class="block text-xs text-gray-600">Date</label>
-            <input id="subDate" type="date" class="border rounded p-2 w-full mb-2">
-            <label class="block text-xs text-gray-600">Activity</label>
-            <select id="subActivity" class="border rounded p-2 w-full mb-2"></select>
-            <label class="block text-xs text-gray-600">Cost</label>
-            <input id="subCost" type="number" step="0.01" class="border rounded p-2 w-full mb-3">
-            <button id="btnAddSub" class="bg-blue-600 text-white px-3 py-2 rounded hover:bg-blue-700">Add Sub Cost</button>
-            <div id="subMsg" class="text-xs mt-2"></div>
+            <select id="planProgActivity" class="border rounded p-2 w-full mb-2"></select>
+            <label class="block text-xs text-gray-600">Qty Planned</label>
+            <input id="planProgQty" type="number" step="0.01" class="border rounded p-2 w-full mb-3">
+            <button id="btnSavePlanProg" class="bg-emerald-600 text-white px-3 py-2 rounded hover:bg-emerald-700">Save Planned Progress</button>
+            <div id="planProgMsg" class="text-xs mt-2"></div>
           </div>
         </div>
       </details>
@@ -185,6 +134,8 @@
     const monthLabel = (key) => { const [y,m] = key.split('-').map(Number); return new Date(Date.UTC(y, m-1, 1)).toLocaleString(undefined,{ month:'short', year:'numeric' }); };
     const sum = (arr, fn = (x)=>x) => arr.reduce((a,b)=>a + (fn(b)||0), 0);
     const safe = (x) => (x==null || isNaN(x)) ? 0 : Number(x);
+    const monthStartFromInput = (ym) => ym && /^\d{4}-\d{2}$/.test(ym) ? `${ym}-01` : null;
+    const cmpMonth = (a,b) => a.localeCompare(b); // strings "YYYY-MM-01" compare lexicographically
 
     // ---- PROJECTS ----
     async function loadProjects() {
@@ -210,34 +161,35 @@
       const { data } = await client.from('projects').select('id, name, revenue_model, funding_ceiling, fee_pct').eq('id', projectId).maybeSingle();
       return data;
     }
+    async function getLastActualMonth(projectId) {
+      const { data } = await client.from('v_last_actual_month').select('last_actual_month').eq('project_id', projectId).maybeSingle();
+      return data?.last_actual_month ? monthKey(data.last_actual_month) : null;
+    }
 
-    // ---- BASELINE / PROGRESS / ACTUALS ----
+    // ---- BASELINE / PROGRESS / ACTUALS / PLAN ----
     async function getBaseline(projectId) {
-      const { data, error } = await client.from('estimate_items')
+      const { data } = await client.from('estimate_items')
         .select('activity_code, quantity, total_price')
         .eq('project_id', projectId);
-      if (error) { console.warn('baseline error', error); return []; }
-      return data || [];
-    }
-    async function getProgress(projectId) {
-      const { data, error } = await client.from('activity_progress')
-        .select('dt, activity_code, qty_completed')
-        .eq('project_id', projectId);
-      if (error) { console.warn('progress error', error); return []; }
       return data || [];
     }
     async function getActuals(projectId) {
       const grab = async (table, cols) => {
-        const { data, error } = await client.from(table).select(cols).eq('project_id', projectId);
-        if (error) { console.warn(`${table} error`, error); return []; }
+        const { data } = await client.from(table).select(cols).eq('project_id', projectId);
         return data || [];
       };
       return {
         labor:     await grab('labor_actuals',     'dt, hours, cost_snapshot'),
         equip:     await grab('equipment_actuals', 'dt, hours, cost_snapshot'),
         materials: await grab('materials_actuals', 'dt, qty, cost_snapshot'),
-        subs:      await grab('sub_actuals',       'dt, cost')
+        subs:      await grab('sub_actuals',       'dt, cost'),
+        progress:  await grab('activity_progress', 'dt, activity_code, qty_completed')
       };
+    }
+    async function getPlan(projectId) {
+      const { data: pc } = await client.from('plan_costs').select('month, labor_cost, equip_cost, mat_cost, sub_cost').eq('project_id', projectId);
+      const { data: pp } = await client.from('plan_progress').select('month, activity_code, qty_planned').eq('project_id', projectId);
+      return { plan_costs: pc || [], plan_prog: pp || [] };
     }
     async function getConfig() {
       const cfg = { fringe:0.35, oh:0.10, gna:0.08, matMarkup:0, subMarkup:0 };
@@ -260,81 +212,175 @@
       Object.entries(perAct).forEach(([act, agg]) => unitRate[act] = agg.qty > 0 ? agg.price/agg.qty : 0);
       return { perAct, unitRate, BAC: sum(Object.values(perAct), v => v.price) };
     }
-    function progressByMonth(rows) {
-      const byMonthAct = {}; // {month: {act: {monthQty,cumQty}}}
-      const monthActRaw = {};
-      rows.forEach(r => { const mk = monthKey(r.dt); monthActRaw[mk] ||= {}; monthActRaw[mk][r.activity_code] = (monthActRaw[mk][r.activity_code] || 0) + safe(r.qty_completed); });
-      const months = Object.keys(monthActRaw).sort();
-      const cumByAct = {};
+    function progressActualByMonth(actualsProgress) {
+      const monthAct = {}; // {month: {act: {monthQty,cumQty}}}
+      const raw = {};
+      actualsProgress.forEach(r => { const mk = monthKey(r.dt); raw[mk] ||= {}; raw[mk][r.activity_code] = (raw[mk][r.activity_code]||0) + safe(r.qty_completed); });
+      const months = Object.keys(raw).sort(cmpMonth);
+      const cum = {};
       months.forEach(mk => {
-        byMonthAct[mk] = {};
-        Object.entries(monthActRaw[mk]).forEach(([act, monthQty]) => {
-          cumByAct[act] = (cumByAct[act] || 0) + monthQty;
-          byMonthAct[mk][act] = { monthQty, cumQty: cumByAct[act] };
-        });
+        monthAct[mk] = {};
+        Object.entries(raw[mk]).forEach(([act, qty]) => { cum[act]=(cum[act]||0)+qty; monthAct[mk][act]={monthQty:qty,cumQty:cum[act]}; });
       });
-      return { months, byMonthAct };
+      return { months, monthAct };
+    }
+    function planProgByMonth(planProg) {
+      const raw = {};
+      planProg.forEach(r => { const mk = monthKey(r.month); raw[mk] ||= {}; raw[mk][r.activity_code] = (raw[mk][r.activity_code]||0) + safe(r.qty_planned); });
+      const months = Object.keys(raw).sort(cmpMonth);
+      return { months, raw }; // raw: {month:{act:qty}}
     }
     function actualCostsByMonth(actuals) {
-      const acc = {}; // {month: {labor,equip,mat,subs}}
-      const bump = (mk, k, v) => { acc[mk] ||= { labor:0,equip:0,mat:0,subs:0 }; acc[mk][k] += safe(v); };
-      actuals.labor.forEach(r => bump(monthKey(r.dt),'labor', r.cost_snapshot));
-      actuals.equip.forEach(r => bump(monthKey(r.dt),'equip', r.cost_snapshot));
-      actuals.materials.forEach(r => bump(monthKey(r.dt),'mat', r.cost_snapshot));
-      actuals.subs.forEach(r => bump(monthKey(r.dt),'subs', r.cost));
+      const acc = {}; // {month:{labor,equip,mat,subs}}
+      const bump = (mk,k,v)=>{ acc[mk] ||= {labor:0,equip:0,mat:0,subs:0}; acc[mk][k]+=safe(v); };
+      actuals.labor.forEach(r=>bump(monthKey(r.dt),'labor',r.cost_snapshot));
+      actuals.equip.forEach(r=>bump(monthKey(r.dt),'equip',r.cost_snapshot));
+      actuals.materials.forEach(r=>bump(monthKey(r.dt),'mat',r.cost_snapshot));
+      actuals.subs.forEach(r=>bump(monthKey(r.dt),'subs',r.cost));
       return acc;
     }
-    async function revenueByMonth(project, maps, prog, actuals, cfg) {
-      const acc = {}; const model = project.revenue_model;
+    function planCostsByMonth(plan_costs) {
+      const acc = {}; // {month:{labor,equip,mat,subs}}
+      plan_costs.forEach(r=>{
+        const mk = monthKey(r.month);
+        acc[mk] ||= {labor:0,equip:0,mat:0,subs:0};
+        acc[mk].labor += safe(r.labor_cost);
+        acc[mk].equip += safe(r.equip_cost);
+        acc[mk].mat   += safe(r.mat_cost);
+        acc[mk].subs  += safe(r.sub_cost);
+      });
+      return acc;
+    }
+
+    function monthsUnion({ actualProg, planProg, actualCosts, planCosts, cutoff }) {
+      const s = new Set();
+      Object.keys(actualProg.monthAct||{}).forEach(mk=>s.add(mk));
+      Object.keys(actualCosts||{}).forEach(mk=>s.add(mk));
+      Object.keys(planProg.raw||{}).forEach(mk=>s.add(mk));
+      Object.keys(planCosts||{}).forEach(mk=>s.add(mk));
+      // If nothing yet, pad current year Jan–Sep to help early demos
+      if (s.size === 0) {
+        const now = new Date();
+        const year = now.getUTCFullYear();
+        for (let m=0; m<9; m++) s.add(`${year}-${String(m+1).padStart(2,'0')}-01`);
+      }
+      return Array.from(s).sort(cmpMonth);
+    }
+
+    async function revenueByMonth(project, maps, actualProg, planProg, actuals, planCosts, cfg, cutoff) {
+      const acc = {};
+      const model = project.revenue_model;
+
+      // helper to decide if month is actual or plan
+      const isActual = (mk) => !cutoff ? false : (cmpMonth(mk, cutoff) <= 0);
+
       if (model === 'unit') {
-        prog.months.forEach(mk => {
+        // actual months: use actual progress; plan months: plan progress
+        const months = monthsUnion({ actualProg, planProg, actualCosts:{}, planCosts:{}, cutoff });
+        months.forEach(mk=>{
           let rev = 0;
-          const acts = prog.byMonthAct[mk] || {};
-          Object.entries(acts).forEach(([act, info]) => rev += (maps.unitRate[act]||0) * info.monthQty);
+          if (isActual(mk)) {
+            const acts = actualProg.monthAct[mk] || {};
+            Object.entries(acts).forEach(([act, info]) => rev += (maps.unitRate[act]||0) * info.monthQty);
+          } else {
+            const acts = planProg.raw[mk] || {};
+            Object.entries(acts).forEach(([act, qty]) => rev += (maps.unitRate[act]||0) * safe(qty));
+          }
           acc[mk] = rev;
         });
+
       } else if (model === 'tm') {
-        const months = new Set();
-        actuals.labor.forEach(r=>months.add(monthKey(r.dt)));
-        actuals.equip.forEach(r=>months.add(monthKey(r.dt)));
-        actuals.materials.forEach(r=>months.add(monthKey(r.dt)));
-        actuals.subs.forEach(r=>months.add(monthKey(r.dt)));
-        [...months].forEach(mk => acc[mk] = 0);
-        actuals.labor.forEach(r => { const mk = monthKey(r.dt); acc[mk] += safe(r.cost_snapshot); });
-        actuals.equip.forEach(r => { const mk = monthKey(r.dt); acc[mk] += safe(r.cost_snapshot); });
-        actuals.materials.forEach(r => { const mk = monthKey(r.dt); acc[mk] += safe(r.cost_snapshot) * (1 + cfg.matMarkup); });
-        actuals.subs.forEach(r => { const mk = monthKey(r.dt); acc[mk] += safe(r.cost) * (1 + cfg.subMarkup); });
-      } else if (model === 'fixed_price') {
-        const fund = safe(project.funding_ceiling); if (fund <= 0) return acc;
-        const months = prog.months; let prevCumRev = 0;
-        months.forEach(mk => {
-          let EVcum = 0;
-          const acts = prog.byMonthAct[mk] || {};
-          Object.entries(acts).forEach(([act, info]) => { const b = maps.perAct[act]; if (b && b.qty>0) EVcum += b.price * (info.cumQty / b.qty); });
-          const pct = (maps.BAC>0) ? (EVcum / maps.BAC) : 0;
-          const cumRev = fund * Math.min(Math.max(pct, 0), 1);
-          acc[mk] = cumRev - prevCumRev; prevCumRev = cumRev;
+        // actual: revenue ~= actual direct + markups on mats/subs already accounted in actuals calc (we'll just take actual direct total)
+        // plan: revenue = plan costs + markups on materials/subs
+        const aCosts = actualCostsByMonth(actuals);
+        const pCosts = planCostsByMonth(planCosts);
+        const months = monthsUnion({ actualProg, planProg, actualCosts:aCosts, planCosts:pCosts, cutoff });
+        months.forEach(mk=>{
+          if (isActual(mk)) {
+            const c = aCosts[mk] || {labor:0,equip:0,mat:0,subs:0};
+            acc[mk] = safe(c.labor)+safe(c.equip)+safe(c.mat)+safe(c.subs);
+          } else {
+            const c = pCosts[mk] || {labor:0,equip:0,mat:0,subs:0};
+            acc[mk] = safe(c.labor)+safe(c.equip)+safe(c.mat)*(1+cfg.matMarkup)+safe(c.subs)*(1+cfg.subMarkup);
+          }
         });
+
+      } else if (model === 'fixed_price') {
+        // funding * % complete (cum). Build a combined cumulative by month using:
+        //  - actual progress through cutoff
+        //  - planned progress after cutoff
+        const fund = safe(project.funding_ceiling);
+        const months = monthsUnion({ actualProg, planProg, actualCosts:{}, planCosts:{}, cutoff });
+        let prevCumRev = 0;
+        // Build cum qty per act up to each month
+        const cumByAct = {};
+        months.forEach(mk=>{
+          // add actual or planned qty into cum
+          if (cutoff && cmpMonth(mk, cutoff) <= 0) {
+            const acts = actualProg.monthAct[mk] || {};
+            Object.entries(acts).forEach(([act, info]) => { cumByAct[act] = (cumByAct[act]||0) + safe(info.monthQty); });
+          } else {
+            const acts = planProg.raw[mk] || {};
+            Object.entries(acts).forEach(([act, qty]) => { cumByAct[act] = (cumByAct[act]||0) + safe(qty); });
+          }
+          // compute EV (money-weighted) at this month
+          let EVcum = 0;
+          Object.entries(cumByAct).forEach(([act, cumQty]) => {
+            const b = maps.perAct[act]; if (b && b.qty>0) EVcum += b.price * (cumQty / b.qty);
+          });
+          const pct = (maps.BAC>0) ? Math.min(Math.max(EVcum / maps.BAC, 0), 1) : 0;
+          const cumRev = fund * pct;
+          acc[mk] = cumRev - prevCumRev;
+          prevCumRev = cumRev;
+        });
+
       } else if (model === 'cost_plus') {
-        const costs = actualCostsByMonth(actuals);
-        Object.entries(costs).forEach(([mk, c]) => { const direct = safe(c.labor)+safe(c.equip)+safe(c.mat)+safe(c.subs); acc[mk] = direct * (1 + safe(project.fee_pct)); });
+        // revenue = direct costs * (1 + fee_pct)
+        const fee = safe(project.fee_pct);
+        const aCosts = actualCostsByMonth(actuals);
+        const pCosts = planCostsByMonth(planCosts);
+        const months = monthsUnion({ actualProg, planProg, actualCosts:aCosts, planCosts:pCosts, cutoff });
+        months.forEach(mk=>{
+          const c = (cutoff && cmpMonth(mk, cutoff) <= 0) ? (aCosts[mk] || {}) : (pCosts[mk] || {});
+          const direct = safe(c.labor)+safe(c.equip)+safe(c.mat)+safe(c.subs);
+          acc[mk] = direct * (1 + fee);
+        });
       }
       return acc;
+    }
+
+    function mergeCostsByCutover(actuals, planCosts, cutoff) {
+      const a = actualCostsByMonth(actuals);
+      const p = planCostsByMonth(planCosts);
+      const months = monthsUnion({ actualProg:{months:[],monthAct:{}}, planProg:{months:[],raw:{}}, actualCosts:a, planCosts:p, cutoff });
+      const out = {};
+      months.forEach(mk=>{
+        if (cutoff && cmpMonth(mk, cutoff) <= 0) {
+          out[mk] = a[mk] || {labor:0,equip:0,mat:0,subs:0};
+        } else {
+          out[mk] = p[mk] || {labor:0,equip:0,mat:0,subs:0};
+        }
+      });
+      return out;
     }
     function indirectsByMonth(costsMonth, cfg) {
       const out = {};
       Object.entries(costsMonth).forEach(([mk, c]) => {
-        const labor = safe(c.labor), direct = labor + safe(c.equip) + safe(c.mat) + safe(c.subs);
+        const labor = safe(c.labor), direct = labor + safe(c.equip)+safe(c.mat)+safe(c.subs);
         out[mk] = { fringe: labor*cfg.fringe, oh: direct*cfg.oh, gna: direct*cfg.gna };
       });
       return out;
     }
-    function computeAC(costsMonth) {
-      let t=0; Object.values(costsMonth).forEach(c=>{ t += safe(c.labor)+safe(c.equip)+safe(c.mat)+safe(c.subs); }); return t;
+    function computeAC(actuals) {
+      const a = actualCostsByMonth(actuals);
+      let t=0; Object.values(a).forEach(c=>{ t += safe(c.labor)+safe(c.equip)+safe(c.mat)+safe(c.subs); }); return t;
     }
-    function computeEVtoDate(maps, prog) {
-      if (!prog.months.length) return 0;
-      const lastMonth = prog.months[prog.months.length-1]; const acts = prog.byMonthAct[lastMonth] || {};
+    function computeEVtoDate(maps, actualProg) {
+      // EV to date uses latest actual month only (not plan)
+      const months = actualProg.months;
+      if (!months.length) return 0;
+      const last = months[months.length-1];
+      const acts = actualProg.monthAct[last] || {};
       let EV=0; Object.entries(acts).forEach(([act, info]) => { const b = maps.perAct[act]; if (b && b.qty>0) EV += b.price * (info.cumQty / b.qty); });
       return EV;
     }
@@ -351,22 +397,24 @@
       document.getElementById('kpiPct').textContent = (BAC>0) ? ((EV/BAC)*100).toFixed(1)+'%' : '0%';
     }
 
-    // ---- RENDER: P&L PIVOT (months as columns) ----
-    function renderPLPivot(project, revenueMonth, costsMonth, indirectsMonth) {
-      const months = Array.from(new Set([...Object.keys(revenueMonth), ...Object.keys(costsMonth)])).sort();
+    // ---- RENDER: P&L PIVOT ----
+    function renderPLPivot(project, revenueMonth, costsMonth, indirectsMonth, cutoff) {
+      const months = Array.from(new Set([
+        ...Object.keys(revenueMonth),
+        ...Object.keys(costsMonth)
+      ])).sort(cmpMonth);
+
       const head = document.getElementById('plHead');
       const body = document.getElementById('plBodyPivot');
       const foot = document.getElementById('plFootPivot');
       head.innerHTML = ''; body.innerHTML = ''; foot.innerHTML='';
 
-      // Header
       const th = document.createElement('tr');
       th.innerHTML = `<th class="text-left px-3 py-2">Line Item</th>`
-        + months.map(mk => `<th class="text-right px-3 py-2">${monthLabel(mk)}</th>`).join('')
+        + months.map(mk => `<th class="text-right px-3 py-2 ${cutoff && cmpMonth(mk,cutoff)<=0?'bg-blue-50':''}">${monthLabel(mk)}</th>`).join('')
         + `<th class="text-right px-3 py-2">Total</th>`;
       head.appendChild(th);
 
-      // Helper to build a row
       const row = (label, getter) => {
         let total = 0;
         const tds = months.map(mk => { const v = getter(mk); total += safe(v); return `<td class="px-3 py-2 text-right">${fmt$(v)}</td>`; }).join('');
@@ -375,7 +423,6 @@
         body.appendChild(tr);
       };
 
-      // Build rows
       row('Revenue',   mk => safe(revenueMonth[mk]));
       row('Labor',     mk => safe((costsMonth[mk]||{}).labor));
       row('Equip',     mk => safe((costsMonth[mk]||{}).equip));
@@ -398,99 +445,76 @@
         `Revenue model: ${({unit:'Unit-based', tm:'T&M', fixed_price:'Fixed Price', cost_plus:'Cost-Plus Fee'})[project.revenue_model] || project.revenue_model}`;
     }
 
-    // ---- LOAD AUX LISTS for forms ----
+    // ---- PLAN FORMS ----
+    function setMsg(el, text, ok=true) { el.textContent = text; el.className = `text-xs mt-2 ${ok?'text-emerald-700':'text-red-600'}`; }
+
+    async function savePlanCosts(projectId, cutoff) {
+      const ym = document.getElementById('planCostsMonth').value;
+      const month = monthStartFromInput(ym);
+      const labor = parseFloat(document.getElementById('planLabor').value||'0');
+      const equip = parseFloat(document.getElementById('planEquip').value||'0');
+      const mat   = parseFloat(document.getElementById('planMat').value||'0');
+      const subs  = parseFloat(document.getElementById('planSubs').value||'0');
+      const notes = document.getElementById('planNotes').value||null;
+      const msg   = document.getElementById('planCostsMsg');
+      if (!month) return setMsg(msg, 'Pick a Month (YYYY-MM).', false);
+      if (cutoff && cmpMonth(month, cutoff) <= 0) return setMsg(msg, 'That month is in Actuals range. Enter plan after the last actual month.', false);
+
+      const { error } = await client.from('plan_costs').upsert(
+        { project_id: projectId, month, labor_cost:labor, equip_cost:equip, mat_cost:mat, sub_cost:subs, notes },
+        { onConflict: 'project_id,month' }
+      );
+      if (error) return setMsg(msg, `Error: ${error.message}`, false);
+      setMsg(msg, 'Plan costs saved.'); await loadAll(projectId);
+    }
+
+    async function savePlanProg(projectId, cutoff) {
+      const ym = document.getElementById('planProgMonth').value;
+      const month = monthStartFromInput(ym);
+      const act  = document.getElementById('planProgActivity').value;
+      const qty  = parseFloat(document.getElementById('planProgQty').value||'0');
+      const msg  = document.getElementById('planProgMsg');
+      if (!month || !act || qty<=0) return setMsg(msg, 'Enter month, activity, and positive qty.', false);
+      if (cutoff && cmpMonth(month, cutoff) <= 0) return setMsg(msg, 'That month is in Actuals range. Enter plan after the last actual month.', false);
+
+      const { error } = await client.from('plan_progress').insert({ project_id: projectId, month, activity_code: act, qty_planned: qty });
+      if (error) return setMsg(msg, `Error: ${error.message}`, false);
+      setMsg(msg, 'Planned progress saved.'); await loadAll(projectId);
+    }
+
+    // ---- MAIN LOAD ----
     async function loadActivitiesInto(selectId) {
       const { data } = await client.from('activities_catalog').select('activity_code, activity_name').order('activity_code');
       const sel = document.getElementById(selectId); sel.innerHTML = '<option value="">Select…</option>';
       (data||[]).forEach(a => { const o=document.createElement('option'); o.value=a.activity_code; o.textContent=`${a.activity_code} — ${a.activity_name}`; sel.appendChild(o); });
     }
-    async function loadEquipmentInto(selectId) {
-      const { data } = await client.from('equipment').select('type').order('type');
-      const sel = document.getElementById(selectId); sel.innerHTML = '<option value="">Select…</option>';
-      (data||[]).forEach(e => { const o=document.createElement('option'); o.value=e.type; o.textContent=e.type; sel.appendChild(o); });
-    }
-    async function loadMaterialsInto(selectId) {
-      const { data } = await client.from('materials').select('sku, description').order('sku');
-      const sel = document.getElementById(selectId); sel.innerHTML = '<option value="">Select…</option>';
-      (data||[]).forEach(m => { const o=document.createElement('option'); o.value=m.sku; o.textContent=`${m.sku} — ${m.description}`; sel.appendChild(o); });
-    }
 
-    // ---- SAVE HANDLERS ----
-    function setMsg(el, text, ok=true) { el.textContent = text; el.className = `text-xs mt-2 ${ok?'text-emerald-700':'text-red-600'}`; }
-
-    async function addProgress(projectId) {
-      const dt = document.getElementById('prgDate').value;
-      const act= document.getElementById('prgActivity').value;
-      const qty= parseFloat(document.getElementById('prgQty').value||'0');
-      const msg= document.getElementById('prgMsg');
-      if (!dt || !act || qty<=0) return setMsg(msg, 'Please enter date, activity, and positive quantity.', false);
-      const { error } = await client.from('activity_progress').insert({ dt, project_id:projectId, activity_code:act, qty_completed:qty });
-      if (error) return setMsg(msg, `Error: ${error.message}`, false);
-      setMsg(msg, 'Progress added.'); await loadAll(projectId);
-    }
-    async function addLabor(projectId) {
-      const dt = document.getElementById('labDate').value;
-      const act= document.getElementById('labActivity').value;
-      const hrs= parseFloat(document.getElementById('labHours').value||'0');
-      const cost=parseFloat(document.getElementById('labCost').value||'0');
-      const msg= document.getElementById('labMsg');
-      if (!dt || !act || hrs<=0 || cost<=0) return setMsg(msg, 'Please enter date, activity, hours and cost.', false);
-      const { error } = await client.from('labor_actuals').insert({ dt, project_id:projectId, activity_code:act, hours:hrs, cost_snapshot:cost });
-      if (error) return setMsg(msg, `Error: ${error.message}`, false);
-      setMsg(msg, 'Labor actual added.'); await loadAll(projectId);
-    }
-    async function addEquip(projectId) {
-      const dt = document.getElementById('eqDate').value;
-      const act= document.getElementById('eqActivity').value;
-      const type=document.getElementById('eqType').value;
-      const hrs= parseFloat(document.getElementById('eqHours').value||'0');
-      const cost=parseFloat(document.getElementById('eqCost').value||'0');
-      const msg= document.getElementById('eqMsg');
-      if (!dt || !act || !type || hrs<=0 || cost<=0) return setMsg(msg, 'Enter date, activity, equipment, hours, and cost.', false);
-      const { error } = await client.from('equipment_actuals').insert({ dt, project_id:projectId, activity_code:act, equipment_type:type, hours:hrs, cost_snapshot:cost });
-      if (error) return setMsg(msg, `Error: ${error.message}`, false);
-      setMsg(msg, 'Equipment actual added.'); await loadAll(projectId);
-    }
-    async function addMat(projectId) {
-      const dt = document.getElementById('matDate').value;
-      const act= document.getElementById('matActivity').value;
-      const sku=document.getElementById('matSku').value;
-      const qty= parseFloat(document.getElementById('matQty').value||'0');
-      const cost=parseFloat(document.getElementById('matCost').value||'0');
-      const msg= document.getElementById('matMsg');
-      if (!dt || !act || !sku || qty<=0 || cost<=0) return setMsg(msg, 'Enter date, activity, material, qty, and cost.', false);
-      const { error } = await client.from('materials_actuals').insert({ dt, project_id:projectId, activity_code:act, sku, qty, cost_snapshot:cost });
-      if (error) return setMsg(msg, `Error: ${error.message}`, false);
-      setMsg(msg, 'Material actual added.'); await loadAll(projectId);
-    }
-    async function addSub(projectId) {
-      const dt = document.getElementById('subDate').value;
-      const act= document.getElementById('subActivity').value;
-      const cost=parseFloat(document.getElementById('subCost').value||'0');
-      const msg= document.getElementById('subMsg');
-      if (!dt || !act || cost<=0) return setMsg(msg, 'Enter date, activity, and cost.', false);
-      const { error } = await client.from('sub_actuals').insert({ dt, project_id:projectId, activity_code:act, cost });
-      if (error) return setMsg(msg, `Error: ${error.message}`, false);
-      setMsg(msg, 'Subcontract cost added.'); await loadAll(projectId);
-    }
-
-    // ---- MAIN LOAD ----
     async function loadAll(projectId) {
-      const project = await getProject(projectId); showProjectMeta(project);
-
-      const [baselineRows, progressRows, actuals, cfg] = await Promise.all([
-        getBaseline(projectId), getProgress(projectId), getActuals(projectId), getConfig()
+      const [project, cutoff, baselineRows, actuals, plan, cfg] = await Promise.all([
+        getProject(projectId),
+        getLastActualMonth(projectId),
+        getBaseline(projectId),
+        getActuals(projectId),
+        getPlan(projectId),
+        getConfig()
       ]);
+      showProjectMeta(project);
+      document.getElementById('actualsMeta').textContent =
+        `Actuals through: ${cutoff ? monthLabel(cutoff) : 'none'}. Plan begins after this month.`;
 
+      // maps & aggregates
       const maps = baselineMaps(baselineRows);
-      const prog = progressByMonth(progressRows);
-      const costsMonth = actualCostsByMonth(actuals);
-      const revenueMonth = await revenueByMonth(project, maps, {months:prog.months, byMonthAct:prog.byMonthAct}, actuals, cfg);
+      const actualProg = progressActualByMonth(actuals.progress);
+      const planProg   = planProgByMonth(plan.plan_prog);
+
+      const costsMonth = mergeCostsByCutover(actuals, plan.plan_costs, cutoff);
+      const revenueMonth = await revenueByMonth(project, maps, actualProg, planProg, actuals, plan.plan_costs, cfg, cutoff);
       const indirectsMonth = indirectsByMonth(costsMonth, cfg);
 
+      // KPIs (EV uses actuals only; AC uses actuals only)
       const BAC = maps.BAC;
-      const AC  = computeAC(costsMonth);
-      const EV  = computeEVtoDate(maps, {months:prog.months, byMonthAct:prog.byMonthAct});
+      const AC  = computeAC(actuals);
+      const EV  = computeEVtoDate(maps, actualProg);
       const CPI = (AC>0) ? (EV/AC) : null;
       const effCPI = (CPI==null || CPI<=0) ? 1 : Math.max(CPI, 0.70);
       const ETC = Math.max(0, BAC - EV) / effCPI;
@@ -498,31 +522,26 @@
       const VAC = BAC - EAC;
 
       renderKPIs({ BAC, AC, EV, CPI, ETC, EAC, VAC });
-      renderPLPivot(project, revenueMonth, costsMonth, indirectsMonth);
+      renderPLPivot(project, revenueMonth, costsMonth, indirectsMonth, cutoff);
     }
 
     // ---- INIT ----
     window.addEventListener('DOMContentLoaded', async () => {
       const firstId = await loadProjects();
-
-      // Load dropdown options for forms
-      await Promise.all([
-        loadActivitiesInto('prgActivity'),
-        loadActivitiesInto('labActivity'),
-        loadActivitiesInto('eqActivity'),
-        loadEquipmentInto('eqType'),
-        loadActivitiesInto('matActivity'),
-        loadMaterialsInto('matSku'),
-        loadActivitiesInto('subActivity'),
-      ]);
+      await loadActivitiesInto('planProgActivity');
 
       // Buttons
       document.getElementById('refreshBtn').addEventListener('click', async () => loadAll(document.getElementById('projectSelect').value));
-      document.getElementById('btnAddProgress').addEventListener('click', async ()=> addProgress(document.getElementById('projectSelect').value));
-      document.getElementById('btnAddLabor').addEventListener('click', async ()=> addLabor(document.getElementById('projectSelect').value));
-      document.getElementById('btnAddEquip').addEventListener('click', async ()=> addEquip(document.getElementById('projectSelect').value));
-      document.getElementById('btnAddMat').addEventListener('click', async ()=> addMat(document.getElementById('projectSelect').value));
-      document.getElementById('btnAddSub').addEventListener('click', async ()=> addSub(document.getElementById('projectSelect').value));
+      document.getElementById('btnSavePlanCosts').addEventListener('click', async () => {
+        const pid = document.getElementById('projectSelect').value;
+        const cutoff = await getLastActualMonth(pid);
+        await savePlanCosts(pid, cutoff);
+      });
+      document.getElementById('btnSavePlanProg').addEventListener('click', async () => {
+        const pid = document.getElementById('projectSelect').value;
+        const cutoff = await getLastActualMonth(pid);
+        await savePlanProg(pid, cutoff);
+      });
 
       await loadAll(firstId || DEFAULT_PROJECT_ID);
     });
