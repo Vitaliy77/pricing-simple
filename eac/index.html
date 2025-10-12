@@ -1,550 +1,531 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>EAC Dashboard</title>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>EAC Planner</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body class="bg-gray-50">
   <!-- Header -->
   <header class="bg-white border-b">
-    <div class="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-      <h1 class="text-xl font-semibold">EAC Dashboard</h1>
-      <nav class="text-sm text-gray-500 space-x-4">
-        <a href="/" class="hover:text-gray-700">Pricing Tool</a>
-        <span class="text-gray-300">|</span>
-        <span class="text-gray-700 font-medium">EAC</span>
-      </nav>
+    <div class="max-w-6xl mx-auto px-5 py-4 flex items-center justify-between">
+      <h1 class="text-xl font-semibold">EAC Planner (Monthly)</h1>
+      <div class="text-xs text-gray-500">Plan labor, subs, equipment & materials by month</div>
     </div>
   </header>
 
-  <!-- Main -->
-  <main class="max-w-7xl mx-auto px-4 py-6 space-y-6">
-    <!-- Project picker + model -->
-    <section class="bg-white rounded-xl shadow-sm p-5">
-      <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
-        <div class="flex-1">
-          <label class="block text-xs text-gray-500 mb-1">Project</label>
-          <div class="flex gap-2">
-            <select id="projectSelect" class="border rounded-md p-2 w-full"></select>
-            <button id="refreshBtn" class="px-3 py-2 bg-gray-100 border rounded-md hover:bg-gray-200">Refresh</button>
-          </div>
-          <p id="projectMeta" class="text-xs text-gray-500 mt-1"></p>
-          <p id="actualsMeta" class="text-xs text-gray-500"></p>
-        </div>
-        <div>
-          <label class="block text-xs text-gray-500 mb-1">Revenue Model</label>
-          <span id="revModelBadge" class="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium bg-blue-50 text-blue-700">—</span>
-        </div>
+  <!-- Controls -->
+  <main class="max-w-6xl mx-auto px-5 py-6 space-y-6">
+    <section class="bg-white rounded-xl shadow-sm p-5 flex items-end gap-4">
+      <div>
+        <label class="block text-sm text-gray-600 mb-1">Month</label>
+        <input id="monthPicker" type="month" class="border rounded-md p-2"
+               value="2025-10"/>
       </div>
+      <div class="grow"></div>
+      <button id="refreshBtn" class="px-4 py-2 rounded-md bg-slate-600 text-white hover:bg-slate-700">
+        Load / Refresh
+      </button>
+      <span id="status" class="text-sm text-slate-500"></span>
     </section>
 
-    <!-- KPIs -->
-    <section class="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-4">
-      <div class="bg-white rounded-xl shadow-sm p-4"><div class="text-xs text-gray-500">BAC</div><div id="kpiBAC" class="text-lg font-semibold">$0</div></div>
-      <div class="bg-white rounded-xl shadow-sm p-4"><div class="text-xs text-gray-500">AC (to date)</div><div id="kpiAC" class="text-lg font-semibold">$0</div></div>
-      <div class="bg-white rounded-xl shadow-sm p-4"><div class="text-xs text-gray-500">EV</div><div id="kpiEV" class="text-lg font-semibold">$0</div></div>
-      <div class="bg-white rounded-xl shadow-sm p-4"><div class="text-xs text-gray-500">CPI</div><div id="kpiCPI" class="text-lg font-semibold">—</div></div>
-      <div class="bg-white rounded-xl shadow-sm p-4"><div class="text-xs text-gray-500">ETC (CPI)</div><div id="kpiETC" class="text-lg font-semibold">$0</div></div>
-      <div class="bg-white rounded-xl shadow-sm p-4"><div class="text-xs text-gray-500">EAC</div><div id="kpiEAC" class="text-lg font-semibold">$0</div></div>
-      <div class="bg-white rounded-xl shadow-sm p-4"><div class="text-xs text-gray-500">VAC</div><div id="kpiVAC" class="text-lg font-semibold">$0</div></div>
-      <div class="bg-white rounded-xl shadow-sm p-4"><div class="text-xs text-gray-500">% Complete (EV/BAC)</div><div id="kpiPct" class="text-lg font-semibold">0%</div></div>
-    </section>
-
-    <!-- PLAN entry (future months) -->
-    <section class="bg-white rounded-xl shadow-sm p-5">
-      <details open>
-        <summary class="cursor-pointer text-lg font-semibold">Plan Entry (Future Months)</summary>
-        <p class="text-xs text-gray-500 mt-1">Actuals are read-only (fed by ERP). Enter plan values for months after the last actual month.</p>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 mt-4">
-          <!-- Plan Costs -->
-          <div class="border rounded-lg p-4">
-            <h3 class="font-semibold mb-2">Monthly Plan Costs</h3>
-            <label class="block text-xs text-gray-600">Month</label>
-            <input id="planCostsMonth" type="month" class="border rounded p-2 w-full mb-2">
-            <div class="grid grid-cols-2 gap-3">
-              <div>
-                <label class="block text-xs text-gray-600">Labor ($)</label>
-                <input id="planLabor" type="number" step="0.01" class="border rounded p-2 w-full mb-2">
-              </div>
-              <div>
-                <label class="block text-xs text-gray-600">Equip ($)</label>
-                <input id="planEquip" type="number" step="0.01" class="border rounded p-2 w-full mb-2">
-              </div>
-              <div>
-                <label class="block text-xs text-gray-600">Materials ($)</label>
-                <input id="planMat" type="number" step="0.01" class="border rounded p-2 w-full mb-2">
-              </div>
-              <div>
-                <label class="block text-xs text-gray-600">Subs ($)</label>
-                <input id="planSubs" type="number" step="0.01" class="border rounded p-2 w-full mb-2">
-              </div>
-            </div>
-            <label class="block text-xs text-gray-600">Notes</label>
-            <input id="planNotes" type="text" class="border rounded p-2 w-full mb-3" placeholder="Optional">
-            <button id="btnSavePlanCosts" class="bg-blue-600 text-white px-3 py-2 rounded hover:bg-blue-700">Save Plan Costs</button>
-            <div id="planCostsMsg" class="text-xs mt-2"></div>
-          </div>
-
-          <!-- Planned Progress -->
-          <div class="border rounded-lg p-4">
-            <h3 class="font-semibold mb-2">Monthly Planned Progress (Unit Model / Fixed-Price % Complete)</h3>
-            <label class="block text-xs text-gray-600">Month</label>
-            <input id="planProgMonth" type="month" class="border rounded p-2 w-full mb-2">
-            <label class="block text-xs text-gray-600">Activity</label>
-            <select id="planProgActivity" class="border rounded p-2 w-full mb-2"></select>
-            <label class="block text-xs text-gray-600">Qty Planned</label>
-            <input id="planProgQty" type="number" step="0.01" class="border rounded p-2 w-full mb-3">
-            <button id="btnSavePlanProg" class="bg-emerald-600 text-white px-3 py-2 rounded hover:bg-emerald-700">Save Planned Progress</button>
-            <div id="planProgMsg" class="text-xs mt-2"></div>
-          </div>
-        </div>
-      </details>
-    </section>
-
-    <!-- Monthly P&L (pivot: months = columns, line items = rows) -->
-    <section class="bg-white rounded-xl shadow-sm p-5">
+    <!-- LABOR -->
+    <section class="bg-white rounded-xl shadow-sm p-5 space-y-3">
       <div class="flex items-center justify-between">
-        <h2 class="text-lg font-semibold">Monthly P&amp;L</h2>
-        <div class="text-xs text-gray-500" id="plHint"></div>
+        <h2 class="text-lg font-semibold">Plan: Labor (by Employee)</h2>
+        <button id="addLaborRow" class="px-3 py-1.5 rounded-md border hover:bg-slate-50">+ Add row</button>
       </div>
-      <div class="overflow-x-auto mt-3">
+      <div class="overflow-x-auto">
         <table class="min-w-full text-sm">
-          <thead class="text-xs text-gray-500 bg-gray-50" id="plHead"></thead>
-          <tbody id="plBodyPivot" class="divide-y"></tbody>
-          <tfoot class="bg-gray-50" id="plFootPivot"></tfoot>
+          <thead class="text-left text-gray-600 border-b">
+            <tr>
+              <th class="py-2 pr-3">Employee</th>
+              <th class="py-2 pr-3">Role</th>
+              <th class="py-2 pr-3">Loaded Rate</th>
+              <th class="py-2 pr-3">Override Rate</th>
+              <th class="py-2 pr-3">Hours</th>
+              <th class="py-2 pr-3">Cost (calc)</th>
+              <th class="py-2 pr-3"></th>
+            </tr>
+          </thead>
+          <tbody id="laborTbody"></tbody>
         </table>
+      </div>
+      <div class="flex items-center gap-3">
+        <button id="saveLabor" class="px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700">Save Labor Plan</button>
+        <span id="laborMsg" class="text-sm text-slate-500"></span>
+      </div>
+    </section>
+
+    <!-- SUBS -->
+    <section class="bg-white rounded-xl shadow-sm p-5 space-y-3">
+      <div class="flex items-center justify-between">
+        <h2 class="text-lg font-semibold">Plan: Subcontractors</h2>
+        <button id="addSubRow" class="px-3 py-1.5 rounded-md border hover:bg-slate-50">+ Add row</button>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-sm">
+          <thead class="text-left text-gray-600 border-b">
+            <tr>
+              <th class="py-2 pr-3">Vendor</th>
+              <th class="py-2 pr-3">Cost</th>
+              <th class="py-2 pr-3">Note</th>
+              <th class="py-2 pr-3"></th>
+            </tr>
+          </thead>
+          <tbody id="subsTbody"></tbody>
+        </table>
+      </div>
+      <div class="flex items-center gap-3">
+        <button id="saveSubs" class="px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700">Save Subs Plan</button>
+        <span id="subsMsg" class="text-sm text-slate-500"></span>
+      </div>
+    </section>
+
+    <!-- EQUIPMENT -->
+    <section class="bg-white rounded-xl shadow-sm p-5 space-y-3">
+      <div class="flex items-center justify-between">
+        <h2 class="text-lg font-semibold">Plan: Equipment</h2>
+        <button id="addEquipRow" class="px-3 py-1.5 rounded-md border hover:bg-slate-50">+ Add row</button>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-sm">
+          <thead class="text-left text-gray-600 border-b">
+            <tr>
+              <th class="py-2 pr-3">Equipment</th>
+              <th class="py-2 pr-3">Rate (unit)</th>
+              <th class="py-2 pr-3">Hours</th>
+              <th class="py-2 pr-3">Cost (calc)</th>
+              <th class="py-2 pr-3"></th>
+            </tr>
+          </thead>
+          <tbody id="equipTbody"></tbody>
+        </table>
+      </div>
+      <div class="flex items-center gap-3">
+        <button id="saveEquip" class="px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700">Save Equipment Plan</button>
+        <span id="equipMsg" class="text-sm text-slate-500"></span>
+      </div>
+    </section>
+
+    <!-- MATERIALS -->
+    <section class="bg-white rounded-xl shadow-sm p-5 space-y-3">
+      <div class="flex items-center justify-between">
+        <h2 class="text-lg font-semibold">Plan: Materials</h2>
+        <button id="addMatRow" class="px-3 py-1.5 rounded-md border hover:bg-slate-50">+ Add row</button>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-sm">
+          <thead class="text-left text-gray-600 border-b">
+            <tr>
+              <th class="py-2 pr-3">SKU</th>
+              <th class="py-2 pr-3">Unit Cost (incl waste)</th>
+              <th class="py-2 pr-3">Qty</th>
+              <th class="py-2 pr-3">Cost (calc)</th>
+              <th class="py-2 pr-3"></th>
+            </tr>
+          </thead>
+          <tbody id="matTbody"></tbody>
+        </table>
+      </div>
+      <div class="flex items-center gap-3">
+        <button id="saveMat" class="px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700">Save Materials Plan</button>
+        <span id="matMsg" class="text-sm text-slate-500"></span>
       </div>
     </section>
   </main>
 
   <script>
-    // ---- CONFIG ----
-    const supabaseUrl = 'https://yonpinjixytqooqyyzdh.supabase.co';
-    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlvbnBpbmppeHl0cW9vcXl5emRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkzNjkwMzIsImV4cCI6MjA3NDk0NTAzMn0.8g9iNl4kmIm77u7TT8cylgcV872D45pzZGHJWBnZBGo';
-    const client = window.supabase.createClient(supabaseUrl, supabaseKey);
-    const DEFAULT_PROJECT_ID = 'bd5e7f00-ed56-4596-8414-62679107cae7';
+  // ====== CONFIG ======
+  const SUPABASE_URL = 'https://yonpinjixytqooqyyzdh.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlvbnBpbmppeHl0cW9vcXl5emRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkzNjkwMzIsImV4cCI6MjA3NDk0NTAzMn0.8g9iNl4kmIm77u7TT8cylgcV872D45pzZGHJWBnZBGo';
+  const PROJECT_ID = 'bd5e7f00-ed56-4596-8414-62679107cae7';
 
-    // ---- HELPERS ----
-    const fmt$ = (n) => (isFinite(n) ? n : 0).toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
-    const monthKey = (d) => { const dt = new Date(d); return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth()+1).padStart(2,'0')}-01`; };
-    const monthLabel = (key) => { const [y,m] = key.split('-').map(Number); return new Date(Date.UTC(y, m-1, 1)).toLocaleString(undefined,{ month:'short', year:'numeric' }); };
-    const sum = (arr, fn = (x)=>x) => arr.reduce((a,b)=>a + (fn(b)||0), 0);
-    const safe = (x) => (x==null || isNaN(x)) ? 0 : Number(x);
-    const monthStartFromInput = (ym) => ym && /^\d{4}-\d{2}$/.test(ym) ? `${ym}-01` : null;
-    const cmpMonth = (a,b) => a.localeCompare(b); // strings "YYYY-MM-01" compare lexicographically
+  const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    // ---- PROJECTS ----
-    async function loadProjects() {
-      const sel = document.getElementById('projectSelect');
-      sel.innerHTML = '';
-      const { data, error } = await client.from('projects').select('id, name, revenue_model, funding_ceiling, fee_pct').order('name');
-      if (error) { console.error(error); return; }
-      data.forEach(p => { const opt = document.createElement('option'); opt.value = p.id; opt.textContent = p.name; sel.appendChild(opt); });
-      sel.value = data.find(p => p.id === DEFAULT_PROJECT_ID)?.id || (data[0]?.id ?? '');
-      sel.addEventListener('change', () => loadAll(sel.value));
-      showProjectMeta(data.find(p => p.id === sel.value));
-      return sel.value;
-    }
-    function showProjectMeta(p) {
-      const m = document.getElementById('projectMeta');
-      const badge = document.getElementById('revModelBadge');
-      if (!p) { m.textContent = ''; badge.textContent='—'; return; }
-      m.textContent = `Funding Ceiling: ${p.funding_ceiling ? fmt$(p.funding_ceiling) : 'n/a'} • Fee%: ${p.fee_pct ? (p.fee_pct*100).toFixed(1)+'%' : '0%'}`;
-      const label = {unit:'Unit-based', tm:'Time & Materials', fixed_price:'Fixed Price', cost_plus:'Cost-Plus Fee'}[p.revenue_model] || p.revenue_model;
-      badge.textContent = label;
-    }
-    async function getProject(projectId) {
-      const { data } = await client.from('projects').select('id, name, revenue_model, funding_ceiling, fee_pct').eq('id', projectId).maybeSingle();
-      return data;
-    }
-    async function getLastActualMonth(projectId) {
-      const { data } = await client.from('v_last_actual_month').select('last_actual_month').eq('project_id', projectId).maybeSingle();
-      return data?.last_actual_month ? monthKey(data.last_actual_month) : null;
-    }
+  // ====== CATALOG CACHES ======
+  let rolesRate = {};           // role -> loaded_rate
+  let employees = [];           // [{id, full_name, role}]
+  let vendors = [];             // [{id, name}]
+  let equipmentList = [];       // [{equip_type, rate, rate_unit}]
+  let materialsList = [];       // [{sku, description, unit_cost, waste_pct}]
 
-    // ---- BASELINE / PROGRESS / ACTUALS / PLAN ----
-    async function getBaseline(projectId) {
-      const { data } = await client.from('estimate_items')
-        .select('activity_code, quantity, total_price')
-        .eq('project_id', projectId);
-      return data || [];
-    }
-    async function getActuals(projectId) {
-      const grab = async (table, cols) => {
-        const { data } = await client.from(table).select(cols).eq('project_id', projectId);
-        return data || [];
-      };
-      return {
-        labor:     await grab('labor_actuals',     'dt, hours, cost_snapshot'),
-        equip:     await grab('equipment_actuals', 'dt, hours, cost_snapshot'),
-        materials: await grab('materials_actuals', 'dt, qty, cost_snapshot'),
-        subs:      await grab('sub_actuals',       'dt, cost'),
-        progress:  await grab('activity_progress', 'dt, activity_code, qty_completed')
-      };
-    }
-    async function getPlan(projectId) {
-      const { data: pc } = await client.from('plan_costs').select('month, labor_cost, equip_cost, mat_cost, sub_cost').eq('project_id', projectId);
-      const { data: pp } = await client.from('plan_progress').select('month, activity_code, qty_planned').eq('project_id', projectId);
-      return { plan_costs: pc || [], plan_prog: pp || [] };
-    }
-    async function getConfig() {
-      const cfg = { fringe:0.35, oh:0.10, gna:0.08, matMarkup:0, subMarkup:0 };
-      const { data:ind } = await client.from('indirect_rates').select('*').limit(1).maybeSingle();
-      if (ind) { cfg.fringe = safe(ind.fringe_pct); cfg.oh = safe(ind.overhead_pct); cfg.gna = safe(ind.gna_pct); }
-      const { data:bm } = await client.from('billing_markups').select('*').limit(1).maybeSingle();
-      if (bm) { cfg.matMarkup = safe(bm.materials_markup_pct); cfg.subMarkup = safe(bm.subs_markup_pct); }
-      return cfg;
-    }
+  // ====== HELPERS ======
+  const $ = sel => document.querySelector(sel);
+  const $$ = sel => Array.from(document.querySelectorAll(sel));
+  const monthToDate = (ym) => `${ym}-01`;
 
-    // ---- MAPS / CALCS ----
-    function baselineMaps(rows) {
-      const perAct = {};
-      rows.forEach(r => {
-        const qty = safe(r.quantity), price = safe(r.total_price);
-        perAct[r.activity_code] ||= { qty:0, price:0 };
-        perAct[r.activity_code].qty += qty; perAct[r.activity_code].price += price;
-      });
-      const unitRate = {};
-      Object.entries(perAct).forEach(([act, agg]) => unitRate[act] = agg.qty > 0 ? agg.price/agg.qty : 0);
-      return { perAct, unitRate, BAC: sum(Object.values(perAct), v => v.price) };
-    }
-    function progressActualByMonth(actualsProgress) {
-      const monthAct = {}; // {month: {act: {monthQty,cumQty}}}
-      const raw = {};
-      actualsProgress.forEach(r => { const mk = monthKey(r.dt); raw[mk] ||= {}; raw[mk][r.activity_code] = (raw[mk][r.activity_code]||0) + safe(r.qty_completed); });
-      const months = Object.keys(raw).sort(cmpMonth);
-      const cum = {};
-      months.forEach(mk => {
-        monthAct[mk] = {};
-        Object.entries(raw[mk]).forEach(([act, qty]) => { cum[act]=(cum[act]||0)+qty; monthAct[mk][act]={monthQty:qty,cumQty:cum[act]}; });
-      });
-      return { months, monthAct };
-    }
-    function planProgByMonth(planProg) {
-      const raw = {};
-      planProg.forEach(r => { const mk = monthKey(r.month); raw[mk] ||= {}; raw[mk][r.activity_code] = (raw[mk][r.activity_code]||0) + safe(r.qty_planned); });
-      const months = Object.keys(raw).sort(cmpMonth);
-      return { months, raw }; // raw: {month:{act:qty}}
-    }
-    function actualCostsByMonth(actuals) {
-      const acc = {}; // {month:{labor,equip,mat,subs}}
-      const bump = (mk,k,v)=>{ acc[mk] ||= {labor:0,equip:0,mat:0,subs:0}; acc[mk][k]+=safe(v); };
-      actuals.labor.forEach(r=>bump(monthKey(r.dt),'labor',r.cost_snapshot));
-      actuals.equip.forEach(r=>bump(monthKey(r.dt),'equip',r.cost_snapshot));
-      actuals.materials.forEach(r=>bump(monthKey(r.dt),'mat',r.cost_snapshot));
-      actuals.subs.forEach(r=>bump(monthKey(r.dt),'subs',r.cost));
-      return acc;
-    }
-    function planCostsByMonth(plan_costs) {
-      const acc = {}; // {month:{labor,equip,mat,subs}}
-      plan_costs.forEach(r=>{
-        const mk = monthKey(r.month);
-        acc[mk] ||= {labor:0,equip:0,mat:0,subs:0};
-        acc[mk].labor += safe(r.labor_cost);
-        acc[mk].equip += safe(r.equip_cost);
-        acc[mk].mat   += safe(r.mat_cost);
-        acc[mk].subs  += safe(r.sub_cost);
-      });
-      return acc;
+  function formatMoney(x){ return `$${(Number(x||0)).toFixed(2)}`; }
+
+  // ====== LOAD LOOKUPS ======
+  async function loadLookups(){
+    // labor roles -> loaded rate
+    const { data: lr, error: lrErr } = await client.from('labor_roles')
+      .select('role, base_rate, burden_pct');
+    if (lrErr) throw lrErr;
+    rolesRate = {};
+    lr.forEach(r => rolesRate[r.role] = +(r.base_rate * (1 + r.burden_pct)).toFixed(2));
+
+    // employees
+    const { data: emp, error: eErr } = await client
+      .from('employees')
+      .select('id, full_name, role')
+      .eq('is_active', true);
+    if (eErr) throw eErr;
+    employees = emp || [];
+
+    // subs
+    const { data: subs, error: sErr } = await client
+      .from('sub_vendors').select('id, name').order('name', {ascending:true});
+    if (sErr) throw sErr;
+    vendors = subs || [];
+
+    // equipment
+    const { data: eq, error: eqErr } = await client
+      .from('equipment').select('equip_type, rate, rate_unit').order('equip_type');
+    if (eqErr) throw eqErr;
+    equipmentList = eq || [];
+
+    // materials
+    const { data: mat, error: mErr } = await client
+      .from('materials').select('sku, description, unit_cost, waste_pct').order('sku');
+    if (mErr) throw mErr;
+    materialsList = mat || [];
+  }
+
+  // ====== ROW BUILDERS ======
+  function makeLaborRow(row = {}){
+    const tr = document.createElement('tr');
+    tr.className = 'border-b last:border-0';
+
+    const empSel = document.createElement('select');
+    empSel.className = 'border rounded-md p-1.5 w-56';
+    empSel.innerHTML = `<option value="">Select employee</option>` +
+      employees.map(e => `<option value="${e.id}">${e.full_name}</option>`).join('');
+    empSel.value = row.employee_id || '';
+    empSel.onchange = () => {
+      const e = employees.find(x => x.id === empSel.value);
+      roleTd.textContent = e ? e.role : '';
+      const r = e ? rolesRate[e.role] || 0 : 0;
+      rateTd.textContent = formatMoney(r);
+      recalcLaborRow();
+    };
+
+    const roleTd = document.createElement('td');
+    roleTd.className = 'py-2 pr-3 text-slate-700';
+    roleTd.textContent = (employees.find(e=>e.id===row.employee_id)?.role) || '';
+
+    const rateTd = document.createElement('td');
+    rateTd.className = 'py-2 pr-3';
+    rateTd.textContent = formatMoney(rolesRate[roleTd.textContent] || 0);
+
+    const overrideInput = document.createElement('input');
+    overrideInput.type = 'number'; overrideInput.step = '0.01';
+    overrideInput.className = 'border rounded-md p-1.5 w-28';
+    overrideInput.value = row.override_rate ?? '';
+    overrideInput.oninput = recalcLaborRow;
+
+    const hoursInput = document.createElement('input');
+    hoursInput.type = 'number'; hoursInput.step = '0.01';
+    hoursInput.className = 'border rounded-md p-1.5 w-24';
+    hoursInput.value = row.hours ?? '';
+    hoursInput.oninput = recalcLaborRow;
+
+    const costTd = document.createElement('td');
+    costTd.className = 'py-2 pr-3 font-medium';
+    costTd.textContent = '$0.00';
+
+    const delBtn = document.createElement('button');
+    delBtn.className = 'px-2 py-1 rounded-md border text-red-600 hover:bg-red-50';
+    delBtn.textContent = 'Remove';
+    delBtn.onclick = () => tr.remove();
+
+    function recalcLaborRow(){
+      const emp = employees.find(x => x.id === empSel.value);
+      const role = emp ? emp.role : '';
+      const baseRate = rolesRate[role] || 0;
+      const rate = Number(overrideInput.value || baseRate);
+      const hours = Number(hoursInput.value || 0);
+      costTd.textContent = formatMoney(rate * hours);
     }
 
-    function monthsUnion({ actualProg, planProg, actualCosts, planCosts, cutoff }) {
-      const s = new Set();
-      Object.keys(actualProg.monthAct||{}).forEach(mk=>s.add(mk));
-      Object.keys(actualCosts||{}).forEach(mk=>s.add(mk));
-      Object.keys(planProg.raw||{}).forEach(mk=>s.add(mk));
-      Object.keys(planCosts||{}).forEach(mk=>s.add(mk));
-      // If nothing yet, pad current year Jan–Sep to help early demos
-      if (s.size === 0) {
-        const now = new Date();
-        const year = now.getUTCFullYear();
-        for (let m=0; m<9; m++) s.add(`${year}-${String(m+1).padStart(2,'0')}-01`);
-      }
-      return Array.from(s).sort(cmpMonth);
-    }
+    tr.innerHTML = '';
+    const tds = [
+      tdWrap(empSel), roleTd, rateTd, tdWrap(overrideInput),
+      tdWrap(hoursInput), costTd, tdWrap(delBtn)
+    ];
+    tds.forEach(td => tr.appendChild(td));
 
-    async function revenueByMonth(project, maps, actualProg, planProg, actuals, planCosts, cfg, cutoff) {
-      const acc = {};
-      const model = project.revenue_model;
+    // helper
+    function tdWrap(el){ const td = document.createElement('td'); td.className='py-2 pr-3'; td.appendChild(el); return td; }
 
-      // helper to decide if month is actual or plan
-      const isActual = (mk) => !cutoff ? false : (cmpMonth(mk, cutoff) <= 0);
+    // hydrate once
+    empSel.dispatchEvent(new Event('change'));
+    return tr;
+  }
 
-      if (model === 'unit') {
-        // actual months: use actual progress; plan months: plan progress
-        const months = monthsUnion({ actualProg, planProg, actualCosts:{}, planCosts:{}, cutoff });
-        months.forEach(mk=>{
-          let rev = 0;
-          if (isActual(mk)) {
-            const acts = actualProg.monthAct[mk] || {};
-            Object.entries(acts).forEach(([act, info]) => rev += (maps.unitRate[act]||0) * info.monthQty);
-          } else {
-            const acts = planProg.raw[mk] || {};
-            Object.entries(acts).forEach(([act, qty]) => rev += (maps.unitRate[act]||0) * safe(qty));
-          }
-          acc[mk] = rev;
-        });
+  function makeSubRow(row = {}){
+    const tr = document.createElement('tr');
+    tr.className = 'border-b last:border-0';
 
-      } else if (model === 'tm') {
-        // actual: revenue ~= actual direct + markups on mats/subs already accounted in actuals calc (we'll just take actual direct total)
-        // plan: revenue = plan costs + markups on materials/subs
-        const aCosts = actualCostsByMonth(actuals);
-        const pCosts = planCostsByMonth(planCosts);
-        const months = monthsUnion({ actualProg, planProg, actualCosts:aCosts, planCosts:pCosts, cutoff });
-        months.forEach(mk=>{
-          if (isActual(mk)) {
-            const c = aCosts[mk] || {labor:0,equip:0,mat:0,subs:0};
-            acc[mk] = safe(c.labor)+safe(c.equip)+safe(c.mat)+safe(c.subs);
-          } else {
-            const c = pCosts[mk] || {labor:0,equip:0,mat:0,subs:0};
-            acc[mk] = safe(c.labor)+safe(c.equip)+safe(c.mat)*(1+cfg.matMarkup)+safe(c.subs)*(1+cfg.subMarkup);
-          }
-        });
+    const vendorSel = document.createElement('select');
+    vendorSel.className = 'border rounded-md p-1.5 w-56';
+    vendorSel.innerHTML = `<option value="">Select vendor</option>` +
+      vendors.map(v => `<option value="${v.id}">${v.name}</option>`).join('');
+    vendorSel.value = row.vendor_id || '';
 
-      } else if (model === 'fixed_price') {
-        // funding * % complete (cum). Build a combined cumulative by month using:
-        //  - actual progress through cutoff
-        //  - planned progress after cutoff
-        const fund = safe(project.funding_ceiling);
-        const months = monthsUnion({ actualProg, planProg, actualCosts:{}, planCosts:{}, cutoff });
-        let prevCumRev = 0;
-        // Build cum qty per act up to each month
-        const cumByAct = {};
-        months.forEach(mk=>{
-          // add actual or planned qty into cum
-          if (cutoff && cmpMonth(mk, cutoff) <= 0) {
-            const acts = actualProg.monthAct[mk] || {};
-            Object.entries(acts).forEach(([act, info]) => { cumByAct[act] = (cumByAct[act]||0) + safe(info.monthQty); });
-          } else {
-            const acts = planProg.raw[mk] || {};
-            Object.entries(acts).forEach(([act, qty]) => { cumByAct[act] = (cumByAct[act]||0) + safe(qty); });
-          }
-          // compute EV (money-weighted) at this month
-          let EVcum = 0;
-          Object.entries(cumByAct).forEach(([act, cumQty]) => {
-            const b = maps.perAct[act]; if (b && b.qty>0) EVcum += b.price * (cumQty / b.qty);
-          });
-          const pct = (maps.BAC>0) ? Math.min(Math.max(EVcum / maps.BAC, 0), 1) : 0;
-          const cumRev = fund * pct;
-          acc[mk] = cumRev - prevCumRev;
-          prevCumRev = cumRev;
-        });
+    const costInput = document.createElement('input');
+    costInput.type = 'number'; costInput.step = '0.01';
+    costInput.className = 'border rounded-md p-1.5 w-32';
+    costInput.value = row.cost ?? '';
 
-      } else if (model === 'cost_plus') {
-        // revenue = direct costs * (1 + fee_pct)
-        const fee = safe(project.fee_pct);
-        const aCosts = actualCostsByMonth(actuals);
-        const pCosts = planCostsByMonth(planCosts);
-        const months = monthsUnion({ actualProg, planProg, actualCosts:aCosts, planCosts:pCosts, cutoff });
-        months.forEach(mk=>{
-          const c = (cutoff && cmpMonth(mk, cutoff) <= 0) ? (aCosts[mk] || {}) : (pCosts[mk] || {});
-          const direct = safe(c.labor)+safe(c.equip)+safe(c.mat)+safe(c.subs);
-          acc[mk] = direct * (1 + fee);
-        });
-      }
-      return acc;
-    }
+    const noteInput = document.createElement('input');
+    noteInput.type = 'text'; noteInput.placeholder='(optional)';
+    noteInput.className = 'border rounded-md p-1.5 w-64';
+    noteInput.value = row.note ?? '';
 
-    function mergeCostsByCutover(actuals, planCosts, cutoff) {
-      const a = actualCostsByMonth(actuals);
-      const p = planCostsByMonth(planCosts);
-      const months = monthsUnion({ actualProg:{months:[],monthAct:{}}, planProg:{months:[],raw:{}}, actualCosts:a, planCosts:p, cutoff });
-      const out = {};
-      months.forEach(mk=>{
-        if (cutoff && cmpMonth(mk, cutoff) <= 0) {
-          out[mk] = a[mk] || {labor:0,equip:0,mat:0,subs:0};
-        } else {
-          out[mk] = p[mk] || {labor:0,equip:0,mat:0,subs:0};
-        }
-      });
-      return out;
-    }
-    function indirectsByMonth(costsMonth, cfg) {
-      const out = {};
-      Object.entries(costsMonth).forEach(([mk, c]) => {
-        const labor = safe(c.labor), direct = labor + safe(c.equip)+safe(c.mat)+safe(c.subs);
-        out[mk] = { fringe: labor*cfg.fringe, oh: direct*cfg.oh, gna: direct*cfg.gna };
-      });
-      return out;
-    }
-    function computeAC(actuals) {
-      const a = actualCostsByMonth(actuals);
-      let t=0; Object.values(a).forEach(c=>{ t += safe(c.labor)+safe(c.equip)+safe(c.mat)+safe(c.subs); }); return t;
-    }
-    function computeEVtoDate(maps, actualProg) {
-      // EV to date uses latest actual month only (not plan)
-      const months = actualProg.months;
-      if (!months.length) return 0;
-      const last = months[months.length-1];
-      const acts = actualProg.monthAct[last] || {};
-      let EV=0; Object.entries(acts).forEach(([act, info]) => { const b = maps.perAct[act]; if (b && b.qty>0) EV += b.price * (info.cumQty / b.qty); });
-      return EV;
-    }
+    const delBtn = document.createElement('button');
+    delBtn.className = 'px-2 py-1 rounded-md border text-red-600 hover:bg-red-50';
+    delBtn.textContent = 'Remove';
+    delBtn.onclick = () => tr.remove();
 
-    // ---- RENDER: KPIs ----
-    function renderKPIs({ BAC, AC, EV, CPI, ETC, EAC, VAC }) {
-      document.getElementById('kpiBAC').textContent = fmt$(BAC);
-      document.getElementById('kpiAC').textContent  = fmt$(AC);
-      document.getElementById('kpiEV').textContent  = fmt$(EV);
-      document.getElementById('kpiCPI').textContent = (CPI && isFinite(CPI)) ? CPI.toFixed(2) : '—';
-      document.getElementById('kpiETC').textContent = fmt$(ETC);
-      document.getElementById('kpiEAC').textContent = fmt$(EAC);
-      document.getElementById('kpiVAC').textContent = fmt$(VAC);
-      document.getElementById('kpiPct').textContent = (BAC>0) ? ((EV/BAC)*100).toFixed(1)+'%' : '0%';
-    }
-
-    // ---- RENDER: P&L PIVOT ----
-    function renderPLPivot(project, revenueMonth, costsMonth, indirectsMonth, cutoff) {
-      const months = Array.from(new Set([
-        ...Object.keys(revenueMonth),
-        ...Object.keys(costsMonth)
-      ])).sort(cmpMonth);
-
-      const head = document.getElementById('plHead');
-      const body = document.getElementById('plBodyPivot');
-      const foot = document.getElementById('plFootPivot');
-      head.innerHTML = ''; body.innerHTML = ''; foot.innerHTML='';
-
-      const th = document.createElement('tr');
-      th.innerHTML = `<th class="text-left px-3 py-2">Line Item</th>`
-        + months.map(mk => `<th class="text-right px-3 py-2 ${cutoff && cmpMonth(mk,cutoff)<=0?'bg-blue-50':''}">${monthLabel(mk)}</th>`).join('')
-        + `<th class="text-right px-3 py-2">Total</th>`;
-      head.appendChild(th);
-
-      const row = (label, getter) => {
-        let total = 0;
-        const tds = months.map(mk => { const v = getter(mk); total += safe(v); return `<td class="px-3 py-2 text-right">${fmt$(v)}</td>`; }).join('');
-        const tr = document.createElement('tr');
-        tr.innerHTML = `<td class="px-3 py-2">${label}</td>${tds}<td class="px-3 py-2 text-right font-semibold">${fmt$(total)}</td>`;
-        body.appendChild(tr);
-      };
-
-      row('Revenue',   mk => safe(revenueMonth[mk]));
-      row('Labor',     mk => safe((costsMonth[mk]||{}).labor));
-      row('Equip',     mk => safe((costsMonth[mk]||{}).equip));
-      row('Materials', mk => safe((costsMonth[mk]||{}).mat));
-      row('Subs',      mk => safe((costsMonth[mk]||{}).subs));
-      row('Fringe',    mk => safe((indirectsMonth[mk]||{}).fringe));
-      row('Overhead',  mk => safe((indirectsMonth[mk]||{}).oh));
-      row('G&A',       mk => safe((indirectsMonth[mk]||{}).gna));
-
-      // Profit row
-      const profitGetter = mk => {
-        const rev = safe(revenueMonth[mk]);
-        const c   = costsMonth[mk] || {labor:0,equip:0,mat:0,subs:0};
-        const ind = indirectsMonth[mk] || {fringe:0,oh:0,gna:0};
-        return rev - (safe(c.labor)+safe(c.equip)+safe(c.mat)+safe(c.subs)) - (ind.fringe+ind.oh+ind.gna);
-      };
-      row('Profit', profitGetter);
-
-      document.getElementById('plHint').textContent =
-        `Revenue model: ${({unit:'Unit-based', tm:'T&M', fixed_price:'Fixed Price', cost_plus:'Cost-Plus Fee'})[project.revenue_model] || project.revenue_model}`;
-    }
-
-    // ---- PLAN FORMS ----
-    function setMsg(el, text, ok=true) { el.textContent = text; el.className = `text-xs mt-2 ${ok?'text-emerald-700':'text-red-600'}`; }
-
-    async function savePlanCosts(projectId, cutoff) {
-      const ym = document.getElementById('planCostsMonth').value;
-      const month = monthStartFromInput(ym);
-      const labor = parseFloat(document.getElementById('planLabor').value||'0');
-      const equip = parseFloat(document.getElementById('planEquip').value||'0');
-      const mat   = parseFloat(document.getElementById('planMat').value||'0');
-      const subs  = parseFloat(document.getElementById('planSubs').value||'0');
-      const notes = document.getElementById('planNotes').value||null;
-      const msg   = document.getElementById('planCostsMsg');
-      if (!month) return setMsg(msg, 'Pick a Month (YYYY-MM).', false);
-      if (cutoff && cmpMonth(month, cutoff) <= 0) return setMsg(msg, 'That month is in Actuals range. Enter plan after the last actual month.', false);
-
-      const { error } = await client.from('plan_costs').upsert(
-        { project_id: projectId, month, labor_cost:labor, equip_cost:equip, mat_cost:mat, sub_cost:subs, notes },
-        { onConflict: 'project_id,month' }
-      );
-      if (error) return setMsg(msg, `Error: ${error.message}`, false);
-      setMsg(msg, 'Plan costs saved.'); await loadAll(projectId);
-    }
-
-    async function savePlanProg(projectId, cutoff) {
-      const ym = document.getElementById('planProgMonth').value;
-      const month = monthStartFromInput(ym);
-      const act  = document.getElementById('planProgActivity').value;
-      const qty  = parseFloat(document.getElementById('planProgQty').value||'0');
-      const msg  = document.getElementById('planProgMsg');
-      if (!month || !act || qty<=0) return setMsg(msg, 'Enter month, activity, and positive qty.', false);
-      if (cutoff && cmpMonth(month, cutoff) <= 0) return setMsg(msg, 'That month is in Actuals range. Enter plan after the last actual month.', false);
-
-      const { error } = await client.from('plan_progress').insert({ project_id: projectId, month, activity_code: act, qty_planned: qty });
-      if (error) return setMsg(msg, `Error: ${error.message}`, false);
-      setMsg(msg, 'Planned progress saved.'); await loadAll(projectId);
-    }
-
-    // ---- MAIN LOAD ----
-    async function loadActivitiesInto(selectId) {
-      const { data } = await client.from('activities_catalog').select('activity_code, activity_name').order('activity_code');
-      const sel = document.getElementById(selectId); sel.innerHTML = '<option value="">Select…</option>';
-      (data||[]).forEach(a => { const o=document.createElement('option'); o.value=a.activity_code; o.textContent=`${a.activity_code} — ${a.activity_name}`; sel.appendChild(o); });
-    }
-
-    async function loadAll(projectId) {
-      const [project, cutoff, baselineRows, actuals, plan, cfg] = await Promise.all([
-        getProject(projectId),
-        getLastActualMonth(projectId),
-        getBaseline(projectId),
-        getActuals(projectId),
-        getPlan(projectId),
-        getConfig()
-      ]);
-      showProjectMeta(project);
-      document.getElementById('actualsMeta').textContent =
-        `Actuals through: ${cutoff ? monthLabel(cutoff) : 'none'}. Plan begins after this month.`;
-
-      // maps & aggregates
-      const maps = baselineMaps(baselineRows);
-      const actualProg = progressActualByMonth(actuals.progress);
-      const planProg   = planProgByMonth(plan.plan_prog);
-
-      const costsMonth = mergeCostsByCutover(actuals, plan.plan_costs, cutoff);
-      const revenueMonth = await revenueByMonth(project, maps, actualProg, planProg, actuals, plan.plan_costs, cfg, cutoff);
-      const indirectsMonth = indirectsByMonth(costsMonth, cfg);
-
-      // KPIs (EV uses actuals only; AC uses actuals only)
-      const BAC = maps.BAC;
-      const AC  = computeAC(actuals);
-      const EV  = computeEVtoDate(maps, actualProg);
-      const CPI = (AC>0) ? (EV/AC) : null;
-      const effCPI = (CPI==null || CPI<=0) ? 1 : Math.max(CPI, 0.70);
-      const ETC = Math.max(0, BAC - EV) / effCPI;
-      const EAC = AC + ETC;
-      const VAC = BAC - EAC;
-
-      renderKPIs({ BAC, AC, EV, CPI, ETC, EAC, VAC });
-      renderPLPivot(project, revenueMonth, costsMonth, indirectsMonth, cutoff);
-    }
-
-    // ---- INIT ----
-    window.addEventListener('DOMContentLoaded', async () => {
-      const firstId = await loadProjects();
-      await loadActivitiesInto('planProgActivity');
-
-      // Buttons
-      document.getElementById('refreshBtn').addEventListener('click', async () => loadAll(document.getElementById('projectSelect').value));
-      document.getElementById('btnSavePlanCosts').addEventListener('click', async () => {
-        const pid = document.getElementById('projectSelect').value;
-        const cutoff = await getLastActualMonth(pid);
-        await savePlanCosts(pid, cutoff);
-      });
-      document.getElementById('btnSavePlanProg').addEventListener('click', async () => {
-        const pid = document.getElementById('projectSelect').value;
-        const cutoff = await getLastActualMonth(pid);
-        await savePlanProg(pid, cutoff);
-      });
-
-      await loadAll(firstId || DEFAULT_PROJECT_ID);
+    [vendorSel, costInput, noteInput, delBtn].forEach((el, i) => {
+      const td = document.createElement('td'); td.className = 'py-2 pr-3'; td.appendChild(el); tr.appendChild(td);
     });
+    const tdEnd = document.createElement('td'); tdEnd.className='py-2 pr-3'; tr.appendChild(tdEnd);
+
+    return tr;
+  }
+
+  function makeEquipRow(row = {}){
+    const tr = document.createElement('tr');
+    tr.className = 'border-b last:border-0';
+
+    const equipSel = document.createElement('select');
+    equipSel.className = 'border rounded-md p-1.5 w-56';
+    equipSel.innerHTML = `<option value="">Select equipment</option>` +
+      equipmentList.map(e => `<option value="${e.equip_type}">${e.equip_type}</option>`).join('');
+    equipSel.value = row.equipment_type || '';
+
+    const rateTd = document.createElement('td'); rateTd.className = 'py-2 pr-3'; rateTd.textContent = '';
+
+    const hoursInput = document.createElement('input');
+    hoursInput.type = 'number'; hoursInput.step = '0.01';
+    hoursInput.className = 'border rounded-md p-1.5 w-24';
+    hoursInput.value = row.hours ?? '';
+
+    const costTd = document.createElement('td'); costTd.className = 'py-2 pr-3 font-medium'; costTd.textContent = '$0.00';
+
+    const delBtn = document.createElement('button');
+    delBtn.className = 'px-2 py-1 rounded-md border text-red-600 hover:bg-red-50';
+    delBtn.textContent = 'Remove';
+    delBtn.onclick = () => tr.remove();
+
+    equipSel.onchange = recalc;
+    hoursInput.oninput = recalc;
+
+    function recalc(){
+      const item = equipmentList.find(x => x.equip_type === equipSel.value);
+      const rt = item ? item.rate : 0;
+      const ru = item ? item.rate_unit : 'hour';
+      rateTd.textContent = `${formatMoney(rt)} / ${ru}`;
+      const hours = Number(hoursInput.value || 0);
+      // If unit is 'day', treat input as days; else hours.
+      const cost = hours * Number(rt || 0);
+      costTd.textContent = formatMoney(cost);
+    }
+
+    tr.appendChild(tdWrap(equipSel));
+    tr.appendChild(rateTd);
+    tr.appendChild(tdWrap(hoursInput));
+    tr.appendChild(costTd);
+    tr.appendChild(tdWrap(delBtn));
+    equipSel.dispatchEvent(new Event('change'));
+
+    function tdWrap(el){ const td=document.createElement('td'); td.className='py-2 pr-3'; td.appendChild(el); return td; }
+    return tr;
+  }
+
+  function makeMatRow(row = {}){
+    const tr = document.createElement('tr');
+    tr.className = 'border-b last:border-0';
+
+    const skuSel = document.createElement('select');
+    skuSel.className = 'border rounded-md p-1.5 w-64';
+    skuSel.innerHTML = `<option value="">Select material</option>` +
+      materialsList.map(m => `<option value="${m.sku}">${m.sku} — ${m.description}</option>`).join('');
+    skuSel.value = row.sku || '';
+
+    const unitTd = document.createElement('td'); unitTd.className = 'py-2 pr-3'; unitTd.textContent = '';
+
+    const qtyInput = document.createElement('input');
+    qtyInput.type = 'number'; qtyInput.step = '0.01';
+    qtyInput.className = 'border rounded-md p-1.5 w-24';
+    qtyInput.value = row.qty ?? '';
+
+    const costTd = document.createElement('td'); costTd.className = 'py-2 pr-3 font-medium'; costTd.textContent = '$0.00';
+
+    const delBtn = document.createElement('button');
+    delBtn.className = 'px-2 py-1 rounded-md border text-red-600 hover:bg-red-50';
+    delBtn.textContent = 'Remove';
+    delBtn.onclick = () => tr.remove();
+
+    skuSel.onchange = recalc;
+    qtyInput.oninput = recalc;
+
+    function recalc(){
+      const item = materialsList.find(x => x.sku === skuSel.value);
+      const unitCost = item ? (Number(item.unit_cost) * (1 + Number(item.waste_pct||0))) : 0;
+      unitTd.textContent = `${formatMoney(unitCost)} (incl waste)`;
+      const qty = Number(qtyInput.value || 0);
+      costTd.textContent = formatMoney(unitCost * qty);
+    }
+
+    tr.appendChild(tdWrap(skuSel));
+    tr.appendChild(unitTd);
+    tr.appendChild(tdWrap(qtyInput));
+    tr.appendChild(costTd);
+    tr.appendChild(tdWrap(delBtn));
+    skuSel.dispatchEvent(new Event('change'));
+
+    function tdWrap(el){ const td=document.createElement('td'); td.className='py-2 pr-3'; td.appendChild(el); return td; }
+    return tr;
+  }
+
+  // ====== ADD ROW BUTTONS ======
+  $('#addLaborRow').onclick  = () => $('#laborTbody').appendChild(makeLaborRow());
+  $('#addSubRow').onclick    = () => $('#subsTbody').appendChild(makeSubRow());
+  $('#addEquipRow').onclick  = () => $('#equipTbody').appendChild(makeEquipRow());
+  $('#addMatRow').onclick    = () => $('#matTbody').appendChild(makeMatRow());
+
+  // ====== SAVE HANDLERS (UPSERT) ======
+  async function saveLabor(){
+    const ym = monthToDate($('#monthPicker').value);
+    const rows = $$('#laborTbody tr');
+    const payload = rows.map(tr => {
+      const [empSel, , , overrideInput, hoursInput] = tr.querySelectorAll('select, input');
+      const employee_id = empSel?.value || null;
+      const hours = Number(hoursInput?.value || 0);
+      const override_rate = overrideInput?.value ? Number(overrideInput.value) : null;
+      if (!employee_id || hours <= 0) return null;
+      return { project_id: PROJECT_ID, ym, employee_id, hours, override_rate };
+    }).filter(Boolean);
+
+    if (payload.length === 0) { $('#laborMsg').textContent = 'Nothing to save.'; return; }
+
+    const { error } = await client.from('plan_labor').upsert(payload);
+    $('#laborMsg').textContent = error ? `Error: ${error.message}` : `Saved ${payload.length} row(s).`;
+  }
+
+  async function saveSubs(){
+    const ym = monthToDate($('#monthPicker').value);
+    const rows = $$('#subsTbody tr');
+    const payload = rows.map(tr => {
+      const [vendorSel, costInput, noteInput] = tr.querySelectorAll('select, input');
+      const vendor_id = vendorSel?.value || null;
+      const cost = Number(costInput?.value || 0);
+      const note = noteInput?.value || null;
+      if (!vendor_id || cost <= 0) return null;
+      return { project_id: PROJECT_ID, ym, vendor_id, cost, note };
+    }).filter(Boolean);
+
+    if (payload.length === 0) { $('#subsMsg').textContent = 'Nothing to save.'; return; }
+
+    const { error } = await client.from('plan_subs').upsert(payload);
+    $('#subsMsg').textContent = error ? `Error: ${error.message}` : `Saved ${payload.length} row(s).`;
+  }
+
+  async function saveEquip(){
+    const ym = monthToDate($('#monthPicker').value);
+    const rows = $$('#equipTbody tr');
+    const payload = rows.map(tr => {
+      const equip_type = tr.querySelector('select')?.value || null;
+      const hours = Number(tr.querySelector('input')?.value || 0);
+      if (!equip_type || hours <= 0) return null;
+      return { project_id: PROJECT_ID, ym, equipment_type: equip_type, hours };
+    }).filter(Boolean);
+
+    if (payload.length === 0) { $('#equipMsg').textContent = 'Nothing to save.'; return; }
+
+    const { error } = await client.from('plan_equipment').upsert(payload);
+    $('#equipMsg').textContent = error ? `Error: ${error.message}` : `Saved ${payload.length} row(s).`;
+  }
+
+  async function saveMat(){
+    const ym = monthToDate($('#monthPicker').value);
+    const rows = $$('#matTbody tr');
+    const payload = rows.map(tr => {
+      const sku = tr.querySelector('select')?.value || null;
+      const qty = Number(tr.querySelector('input')?.value || 0);
+      if (!sku || qty <= 0) return null;
+      return { project_id: PROJECT_ID, ym, sku, qty };
+    }).filter(Boolean);
+
+    if (payload.length === 0) { $('#matMsg').textContent = 'Nothing to save.'; return; }
+
+    const { error } = await client.from('plan_materials').upsert(payload);
+    $('#matMsg').textContent = error ? `Error: ${error.message}` : `Saved ${payload.length} row(s).`;
+  }
+
+  $('#saveLabor').onclick = saveLabor;
+  $('#saveSubs').onclick  = saveSubs;
+  $('#saveEquip').onclick = saveEquip;
+  $('#saveMat').onclick   = saveMat;
+
+  // ====== LOAD EXISTING PLAN FOR MONTH (optional convenience) ======
+  async function loadExistingPlanForMonth(){
+    const ym = monthToDate($('#monthPicker').value);
+    $('#laborTbody').innerHTML = '';
+    $('#subsTbody').innerHTML  = '';
+    $('#equipTbody').innerHTML = '';
+    $('#matTbody').innerHTML   = '';
+
+    // Labor
+    const { data: pl, error: plErr } = await client
+      .from('plan_labor')
+      .select('employee_id, hours, override_rate')
+      .eq('project_id', PROJECT_ID).eq('ym', ym);
+    if (!plErr && pl) pl.forEach(r => $('#laborTbody').appendChild(makeLaborRow(r)));
+
+    // Subs
+    const { data: ps, error: psErr } = await client
+      .from('plan_subs')
+      .select('vendor_id, cost, note')
+      .eq('project_id', PROJECT_ID).eq('ym', ym);
+    if (!psErr && ps) ps.forEach(r => $('#subsTbody').appendChild(makeSubRow(r)));
+
+    // Equipment
+    const { data: pe, error: peErr } = await client
+      .from('plan_equipment')
+      .select('equipment_type, hours')
+      .eq('project_id', PROJECT_ID).eq('ym', ym);
+    if (!peErr && pe) pe.forEach(r => $('#equipTbody').appendChild(makeEquipRow(r)));
+
+    // Materials
+    const { data: pm, error: pmErr } = await client
+      .from('plan_materials')
+      .select('sku, qty')
+      .eq('project_id', PROJECT_ID).eq('ym', ym);
+    if (!pmErr && pm) pm.forEach(r => $('#matTbody').appendChild(makeMatRow(r)));
+  }
+
+  // ====== INIT ======
+  async function init(){
+    try{
+      $('#status').textContent = 'Loading catalogs…';
+      await loadLookups();
+      $('#status').textContent = 'Catalogs loaded.';
+      await loadExistingPlanForMonth();
+    }catch(err){
+      console.error(err);
+      $('#status').textContent = 'Error loading data: ' + (err.message||err);
+    }
+  }
+
+  $('#refreshBtn').onclick = init;
+  document.addEventListener('DOMContentLoaded', init);
   </script>
 </body>
 </html>
