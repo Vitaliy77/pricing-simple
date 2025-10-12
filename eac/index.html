@@ -135,6 +135,18 @@
         <span id="matMsg" class="text-sm text-slate-500"></span>
       </div>
     </section>
+    <!-- MONTHLY P&L -->
+    <section class="bg-white rounded-xl shadow-sm p-5 space-y-3">
+      <div class="flex items-center justify-between">
+        <h2 class="text-lg font-semibold">Project P&L (Monthly)</h2>
+        <button id="refreshPL" class="px-3 py-1.5 rounded-md border hover:bg-slate-50">Refresh P&L</button>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-sm" id="plTable"></table>
+      </div>
+      <p class="text-xs text-slate-500">Revenue uses % complete (earned value) on baseline. Costs = Actuals (past) + Plan (future) + Indirects.</p>
+    </section>
+
   </main>
 
   <script>
