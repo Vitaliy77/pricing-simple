@@ -21,8 +21,7 @@
     <section class="bg-white rounded-xl shadow-sm p-5 flex items-end gap-4">
       <div>
         <label class="block text-sm text-gray-600 mb-1">Month</label>
-        <input id="monthPicker" type="month" class="border rounded-md p-2"
-               value="2025-10"/>
+        <input id="monthPicker" type="month" class="border rounded-md p-2" value="2025-10"/>
       </div>
       <div class="grow"></div>
       <button id="refreshBtn" class="px-4 py-2 rounded-md bg-slate-600 text-white hover:bg-slate-700">
@@ -135,6 +134,7 @@
         <span id="matMsg" class="text-sm text-slate-500"></span>
       </div>
     </section>
+
     <!-- MONTHLY P&L -->
     <section class="bg-white rounded-xl shadow-sm p-5 space-y-3">
       <div class="flex items-center justify-between">
@@ -146,7 +146,6 @@
       </div>
       <p class="text-xs text-slate-500">Revenue uses % complete (earned value) on baseline. Costs = Actuals (past) + Plan (future) + Indirects.</p>
     </section>
-
   </main>
 
   <script>
@@ -154,7 +153,6 @@
   const SUPABASE_URL = 'https://yonpinjixytqooqyyzdh.supabase.co';
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlvbnBpbmppeHl0cW9vcXl5emRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkzNjkwMzIsImV4cCI6MjA3NDk0NTAzMn0.8g9iNl4kmIm77u7TT8cylgcV872D45pzZGHJWBnZBGo';
   const PROJECT_ID = 'bd5e7f00-ed56-4596-8414-62679107cae7';
-
   const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
   // ====== CATALOG CACHES ======
@@ -165,20 +163,20 @@
   let materialsList = [];       // [{sku, description, unit_cost, waste_pct}]
 
   // ====== HELPERS ======
-  const $ = sel => document.querySelector(sel);
+  const $  = sel => document.querySelector(sel);
   const $$ = sel => Array.from(document.querySelectorAll(sel));
   const monthToDate = (ym) => `${ym}-01`;
-
   function formatMoney(x){ return `$${(Number(x||0)).toFixed(2)}`; }
 
-  // ====== LOAD LOOKUPS ======
+  // ====== LOOKUPS (load all catalogs once) ======
   async function loadLookups(){
     // labor roles -> loaded rate
-    const { data: lr, error: lrErr } = await client.from('labor_roles')
+    const { data: lr, error: lrErr } = await client
+      .from('labor_roles')
       .select('role, base_rate, burden_pct');
     if (lrErr) throw lrErr;
     rolesRate = {};
-    lr.forEach(r => rolesRate[r.role] = +(r.base_rate * (1 + r.burden_pct)).toFixed(2));
+    (lr || []).forEach(r => rolesRate[r.role] = +(r.base_rate * (1 + r.burden_pct)).toFixed(2));
 
     // employees
     const { data: emp, error: eErr } = await client
@@ -188,21 +186,27 @@
     if (eErr) throw eErr;
     employees = emp || [];
 
-    // subs
+    // subs/vendors
     const { data: subs, error: sErr } = await client
-      .from('sub_vendors').select('id, name').order('name', {ascending:true});
+      .from('sub_vendors')
+      .select('id, name')
+      .order('name', {ascending:true});
     if (sErr) throw sErr;
     vendors = subs || [];
 
-    // equipment
+    // equipment (normalized view)
     const { data: eq, error: eqErr } = await client
-      .from('equipment').select('equip_type, rate, rate_unit').order('equip_type');
+      .from('vw_equipment_catalog')
+      .select('equip_type, rate, rate_unit')
+      .order('equip_type');
     if (eqErr) throw eqErr;
     equipmentList = eq || [];
 
     // materials
     const { data: mat, error: mErr } = await client
-      .from('materials').select('sku, description, unit_cost, waste_pct').order('sku');
+      .from('materials')
+      .select('sku, description, unit_cost, waste_pct')
+      .order('sku');
     if (mErr) throw mErr;
     materialsList = mat || [];
   }
@@ -217,13 +221,6 @@
     empSel.innerHTML = `<option value="">Select employee</option>` +
       employees.map(e => `<option value="${e.id}">${e.full_name}</option>`).join('');
     empSel.value = row.employee_id || '';
-    empSel.onchange = () => {
-      const e = employees.find(x => x.id === empSel.value);
-      roleTd.textContent = e ? e.role : '';
-      const r = e ? rolesRate[e.role] || 0 : 0;
-      rateTd.textContent = formatMoney(r);
-      recalcLaborRow();
-    };
 
     const roleTd = document.createElement('td');
     roleTd.className = 'py-2 pr-3 text-slate-700';
@@ -237,13 +234,11 @@
     overrideInput.type = 'number'; overrideInput.step = '0.01';
     overrideInput.className = 'border rounded-md p-1.5 w-28';
     overrideInput.value = row.override_rate ?? '';
-    overrideInput.oninput = recalcLaborRow;
 
     const hoursInput = document.createElement('input');
     hoursInput.type = 'number'; hoursInput.step = '0.01';
     hoursInput.className = 'border rounded-md p-1.5 w-24';
     hoursInput.value = row.hours ?? '';
-    hoursInput.oninput = recalcLaborRow;
 
     const costTd = document.createElement('td');
     costTd.className = 'py-2 pr-3 font-medium';
@@ -254,28 +249,35 @@
     delBtn.textContent = 'Remove';
     delBtn.onclick = () => tr.remove();
 
-    function recalcLaborRow(){
+    empSel.onchange = recalc;
+    overrideInput.oninput = recalc;
+    hoursInput.oninput = recalc;
+
+    function recalc(){
       const emp = employees.find(x => x.id === empSel.value);
       const role = emp ? emp.role : '';
+      roleTd.textContent = role || '';
       const baseRate = rolesRate[role] || 0;
+      rateTd.textContent = formatMoney(baseRate);
       const rate = Number(overrideInput.value || baseRate);
       const hours = Number(hoursInput.value || 0);
       costTd.textContent = formatMoney(rate * hours);
     }
 
-    tr.innerHTML = '';
-    const tds = [
-      tdWrap(empSel), roleTd, rateTd, tdWrap(overrideInput),
-      tdWrap(hoursInput), costTd, tdWrap(delBtn)
-    ];
-    tds.forEach(td => tr.appendChild(td));
-
-    // helper
-    function tdWrap(el){ const td = document.createElement('td'); td.className='py-2 pr-3'; td.appendChild(el); return td; }
+    // Construct row
+    tr.appendChild(tdWrap(empSel));
+    tr.appendChild(roleTd);
+    tr.appendChild(rateTd);
+    tr.appendChild(tdWrap(overrideInput));
+    tr.appendChild(tdWrap(hoursInput));
+    tr.appendChild(costTd);
+    tr.appendChild(tdWrap(delBtn));
 
     // hydrate once
     empSel.dispatchEvent(new Event('change'));
     return tr;
+
+    function tdWrap(el){ const td = document.createElement('td'); td.className='py-2 pr-3'; td.appendChild(el); return td; }
   }
 
   function makeSubRow(row = {}){
@@ -303,7 +305,7 @@
     delBtn.textContent = 'Remove';
     delBtn.onclick = () => tr.remove();
 
-    [vendorSel, costInput, noteInput, delBtn].forEach((el, i) => {
+    [vendorSel, costInput, noteInput, delBtn].forEach(el => {
       const td = document.createElement('td'); td.className = 'py-2 pr-3'; td.appendChild(el); tr.appendChild(td);
     });
     const tdEnd = document.createElement('td'); tdEnd.className='py-2 pr-3'; tr.appendChild(tdEnd);
@@ -321,14 +323,18 @@
       equipmentList.map(e => `<option value="${e.equip_type}">${e.equip_type}</option>`).join('');
     equipSel.value = row.equipment_type || '';
 
-    const rateTd = document.createElement('td'); rateTd.className = 'py-2 pr-3'; rateTd.textContent = '';
+    const rateTd = document.createElement('td');
+    rateTd.className = 'py-2 pr-3';
+    rateTd.textContent = '';
 
     const hoursInput = document.createElement('input');
     hoursInput.type = 'number'; hoursInput.step = '0.01';
     hoursInput.className = 'border rounded-md p-1.5 w-24';
     hoursInput.value = row.hours ?? '';
 
-    const costTd = document.createElement('td'); costTd.className = 'py-2 pr-3 font-medium'; costTd.textContent = '$0.00';
+    const costTd = document.createElement('td');
+    costTd.className = 'py-2 pr-3 font-medium';
+    costTd.textContent = '$0.00';
 
     const delBtn = document.createElement('button');
     delBtn.className = 'px-2 py-1 rounded-md border text-red-600 hover:bg-red-50';
@@ -340,13 +346,11 @@
 
     function recalc(){
       const item = equipmentList.find(x => x.equip_type === equipSel.value);
-      const rt = item ? item.rate : 0;
-      const ru = item ? item.rate_unit : 'hour';
+      const rt = item ? Number(item.rate || 0) : 0;
+      const ru = item ? (item.rate_unit || 'hour') : 'hour';
       rateTd.textContent = `${formatMoney(rt)} / ${ru}`;
       const hours = Number(hoursInput.value || 0);
-      // If unit is 'day', treat input as days; else hours.
-      const cost = hours * Number(rt || 0);
-      costTd.textContent = formatMoney(cost);
+      costTd.textContent = formatMoney(rt * hours);
     }
 
     tr.appendChild(tdWrap(equipSel));
@@ -355,9 +359,9 @@
     tr.appendChild(costTd);
     tr.appendChild(tdWrap(delBtn));
     equipSel.dispatchEvent(new Event('change'));
+    return tr;
 
     function tdWrap(el){ const td=document.createElement('td'); td.className='py-2 pr-3'; td.appendChild(el); return td; }
-    return tr;
   }
 
   function makeMatRow(row = {}){
@@ -370,14 +374,18 @@
       materialsList.map(m => `<option value="${m.sku}">${m.sku} — ${m.description}</option>`).join('');
     skuSel.value = row.sku || '';
 
-    const unitTd = document.createElement('td'); unitTd.className = 'py-2 pr-3'; unitTd.textContent = '';
+    const unitTd = document.createElement('td');
+    unitTd.className = 'py-2 pr-3';
+    unitTd.textContent = '';
 
     const qtyInput = document.createElement('input');
     qtyInput.type = 'number'; qtyInput.step = '0.01';
     qtyInput.className = 'border rounded-md p-1.5 w-24';
     qtyInput.value = row.qty ?? '';
 
-    const costTd = document.createElement('td'); costTd.className = 'py-2 pr-3 font-medium'; costTd.textContent = '$0.00';
+    const costTd = document.createElement('td');
+    costTd.className = 'py-2 pr-3 font-medium';
+    costTd.textContent = '$0.00';
 
     const delBtn = document.createElement('button');
     delBtn.className = 'px-2 py-1 rounded-md border text-red-600 hover:bg-red-50';
@@ -401,9 +409,9 @@
     tr.appendChild(costTd);
     tr.appendChild(tdWrap(delBtn));
     skuSel.dispatchEvent(new Event('change'));
+    return tr;
 
     function tdWrap(el){ const td=document.createElement('td'); td.className='py-2 pr-3'; td.appendChild(el); return td; }
-    return tr;
   }
 
   // ====== ADD ROW BUTTONS ======
@@ -426,7 +434,6 @@
     }).filter(Boolean);
 
     if (payload.length === 0) { $('#laborMsg').textContent = 'Nothing to save.'; return; }
-
     const { error } = await client.from('plan_labor').upsert(payload);
     $('#laborMsg').textContent = error ? `Error: ${error.message}` : `Saved ${payload.length} row(s).`;
   }
@@ -444,7 +451,6 @@
     }).filter(Boolean);
 
     if (payload.length === 0) { $('#subsMsg').textContent = 'Nothing to save.'; return; }
-
     const { error } = await client.from('plan_subs').upsert(payload);
     $('#subsMsg').textContent = error ? `Error: ${error.message}` : `Saved ${payload.length} row(s).`;
   }
@@ -460,7 +466,6 @@
     }).filter(Boolean);
 
     if (payload.length === 0) { $('#equipMsg').textContent = 'Nothing to save.'; return; }
-
     const { error } = await client.from('plan_equipment').upsert(payload);
     $('#equipMsg').textContent = error ? `Error: ${error.message}` : `Saved ${payload.length} row(s).`;
   }
@@ -476,7 +481,6 @@
     }).filter(Boolean);
 
     if (payload.length === 0) { $('#matMsg').textContent = 'Nothing to save.'; return; }
-
     const { error } = await client.from('plan_materials').upsert(payload);
     $('#matMsg').textContent = error ? `Error: ${error.message}` : `Saved ${payload.length} row(s).`;
   }
@@ -486,7 +490,7 @@
   $('#saveEquip').onclick = saveEquip;
   $('#saveMat').onclick   = saveMat;
 
-  // ====== LOAD EXISTING PLAN FOR MONTH (optional convenience) ======
+  // ====== LOAD EXISTING PLAN FOR MONTH ======
   async function loadExistingPlanForMonth(){
     const ym = monthToDate($('#monthPicker').value);
     $('#laborTbody').innerHTML = '';
@@ -495,41 +499,41 @@
     $('#matTbody').innerHTML   = '';
 
     // Labor
-    const { data: pl, error: plErr } = await client
+    const { data: pl } = await client
       .from('plan_labor')
       .select('employee_id, hours, override_rate')
       .eq('project_id', PROJECT_ID).eq('ym', ym);
-    if (!plErr && pl) pl.forEach(r => $('#laborTbody').appendChild(makeLaborRow(r)));
+    (pl || []).forEach(r => $('#laborTbody').appendChild(makeLaborRow(r)));
 
     // Subs
-    const { data: ps, error: psErr } = await client
+    const { data: ps } = await client
       .from('plan_subs')
       .select('vendor_id, cost, note')
       .eq('project_id', PROJECT_ID).eq('ym', ym);
-    if (!psErr && ps) ps.forEach(r => $('#subsTbody').appendChild(makeSubRow(r)));
+    (ps || []).forEach(r => $('#subsTbody').appendChild(makeSubRow(r)));
 
     // Equipment
-    const { data: pe, error: peErr } = await client
+    const { data: pe } = await client
       .from('plan_equipment')
       .select('equipment_type, hours')
       .eq('project_id', PROJECT_ID).eq('ym', ym);
-    if (!peErr && pe) pe.forEach(r => $('#equipTbody').appendChild(makeEquipRow(r)));
+    (pe || []).forEach(r => $('#equipTbody').appendChild(makeEquipRow(r)));
 
     // Materials
-    const { data: pm, error: pmErr } = await client
+    const { data: pm } = await client
       .from('plan_materials')
       .select('sku, qty')
       .eq('project_id', PROJECT_ID).eq('ym', ym);
-    if (!pmErr && pm) pm.forEach(r => $('#matTbody').appendChild(makeMatRow(r)));
+    (pm || []).forEach(r => $('#matTbody').appendChild(makeMatRow(r)));
   }
 
   // ====== INIT ======
   async function init(){
     try{
       $('#status').textContent = 'Loading catalogs…';
-      await loadLookups();
+      await loadLookups();                 // fills equipmentList, etc.
       $('#status').textContent = 'Catalogs loaded.';
-      await loadExistingPlanForMonth();
+      await loadExistingPlanForMonth();    // builds rows using the loaded catalogs
     }catch(err){
       console.error(err);
       $('#status').textContent = 'Error loading data: ' + (err.message||err);
