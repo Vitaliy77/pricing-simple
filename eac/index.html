@@ -514,21 +514,35 @@ async function refreshPL(){
 
   // ====== SAVE HANDLERS (UPSERT) ======
   async function saveLabor(){
-    const ym = monthToDate($('#monthPicker').value);
-    const rows = $$('#laborTbody tr');
-    const payload = rows.map(tr => {
-      const [empSel, , , overrideInput, hoursInput] = tr.querySelectorAll('select, input');
-      const employee_id = empSel?.value || null;
-      const hours = Number(hoursInput?.value || 0);
-      const override_rate = overrideInput?.value ? Number(overrideInput.value) : null;
-      if (!employee_id || hours <= 0) return null;
-      return { project_id: PROJECT_ID, ym, employee_id, hours, override_rate };
-    }).filter(Boolean);
+  const ym = monthToDate($('#monthPicker').value);
+  const rows = $$('#laborTbody tr');
 
-    if (payload.length === 0) { $('#laborMsg').textContent = 'Nothing to save.'; return; }
-    const { error } = await client.from('plan_labor').upsert(payload);
-    $('#laborMsg').textContent = error ? `Error: ${error.message}` : `Saved ${payload.length} row(s).`;
-  }
+  const payload = rows.map(tr => {
+    // There are exactly 3 controls inside each labor row: [select, override input, hours input]
+    const [empSel, overrideInput, hoursInput] = tr.querySelectorAll('select, input');
+
+    const employee_id  = empSel?.value || null;
+    const hours        = Number(hoursInput?.value || 0);
+    const override_rate = overrideInput?.value ? Number(overrideInput.value) : null;
+
+    if (!employee_id || hours <= 0) return null;
+    return { project_id: PROJECT_ID, ym, employee_id, hours, override_rate };
+  }).filter(Boolean);
+
+  if (payload.length === 0) { $('#laborMsg').textContent = 'Nothing to save.'; return; }
+
+  // Use onConflict so repeated saves update the same row
+  const { error } = await client
+    .from('plan_labor')
+    .upsert(payload, { onConflict: 'project_id,ym,employee_id' });
+
+  if (error) { $('#laborMsg').textContent = `Error: ${error.message}`; return; }
+
+  $('#laborMsg').textContent = `Saved ${payload.length} row(s).`;
+  await loadExistingPlanForMonth(); // reflect saved data
+  await refreshPL();                // update P&L
+}
+
 
   async function saveSubs(){
     const ym = monthToDate($('#monthPicker').value);
@@ -541,11 +555,20 @@ async function refreshPL(){
       if (!vendor_id || cost <= 0) return null;
       return { project_id: PROJECT_ID, ym, vendor_id, cost, note };
     }).filter(Boolean);
-
+  
     if (payload.length === 0) { $('#subsMsg').textContent = 'Nothing to save.'; return; }
-    const { error } = await client.from('plan_subs').upsert(payload);
-    $('#subsMsg').textContent = error ? `Error: ${error.message}` : `Saved ${payload.length} row(s).`;
+  
+    const { error } = await client
+      .from('plan_subs')
+      .upsert(payload, { onConflict: 'project_id,ym,vendor_id' });
+  
+    if (error) { $('#subsMsg').textContent = `Error: ${error.message}`; return; }
+  
+    $('#subsMsg').textContent = `Saved ${payload.length} row(s).`;
+    await loadExistingPlanForMonth();
+    await refreshPL();
   }
+
 
   async function saveEquip(){
     const ym = monthToDate($('#monthPicker').value);
@@ -556,11 +579,20 @@ async function refreshPL(){
       if (!equip_type || hours <= 0) return null;
       return { project_id: PROJECT_ID, ym, equipment_type: equip_type, hours };
     }).filter(Boolean);
-
+  
     if (payload.length === 0) { $('#equipMsg').textContent = 'Nothing to save.'; return; }
-    const { error } = await client.from('plan_equipment').upsert(payload);
-    $('#equipMsg').textContent = error ? `Error: ${error.message}` : `Saved ${payload.length} row(s).`;
+  
+    const { error } = await client
+      .from('plan_equipment')
+      .upsert(payload, { onConflict: 'project_id,ym,equipment_type' });
+  
+    if (error) { $('#equipMsg').textContent = `Error: ${error.message}`; return; }
+  
+    $('#equipMsg').textContent = `Saved ${payload.length} row(s).`;
+    await loadExistingPlanForMonth();
+    await refreshPL();
   }
+
 
   async function saveMat(){
     const ym = monthToDate($('#monthPicker').value);
@@ -571,11 +603,20 @@ async function refreshPL(){
       if (!sku || qty <= 0) return null;
       return { project_id: PROJECT_ID, ym, sku, qty };
     }).filter(Boolean);
-
+  
     if (payload.length === 0) { $('#matMsg').textContent = 'Nothing to save.'; return; }
-    const { error } = await client.from('plan_materials').upsert(payload);
-    $('#matMsg').textContent = error ? `Error: ${error.message}` : `Saved ${payload.length} row(s).`;
+  
+    const { error } = await client
+      .from('plan_materials')
+      .upsert(payload, { onConflict: 'project_id,ym,sku' });
+  
+    if (error) { $('#matMsg').textContent = `Error: ${error.message}`; return; }
+  
+    $('#matMsg').textContent = `Saved ${payload.length} row(s).`;
+    await loadExistingPlanForMonth();
+    await refreshPL();
   }
+
 
   $('#saveLabor').onclick = saveLabor;
   $('#saveSubs').onclick  = saveSubs;
@@ -636,6 +677,20 @@ async function refreshPL(){
 
   $('#refreshBtn').onclick = init;
   document.addEventListener('DOMContentLoaded', init);
+    $('#monthPicker').addEventListener('change', async () => {
+  $('#status').textContent = 'Loading month…';
+  // Clear any prior “Saved …” messages
+  $('#laborMsg').textContent = '';
+  $('#subsMsg').textContent  = '';
+  $('#equipMsg').textContent = '';
+  $('#matMsg').textContent   = '';
+
+  await loadExistingPlanForMonth(); // will show blank if no saved rows
+  await refreshPL();
+  $('#status').textContent = '';
+});
+
+    
   </script>
 </body>
 </html>
