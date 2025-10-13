@@ -1,0 +1,714 @@
+// ====== CONFIG ======
+const SUPABASE_URL = 'https://yonpinjixytqooqyyzdh.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlvbnBpbmppeHl0cW9vcXl5emRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkzNjkwMzIsImV4cCI6MjA3NDk0NTAzMn0.8g9iNl4kmIm77u7TT8cylgcV872D45pzZGHJWBnZBGo';
+const PROJECT_ID = 'bd5e7f00-ed56-4596-8414-62679107cae7';
+
+// Check if Supabase library is loaded
+if (!window.supabase) {
+  console.error('Supabase library not loaded');
+  document.querySelector('#status').textContent = 'Error: Supabase library not loaded';
+  throw new Error('Supabase library not loaded');
+}
+const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// ====== HELPERS ======
+const $ = sel => document.querySelector(sel);
+const $$ = sel => Array.from(document.querySelectorAll(sel));
+const monthToDate = ym => `${ym}-01`;
+const formatMoney = x => `$${Number(x || 0).toFixed(2)}`;
+
+// ====== REVENUE SETTINGS HELPERS ======
+function _numOrNull(v) {
+  if (v === '' || v == null) return null;
+  const n = Number(v);
+  return isNaN(n) ? null : n / 100; // UI uses percent (10) -> store as 0.10
+}
+
+function _setPctInput(el, frac) {
+  el.value = frac == null ? '' : (Number(frac) * 100).toFixed(2).replace(/\.00$/, '');
+}
+
+function _toggleRevenueFields() {
+  const method = $('#revMethod').value;
+  const tmOnly = method === 'TM';
+  const cpOnly = method === 'COST_PLUS';
+  $('#feePct').disabled = tmOnly;
+  $('#matPct').disabled = cpOnly;
+  $('#subsPct').disabled = cpOnly;
+  $('#equipPct').disabled = cpOnly;
+}
+
+async function loadRevenueSettings() {
+  try {
+    const { data, error } = await client
+      .from('project_revenue_policy')
+      .select('method, fee_pct, mat_markup_pct, subs_markup_pct, equip_markup_pct')
+      .eq('project_id', PROJECT_ID)
+      .single();
+
+    if (error && error.code !== 'PGRST116') { // not found is OK
+      throw error;
+    }
+
+    const method = data?.method || 'TM';
+    $('#revMethod').value = method;
+    _setPctInput($('#feePct'), data?.fee_pct);
+    _setPctInput($('#matPct'), data?.mat_markup_pct);
+    _setPctInput($('#subsPct'), data?.subs_markup_pct);
+    _setPctInput($('#equipPct'), data?.equip_markup_pct);
+    _toggleRevenueFields();
+    $('#revMsg').textContent = `Method: ${method}`;
+  } catch (error) {
+    console.error('loadRevenueSettings error', error);
+    $('#revMsg').textContent = `Error: ${error.message}`;
+  }
+}
+
+async function saveRevenueSettings() {
+  $('#saveRev').disabled = true;
+  $('#revMsg').textContent = 'Saving...';
+  try {
+    const method = $('#revMethod').value;
+    const feePct = _numOrNull($('#feePct').value);
+    const matPct = _numOrNull($('#matPct').value);
+    const subsPct = _numOrNull($('#subsPct').value);
+    const equipPct = _numOrNull($('#equipPct').value);
+
+    const payload = {
+      project_id: PROJECT_ID,
+      method,
+      fee_pct: feePct ?? 0,
+      mat_markup_pct: matPct ?? 0,
+      subs_markup_pct: subsPct ?? 0,
+      equip_markup_pct: equipPct ?? 0
+    };
+
+    const { error } = await client
+      .from('project_revenue_policy')
+      .upsert(payload, { onConflict: 'project_id' });
+
+    if (error) throw error;
+
+    $('#revMsg').textContent = `Saved. Using ${method}.`;
+    await refreshPL();
+  } catch (error) {
+    $('#revMsg').textContent = `Save error: ${error.message}`;
+  } finally {
+    $('#saveRev').disabled = false;
+  }
+}
+
+// ====== CATALOG CACHES ======
+let rolesRate = {}; // role -> loaded_rate
+let employees = []; // [{id, full_name, role}]
+let vendors = []; // [{id, name}]
+let equipmentList = []; // [{equip_type, rate, rate_unit}]
+let materialsList = []; // [{sku, description, unit_cost, waste_pct}]
+
+// ====== LOOKUPS (load all catalogs once) ======
+async function loadLookups() {
+  try {
+    // Labor roles -> loaded rate
+    const { data: lr, error: lrErr } = await client
+      .from('labor_roles')
+      .select('role, base_rate, burden_pct');
+    if (lrErr) throw lrErr;
+    rolesRate = {};
+    (lr || []).forEach(r => rolesRate[r.role] = +(r.base_rate * (1 + r.burden_pct)).toFixed(2));
+
+    // Employees
+    const { data: emp, error: eErr } = await client
+      .from('employees')
+      .select('id, full_name, role')
+      .eq('is_active', true);
+    if (eErr) throw eErr;
+    employees = emp || [];
+
+    // Subs/vendors
+    const { data: subs, error: sErr } = await client
+      .from('sub_vendors')
+      .select('id, name')
+      .order('name', { ascending: true });
+    if (sErr) throw sErr;
+    vendors = subs || [];
+
+    // Equipment
+    const { data: eq, error: eqErr } = await client
+      .from('vw_equipment_catalog')
+      .select('equip_type, rate, rate_unit')
+      .order('equip_type');
+    if (eqErr) throw eqErr;
+    equipmentList = eq || [];
+
+    // Materials
+    const { data: mat, error: mErr } = await client
+      .from('materials')
+      .select('sku, description, unit_cost, waste_pct')
+      .order('sku');
+    if (mErr) throw mErr;
+    materialsList = mat || [];
+  } catch (error) {
+    throw new Error(`Error loading catalogs: ${error.message}`);
+  }
+}
+
+// ====== P&L (fetch & render) ======
+async function refreshPL() {
+  try {
+    const ymVal = $('#monthPicker').value || new Date().toISOString().slice(0, 7);
+    const year = Number(ymVal.slice(0, 4));
+    const start = `${year}-01-01`;
+    const end = `${year + 1}-01-01`;
+
+    // Costs
+    const { data: costs, error: cErr } = await client
+      .from('vw_eac_monthly_pl')
+      .select('ym, labor, equip, materials, subs, fringe, overhead, gna, total_cost')
+      .eq('project_id', PROJECT_ID)
+      .gte('ym', start)
+      .lt('ym', end)
+      .order('ym');
+    if (cErr) throw cErr;
+
+    // Revenue
+    const { data: rev, error: rErr } = await client
+      .from('vw_eac_revenue_monthly')
+      .select('ym, revenue')
+      .eq('project_id', PROJECT_ID)
+      .gte('ym', start)
+      .lt('ym', end)
+      .order('ym');
+    if (rErr) throw rErr;
+
+    const months = Array.from({ length: 12 }, (_, i) => new Date(Date.UTC(year, i, 1)));
+    const key = d => d.toISOString().slice(0, 7);
+
+    const costMap = {};
+    (costs || []).forEach(r => { costMap[new Date(r.ym).toISOString().slice(0, 7)] = r; });
+    const revMap = {};
+    (rev || []).forEach(r => { revMap[new Date(r.ym).toISOString().slice(0, 7)] = r.revenue || 0; });
+
+    const rows = [
+      ['Revenue', k => Number(revMap[k] || 0)],
+      ['Labor', k => Number(costMap[k]?.labor || 0)],
+      ['Equip', k => Number(costMap[k]?.equip || 0)],
+      ['Materials', k => Number(costMap[k]?.materials || 0)],
+      ['Subs', k => Number(costMap[k]?.subs || 0)],
+      ['Fringe', k => Number(costMap[k]?.fringe || 0)],
+      ['Overhead', k => Number(costMap[k]?.overhead || 0)],
+      ['G&A', k => Number(costMap[k]?.gna || 0)],
+      ['Total Cost', k => Number(costMap[k]?.total_cost || 0)],
+      ['Profit', k => Number(revMap[k] || 0) - Number(costMap[k]?.total_cost || 0)],
+      ['Margin %', k => {
+        const R = Number(revMap[k] || 0), C = Number(costMap[k]?.total_cost || 0);
+        return (R === 0 && C === 0) ? null : (R ? ((R - C) / R * 100) : (C ? -100 : 0));
+      }],
+    ];
+
+    let html = '<thead><tr><th class="p-2"></th>';
+    months.forEach(d => html += `<th class="p-2 text-right">${d.toLocaleString('en-US', { month: 'short', timeZone: 'UTC' })}</th>`);
+    html += '<th class="p-2 text-right">Total</th></tr></thead><tbody>';
+
+    rows.forEach(([label, fn]) => {
+      html += `<tr><td class="p-2 font-medium">${label}</td>`;
+      let total = 0;
+      months.forEach(d => {
+        const k = key(d);
+        const val = fn(k);
+        if (label === 'Margin %') {
+          html += `<td class="p-2 text-right">${val == null ? '—' : `${val.toFixed(1)}%`}</td>`;
+        } else {
+          total += Number(val || 0);
+          html += `<td class="p-2 text-right">${formatMoney(val || 0)}</td>`;
+        }
+      });
+      if (label === 'Margin %') {
+        const Rtot = months.reduce((s, d) => s + Number(revMap[key(d)] || 0), 0);
+        const Ctot = months.reduce((s, d) => s + Number(costMap[key(d)]?.total_cost || 0), 0);
+        const mtot = (Rtot === 0 && Ctot === 0) ? null : (Rtot ? ((Rtot - Ctot) / Rtot * 100) : (Ctot ? -100 : 0));
+        html += `<td class="p-2 text-right font-semibold">${mtot == null ? '—' : `${mtot.toFixed(1)}%`}</td>`;
+      } else {
+        html += `<td class="p-2 text-right font-semibold">${formatMoney(total)}</td>`;
+      }
+      html += '</tr>';
+    });
+
+    html += '</tbody>';
+    $('#plTable').className = 'min-w-full text-sm';
+    $('#plTable').innerHTML = html;
+  } catch (err) {
+    console.error('P&L error', err);
+    $('#plTable').className = 'min-w-full text-sm';
+    $('#plTable').innerHTML = `<tbody><tr><td class="p-3 text-red-600">P&L error: ${err.message || err}</td></tr></tbody>`;
+  }
+}
+
+// ====== ROW BUILDERS ======
+function makeLaborRow(row = {}) {
+  row = row || {};
+  const tr = document.createElement('tr');
+  tr.className = 'border-b last:border-0';
+
+  const empSel = document.createElement('select');
+  empSel.className = 'border rounded-md p-1.5 w-56';
+  empSel.innerHTML = `<option value="">Select employee</option>` +
+    employees.map(e => `<option value="${e.id}">${e.full_name}</option>`).join('');
+  empSel.value = row.employee_id || '';
+
+  const roleTd = document.createElement('td');
+  roleTd.className = 'py-2 pr-3 text-slate-700';
+  roleTd.textContent = (employees.find(e => e.id === row.employee_id)?.role) || '';
+
+  const rateTd = document.createElement('td');
+  rateTd.className = 'py-2 pr-3';
+  rateTd.textContent = formatMoney(rolesRate[roleTd.textContent] || 0);
+
+  const overrideInput = document.createElement('input');
+  overrideInput.type = 'number';
+  overrideInput.step = '0.01';
+  overrideInput.min = '0';
+  overrideInput.className = 'border rounded-md p-1.5 w-28';
+  overrideInput.value = row.override_rate ?? '';
+
+  const hoursInput = document.createElement('input');
+  hoursInput.type = 'number';
+  hoursInput.step = '0.01';
+  hoursInput.min = '0';
+  hoursInput.className = 'border rounded-md p-1.5 w-24';
+  hoursInput.value = row.hours ?? '';
+
+  const costTd = document.createElement('td');
+  costTd.className = 'py-2 pr-3 font-medium';
+  costTd.textContent = '$0.00';
+
+  const delBtn = document.createElement('button');
+  delBtn.className = 'px-2 py-1 rounded-md border text-red-600 hover:bg-red-50';
+  delBtn.textContent = 'Remove';
+  delBtn.onclick = () => tr.remove();
+
+  function recalc() {
+    const emp = employees.find(x => x.id === empSel.value);
+    const role = emp ? emp.role : '';
+    roleTd.textContent = role || '';
+    const baseRate = rolesRate[role] || 0;
+    rateTd.textContent = formatMoney(baseRate);
+    const rate = Number(overrideInput.value || baseRate);
+    const hours = Number(hoursInput.value || 0);
+    costTd.textContent = formatMoney(rate * hours);
+  }
+
+  empSel.onchange = recalc;
+  overrideInput.oninput = recalc;
+  hoursInput.oninput = recalc;
+
+  tr.appendChild(tdWrap(empSel));
+  tr.appendChild(roleTd);
+  tr.appendChild(rateTd);
+  tr.appendChild(tdWrap(overrideInput));
+  tr.appendChild(tdWrap(hoursInput));
+  tr.appendChild(costTd);
+  tr.appendChild(tdWrap(delBtn));
+
+  empSel.dispatchEvent(new Event('change'));
+  return tr;
+
+  function tdWrap(el) {
+    const td = document.createElement('td');
+    td.className = 'py-2 pr-3';
+    td.appendChild(el);
+    return td;
+  }
+}
+
+function makeSubRow(row = {}) {
+  row = row || {};
+  const tr = document.createElement('tr');
+  tr.className = 'border-b last:border-0';
+
+  const vendorSel = document.createElement('select');
+  vendorSel.className = 'border rounded-md p-1.5 w-56';
+  vendorSel.innerHTML = `<option value="">Select vendor</option>` +
+    vendors.map(v => `<option value="${v.id}">${v.name}</option>`).join('');
+  vendorSel.value = row.vendor_id || '';
+
+  const costInput = document.createElement('input');
+  costInput.type = 'number';
+  costInput.step = '0.01';
+  costInput.min = '0';
+  costInput.className = 'border rounded-md p-1.5 w-32';
+  costInput.value = row.cost ?? '';
+
+  const noteInput = document.createElement('input');
+  noteInput.type = 'text';
+  noteInput.placeholder = '(optional)';
+  noteInput.className = 'border rounded-md p-1.5 w-64';
+  noteInput.value = row.note ?? '';
+
+  const delBtn = document.createElement('button');
+  delBtn.className = 'px-2 py-1 rounded-md border text-red-600 hover:bg-red-50';
+  delBtn.textContent = 'Remove';
+  delBtn.onclick = () => tr.remove();
+
+  [vendorSel, costInput, noteInput, delBtn].forEach(el => {
+    const td = document.createElement('td');
+    td.className = 'py-2 pr-3';
+    td.appendChild(el);
+    tr.appendChild(td);
+  });
+  const tdEnd = document.createElement('td');
+  tdEnd.className = 'py-2 pr-3';
+  tr.appendChild(tdEnd);
+
+  return tr;
+}
+
+function makeEquipRow(row = {}) {
+  row = row || {};
+  const tr = document.createElement('tr');
+  tr.className = 'border-b last:border-0';
+
+  const equipSel = document.createElement('select');
+  equipSel.className = 'border rounded-md p-1.5 w-56';
+  equipSel.innerHTML = `<option value="">Select equipment</option>` +
+    equipmentList.map(e => `<option value="${e.equip_type}">${e.equip_type}</option>`).join('');
+  equipSel.value = row.equipment_type || '';
+
+  const rateTd = document.createElement('td');
+  rateTd.className = 'py-2 pr-3';
+  rateTd.textContent = '';
+
+  const hoursInput = document.createElement('input');
+  hoursInput.type = 'number';
+  hoursInput.step = '0.01';
+  hoursInput.min = '0';
+  hoursInput.className = 'border rounded-md p-1.5 w-24';
+  hoursInput.value = row.hours ?? '';
+
+  const costTd = document.createElement('td');
+  costTd.className = 'py-2 pr-3 font-medium';
+  costTd.textContent = '$0.00';
+
+  const delBtn = document.createElement('button');
+  delBtn.className = 'px-2 py-1 rounded-md border text-red-600 hover:bg-red-50';
+  delBtn.textContent = 'Remove';
+  delBtn.onclick = () => tr.remove();
+
+  function recalc() {
+    const item = equipmentList.find(x => x.equip_type === equipSel.value);
+    const rt = item ? Number(item.rate || 0) : 0;
+    const ru = item ? (item.rate_unit || 'hour') : 'hour';
+    rateTd.textContent = `${formatMoney(rt)} / ${ru}`;
+    const hours = Number(hoursInput.value || 0);
+    costTd.textContent = formatMoney(rt * hours);
+  }
+
+  equipSel.onchange = recalc;
+  hoursInput.oninput = recalc;
+
+  tr.appendChild(tdWrap(equipSel));
+  tr.appendChild(rateTd);
+  tr.appendChild(tdWrap(hoursInput));
+  tr.appendChild(costTd);
+  tr.appendChild(tdWrap(delBtn));
+  equipSel.dispatchEvent(new Event('change'));
+  return tr;
+
+  function tdWrap(el) {
+    const td = document.createElement('td');
+    td.className = 'py-2 pr-3';
+    td.appendChild(el);
+    return td;
+  }
+}
+
+function makeMatRow(row = {}) {
+  row = row || {};
+  const tr = document.createElement('tr');
+  tr.className = 'border-b last:border-0';
+
+  const skuSel = document.createElement('select');
+  skuSel.className = 'border rounded-md p-1.5 w-64';
+  skuSel.innerHTML = `<option value="">Select material</option>` +
+    materialsList.map(m => `<option value="${m.sku}">${m.sku} — ${m.description}</option>`).join('');
+  skuSel.value = row.sku || '';
+
+  const unitTd = document.createElement('td');
+  unitTd.className = 'py-2 pr-3';
+  unitTd.textContent = '';
+
+  const qtyInput = document.createElement('input');
+  qtyInput.type = 'number';
+  qtyInput.step = '0.01';
+  qtyInput.min = '0';
+  qtyInput.className = 'border rounded-md p-1.5 w-24';
+  qtyInput.value = row.qty ?? '';
+
+  const costTd = document.createElement('td');
+  costTd.className = 'py-2 pr-3 font-medium';
+  costTd.textContent = '$0.00';
+
+  const delBtn = document.createElement('button');
+  delBtn.className = 'px-2 py-1 rounded-md border text-red-600 hover:bg-red-50';
+  delBtn.textContent = 'Remove';
+  delBtn.onclick = () => tr.remove();
+
+  function recalc() {
+    const item = materialsList.find(x => x.sku === skuSel.value);
+    const unitCost = item ? (Number(item.unit_cost) * (1 + Number(item.waste_pct || 0))) : 0;
+    unitTd.textContent = `${formatMoney(unitCost)} (incl waste)`;
+    const qty = Number(qtyInput.value || 0);
+    costTd.textContent = formatMoney(unitCost * qty);
+  }
+
+  skuSel.onchange = recalc;
+  qtyInput.oninput = recalc;
+
+  tr.appendChild(tdWrap(skuSel));
+  tr.appendChild(unitTd);
+  tr.appendChild(tdWrap(qtyInput));
+  tr.appendChild(costTd);
+  tr.appendChild(tdWrap(delBtn));
+  skuSel.dispatchEvent(new Event('change'));
+  return tr;
+
+  function tdWrap(el) {
+    const td = document.createElement('td');
+    td.className = 'py-2 pr-3';
+    td.appendChild(el);
+    return td;
+  }
+}
+
+// ====== SAVE HANDLERS (UPSERT) ======
+async function saveLabor() {
+  $('#saveLabor').disabled = true;
+  $('#laborMsg').textContent = 'Saving...';
+  try {
+    const ym = monthToDate($('#monthPicker').value);
+    const rows = $$('#laborTbody tr');
+    const payload = rows.map(tr => {
+      const [empSel, overrideInput, hoursInput] = tr.querySelectorAll('select, input');
+      const employee_id = empSel?.value || null;
+      const hours = Number(hoursInput?.value || 0);
+      const override_rate = overrideInput?.value ? Number(overrideInput.value) : null;
+      if (!employee_id || hours <= 0) return null;
+      return { project_id: PROJECT_ID, ym, employee_id, hours, override_rate };
+    }).filter(Boolean);
+
+    if (payload.length === 0) {
+      $('#laborMsg').textContent = 'Nothing to save.';
+      return;
+    }
+
+    const { error } = await client
+      .from('plan_labor')
+      .upsert(payload, { onConflict: 'project_id,ym,employee_id' });
+
+    if (error) throw error;
+
+    $('#laborMsg').textContent = `Saved ${payload.length} row(s).`;
+    await loadExistingPlanForMonth();
+    await refreshPL();
+  } catch (error) {
+    $('#laborMsg').textContent = `Error: ${error.message}`;
+  } finally {
+    $('#saveLabor').disabled = false;
+  }
+}
+
+async function saveSubs() {
+  $('#saveSubs').disabled = true;
+  $('#subsMsg').textContent = 'Saving...';
+  try {
+    const ym = monthToDate($('#monthPicker').value);
+    const rows = $$('#subsTbody tr');
+    const payload = rows.map(tr => {
+      const [vendorSel, costInput, noteInput] = tr.querySelectorAll('select, input');
+      const vendor_id = vendorSel?.value || null;
+      const cost = Number(costInput?.value || 0);
+      const note = noteInput?.value || null;
+      if (!vendor_id || cost <= 0) return null;
+      return { project_id: PROJECT_ID, ym, vendor_id, cost, note };
+    }).filter(Boolean);
+
+    if (payload.length === 0) {
+      $('#subsMsg').textContent = 'Nothing to save.';
+      return;
+    }
+
+    const { error } = await client
+      .from('plan_subs')
+      .upsert(payload, { onConflict: 'project_id,ym,vendor_id' });
+
+    if (error) throw error;
+
+    $('#subsMsg').textContent = `Saved ${payload.length} row(s).`;
+    await loadExistingPlanForMonth();
+    await refreshPL();
+  } catch (error) {
+    $('#subsMsg').textContent = `Error: ${error.message}`;
+  } finally {
+    $('#saveSubs').disabled = false;
+  }
+}
+
+async function saveEquip() {
+  $('#saveEquip').disabled = true;
+  $('#equipMsg').textContent = 'Saving...';
+  try {
+    const ym = monthToDate($('#monthPicker').value);
+    const rows = $$('#equipTbody tr');
+    const payload = rows.map(tr => {
+      const equip_type = tr.querySelector('select')?.value || null;
+      const hours = Number(tr.querySelector('input')?.value || 0);
+      if (!equip_type || hours <= 0) return null;
+      return { project_id: PROJECT_ID, ym, equipment_type: equip_type, hours };
+    }).filter(Boolean);
+
+    if (payload.length === 0) {
+      $('#equipMsg').textContent = 'Nothing to save.';
+      return;
+    }
+
+    const { error } = await client
+      .from('plan_equipment')
+      .upsert(payload, { onConflict: 'project_id,ym,equipment_type' });
+
+    if (error) throw error;
+
+    $('#equipMsg').textContent = `Saved ${payload.length} row(s).`;
+    await loadExistingPlanForMonth();
+    await refreshPL();
+  } catch (error) {
+    $('#equipMsg').textContent = `Error: ${error.message}`;
+  } finally {
+    $('#saveEquip').disabled = false;
+  }
+}
+
+async function saveMat() {
+  $('#saveMat').disabled = true;
+  $('#matMsg').textContent = 'Saving...';
+  try {
+    const ym = monthToDate($('#monthPicker').value);
+    const rows = $$('#matTbody tr');
+    const payload = rows.map(tr => {
+      const sku = tr.querySelector('select')?.value || null;
+      const qty = Number(tr.querySelector('input')?.value || 0);
+      if (!sku || qty <= 0) return null;
+      return { project_id: PROJECT_ID, ym, sku, qty };
+    }).filter(Boolean);
+
+    if (payload.length === 0) {
+      $('#matMsg').textContent = 'Nothing to save.';
+      return;
+    }
+
+    const { error } = await client
+      .from('plan_materials')
+      .upsert(payload, { onConflict: 'project_id,ym,sku' });
+
+    if (error) throw error;
+
+    $('#matMsg').textContent = `Saved ${payload.length} row(s).`;
+    await loadExistingPlanForMonth();
+    await refreshPL();
+  } catch (error) {
+    $('#matMsg').textContent = `Error: ${error.message}`;
+  } finally {
+    $('#saveMat').disabled = false;
+  }
+}
+
+// ====== LOAD EXISTING PLAN FOR MONTH ======
+async function loadExistingPlanForMonth() {
+  const ym = monthToDate($('#monthPicker').value);
+  $('#laborTbody').innerHTML = '';
+  $('#subsTbody').innerHTML = '';
+  $('#equipTbody').innerHTML = '';
+  $('#matTbody').innerHTML = '';
+
+  try {
+    // Labor
+    const { data: pl, error: plErr } = await client
+      .from('plan_labor')
+      .select('employee_id, hours, override_rate')
+      .eq('project_id', PROJECT_ID)
+      .eq('ym', ym);
+    if (plErr) throw plErr;
+    (pl || []).forEach(r => $('#laborTbody').appendChild(makeLaborRow(r)));
+
+    // Subs
+    const { data: ps, error: psErr } = await client
+      .from('plan_subs')
+      .select('vendor_id, cost, note')
+      .eq('project_id', PROJECT_ID)
+      .eq('ym', ym);
+    if (psErr) throw psErr;
+    (ps || []).forEach(r => $('#subsTbody').appendChild(makeSubRow(r)));
+
+    // Equipment
+    const { data: pe, error: peErr } = await client
+      .from('plan_equipment')
+      .select('equipment_type, hours')
+      .eq('project_id', PROJECT_ID)
+      .eq('ym', ym);
+    if (peErr) throw peErr;
+    (pe || []).forEach(r => $('#equipTbody').appendChild(makeEquipRow(r)));
+
+    // Materials
+    const { data: pm, error: pmErr } = await client
+      .from('plan_materials')
+      .select('sku, qty')
+      .eq('project_id', PROJECT_ID)
+      .eq('ym', ym);
+    if (pmErr) throw pmErr;
+    (pm || []).forEach(r => $('#matTbody').appendChild(makeMatRow(r)));
+  } catch (err) {
+    console.error('Error loading plan:', err);
+    $('#status').textContent = `Error loading plan: ${err.message || err}`;
+  }
+}
+
+// ====== EVENT HANDLERS ======
+$('#addLaborRow').onclick = () => $('#laborTbody').appendChild(makeLaborRow());
+$('#addSubRow').onclick = () => $('#subsTbody').appendChild(makeSubRow());
+$('#addEquipRow').onclick = () => $('#equipTbody').appendChild(makeEquipRow());
+$('#addMatRow').onclick = () => $('#matTbody').appendChild(makeMatRow());
+$('#refreshPL').onclick = refreshPL;
+$('#saveLabor').onclick = saveLabor;
+$('#saveSubs').onclick = saveSubs;
+$('#saveEquip').onclick = saveEquip;
+$('#saveMat').onclick = saveMat;
+$('#revMethod').addEventListener('change', _toggleRevenueFields);
+$('#saveRev').addEventListener('click', saveRevenueSettings);
+
+$('#monthPicker').addEventListener('change', async () => {
+  $('#status').textContent = 'Loading month…';
+  $('#laborMsg').textContent = '';
+  $('#subsMsg').textContent = '';
+  $('#equipMsg').textContent = '';
+  $('#matMsg').textContent = '';
+  await loadExistingPlanForMonth();
+  await refreshPL();
+  $('#status').textContent = '';
+});
+
+// ====== INIT ======
+async function init() {
+  try {
+    $('#monthPicker').value = new Date().toISOString().slice(0, 7);
+    $('#status').textContent = 'Loading catalogs…';
+    await loadLookups();
+    await loadRevenueSettings();
+    $('#status').textContent = 'Catalogs loaded.';
+    await loadExistingPlanForMonth();
+    await refreshPL();
+  } catch (err) {
+    console.error('Init error:', err);
+    $('#status').textContent = `Error loading data: ${err.message || err}`;
+  }
+}
+
+// Start the app
+init();
