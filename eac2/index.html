@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>EAC Planner</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link rel="stylesheet" href="styles.css"/>
+</head>
+<body class="bg-gray-50">
+  <!-- Header -->
+  <header class="bg-white border-b">
+    <div class="max-w-6xl mx-auto px-5 py-4 flex items-center justify-between">
+      <h1 class="text-xl font-semibold">EAC Planner (Monthly)</h1>
+      <div class="text-xs text-gray-500">Plan labor, subs, equipment & materials by month</div>
+    </div>
+  </header>
+
+  <!-- Controls -->
+  <main class="max-w-6xl mx-auto px-5 py-6 space-y-6">
+    <section class="bg-white rounded-xl shadow-sm p-5 flex items-end gap-4">
+      <div>
+        <label for="monthPicker" class="block text-sm text-gray-600 mb-1">Month</label>
+        <input id="monthPicker" type="month" class="border rounded-md p-2" aria-describedby="monthPickerHelp"/>
+        <span id="monthPickerHelp" class="sr-only">Select a month and year for planning</span>
+      </div>
+      <div class="grow"></div>
+      <button id="refreshBtn" class="px-4 py-2 rounded-md bg-slate-600 text-white hover:bg-slate-700">
+        Load / Refresh
+      </button>
+      <span id="status" class="text-sm text-slate-500"></span>
+    </section>
+
+    <!-- LABOR -->
+    <section class="bg-white rounded-xl shadow-sm p-5 space-y-3">
+      <div class="flex items-center justify-between">
+        <h2 class="text-lg font-semibold">Plan: Labor (by Employee)</h2>
+        <button id="addLaborRow" class="px-3 py-1.5 rounded-md border hover:bg-slate-50">+ Add row</button>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-sm">
+          <thead class="text-left text-gray-600 border-b">
+            <tr>
+              <th class="py-2 pr-3">Employee</th>
+              <th class="py-2 pr-3">Role</th>
+              <th class="py-2 pr-3">Loaded Rate</th>
+              <th class="py-2 pr-3">Override Rate</th>
+              <th class="py-2 pr-3">Hours</th>
+              <th class="py-2 pr-3">Cost (calc)</th>
+              <th class="py-2 pr-3"></th>
+            </tr>
+          </thead>
+          <tbody id="laborTbody"></tbody>
+        </table>
+      </div>
+      <div class="flex items-center gap-3">
+        <button id="saveLabor" class="px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700">Save Labor Plan</button>
+        <span id="laborMsg" class="text-sm text-slate-500"></span>
+      </div>
+    </section>
+
+    <!-- SUBS -->
+    <section class="bg-white rounded-xl shadow-sm p-5 space-y-3">
+      <div class="flex items-center justify-between">
+        <h2 class="text-lg font-semibold">Plan: Subcontractors</h2>
+        <button id="addSubRow" class="px-3 py-1.5 rounded-md border hover:bg-slate-50">+ Add row</button>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-sm">
+          <thead class="text-left text-gray-600 border-b">
+            <tr>
+              <th class="py-2 pr-3">Vendor</th>
+              <th class="py-2 pr-3">Cost</th>
+              <th class="py-2 pr-3">Note</th>
+              <th class="py-2 pr-3"></th>
+            </tr>
+          </thead>
+          <tbody id="subsTbody"></tbody>
+        </table>
+      </div>
+      <div class="flex items-center gap-3">
+        <button id="saveSubs" class="px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700">Save Subs Plan</button>
+        <span id="subsMsg" class="text-sm text-slate-500"></span>
+      </div>
+    </section>
+
+    <!-- EQUIPMENT -->
+    <section class="bg-white rounded-xl shadow-sm p-5 space-y-3">
+      <div class="flex items-center justify-between">
+        <h2 class="text-lg font-semibold">Plan: Equipment</h2>
+        <button id="addEquipRow" class="px-3 py-1.5 rounded-md border hover:bg-slate-50">+ Add row</button>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-sm">
+          <thead class="text-left text-gray-600 border-b">
+            <tr>
+              <th class="py-2 pr-3">Equipment</th>
+              <th class="py-2 pr-3">Rate (unit)</th>
+              <th class="py-2 pr-3">Hours</th>
+              <th class="py-2 pr-3">Cost (calc)</th>
+              <th class="py-2 pr-3"></th>
+            </tr>
+          </thead>
+          <tbody id="equipTbody"></tbody>
+        </table>
+      </div>
+      <div class="flex items-center gap-3">
+        <button id="saveEquip" class="px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700">Save Equipment Plan</button>
+        <span id="equipMsg" class="text-sm text-slate-500"></span>
+      </div>
+    </section>
+
+    <!-- MATERIALS -->
+    <section class="bg-white rounded-xl shadow-sm p-5 space-y-3">
+      <div class="flex items-center justify-between">
+        <h2 class="text-lg font-semibold">Plan: Materials</h2>
+        <button id="addMatRow" class="px-3 py-1.5 rounded-md border hover:bg-slate-50">+ Add row</button>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-sm">
+          <thead class="text-left text-gray-600 border-b">
+            <tr>
+              <th class="py-2 pr-3">SKU</th>
+              <th class="py-2 pr-3">Unit Cost (incl waste)</th>
+              <th class="py-2 pr-3">Qty</th>
+              <th class="py-2 pr-3">Cost (calc)</th>
+              <th class="py-2 pr-3"></th>
+            </tr>
+          </thead>
+          <tbody id="matTbody"></tbody>
+        </table>
+      </div>
+      <div class="flex items-center gap-3">
+        <button id="saveMat" class="px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700">Save Materials Plan</button>
+        <span id="matMsg" class="text-sm text-slate-500"></span>
+      </div>
+    </section>
+
+    <!-- REVENUE SETTINGS -->
+    <section class="bg-white rounded-xl shadow-sm p-5 space-y-3">
+      <div class="flex items-center justify-between">
+        <h2 class="text-lg font-semibold">Revenue Settings</h2>
+        <button id="saveRev" class="px-3 py-1.5 rounded-md bg-emerald-600 text-white hover:bg-emerald-700">Save</button>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
+        <div>
+          <label for="revMethod" class="block text-sm text-gray-600 mb-1">Method</label>
+          <select id="revMethod" class="border rounded-md p-2 w-full" aria-describedby="revMethodHelp">
+            <option value="TM">Time & Materials (T&M)</option>
+            <option value="COST_PLUS">Cost + Fee %</option>
+          </select>
+          <span id="revMethodHelp" class="sr-only">Select revenue calculation method</span>
+        </div>
+        <div>
+          <label for="feePct" class="block text-sm text-gray-600 mb-1">Fee % (Cost+)</label>
+          <input id="feePct" type="number" step="0.01" min="0" class="border rounded-md p-2 w-full" placeholder="e.g., 10 for 10%"/>
+        </div>
+        <div>
+          <label for="matPct" class="block text-sm text-gray-600 mb-1">Materials Markup % (T&M)</label>
+          <input id="matPct" type="number" step="0.01" min="0" class="border rounded-md p-2 w-full" placeholder="e.g., 15"/>
+        </div>
+        <div>
+          <label for="subsPct" class="block text-sm text-gray-600 mb-1">Subs Markup % (T&M)</label>
+          <input id="subsPct" type="number" step="0.01" min="0" class="border rounded-md p-2 w-full" placeholder="e.g., 10"/>
+        </div>
+        <div>
+          <label for="equipPct" class="block text-sm text-gray-600 mb-1">Equipment Markup % (T&M)</label>
+          <input id="equipPct" type="number" step="0.01" min="0" class="border rounded-md p-2 w-full" placeholder="e.g., 0"/>
+        </div>
+      </div>
+      <p id="revMsg" class="text-sm text-slate-500"></p>
+    </section>
+
+    <!-- MONTHLY P&L -->
+    <section class="bg-white rounded-xl shadow-sm p-5 space-y-3">
+      <div class="flex items-center justify-between">
+        <h2 class="text-lg font-semibold">Project P&L (Monthly)</h2>
+        <button id="refreshPL" class="px-3 py-1.5 rounded-md border hover:bg-slate-50">Refresh P&L</button>
+      </div>
+      <div class="overflow-x-auto">
+        <table id="plTable" class="min-w-full text-sm"></table>
+      </div>
+      <p class="text-xs text-slate-500">Revenue uses % complete (earned value) on baseline. Costs = Actuals (past) + Plan (future) + Indirects.</p>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
