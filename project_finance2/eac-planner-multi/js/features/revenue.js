@@ -21,7 +21,7 @@ function _toggleRevenueFields() {
 }
 
 export async function loadRevenueSettings() {
-  if (!getProjectId()) throw new Error('Select a project first.');
+  if (!getProjectId()) return new Error('Select a project first.');
   try {
     const { data, error } = await client
       .from('project_revenue_policy')
@@ -29,7 +29,7 @@ export async function loadRevenueSettings() {
       .eq('project_id', getProjectId())
       .single();
 
-    if (error && error.code !== 'PGRST116') throw error;
+    if (error && error.code !== 'PGRST116') return error;
 
     const method = data?.method || 'TM';
     $('#revMethod').value = method;
@@ -68,7 +68,7 @@ export async function saveRevenueSettings(onAfterSave=()=>{}) {
       .from('project_revenue_policy')
       .upsert(payload, { onConflict: 'project_id' });
 
-    if (error) throw error;
+    if (error) return error;
 
     $('#revMsg').textContent = `Saved. Using ${method}.`;
     await onAfterSave();
