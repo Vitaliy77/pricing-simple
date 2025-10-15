@@ -1,42 +1,56 @@
+// js/features/pl-table.js
 import { client } from '../api/supabase.js';
-import { getProjectId } from '../lib/state.js';
 import { $, fmtUSD0 } from '../lib/dom.js';
+import { getProjectId } from '../lib/state.js';
 
 export async function refreshPL() {
-  if (!getProjectId()) return new Error('Select a project first.');
   try {
+    if (!getProjectId()) { $('#plTable').innerHTML = '<tbody><tr><td class="p-3">Select a project.</td></tr></tbody>'; return; }
+
     const ymVal = $('#monthPicker').value || new Date().toISOString().slice(0, 7);
     const year = Number(ymVal.slice(0, 4));
-    const start = `${year}-01-01`;
-    const end = `${year + 1}-01-01`;
 
-    // Costs
-    const { data: costs, error: cErr } = await client
+    // ---- Costs (no server-side date filter; filter by year in JS)
+    const { data: costsAll, error: cErr } = await client
       .from('vw_eac_monthly_pl')
-      .select('ym, labor, equip, materials, subs, fringe, overhead, gna, total_cost')
+      .select('ym, labor, equip, materials, subs, fringe, overhead, gna, total_cost, project_id')
       .eq('project_id', getProjectId())
-      .gte('ym', start)
-      .lt('ym', end)
       .order('ym');
-    if (cErr) return cErr;
+    if (cErr) throw cErr;
 
-    // Revenue
-    const { data: rev, error: rErr } = await client
+    // ---- Revenue (no server-side date filter; filter by year in JS)
+    const { data: revAll, error: rErr } = await client
       .from('vw_eac_revenue_monthly')
-      .select('ym, revenue')
+      .select('ym, revenue, project_id')
       .eq('project_id', getProjectId())
-      .gte('ym', start)
-      .lt('ym', end)
       .order('ym');
-    if (rErr) return rErr;
+    if (rErr) throw rErr;
+
+    // Normalize and filter to the chosen year (works for date or text ym)
+    const inYear = (row) => {
+      if (!row?.ym) return false;
+      try {
+        const y = (typeof row.ym === 'string') ? row.ym.slice(0,4) : new Date(row.ym).getUTCFullYear().toString();
+        return y === String(year);
+      } catch { return false; }
+    };
+
+    const costs = (costsAll || []).filter(inYear);
+    const rev = (revAll || []).filter(inYear);
 
     const months = Array.from({ length: 12 }, (_, i) => new Date(Date.UTC(year, i, 1)));
     const key = d => d.toISOString().slice(0, 7);
 
     const costMap = {};
-    (costs || []).forEach(r => { costMap[new Date(r.ym).toISOString().slice(0, 7)] = r; });
+    (costs || []).forEach(r => {
+      const k = (typeof r.ym === 'string') ? r.ym.slice(0,7) : new Date(r.ym).toISOString().slice(0,7);
+      costMap[k] = r;
+    });
     const revMap = {};
-    (rev || []).forEach(r => { revMap[new Date(r.ym).toISOString().slice(0, 7)] = r.revenue || 0; });
+    (rev || []).forEach(r => {
+      const k = (typeof r.ym === 'string') ? r.ym.slice(0,7) : new Date(r.ym).toISOString().slice(0,7);
+      revMap[k] = Number(r.revenue || 0);
+    });
 
     const rows = [
       ['Revenue', k => Number(revMap[k] || 0)],
@@ -76,8 +90,9 @@ export async function refreshPL() {
         }
       });
       if (label === 'Margin %') {
-        const Rtot = months.reduce((s,d)=> s + Number(revMap[key(d)]||0), 0);
-        const Ctot = months.reduce((s,d)=> s + Number(costMap[key(d)]?.total_cost||0), 0);
+        const keys = months.map(key);
+        const Rtot = keys.reduce((s,k)=> s + Number(revMap[k]||0), 0);
+        const Ctot = keys.reduce((s,k)=> s + Number(costMap[k]?.total_cost||0), 0);
         const mtot = (Rtot===0 && Ctot===0) ? null : (Rtot ? ((Rtot-Ctot)/Rtot*100) : (Ctot? -100 : 0));
         html += `<td class="p-2 text-right font-semibold">${mtot==null ? '—' : `${mtot.toFixed(1)}%`}</td>`;
       } else {
@@ -86,7 +101,8 @@ export async function refreshPL() {
       html += '</tr>';
     });
     html += '</tbody>';
-    document.getElementById('plTable').innerHTML = html;
+    $('#plTable').innerHTML = html;
+
   } catch (err) {
     console.error('P&L error', err);
     $('#plTable').className = 'min-w-full text-sm';
