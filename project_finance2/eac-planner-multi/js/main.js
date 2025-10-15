@@ -14,7 +14,7 @@ async function loadExistingPlanForMonth(clientSideOnly=false) {
   // This function mirrors the original behavior by fetching existing rows.
   // To keep modules isolated, we inline the minimal logic needed here.
   // (Alternatively, you can move these reads into modular files too.)
-  const { client, getProjectId() } = await import('./api/supabase.js');
+  //const { client, getProjectId() } = await import('./api/supabase.js');
   const ym = `${$('#monthPicker').value}-01`;
   $('#laborTbody').innerHTML = '';
   $('#subsTbody').innerHTML = '';
