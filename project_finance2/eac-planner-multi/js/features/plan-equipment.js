@@ -63,7 +63,7 @@ export function makeEquipRow(row = {}) {
 }
 
 export async function saveEquip() {
-  if (!getProjectId()) throw new Error('Select a project first.');
+  if (!getProjectId()) return new Error('Select a project first.');
   $('#saveEquip').disabled = true;
   $('#equipMsg').textContent = 'Saving...';
   try {
@@ -85,7 +85,7 @@ export async function saveEquip() {
       .from('plan_equipment')
       .upsert(payload, { onConflict: 'project_id,ym,equipment_type' });
 
-    if (error) throw error;
+    if (error) return error;
 
     $('#equipMsg').textContent = `Saved ${payload.length} row(s).`;
   } catch (error) {
