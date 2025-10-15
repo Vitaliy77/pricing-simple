@@ -80,7 +80,7 @@ export function makeLaborRow(row = {}) {
 }
 
 export async function saveLabor() {
-  if (!getProjectId()) throw new Error('Select a project first.');
+  if (!getProjectId()) return new Error('Select a project first.');
   $('#saveLabor').disabled = true;
   $('#laborMsg').textContent = 'Saving...';
   try {
@@ -104,7 +104,7 @@ export async function saveLabor() {
       .from('plan_labor')
       .upsert(payload, { onConflict: 'project_id,ym,employee_id' });
 
-    if (error) throw error;
+    if (error) return error;
 
     $('#laborMsg').textContent = `Saved ${payload.length} row(s).`;
   } catch (error) {
