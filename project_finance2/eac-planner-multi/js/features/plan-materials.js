@@ -62,7 +62,7 @@ export function makeMatRow(row = {}) {
 }
 
 export async function saveMat() {
-  if (!getProjectId()) throw new Error('Select a project first.');
+  if (!getProjectId()) return new Error('Select a project first.');
   $('#saveMat').disabled = true;
   $('#matMsg').textContent = 'Saving...';
   try {
@@ -84,7 +84,7 @@ export async function saveMat() {
       .from('plan_materials')
       .upsert(payload, { onConflict: 'project_id,ym,sku' });
 
-    if (error) throw error;
+    if (error) return error;
 
     $('#matMsg').textContent = `Saved ${payload.length} row(s).`;
   } catch (error) {
