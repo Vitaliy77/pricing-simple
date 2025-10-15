@@ -1,17 +1,19 @@
+// js/data/projects.js
 import { client } from '../api/supabase.js';
 
+// Minimal + safe: select the columns you use and order by name (which you have)
 export async function listProjects() {
   const { data, error } = await client
     .from('projects')
     .select('id, name, client, start_date, end_date, status')
-    .order('created_at', { ascending: false });
+    .order('name', { ascending: true });
   if (error) throw error;
   return data || [];
 }
 
 export async function createProject(input) {
   const payload = {
-    name: input.name?.trim(),
+    name: (input.name || '').trim(),
     client: input.client?.trim() || null,
     start_date: input.start_date || null,
     end_date: input.end_date || null,
