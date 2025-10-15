@@ -3,7 +3,7 @@ import { getProjectId } from '../lib/state.js';
 import { $, fmtUSD0 } from '../lib/dom.js';
 
 export async function refreshPL() {
-  if (!getProjectId()) throw new Error('Select a project first.');
+  if (!getProjectId()) return new Error('Select a project first.');
   try {
     const ymVal = $('#monthPicker').value || new Date().toISOString().slice(0, 7);
     const year = Number(ymVal.slice(0, 4));
@@ -18,7 +18,7 @@ export async function refreshPL() {
       .gte('ym', start)
       .lt('ym', end)
       .order('ym');
-    if (cErr) throw cErr;
+    if (cErr) return cErr;
 
     // Revenue
     const { data: rev, error: rErr } = await client
@@ -28,7 +28,7 @@ export async function refreshPL() {
       .gte('ym', start)
       .lt('ym', end)
       .order('ym');
-    if (rErr) throw rErr;
+    if (rErr) return rErr;
 
     const months = Array.from({ length: 12 }, (_, i) => new Date(Date.UTC(year, i, 1)));
     const key = d => d.toISOString().slice(0, 7);
