@@ -1,0 +1,9 @@
+/* Sticky P&L header + first column */
+#plWrap { overflow: auto; }
+#plTable thead th { position: sticky; top: 0; background: #fff; z-index: 2; }
+#plTable tbody td:first-child, #plTable thead th:first-child {
+  position: sticky; left: 0; background: #fff; z-index: 3;
+}
+
+/* Optional small tweaks */
+th, td { white-space: nowrap; }
