@@ -46,7 +46,7 @@ export function makeSubRow(row = {}) {
 }
 
 export async function saveSubs() {
-  if (!getProjectId()) throw new Error('Select a project first.');
+  if (!getProjectId()) return new Error('Select a project first.');
   $('#saveSubs').disabled = true;
   $('#subsMsg').textContent = 'Saving...';
   try {
@@ -70,7 +70,7 @@ export async function saveSubs() {
       .from('plan_subs')
       .upsert(payload, { onConflict: 'project_id,ym,vendor_id' });
 
-    if (error) throw error;
+    if (error) return error;
 
     $('#subsMsg').textContent = `Saved ${payload.length} row(s).`;
   } catch (error) {
