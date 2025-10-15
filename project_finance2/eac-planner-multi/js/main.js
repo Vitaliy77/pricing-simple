@@ -98,41 +98,63 @@ async function promptNewProject() {
 
 async function init() {
   try {
+    // 1) Date & catalogs
     $('#monthPicker').value = new Date().toISOString().slice(0, 7);
     $('#status').textContent = 'Loading catalogs…';
     await loadLookups();
-    await loadRevenueSettings();
     $('#status').textContent = 'Catalogs loaded.';
+
+    // 2) Projects: restore, load, and ensure one is selected
     restoreProjectId();
-    await refreshProjectsUI();
-    if (!getProjectId()) return;
+    await refreshProjectsUI(); // populates #projectSelect and sets setProjectId(...)
+    if (!getProjectId()) {
+      // No projects exist — guide user to create one and stop here
+      $('#projMsg').textContent = 'Create your first project to continue.';
+      return;
+    }
+
+    // 3) With a project selected, load feature data
+    await loadRevenueSettings();
     await loadExistingPlanForMonth();
     await refreshPL();
 
-    // Wire project controls
+    // 4) Wire project controls
     $('#projectSelect').addEventListener('change', async (e) => {
       setProjectId(e.target.value || null);
-      if (!getProjectId()) return;
+      if (!getProjectId()) {
+        $('#projMsg').textContent = 'Select a project.';
+        return;
+      }
       await loadExistingPlanForMonth();
       await refreshPL();
     });
-    $('#newProjectBtn').onclick = async () => { try { await promptNewProject(); await loadExistingPlanForMonth(); await refreshPL(); } catch(e){ $('#projMsg').textContent = e.message; } };
-    $('#manageProjectsBtn').onclick = () => alert('Manage screen coming soon. For now, create/switch using this bar.');
+    $('#newProjectBtn').onclick = async () => {
+      try {
+        await promptNewProject();
+        await loadExistingPlanForMonth();
+        await refreshPL();
+      } catch (e) {
+        $('#projMsg').textContent = e.message;
+      }
+    };
+    $('#manageProjectsBtn').onclick = () =>
+      alert('Manage screen coming soon. For now, create/switch using this bar.');
 
-    // Wire buttons
+    // 5) Wire the rest of the buttons (unchanged)
     $('#addLaborRow').onclick = () => $('#laborTbody').appendChild(makeLaborRow());
     $('#addSubRow').onclick = () => $('#subsTbody').appendChild(makeSubRow());
     $('#addEquipRow').onclick = () => $('#equipTbody').appendChild(makeEquipRow());
     $('#addMatRow').onclick = () => $('#matTbody').appendChild(makeMatRow());
 
     $('#refreshPL').onclick = refreshPL;
-    $('#saveLabor').onclick = async () => { await saveLabor(); await loadExistingPlanForMonth(); await refreshPL(); };
-    $('#saveSubs').onclick = async () => { await saveSubs(); await loadExistingPlanForMonth(); await refreshPL(); };
-    $('#saveEquip').onclick = async () => { await saveEquip(); await loadExistingPlanForMonth(); await refreshPL(); };
-    $('#saveMat').onclick = async () => { await saveMat(); await loadExistingPlanForMonth(); await refreshPL(); };
+    $('#saveLabor').onclick  = async () => { await saveLabor(); await loadExistingPlanForMonth(); await refreshPL(); };
+    $('#saveSubs').onclick   = async () => { await saveSubs();  await loadExistingPlanForMonth(); await refreshPL(); };
+    $('#saveEquip').onclick  = async () => { await saveEquip(); await loadExistingPlanForMonth(); await refreshPL(); };
+    $('#saveMat').onclick    = async () => { await saveMat();   await loadExistingPlanForMonth(); await refreshPL(); };
 
     wireRevenueUI(async () => { await refreshPL(); });
 
+    // Change month
     $('#monthPicker').addEventListener('change', async () => {
       $('#status').textContent = 'Loading month…';
       $('#laborMsg').textContent = '';
@@ -143,10 +165,12 @@ async function init() {
       await refreshPL();
       $('#status').textContent = '';
     });
+
   } catch (err) {
     console.error('Init error:', err);
     $('#status').textContent = `Error loading data: ${err.message || err}`;
   }
 }
+
 
 init();
