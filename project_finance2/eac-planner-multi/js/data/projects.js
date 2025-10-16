@@ -1,12 +1,11 @@
 // js/data/projects.js
 import { client } from '../api/supabase.js';
 
-// Minimal + safe: select the columns you use and order by name (which you have)
 export async function listProjects() {
+  // Broad select + no risky order (some schemas don't have created_at/name)
   const { data, error } = await client
     .from('projects')
-    .select('id, name, client, start_date, end_date, status')
-    .order('name', { ascending: true });
+    .select('*'); // safe while we diagnose
   if (error) throw error;
   return data || [];
 }
