@@ -98,40 +98,31 @@ async function promptNewProject() {
 
 async function init() {
   try {
-    // 1) Date & catalogs
+    // 1) Basic UI setup
     $('#monthPicker').value = new Date().toISOString().slice(0, 7);
     $('#status').textContent = 'Loading catalogs…';
+
+    // 2) Load lookups (tolerant version from lookups.js)
     await loadLookups();
     $('#status').textContent = 'Catalogs loaded.';
 
-    // 2) Projects: restore, load, and ensure one is selected
+    // 3) Prepare projects bar (restore → list → select)
     restoreProjectId();
-    await refreshProjectsUI(); // populates #projectSelect and sets setProjectId(...)
+    await refreshProjectsUI(); // must set setProjectId(...) or show "no projects"
     if (!getProjectId()) {
-      // No projects exist — guide user to create one and stop here
       $('#projMsg').textContent = 'Create your first project to continue.';
-      return;
+      return; // stop here until user creates/selects a project
     }
 
-    } catch (err) {
-  console.error('Init error', err);
-  const msg = (err && err.message) ? err.message : JSON.stringify(err || {}, null, 2);
-  $('#status').textContent = `Error loading data: ${msg}`;
-    }
-
-
-    // 3) With a project selected, load feature data
+    // 4) With a project selected, load project-specific data
     await loadRevenueSettings();
     await loadExistingPlanForMonth();
     await refreshPL();
 
-    // 4) Wire project controls
+    // 5) Wire project controls
     $('#projectSelect').addEventListener('change', async (e) => {
       setProjectId(e.target.value || null);
-      if (!getProjectId()) {
-        $('#projMsg').textContent = 'Select a project.';
-        return;
-      }
+      if (!getProjectId()) { $('#projMsg').textContent = 'Select a project.'; return; }
       await loadExistingPlanForMonth();
       await refreshPL();
     });
@@ -141,27 +132,27 @@ async function init() {
         await loadExistingPlanForMonth();
         await refreshPL();
       } catch (e) {
-        $('#projMsg').textContent = e.message;
+        $('#projMsg').textContent = e.message || String(e);
       }
     };
     $('#manageProjectsBtn').onclick = () =>
       alert('Manage screen coming soon. For now, create/switch using this bar.');
 
-    // 5) Wire the rest of the buttons (unchanged)
+    // 6) Wire planning buttons
     $('#addLaborRow').onclick = () => $('#laborTbody').appendChild(makeLaborRow());
-    $('#addSubRow').onclick = () => $('#subsTbody').appendChild(makeSubRow());
+    $('#addSubRow').onclick   = () => $('#subsTbody').appendChild(makeSubRow());
     $('#addEquipRow').onclick = () => $('#equipTbody').appendChild(makeEquipRow());
-    $('#addMatRow').onclick = () => $('#matTbody').appendChild(makeMatRow());
+    $('#addMatRow').onclick   = () => $('#matTbody').appendChild(makeMatRow());
 
     $('#refreshPL').onclick = refreshPL;
-    $('#saveLabor').onclick  = async () => { await saveLabor(); await loadExistingPlanForMonth(); await refreshPL(); };
-    $('#saveSubs').onclick   = async () => { await saveSubs();  await loadExistingPlanForMonth(); await refreshPL(); };
-    $('#saveEquip').onclick  = async () => { await saveEquip(); await loadExistingPlanForMonth(); await refreshPL(); };
-    $('#saveMat').onclick    = async () => { await saveMat();   await loadExistingPlanForMonth(); await refreshPL(); };
+    $('#saveLabor').onclick = async () => { await saveLabor(); await loadExistingPlanForMonth(); await refreshPL(); };
+    $('#saveSubs').onclick  = async () => { await saveSubs();  await loadExistingPlanForMonth(); await refreshPL(); };
+    $('#saveEquip').onclick = async () => { await saveEquip(); await loadExistingPlanForMonth(); await refreshPL(); };
+    $('#saveMat').onclick   = async () => { await saveMat();   await loadExistingPlanForMonth(); await refreshPL(); };
 
     wireRevenueUI(async () => { await refreshPL(); });
 
-    // Change month
+    // 7) Month change
     $('#monthPicker').addEventListener('change', async () => {
       $('#status').textContent = 'Loading month…';
       $('#laborMsg').textContent = '';
@@ -174,10 +165,12 @@ async function init() {
     });
 
   } catch (err) {
-    console.error('Init error:', err);
-    $('#status').textContent = `Error loading data: ${err.message || err}`;
+    console.error('Init error', err);
+    const msg = (err && err.message) ? err.message : JSON.stringify(err || {}, null, 2);
+    $('#status').textContent = `Error loading data: ${msg}`;
   }
 }
+
 
 
 init();
