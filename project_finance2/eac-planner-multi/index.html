@@ -204,5 +204,44 @@
 
   <!-- App entry -->
   <script type="module" src="./js/main.js" defer></script>
+  <!-- New Project Modal -->
+<div id="projModal" class="fixed inset-0 hidden items-center justify-center bg-black/40 z-50">
+  <div class="bg-white rounded-xl shadow-xl w-full max-w-lg p-5">
+    <div class="flex items-center justify-between mb-3">
+      <h3 class="text-lg font-semibold">New Project</h3>
+      <button id="projClose" class="px-2 py-1 text-slate-500 hover:text-slate-800">✕</button>
+    </div>
+    <form id="projForm" class="grid grid-cols-1 gap-4">
+      <label class="block">
+        <span class="text-sm text-gray-600">Project name *</span>
+        <input id="projName" name="name" type="text" required class="mt-1 border rounded-md p-2 w-full" placeholder="e.g., Airport Expansion"/>
+      </label>
+      <label class="block">
+        <span class="text-sm text-gray-600">Client</span>
+        <input id="projClient" name="client" type="text" class="mt-1 border rounded-md p-2 w-full" placeholder="e.g., City of Springfield"/>
+      </label>
+      <div class="grid grid-cols-2 gap-4">
+        <label class="block">
+          <span class="text-sm text-gray-600">Start date</span>
+          <input id="projStart" name="start" type="date" class="mt-1 border rounded-md p-2 w-full"/>
+        </label>
+        <label class="block">
+          <span class="text-sm text-gray-600">End date</span>
+          <input id="projEnd" name="end" type="date" class="mt-1 border rounded-md p-2 w-full"/>
+        </label>
+      </div>
+      <label class="inline-flex items-center gap-2">
+        <input id="projOpenRev" type="checkbox" class="h-4 w-4">
+        <span class="text-sm text-gray-600">Open Revenue settings after creating</span>
+      </label>
+      <div class="flex items-center justify-end gap-2 pt-2">
+        <button type="button" id="projCancel" class="px-3 py-1.5 rounded-md border hover:bg-slate-50">Cancel</button>
+        <button type="submit" class="px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700">Create Project</button>
+      </div>
+      <p id="projErr" class="text-sm text-red-600"></p>
+    </form>
+  </div>
+</div>
+
 </body>
 </html>
