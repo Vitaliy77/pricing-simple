@@ -12,7 +12,6 @@ import { makeSubRow, saveSubs } from './features/plan-subs.js';
 import { makeEquipRow, saveEquip } from './features/plan-equipment.js';
 import { makeMatRow, saveMat } from './features/plan-materials.js';
 
-import { getProjectId } from './lib/state.js';
 import { $ } from './lib/dom.js';
 
 async function loadExistingPlanForMonth() {
