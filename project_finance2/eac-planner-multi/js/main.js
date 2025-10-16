@@ -72,9 +72,10 @@ async function loadExistingPlanForMonth() {
 
 
 
-async function refreshProjectsUI(selectAfterId=null) {
+async function refreshProjectsUI(selectAfterId = null) {
   $('#projMsg').textContent = 'Loading projects…';
   const projects = await listProjects();
+
   const sel = $('#projectSelect');
   if (!projects.length) {
     sel.innerHTML = '<option value="">No projects yet</option>';
@@ -82,27 +83,67 @@ async function refreshProjectsUI(selectAfterId=null) {
     setProjectId(null);
     return;
   }
-  sel.innerHTML = projects.map(p => `<option value="${p.id}">${p.name}${p.client? ' — '+p.client: ''}</option>`).join('');
-  const toSelect = selectAfterId || getProjectId() || projects[0].id;
+
+  // Build options
+  sel.innerHTML = projects.map(p => {
+    const label = [p.name, p.client ? `— ${p.client}` : ''].join(' ');
+    return `<option value="${p.id}">${label}</option>`;
+  }).join('');
+
+  // Pick which project to select:
+  // 1) the one we just created, 2) stored id if still valid, 3) first in list
+  const stored = getProjectId();
+  const validStored = projects.some(p => p.id === stored) ? stored : null;
+  const toSelect = selectAfterId || validStored || projects[0].id;
+
   sel.value = toSelect;
-  setProjectId(sel.value);
+  setProjectId(toSelect);
   $('#projMsg').textContent = '';
 }
 
-async function ensureProjectSelected() {
-  if (!getProjectId()) await refreshProjectsUI();
-  return getProjectId();
+function openProjectModal() {
+  $('#projErr').textContent = '';
+  $('#projForm').reset();
+  $('#projModal').classList.remove('hidden');
+  $('#projModal').classList.add('flex');
+  $('#projName').focus();
+}
+function closeProjectModal() {
+  $('#projModal').classList.add('hidden');
+  $('#projModal').classList.remove('flex');
 }
 
-async function promptNewProject() {
-  const name = prompt('Project name:');
-  if (!name) return;
-  const client = prompt('Client (optional):') || null;
-  const start_date = prompt('Start date YYYY-MM-DD (optional):') || null;
-  const end_date = prompt('End date YYYY-MM-DD (optional):') || null;
-  const id = await createProject({ name, client, start_date, end_date });
-  await refreshProjectsUI(id);
+async function handleProjectFormSubmit(e) {
+  e.preventDefault();
+  $('#projErr').textContent = '';
+  try {
+    const name = $('#projName').value.trim();
+    const client = $('#projClient').value.trim() || null;
+    const start_date = $('#projStart').value || null;
+    const end_date = $('#projEnd').value || null;
+    if (!name) { $('#projErr').textContent = 'Project name is required.'; return; }
+
+    const newId = await createProject({ name, client, start_date, end_date });
+    await refreshProjectsUI(newId);          // select the new project
+    closeProjectModal();
+
+    // Optionally open revenue settings
+    if ($('#projOpenRev').checked) {
+      await loadRevenueSettings();
+      // scroll into view
+      document.querySelector('h2.text-lg.font-semibold:nth-child(1)')?.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    // Load data for the new project
+    await loadExistingPlanForMonth();
+    await refreshPL();
+
+  } catch (err) {
+    console.error('createProject error', err);
+    $('#projErr').textContent = err?.message || String(err);
+  }
 }
+
 
 async function init() {
   try {
