@@ -4,64 +4,75 @@ import { listProjects, createProject } from './data/projects.js';
 import { loadLookups } from './data/lookups.js';
 import { wireRevenueUI, loadRevenueSettings } from './features/revenue.js';
 import { refreshPL } from './features/pl-table.js';
+import { client } from './api/supabase.js';
+
 
 import { makeLaborRow, saveLabor } from './features/plan-labor.js';
 import { makeSubRow, saveSubs } from './features/plan-subs.js';
 import { makeEquipRow, saveEquip } from './features/plan-equipment.js';
 import { makeMatRow, saveMat } from './features/plan-materials.js';
 
-async function loadExistingPlanForMonth(clientSideOnly=false) {
-  // This function mirrors the original behavior by fetching existing rows.
-  // To keep modules isolated, we inline the minimal logic needed here.
-  // (Alternatively, you can move these reads into modular files too.)
-  //const { client, getProjectId() } = await import('./api/supabase.js');
-  const ym = `${$('#monthPicker').value}-01`;
-  $('#laborTbody').innerHTML = '';
-  $('#subsTbody').innerHTML = '';
-  $('#equipTbody').innerHTML = '';
-  $('#matTbody').innerHTML = '';
+import { getProjectId } from './lib/state.js';
+import { $ } from './lib/dom.js';
 
+async function loadExistingPlanForMonth() {
   try {
+    const pid = getProjectId();
+    if (!pid) { $('#status').textContent = 'Select or create a project.'; return; }
+
+    const ym = `${$('#monthPicker').value}-01`;
+
+    // clear tables before refill
+    $('#laborTbody').innerHTML = '';
+    $('#subsTbody').innerHTML  = '';
+    $('#equipTbody').innerHTML = '';
+    $('#matTbody').innerHTML   = '';
+
     // Labor
-    const { data: pl, error: plErr } = await client
-      .from('plan_labor')
-      .select('employee_id, hours, override_rate')
-      .eq('project_id', getProjectId())
-      .eq('ym', ym);
-    if (plErr) throw plErr;
-    (pl || []).forEach(r => $('#laborTbody').appendChild(makeLaborRow(r)));
+    {
+      const { data, error } = await client
+        .from('plan_labor')
+        .select('employee_id, hours, override_rate')
+        .eq('project_id', pid).eq('ym', ym);
+      if (error) throw error;
+      data?.forEach(r => $('#laborTbody').appendChild(makeLaborRow(r)));
+    }
 
     // Subs
-    const { data: ps, error: psErr } = await client
-      .from('plan_subs')
-      .select('vendor_id, cost, note')
-      .eq('project_id', getProjectId())
-      .eq('ym', ym);
-    if (psErr) throw psErr;
-    (ps || []).forEach(r => $('#subsTbody').appendChild(makeSubRow(r)));
+    {
+      const { data, error } = await client
+        .from('plan_subs')
+        .select('vendor_id, cost, note')
+        .eq('project_id', pid).eq('ym', ym);
+      if (error) throw error;
+      data?.forEach(r => $('#subsTbody').appendChild(makeSubRow(r)));
+    }
 
     // Equipment
-    const { data: pe, error: peErr } = await client
-      .from('plan_equipment')
-      .select('equipment_type, hours')
-      .eq('project_id', getProjectId())
-      .eq('ym', ym);
-    if (peErr) throw peErr;
-    (pe || []).forEach(r => $('#equipTbody').appendChild(makeEquipRow(r)));
+    {
+      const { data, error } = await client
+        .from('plan_equipment')
+        .select('equipment_type, hours')
+        .eq('project_id', pid).eq('ym', ym);
+      if (error) throw error;
+      data?.forEach(r => $('#equipTbody').appendChild(makeEquipRow(r)));
+    }
 
     // Materials
-    const { data: pm, error: pmErr } = await client
-      .from('plan_materials')
-      .select('sku, qty')
-      .eq('project_id', getProjectId())
-      .eq('ym', ym);
-    if (pmErr) throw pmErr;
-    (pm || []).forEach(r => $('#matTbody').appendChild(makeMatRow(r)));
+    {
+      const { data, error } = await client
+        .from('plan_materials')
+        .select('sku, qty')
+        .eq('project_id', pid).eq('ym', ym);
+      if (error) throw error;
+      data?.forEach(r => $('#matTbody').appendChild(makeMatRow(r)));
+    }
   } catch (err) {
     console.error('Error loading plan:', err);
     $('#status').textContent = `Error loading plan: ${err.message || err}`;
   }
 }
+
 
 
 async function refreshProjectsUI(selectAfterId=null) {
