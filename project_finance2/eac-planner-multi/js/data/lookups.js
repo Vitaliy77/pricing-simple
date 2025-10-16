@@ -7,11 +7,21 @@ export let vendors = [];         // [{id, name}]
 export let equipmentList = [];   // [{equip_type, rate, rate_unit}]
 export let materialsList = [];   // [{sku, description, unit_cost, waste_pct}]
 
-export async function loadLookups() {
-  // Labor roles (be flexible)
-  {
-    const { data, error } = await client.from('labor_roles').select('*');
+async function safeFetch(label, from, select='*') {
+  try {
+    const { data, error } = await client.from(from).select(select);
     if (error) throw error;
+    return data || [];
+  } catch (e) {
+    console.warn(`${label} fetch skipped:`, e?.message || e);
+    return []; // don't break init
+  }
+}
+
+export async function loadLookups() {
+  // Labor roles
+  {
+    const data = await safeFetch('labor_roles', 'labor_roles', '*');
     rolesRate = {};
     (data || []).forEach(r => {
       const role = r.role ?? r.title ?? r.name;
@@ -23,10 +33,9 @@ export async function loadLookups() {
 
   // Employees
   {
-    const { data, error } = await client.from('employees').select('*');
-    if (error) throw error;
+    const data = await safeFetch('employees', 'employees', '*');
     employees = (data || [])
-      .filter(e => e.is_active === true || e.is_active === 1 || e.is_active == null) // allow missing flag
+      .filter(e => e.is_active === true || e.is_active === 1 || e.is_active == null)
       .map(e => ({
         id: e.id,
         full_name: e.full_name ?? e.name ?? '',
@@ -36,21 +45,14 @@ export async function loadLookups() {
 
   // Subs/vendors
   {
-    const { data, error } = await client.from('sub_vendors').select('*');
-    if (error) throw error;
+    const data = await safeFetch('sub_vendors', 'sub_vendors', '*');
     vendors = (data || []).map(v => ({ id: v.id, name: v.name ?? v.vendor_name ?? '' }));
   }
 
-  // Equipment
+  // Equipment (try view, fallback to table)
   {
-    // use your view if present; else fallback to "equipment" table
-    let eq = null, err = null;
-    ({ data: eq, error: err } = await client.from('vw_equipment_catalog').select('*'));
-    if (err) {
-      const res = await client.from('equipment').select('*');
-      if (res.error) throw res.error;
-      eq = res.data;
-    }
+    let eq = await safeFetch('vw_equipment_catalog', 'vw_equipment_catalog', '*');
+    if (!eq.length) eq = await safeFetch('equipment', 'equipment', '*');
     equipmentList = (eq || []).map(x => ({
       equip_type: x.equip_type ?? x.type ?? x.name ?? '',
       rate: Number(x.rate ?? x.unit_rate ?? 0),
@@ -60,8 +62,7 @@ export async function loadLookups() {
 
   // Materials
   {
-    const { data, error } = await client.from('materials').select('*');
-    if (error) throw error;
+    const data = await safeFetch('materials', 'materials', '*');
     materialsList = (data || []).map(m => ({
       sku: m.sku ?? m.code ?? '',
       description: m.description ?? m.name ?? '',
