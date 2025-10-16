@@ -113,6 +113,13 @@ async function init() {
       return;
     }
 
+    } catch (err) {
+  console.error('Init error', err);
+  const msg = (err && err.message) ? err.message : JSON.stringify(err || {}, null, 2);
+  $('#status').textContent = `Error loading data: ${msg}`;
+    }
+
+
     // 3) With a project selected, load feature data
     await loadRevenueSettings();
     await loadExistingPlanForMonth();
