@@ -168,24 +168,23 @@ async function init() {
     await loadExistingPlanForMonth();
     await refreshPL();
 
-    // 5) Wire project controls
+       // 5) Wire project controls (modal + switch)
+    $('#newProjectBtn').onclick = openProjectModal;     // open the form
+    $('#projCancel').onclick   = closeProjectModal;     // close (footer Cancel)
+    $('#projClose').onclick    = closeProjectModal;     // close (X button)
+    $('#projForm').addEventListener('submit', handleProjectFormSubmit); // create project
+    
     $('#projectSelect').addEventListener('change', async (e) => {
       setProjectId(e.target.value || null);
       if (!getProjectId()) { $('#projMsg').textContent = 'Select a project.'; return; }
       await loadExistingPlanForMonth();
       await refreshPL();
     });
-    $('#newProjectBtn').onclick = async () => {
-      try {
-        await promptNewProject();
-        await loadExistingPlanForMonth();
-        await refreshPL();
-      } catch (e) {
-        $('#projMsg').textContent = e.message || String(e);
-      }
-    };
+    
+    // (Optional) If you still want this temporarily:
     $('#manageProjectsBtn').onclick = () =>
       alert('Manage screen coming soon. For now, create/switch using this bar.');
+    
 
     // 6) Wire planning buttons
     $('#addLaborRow').onclick = () => $('#laborTbody').appendChild(makeLaborRow());
