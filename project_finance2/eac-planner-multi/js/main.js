@@ -86,7 +86,7 @@ async function refreshProjectsUI(selectAfterId = null) {
 
   // Build options
   sel.innerHTML = projects.map(p => {
-    const label = [p.name, p.client ? `— ${p.client}` : ''].join(' ');
+    const label = p.name; 
     return `<option value="${p.id}">${label}</option>`;
   }).join('');
 
@@ -113,36 +113,26 @@ function closeProjectModal() {
   $('#projModal').classList.remove('flex');
 }
 
-async function handleProjectFormSubmit(e) {
-  e.preventDefault();
-  $('#projErr').textContent = '';
-  try {
-    const name = $('#projName').value.trim();
-    const client = $('#projClient').value.trim() || null;
-    const start_date = $('#projStart').value || null;
-    const end_date = $('#projEnd').value || null;
-    if (!name) { $('#projErr').textContent = 'Project name is required.'; return; }
-
-    const newId = await createProject({ name, client, start_date, end_date });
-    await refreshProjectsUI(newId);          // select the new project
-    closeProjectModal();
-
-    // Optionally open revenue settings
-    if ($('#projOpenRev').checked) {
-      await loadRevenueSettings();
-      // scroll into view
-      document.querySelector('h2.text-lg.font-semibold:nth-child(1)')?.scrollIntoView({ behavior: 'smooth' });
+  async function handleProjectFormSubmit(e) {
+    e.preventDefault();
+    $('#projErr').textContent = '';
+    try {
+      const name = $('#projName').value.trim();
+      if (!name) { $('#projErr').textContent = 'Project name is required.'; return; }
+  
+      // Only send name (others ignored until columns exist)
+      const newId = await createProject({ name });
+  
+      await refreshProjectsUI(newId);   // selects new project
+      closeProjectModal();
+      await loadExistingPlanForMonth();
+      await refreshPL();
+    } catch (err) {
+      console.error('createProject error', err);
+      $('#projErr').textContent = err?.message || String(err);
     }
-
-    // Load data for the new project
-    await loadExistingPlanForMonth();
-    await refreshPL();
-
-  } catch (err) {
-    console.error('createProject error', err);
-    $('#projErr').textContent = err?.message || String(err);
   }
-}
+
 
 
 async function init() {
