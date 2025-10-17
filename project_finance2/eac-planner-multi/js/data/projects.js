@@ -2,24 +2,22 @@
 import { client } from '../api/supabase.js';
 
 export async function listProjects() {
-  // Broad select + no risky order (some schemas don't have created_at/name)
+  // Keep it simple: only select columns we’re sure about
   const { data, error } = await client
     .from('projects')
-    .select('*'); // safe while we diagnose
+    .select('id, name');   // ← only id + name for now
   if (error) throw error;
   return data || [];
 }
 
 export async function createProject(input) {
-  const payload = {
-    name: (input.name || '').trim(),
-    client: input.client?.trim() || null,
-    start_date: input.start_date || null,
-    end_date: input.end_date || null,
-    status: input.status || 'ACTIVE'
-  };
+  const payload = { name: (input.name || '').trim() };  // ← only name
   if (!payload.name) throw new Error('Project name is required.');
-  const { data, error } = await client.from('projects').insert(payload).select('id').single();
+  const { data, error } = await client
+    .from('projects')
+    .insert(payload)
+    .select('id')
+    .single();
   if (error) throw error;
   return data.id;
 }
