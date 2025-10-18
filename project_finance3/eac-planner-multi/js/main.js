@@ -1,97 +1,61 @@
+// js/main.js
+// Tab router + project bar + new-project modal
+
 import { $ } from './lib/dom.js';
 import { setProjectId, getProjectId, restoreProjectId } from './lib/state.js';
 import { listProjects, createProject } from './data/projects.js';
-import { loadLookups } from './data/lookups.js';
-import { wireRevenueUI, loadRevenueSettings } from './features/revenue.js';
-import { refreshPL } from './features/pl-table.js';
-import { client } from './api/supabase.js';
 
+// -------------------------------
+// Tab routing (lazy-loaded files)
+// -------------------------------
+const routes = {
+  '#project': () => import('./tabs/project-info.js'),
+  '#pnl': () => import('./tabs/pnl.js'),
+  '#plan-employees': () => import('./tabs/plan-employees.js'),
+  '#plan-subs': () => import('./tabs/plan-subs.js'),
+  '#plan-equipment': () => import('./tabs/plan-equipment.js'),
+  '#plan-materials': () => import('./tabs/plan-materials.js'),
+  '#plan-odc': () => import('./tabs/plan-odc.js'),
+};
 
-import { makeLaborRow, saveLabor } from './features/plan-labor.js';
-import { makeSubRow, saveSubs } from './features/plan-subs.js';
-import { makeEquipRow, saveEquip } from './features/plan-equipment.js';
-import { makeMatRow, saveMat } from './features/plan-materials.js';
-
-async function loadExistingPlanForMonth() {
+async function render() {
+  const hash = location.hash || '#project';
+  const loader = routes[hash] || routes['#project'];
+  const view = $('#view');
   try {
-    const pid = getProjectId();
-    if (!pid) { $('#status').textContent = 'Select or create a project.'; return; }
-
-    const ym = `${$('#monthPicker').value}-01`;
-
-    // clear tables before refill
-    $('#laborTbody').innerHTML = '';
-    $('#subsTbody').innerHTML  = '';
-    $('#equipTbody').innerHTML = '';
-    $('#matTbody').innerHTML   = '';
-
-    // Labor
-    {
-      const { data, error } = await client
-        .from('plan_labor')
-        .select('employee_id, hours, override_rate')
-        .eq('project_id', pid).eq('ym', ym);
-      if (error) throw error;
-      data?.forEach(r => $('#laborTbody').appendChild(makeLaborRow(r)));
-    }
-
-    // Subs
-    {
-      const { data, error } = await client
-        .from('plan_subs')
-        .select('vendor_id, cost, note')
-        .eq('project_id', pid).eq('ym', ym);
-      if (error) throw error;
-      data?.forEach(r => $('#subsTbody').appendChild(makeSubRow(r)));
-    }
-
-    // Equipment
-    {
-      const { data, error } = await client
-        .from('plan_equipment')
-        .select('equipment_type, hours')
-        .eq('project_id', pid).eq('ym', ym);
-      if (error) throw error;
-      data?.forEach(r => $('#equipTbody').appendChild(makeEquipRow(r)));
-    }
-
-    // Materials
-    {
-      const { data, error } = await client
-        .from('plan_materials')
-        .select('sku, qty')
-        .eq('project_id', pid).eq('ym', ym);
-      if (error) throw error;
-      data?.forEach(r => $('#matTbody').appendChild(makeMatRow(r)));
+    const mod = await loader();
+    view.innerHTML = mod.template || `<div class="text-sm text-slate-500">Loaded.</div>`;
+    // Each tab module should export: template (string) and optional init(viewEl)
+    if (typeof mod.init === 'function') {
+      await mod.init(view);
     }
   } catch (err) {
-    console.error('Error loading plan:', err);
-    $('#status').textContent = `Error loading plan: ${err.message || err}`;
+    console.error('Tab render error:', err);
+    view.innerHTML = `<div class="p-4 rounded-md bg-red-50 text-red-700 text-sm">
+      Failed to load tab. ${err?.message || err}
+    </div>`;
   }
 }
 
-
-
+// -------------------------------
+// Project selector + modal
+// -------------------------------
 async function refreshProjectsUI(selectAfterId = null) {
   $('#projMsg').textContent = 'Loading projects…';
   const projects = await listProjects();
-
   const sel = $('#projectSelect');
+
   if (!projects.length) {
     sel.innerHTML = '<option value="">No projects yet</option>';
-    $('#projMsg').textContent = 'Create your first project.';
     setProjectId(null);
+    $('#projMsg').textContent = 'Create your first project.';
     return;
   }
 
   // Build options
-  sel.innerHTML = projects.map(p => {
-    const label = p.name; 
-    return `<option value="${p.id}">${label}</option>`;
-  }).join('');
+  sel.innerHTML = projects.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
 
-  // Pick which project to select:
-  // 1) the one we just created, 2) stored id if still valid, 3) first in list
+  // Choose selection: newly created id, or previously stored (if still valid), or first
   const stored = getProjectId();
   const validStored = projects.some(p => p.id === stored) ? stored : null;
   const toSelect = selectAfterId || validStored || projects[0].id;
@@ -113,110 +77,87 @@ function closeProjectModal() {
   $('#projModal').classList.remove('flex');
 }
 
-  async function handleProjectFormSubmit(e) {
-    e.preventDefault();
-    $('#projErr').textContent = '';
-    try {
-      const name = $('#projName').value.trim();
-      if (!name) { $('#projErr').textContent = 'Project name is required.'; return; }
-  
-      // Only send name (others ignored until columns exist)
-      const newId = await createProject({ name });
-  
-      await refreshProjectsUI(newId);   // selects new project
-      closeProjectModal();
-      await loadExistingPlanForMonth();
-      await refreshPL();
-    } catch (err) {
-      console.error('createProject error', err);
-      $('#projErr').textContent = err?.message || String(err);
-    }
-  }
-
-
-
-async function init() {
+async function handleProjectFormSubmit(e) {
+  e.preventDefault();
+  $('#projErr').textContent = '';
   try {
-    // 1) Basic UI setup
-    $('#monthPicker').value = new Date().toISOString().slice(0, 7);
-    $('#status').textContent = 'Loading catalogs…';
+    const name = $('#projName').value.trim();
+    if (!name) { $('#projErr').textContent = 'Project name is required.'; return; }
 
-    // 2) Load lookups (tolerant version from lookups.js)
-    await loadLookups();
-    $('#status').textContent = 'Catalogs loaded.';
+    // Minimal payload (only name) to avoid schema mismatches
+    const newId = await createProject({ name });
 
-    // 3) Prepare projects bar (restore → list → select)
-    restoreProjectId();
-    await refreshProjectsUI(); // must set setProjectId(...) or show "no projects"
-    if (!getProjectId()) {
-      $('#projMsg').textContent = 'Create your first project to continue.';
-      return; // stop here until user creates/selects a project
+    // Refresh & select the new project
+    await refreshProjectsUI(newId);
+    closeProjectModal();
+
+    // Optional: jump to revenue settings later (when we implement it on #project tab)
+    if ($('#projOpenRev')?.checked) {
+      location.hash = '#project';
     }
 
-    // 4) With a project selected, load project-specific data
-    await loadRevenueSettings();
-    await loadExistingPlanForMonth();
-    await refreshPL();
-
-       // 5) Wire project controls (modal + switch)
-    $('#newProjectBtn').onclick = openProjectModal;     // open the form
-    $('#projCancel').onclick   = closeProjectModal;     // close (footer Cancel)
-    $('#projClose').onclick    = closeProjectModal;     // close (X button)
-    $('#projForm').addEventListener('submit', handleProjectFormSubmit); // create project
-    
-    $('#projectSelect').addEventListener('change', async (e) => {
-      setProjectId(e.target.value || null);
-      if (!getProjectId()) { $('#projMsg').textContent = 'Select a project.'; return; }
-      await loadExistingPlanForMonth();
-      await refreshPL();
-    });
-    
-    // (Optional) If you still want this temporarily:
-    $('#manageProjectsBtn').onclick = () =>
-      alert('Manage screen coming soon. For now, create/switch using this bar.');
-    
-
-    // 6) Wire planning buttons
-    $('#addLaborRow').onclick = () => $('#laborTbody').appendChild(makeLaborRow());
-    $('#addSubRow').onclick   = () => $('#subsTbody').appendChild(makeSubRow());
-    $('#addEquipRow').onclick = () => $('#equipTbody').appendChild(makeEquipRow());
-    $('#addMatRow').onclick   = () => $('#matTbody').appendChild(makeMatRow());
-
-    $('#refreshPL').onclick = refreshPL;
-    
-    $('#saveLabor').onclick  = async () => { await saveLabor(); await loadExistingPlanForMonth(); await refreshPL(); };
-    $('#saveSubs').onclick   = async () => { await saveSubs();  await loadExistingPlanForMonth(); await refreshPL(); };
-    $('#saveEquip').onclick  = async () => { await saveEquip(); await loadExistingPlanForMonth(); await refreshPL(); };
-    $('#saveMat').onclick    = async () => { await saveMat();   await loadExistingPlanForMonth(); await refreshPL(); };
-    
-    $('#projectSelect').addEventListener('change', async (e) => {
-      setProjectId(e.target.value || null);
-      if (!getProjectId()) { $('#projMsg').textContent = 'Select a project.'; return; }
-      await loadExistingPlanForMonth();
-      await refreshPL();
-    });
-
-    wireRevenueUI(async () => { await refreshPL(); });
-
-    // 7) Month change
-    $('#monthPicker').addEventListener('change', async () => {
-      $('#status').textContent = 'Loading month…';
-      $('#laborMsg').textContent = '';
-      $('#subsMsg').textContent = '';
-      $('#equipMsg').textContent = '';
-      $('#matMsg').textContent = '';
-      await loadExistingPlanForMonth();
-      await refreshPL();
-      $('#status').textContent = '';
-    });
-
+    // Re-render current tab with the new context
+    await render();
   } catch (err) {
-    console.error('Init error', err);
-    const msg = (err && err.message) ? err.message : JSON.stringify(err || {}, null, 2);
-    $('#status').textContent = `Error loading data: ${msg}`;
+    console.error('createProject error', err);
+    $('#projErr').textContent = err?.message || String(err);
   }
 }
 
+// -------------------------------
+// App bootstrap
+// -------------------------------
+function wireProjectControls() {
+  // Switch projects
+  $('#projectSelect').addEventListener('change', async (e) => {
+    setProjectId(e.target.value || null);
+    if (!getProjectId()) { $('#projMsg').textContent = 'Select a project.'; return; }
+    await render(); // refresh current tab with the new project context
+  });
 
+  // Modal open/close + submit
+  $('#newProjectBtn').onclick = openProjectModal;
+  $('#projCancel').onclick = closeProjectModal;
+  $('#projClose').onclick = closeProjectModal;
+  $('#projForm').addEventListener('submit', handleProjectFormSubmit);
 
+  // (Optional placeholder)
+  $('#manageProjectsBtn').onclick = () =>
+    alert('Manage screen coming soon. For now, create/switch using the Project bar.');
+}
+
+function initMonthPicker() {
+  const el = $('#monthPicker');
+  if (!el.value) {
+    el.value = new Date().toISOString().slice(0, 7); // YYYY-MM
+  }
+  el.addEventListener('change', () => {
+    // Tabs can read #monthPicker when they compute monthly views
+    render();
+  });
+}
+
+async function init() {
+  try {
+    $('#status').textContent = 'Loading…';
+    initMonthPicker();
+
+    // Restore selection, populate projects, ensure we have something selected
+    restoreProjectId();
+    await refreshProjectsUI();
+    wireProjectControls();
+
+    // Default route
+    if (!location.hash) location.hash = '#project';
+    await render();
+
+    $('#status').textContent = '';
+  } catch (err) {
+    console.error('Init error', err);
+    const msg = (err && err.message) ? err.message : JSON.stringify(err || {}, null, 2);
+    $('#status').textContent = `Error loading app: ${msg}`;
+  }
+}
+
+window.addEventListener('hashchange', render);
 init();
