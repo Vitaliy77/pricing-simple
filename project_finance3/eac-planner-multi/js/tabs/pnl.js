@@ -185,19 +185,6 @@ async function renderPL(projectId, year) {
     const key = d => d.toISOString().slice(0, 7);
     const monthKeys = months.map(key);
 
-    // Forecast maps
-    const costFcMap = {};
-    costFc.forEach(r => {
-      const k = keyVal(r.ym);
-      costFcMap[k] = Number(r.total_cost || 0);
-    });
-
-    const revFcMap = {};
-    revFc.forEach(r => {
-      const k = keyVal(r.ym);
-      revFcMap[k] = Number(r.revenue || 0);
-    });
-
     // Actuals maps
     const revActMap = {};   // category = 'revenue'
     const costActMap = {};  // categories = labor, subs, equipment, materials, odc (+ anything not revenue)
