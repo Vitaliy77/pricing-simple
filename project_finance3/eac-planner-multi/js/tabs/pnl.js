@@ -1,6 +1,6 @@
 // js/tabs/pnl.js
-// P&L tab: Actuals vs Forecast by month (with year total).
-// Forecast is computed directly from plan tables; Actuals come from actuals_monthly (if present).
+// P&L tab: Single line per category; cell shows Actual if present, else Forecast.
+// Top header band shows contiguous "Actuals" vs "Forecast" month groups.
 
 import { $ } from '../lib/dom.js';
 import { getProjectId } from '../lib/state.js';
@@ -10,7 +10,7 @@ import { loadLookups, rolesRate, employees as empLookup, equipmentList, material
 export const template = /*html*/ `
   <div class="bg-white rounded-xl shadow-sm p-5">
     <div class="flex items-center justify-between mb-4">
-      <h2 class="text-lg font-semibold">P&L (Actuals • Forecast • Total)</h2>
+      <h2 class="text-lg font-semibold">P&L</h2>
       <button id="pnlRefresh" class="px-3 py-1.5 rounded-md border hover:bg-slate-50">Refresh</button>
     </div>
     <div id="pnlMsg" class="text-sm text-slate-500 mb-3"></div>
@@ -36,8 +36,7 @@ export async function init(rootEl) {
 
   btn.onclick = () => renderPL(pid, year);
 
-  // load lookups once (rates, catalogs) before computing forecast
-  await loadLookups();
+  await loadLookups();      // for rates/catalogs used in forecast
   await renderPL(pid, year);
 }
 
@@ -47,86 +46,91 @@ async function renderPL(projectId, year) {
   msg.textContent = 'Loading P&L…';
 
   try {
-    // ---- Forecast (computed from plan_* tables)
-    const { costFcMap, revFcMap } = await computeForecastFromPlans(projectId, year);
+    // ---- Compute Forecast (from plans)
+    const fc = await computeForecastFromPlans(projectId, year); // maps by YYYY-MM
 
-    // ---- Actuals (tolerant; if table missing, shows zeros)
-    let actAll = [];
-    try {
-      const res = await client
-        .from('actuals_monthly')
-        .select('ym, category, amount, project_id')
-        .eq('project_id', projectId);
-      if (res.error) throw res.error;
-      actAll = res.data || [];
-    } catch (e) {
-      console.warn('actuals_monthly fetch skipped:', e?.message || e);
-      actAll = [];
-    }
+    // ---- Actuals (tolerant)
+    const act = await fetchActualsMonthly(projectId, year); // category maps
 
-    // Filter to chosen year
-    const inYear = (row) => {
-      if (!row?.ym) return false;
-      try {
-        const y = (typeof row.ym === 'string') ? row.ym.slice(0,4) : new Date(row.ym).getUTCFullYear().toString();
-        return y === String(year);
-      } catch { return false; }
-    };
-    const act = (actAll || []).filter(inYear);
-
-    // Month keys and labels
+    // Months & keys
     const months = Array.from({ length: 12 }, (_, i) => new Date(Date.UTC(year, i, 1)));
-    const monthKey = d => d.toISOString().slice(0, 7); // YYYY-MM
-    const monthKeys = months.map(monthKey);
+    const mKey   = d => d.toISOString().slice(0,7); // YYYY-MM
+    const mKeys  = months.map(mKey);
 
-    // Build Actuals maps
-    const revActMap = {};   // category='revenue'
-    const costActMap = {};  // everything else
-    act.forEach(r => {
-      const k = keyOf(r.ym);
-      const amt = Number(r.amount || 0);
-      if (!k) return;
-      if (String(r.category).toLowerCase() === 'revenue') {
-        revActMap[k] = (revActMap[k] || 0) + amt;
-      } else {
-        costActMap[k] = (costActMap[k] || 0) + amt;
-      }
+    // Determine A/F per month (if any actual exists in that month)
+    const isActual = {};
+    mKeys.forEach(k => {
+      const any =
+        safeNum(act.rev[k])       ||
+        safeNum(act.labor[k])     ||
+        safeNum(act.subs[k])      ||
+        safeNum(act.equip[k])     ||
+        safeNum(act.materials[k]) ||
+        safeNum(act.odc[k]);
+      isActual[k] = any > 0;
     });
 
-    // Rows to render
+    // Build header band groups
+    const bands = compressBands(mKeys, (k) => isActual[k] ? 'Actuals' : 'Forecast');
+
+    // Build rows (choose actual if present, else forecast)
     const rows = [
-      { label: 'Revenue — Actual',    getter: k => safeNum(revActMap[k]) },
-      { label: 'Revenue — Forecast',  getter: k => safeNum(revFcMap[k])  },
-      { label: 'Revenue — Total',     getter: k => safeNum(revActMap[k]) + safeNum(revFcMap[k]) },
-
-      { label: 'Cost — Actual',       getter: k => safeNum(costActMap[k]) },
-      { label: 'Cost — Forecast',     getter: k => safeNum(costFcMap[k])  },
-      { label: 'Cost — Total',        getter: k => safeNum(costActMap[k]) + safeNum(costFcMap[k]) },
-
-      { label: 'Profit (Rev−Cost)',   getter: k => (safeNum(revActMap[k]) + safeNum(revFcMap[k])) - (safeNum(costActMap[k]) + safeNum(costFcMap[k])) },
-      { label: 'Margin %',            getter: k => {
-          const R = safeNum(revActMap[k]) + safeNum(revFcMap[k]);
-          const C = safeNum(costActMap[k]) + safeNum(costFcMap[k]);
-          if (R === 0 && C === 0) return null;
-          return R ? ((R - C) / R * 100) : (C ? -100 : 0);
-        },
-        isPercent: true
-      },
+      { label: 'Revenue',   getter: k => pickAF(act.rev[k],   fc.rev[k]) },
+      { label: 'Labor',     getter: k => pickAF(act.labor[k], fc.labor[k]) },
+      { label: 'Sub',       getter: k => pickAF(act.subs[k],  fc.subs[k]) },
+      { label: 'Equipment', getter: k => pickAF(act.equip[k], fc.equip[k]) },
+      { label: 'Material',  getter: k => pickAF(act.materials[k], fc.materials[k]) },
+      { label: 'ODC',       getter: k => pickAF(act.odc[k],   fc.odc[k]) },
+      { label: 'Profit',    getter: k => {
+          const rev = pickAF(act.rev[k], fc.rev[k]);
+          const cost = pickAF(act.labor[k], fc.labor[k]) +
+                       pickAF(act.subs[k], fc.subs[k]) +
+                       pickAF(act.equip[k], fc.equip[k]) +
+                       pickAF(act.materials[k], fc.materials[k]) +
+                       pickAF(act.odc[k], fc.odc[k]);
+          return rev - cost;
+        }},
+      { label: 'Margin %',  getter: k => {
+          const rev = pickAF(act.rev[k], fc.rev[k]);
+          const cost = pickAF(act.labor[k], fc.labor[k]) +
+                       pickAF(act.subs[k], fc.subs[k]) +
+                       pickAF(act.equip[k], fc.equip[k]) +
+                       pickAF(act.materials[k], fc.materials[k]) +
+                       pickAF(act.odc[k], fc.odc[k]);
+          if (rev === 0 && cost === 0) return null;
+          return rev ? ((rev - cost) / rev * 100) : (cost ? -100 : 0);
+        }, isPercent: true },
     ];
 
-    // Render table
-    let html = '<thead><tr>';
-    html += '<th class="p-2 text-left sticky left-0 bg-white">Category</th>';
-    monthKeys.forEach((k, i) => {
-      html += `<th class="p-2 text-right">${months[i].toLocaleString('en-US', { month: 'short', timeZone: 'UTC' })}</th>`;
+    // Render table with header band
+    let html = '<thead>';
+
+    // Band row
+    html += '<tr>';
+    html += `<th class="p-2 text-left sticky left-0 bg-white"></th>`; // empty corner
+    bands.forEach(b => {
+      html += `<th class="p-2 text-center text-xs uppercase tracking-wide bg-slate-50 border rounded ${b.label==='Actuals' ? 'text-green-700' : 'text-blue-700'}" colspan="${b.span}">${b.label}</th>`;
     });
-    html += '<th class="p-2 text-right">Year Total</th></tr></thead><tbody>';
+    html += `<th class="p-2 text-right"></th>`; // year total column header (blank)
+    html += '</tr>';
+
+    // Month names row
+    html += '<tr>';
+    html += '<th class="p-2 text-left sticky left-0 bg-white">Category</th>';
+    mKeys.forEach((k,i) => {
+      html += `<th class="p-2 text-right">${months[i].toLocaleString('en-US',{month:'short', timeZone:'UTC'})}</th>`;
+    });
+    html += '<th class="p-2 text-right">Year Total</th>';
+    html += '</tr>';
+
+    html += '</thead><tbody>';
 
     rows.forEach(row => {
       html += `<tr>`;
       html += `<td class="p-2 font-medium sticky left-0 bg-white">${row.label}</td>`;
       let yearTotal = 0;
-      monthKeys.forEach(k => {
+
+      mKeys.forEach(k => {
         const v = row.getter(k);
         if (row.isPercent) {
           html += `<td class="p-2 text-right">${v==null ? '—' : v.toFixed(1) + '%'}</td>`;
@@ -135,14 +139,23 @@ async function renderPL(projectId, year) {
           html += `<td class="p-2 text-right">${fmtUSD0(v || 0)}</td>`;
         }
       });
+
       if (row.isPercent) {
-        const Rtot = monthKeys.reduce((s, m) => s + (safeNum(revActMap[m]) + safeNum(revFcMap[m])), 0);
-        const Ctot = monthKeys.reduce((s, m) => s + (safeNum(costActMap[m]) + safeNum(costFcMap[m])), 0);
-        const mtot = (Rtot===0 && Ctot===0) ? null : (Rtot ? ((Rtot-Ctot)/Rtot*100) : (Ctot? -100 : 0));
+        // Compute full-year margin
+        const yRev = sumBy(mKeys, kk => pickAF(act.rev[kk], fc.rev[kk]));
+        const yCost = sumBy(mKeys, kk =>
+          pickAF(act.labor[kk], fc.labor[kk]) +
+          pickAF(act.subs[kk], fc.subs[kk]) +
+          pickAF(act.equip[kk], fc.equip[kk]) +
+          pickAF(act.materials[kk], fc.materials[kk]) +
+          pickAF(act.odc[kk], fc.odc[kk])
+        );
+        const mtot = (yRev===0 && yCost===0) ? null : (yRev ? ((yRev - yCost)/yRev*100) : (yCost? -100 : 0));
         html += `<td class="p-2 text-right font-semibold">${mtot==null ? '—' : mtot.toFixed(1) + '%'}</td>`;
       } else {
         html += `<td class="p-2 text-right font-semibold">${fmtUSD0(yearTotal)}</td>`;
       }
+
       html += `</tr>`;
     });
 
@@ -156,9 +169,10 @@ async function renderPL(projectId, year) {
   }
 }
 
-// ---------- forecast from plans ----------
+/* ---------------- Forecast & Actuals ---------------- */
+
 async function computeForecastFromPlans(projectId, year) {
-  // Pull project revenue policy
+  // project revenue policy
   const { data: proj, error: pErr } = await client
     .from('projects')
     .select('revenue_formula, fee_pct')
@@ -168,7 +182,7 @@ async function computeForecastFromPlans(projectId, year) {
   const formula = proj?.revenue_formula || 'TM';
   const feePct = Number(proj?.fee_pct || 0);
 
-  // Fetch plans (tolerant; filter to year client-side)
+  // load plans (tolerant)
   const [lab, subs, eqp, mats, odc] = await Promise.all([
     client.from('plan_labor').select('employee_id, ym, hours').eq('project_id', projectId),
     client.from('plan_subs').select('ym, cost').eq('project_id', projectId),
@@ -184,7 +198,7 @@ async function computeForecastFromPlans(projectId, year) {
   const planMat   = (mats.error? [] : (mats.data||[])).filter(inYear);
   const planODC   = (odc.error ? [] : (odc.data || [])).filter(inYear);
 
-  // Lookups for cost math
+  // lookups
   const empById = {};
   (empLookup || []).forEach(e => { if (e?.id) empById[e.id] = e; });
 
@@ -202,52 +216,140 @@ async function computeForecastFromPlans(projectId, year) {
     };
   });
 
-  // Initialize month maps
+  // month maps
   const months = Array.from({ length: 12 }, (_, i) => `${year}-${String(i+1).padStart(2,'0')}`);
-  const costFcMap = Object.fromEntries(months.map(mm => [mm, 0]));
-  const revFcMap  = Object.fromEntries(months.map(mm => [mm, 0]));
+  const emptyMap = () => Object.fromEntries(months.map(mm => [mm, 0]));
+  const labor = emptyMap(), subsM = emptyMap(), equip = emptyMap(), materials = emptyMap(), odcM = emptyMap();
+
   const kOf = ym => (typeof ym === 'string') ? ym.slice(0,7) : new Date(ym).toISOString().slice(0,7);
 
-  // Accumulate COST
+  // labor cost
   planLabor.forEach(r => {
     const mm = kOf(r.ym); if (!mm) return;
     const emp = empById[r.employee_id] || {};
     const rate = Number(rolesRate[emp.role || ''] || 0);
-    costFcMap[mm] += Number(r.hours || 0) * rate;
+    labor[mm] += Number(r.hours || 0) * rate;
   });
+
+  // subs cost
   planSubs.forEach(r => {
     const mm = kOf(r.ym); if (!mm) return;
-    costFcMap[mm] += Number(r.cost || 0);
+    subsM[mm] += Number(r.cost || 0);
   });
+
+  // equipment cost
   planEqp.forEach(r => {
     const mm = kOf(r.ym); if (!mm) return;
     const meta = eqMeta[r.equipment_type] || { rate: 0 };
-    costFcMap[mm] += Number(r.hours || 0) * Number(meta.rate || 0);
+    equip[mm] += Number(r.hours || 0) * Number(meta.rate || 0);
   });
+
+  // materials cost
   planMat.forEach(r => {
     const mm = kOf(r.ym); if (!mm) return;
     const m = matMeta[r.sku] || { unit_cost: 0, waste_pct: 0 };
     const unitLoaded = Number(m.unit_cost || 0) * (1 + Number(m.waste_pct || 0));
-    costFcMap[mm] += Number(r.qty || 0) * unitLoaded;
+    materials[mm] += Number(r.qty || 0) * unitLoaded;
   });
+
+  // odc cost
   planODC.forEach(r => {
     const mm = kOf(r.ym); if (!mm) return;
-    costFcMap[mm] += Number(r.cost || 0);
+    odcM[mm] += Number(r.cost || 0);
   });
 
-  // Compute REVENUE from cost
+  // revenue from cost (one map)
+  const rev = emptyMap();
   months.forEach(mm => {
-    const C = Number(costFcMap[mm] || 0);
-    let R = C;
-    if (formula === 'COST_PLUS') R = C * (1 + (feePct / 100));
-    // TM / FP placeholders equal cost until bill rates / rev rec rules are modeled
-    revFcMap[mm] = R;
+    const C = labor[mm] + subsM[mm] + equip[mm] + materials[mm] + odcM[mm];
+    rev[mm] = (formula === 'COST_PLUS') ? C * (1 + (Number(proj?.fee_pct || 0) / 100)) : C; // TM/FP placeholder
   });
 
-  return { costFcMap, revFcMap };
+  return {
+    rev,
+    labor,
+    subs: subsM,
+    equip,
+    materials,
+    odc: odcM
+  };
 }
 
-// ---------- helpers ----------
+async function fetchActualsMonthly(projectId, year) {
+  // tolerant (table may not exist)
+  let rows = [];
+  try {
+    const res = await client
+      .from('actuals_monthly')
+      .select('ym, category, amount')
+      .eq('project_id', projectId);
+    if (res.error) throw res.error;
+    rows = (res.data || []);
+  } catch (e) {
+    console.warn('actuals_monthly fetch skipped:', e?.message || e);
+    rows = [];
+  }
+  const inYear = r => (r?.ym && (typeof r.ym === 'string' ? r.ym.slice(0,4) : new Date(r.ym).getUTCFullYear().toString()) === String(year));
+
+  const byMonth = (cats) => new Proxy({}, {
+    get: (obj, k) => (k in obj ? obj[k] : 0),
+    set: (obj, k, v) => (obj[k] = v, true)
+  });
+
+  const maps = {
+    rev:       byMonth(),
+    labor:     byMonth(),
+    subs:      byMonth(),
+    equip:     byMonth(),
+    materials: byMonth(),
+    odc:       byMonth()
+  };
+
+  rows.filter(inYear).forEach(r => {
+    const k = keyOf(r.ym); if (!k) return;
+    const c = String(r.category || '').toLowerCase();
+    const v = Number(r.amount || 0);
+    if (c === 'revenue') maps.rev[k]       = (maps.rev[k] || 0) + v;
+    else if (c === 'labor') maps.labor[k]  = (maps.labor[k] || 0) + v;
+    else if (c === 'subs' || c === 'subcontractors' || c === 'sub') maps.subs[k] = (maps.subs[k] || 0) + v;
+    else if (c === 'equipment') maps.equip[k]   = (maps.equip[k] || 0) + v;
+    else if (c === 'materials' || c === 'material') maps.materials[k] = (maps.materials[k] || 0) + v;
+    else if (c === 'odc' || c === 'other' || c === 'other direct cost') maps.odc[k] = (maps.odc[k] || 0) + v;
+    else {
+      // treat any other category as cost bucket (fold into ODC if you want)
+      maps.odc[k] = (maps.odc[k] || 0) + v;
+    }
+  });
+
+  return maps;
+}
+
+/* ---------------- helpers ---------------- */
+
+function pickAF(actual, forecast) {
+  const a = Number(actual || 0);
+  const f = Number(forecast || 0);
+  // If there is any actual value for the month, prefer it; else forecast.
+  return a !== 0 ? a : f;
+}
+
+function compressBands(keys, labelFn) {
+  const out = [];
+  let cur = null;
+  keys.forEach((k, idx) => {
+    const lbl = labelFn(k);
+    if (!cur) cur = { label: lbl, span: 1 };
+    else if (cur.label === lbl) cur.span += 1;
+    else { out.push(cur); cur = { label: lbl, span: 1 }; }
+    if (idx === keys.length - 1 && cur) out.push(cur);
+  });
+  return out;
+}
+
+function sumBy(arr, fn) {
+  return arr.reduce((s, x) => s + Number(fn(x) || 0), 0);
+}
+
 function keyOf(ym) {
   try { return (typeof ym === 'string') ? ym.slice(0,7) : new Date(ym).toISOString().slice(0,7); }
   catch { return null; }
