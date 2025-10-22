@@ -1,11 +1,11 @@
 // js/tabs/pnl.js
-// P&L tab: Actuals vs Forecast by month (with year total)
+// P&L tab: Actuals vs Forecast by month (with year total).
+// Forecast is computed directly from plan tables; Actuals come from actuals_monthly (if present).
 
 import { $ } from '../lib/dom.js';
 import { getProjectId } from '../lib/state.js';
 import { client } from '../api/supabase.js';
 import { loadLookups, rolesRate, employees as empLookup, equipmentList, materialsList } from '../data/lookups.js';
-
 
 export const template = /*html*/ `
   <div class="bg-white rounded-xl shadow-sm p-5">
@@ -34,113 +34,10 @@ export async function init(rootEl) {
   const yearStr = ($('#monthPicker')?.value || new Date().toISOString().slice(0,7)).slice(0,4);
   const year = Number(yearStr);
 
-    async function computeForecastFromPlans(projectId, year) {
-    // Pull project revenue policy
-    const { data: proj, error: pErr } = await client
-      .from('projects')
-      .select('revenue_formula, fee_pct')
-      .eq('id', projectId)
-      .single();
-    if (pErr) throw pErr;
-    const formula = proj?.revenue_formula || 'TM';
-    const feePct = Number(proj?.fee_pct || 0);
-  
-    // Fetch all plan rows for the project (we’ll filter by year client-side)
-    const [lab, subs, eqp, mats, odc] = await Promise.all([
-      client.from('plan_labor').select('employee_id, ym, hours').eq('project_id', projectId),
-      client.from('plan_subs').select('ym, cost').eq('project_id', projectId),
-      client.from('plan_equipment').select('equipment_type, ym, hours').eq('project_id', projectId),
-      client.from('plan_materials').select('sku, ym, qty').eq('project_id', projectId),
-      client.from('plan_odc').select('odc_type, ym, cost').eq('project_id', projectId),
-    ]);
-  
-    // Turn errors into empty sets (tolerant)
-    const planLabor = (lab.error ? [] : (lab.data || [])).filter(r => keyVal(r.ym)?.slice(0,4) === String(year));
-    const planSubs  = (subs.error ? [] : (subs.data||[])).filter(r => keyVal(r.ym)?.slice(0,4) === String(year));
-    const planEqp   = (eqp.error ? [] : (eqp.data || [])).filter(r => keyVal(r.ym)?.slice(0,4) === String(year));
-    const planMat   = (mats.error? [] : (mats.data||[])).filter(r => keyVal(r.ym)?.slice(0,4) === String(year));
-    const planODC   = (odc.error ? [] : (odc.data || [])).filter(r => keyVal(r.ym)?.slice(0,4) === String(year));
-  
-    // Build lookups we need for costs
-    const empById = {};
-    (empLookup || []).forEach(e => { if (e?.id) empById[e.id] = e; });
-  
-    const eqMeta = {};
-    (equipmentList || []).forEach(e => {
-      const t = e.equip_type ?? e.name;
-      if (t) eqMeta[t] = { rate: Number(e.rate||0), unit: e.rate_unit || 'hour' };
-    });
-  
-    const matMeta = {};
-    (materialsList || []).forEach(m => {
-      if (m?.sku) matMeta[m.sku] = {
-        unit_cost: Number(m.unit_cost || 0),
-        waste_pct: Number(m.waste_pct || 0)
-      };
-    });
-  
-    // Init maps for the 12 months
-    const months = Array.from({ length: 12 }, (_, i) => `${year}-${String(i+1).padStart(2,'0')}`);
-    const costFcMap = Object.fromEntries(months.map(mm => [mm, 0]));
-    const revFcMap  = Object.fromEntries(months.map(mm => [mm, 0]));
-  
-    // Accumulate COSTS
-    // 1) Labor cost = hours * loaded_rate(role)
-    planLabor.forEach(r => {
-      const mm = keyVal(r.ym);
-      if (!mm) return;
-      const emp = empById[r.employee_id] || {};
-      const rate = Number(rolesRate[emp.role || ''] || 0);
-      const hours = Number(r.hours || 0);
-      costFcMap[mm] = (costFcMap[mm] || 0) + hours * rate;
-    });
-  
-    // 2) Subs cost = r.cost
-    planSubs.forEach(r => {
-      const mm = keyVal(r.ym);
-      if (!mm) return;
-      costFcMap[mm] = (costFcMap[mm] || 0) + Number(r.cost || 0);
-    });
-  
-    // 3) Equipment cost = hours * equipment rate
-    planEqp.forEach(r => {
-      const mm = keyVal(r.ym);
-      if (!mm) return;
-      const meta = eqMeta[r.equipment_type] || { rate: 0 };
-      costFcMap[mm] = (costFcMap[mm] || 0) + Number(r.hours || 0) * Number(meta.rate || 0);
-    });
-  
-    // 4) Materials cost = qty * unit_cost * (1 + waste_pct)
-    planMat.forEach(r => {
-      const mm = keyVal(r.ym);
-      if (!mm) return;
-      const m = matMeta[r.sku] || { unit_cost: 0, waste_pct: 0 };
-      const unitLoaded = Number(m.unit_cost || 0) * (1 + Number(m.waste_pct || 0));
-      costFcMap[mm] = (costFcMap[mm] || 0) + Number(r.qty || 0) * unitLoaded;
-    });
-  
-    // 5) ODC cost = r.cost
-    planODC.forEach(r => {
-      const mm = keyVal(r.ym);
-      if (!mm) return;
-      costFcMap[mm] = (costFcMap[mm] || 0) + Number(r.cost || 0);
-    });
-  
-    // Compute REVENUE from cost using project formula
-    months.forEach(mm => {
-      const C = Number(costFcMap[mm] || 0);
-      let R = C;
-      if (formula === 'COST_PLUS') R = C * (1 + (Number(feePct || 0) / 100));
-      // TM / FP placeholder: equals cost (until bill rates or rev rec are modeled)
-      revFcMap[mm] = R;
-    });
-  
-    return { costFcMap, revFcMap };
-  }
-
-  
   btn.onclick = () => renderPL(pid, year);
-  await loadLookups();     // ← add this line
+
+  // load lookups once (rates, catalogs) before computing forecast
+  await loadLookups();
   await renderPL(pid, year);
 }
 
@@ -150,10 +47,10 @@ async function renderPL(projectId, year) {
   msg.textContent = 'Loading P&L…';
 
   try {
-    // Compute Forecast from plan tables (no views)
+    // ---- Forecast (computed from plan_* tables)
     const { costFcMap, revFcMap } = await computeForecastFromPlans(projectId, year);
 
-    // Fetch Actuals — if table doesn’t exist, we’ll just treat as zero
+    // ---- Actuals (tolerant; if table missing, shows zeros)
     let actAll = [];
     try {
       const res = await client
@@ -163,103 +60,11 @@ async function renderPL(projectId, year) {
       if (res.error) throw res.error;
       actAll = res.data || [];
     } catch (e) {
-      // ok: missing actuals table or permissions — show zeros
       console.warn('actuals_monthly fetch skipped:', e?.message || e);
       actAll = [];
     }
 
-    async function computeForecastFromPlans(projectId, year) {
-  // Pull project revenue policy
-  const { data: proj, error: pErr } = await client
-    .from('projects')
-    .select('revenue_formula, fee_pct')
-    .eq('id', projectId)
-    .single();
-  if (pErr) throw pErr;
-  const formula = proj?.revenue_formula || 'TM';
-  const feePct = Number(proj?.fee_pct || 0);
-
-  // Fetch plans (tolerant)
-  const [lab, subs, eqp, mats, odc] = await Promise.all([
-    client.from('plan_labor').select('employee_id, ym, hours').eq('project_id', projectId),
-    client.from('plan_subs').select('ym, cost').eq('project_id', projectId),
-    client.from('plan_equipment').select('equipment_type, ym, hours').eq('project_id', projectId),
-    client.from('plan_materials').select('sku, ym, qty').eq('project_id', projectId),
-    client.from('plan_odc').select('odc_type, ym, cost').eq('project_id', projectId),
-  ]);
-
-  // Filter to this year
-  const inYear = r => (r?.ym && (typeof r.ym === 'string' ? r.ym.slice(0,4) : new Date(r.ym).getUTCFullYear().toString()) === String(year));
-  const planLabor = (lab.error ? [] : (lab.data || [])).filter(inYear);
-  const planSubs  = (subs.error ? [] : (subs.data||[])).filter(inYear);
-  const planEqp   = (eqp.error ? [] : (eqp.data || [])).filter(inYear);
-  const planMat   = (mats.error? [] : (mats.data||[])).filter(inYear);
-  const planODC   = (odc.error ? [] : (odc.data || [])).filter(inYear);
-
-  // Lookups for cost math
-  const empById = {};
-  (empLookup || []).forEach(e => { if (e?.id) empById[e.id] = e; });
-
-  const eqMeta = {};
-  (equipmentList || []).forEach(e => {
-    const t = e.equip_type ?? e.name;
-    if (t) eqMeta[t] = { rate: Number(e.rate||0), unit: e.rate_unit || 'hour' };
-  });
-
-  const matMeta = {};
-  (materialsList || []).forEach(m => {
-    if (m?.sku) matMeta[m.sku] = {
-      unit_cost: Number(m.unit_cost || 0),
-      waste_pct: Number(m.waste_pct || 0)
-    };
-  });
-
-  // Initialize month maps
-  const months = Array.from({ length: 12 }, (_, i) => `${year}-${String(i+1).padStart(2,'0')}`);
-  const costFcMap = Object.fromEntries(months.map(mm => [mm, 0]));
-  const revFcMap  = Object.fromEntries(months.map(mm => [mm, 0]));
-  const keyOf = ym => (typeof ym === 'string') ? ym.slice(0,7) : new Date(ym).toISOString().slice(0,7);
-
-  // Accumulate COST
-  planLabor.forEach(r => {
-    const mm = keyOf(r.ym); if (!mm) return;
-    const emp = empById[r.employee_id] || {};
-    const rate = Number(rolesRate[emp.role || ''] || 0);
-    costFcMap[mm] += Number(r.hours || 0) * rate;
-  });
-  planSubs.forEach(r => {
-    const mm = keyOf(r.ym); if (!mm) return;
-    costFcMap[mm] += Number(r.cost || 0);
-  });
-  planEqp.forEach(r => {
-    const mm = keyOf(r.ym); if (!mm) return;
-    const meta = eqMeta[r.equipment_type] || { rate: 0 };
-    costFcMap[mm] += Number(r.hours || 0) * Number(meta.rate || 0);
-  });
-  planMat.forEach(r => {
-    const mm = keyOf(r.ym); if (!mm) return;
-    const m = matMeta[r.sku] || { unit_cost: 0, waste_pct: 0 };
-    const unitLoaded = Number(m.unit_cost || 0) * (1 + Number(m.waste_pct || 0));
-    costFcMap[mm] += Number(r.qty || 0) * unitLoaded;
-  });
-  planODC.forEach(r => {
-    const mm = keyOf(r.ym); if (!mm) return;
-    costFcMap[mm] += Number(r.cost || 0);
-  });
-
-  // Compute REVENUE from cost
-  months.forEach(mm => {
-    const C = Number(costFcMap[mm] || 0);
-    let R = C;
-    if (formula === 'COST_PLUS') R = C * (1 + (feePct / 100));
-    revFcMap[mm] = R; // TM / FP placeholder = cost
-  });
-
-  return { costFcMap, revFcMap };
-}
-
-    
-    // Filter to chosen year (works for date or text ym)
+    // Filter to chosen year
     const inYear = (row) => {
       if (!row?.ym) return false;
       try {
@@ -267,20 +72,18 @@ async function renderPL(projectId, year) {
         return y === String(year);
       } catch { return false; }
     };
-    const costFc = (costFcAll || []).filter(inYear);
-    const revFc  = (revFcAll  || []).filter(inYear);
-    const act    = (actAll    || []).filter(inYear);
+    const act = (actAll || []).filter(inYear);
 
-    // Index by YYYY-MM
+    // Month keys and labels
     const months = Array.from({ length: 12 }, (_, i) => new Date(Date.UTC(year, i, 1)));
-    const key = d => d.toISOString().slice(0, 7);
-    const monthKeys = months.map(key);
+    const monthKey = d => d.toISOString().slice(0, 7); // YYYY-MM
+    const monthKeys = months.map(monthKey);
 
-    // Actuals maps
-    const revActMap = {};   // category = 'revenue'
-    const costActMap = {};  // categories = labor, subs, equipment, materials, odc (+ anything not revenue)
+    // Build Actuals maps
+    const revActMap = {};   // category='revenue'
+    const costActMap = {};  // everything else
     act.forEach(r => {
-      const k = keyVal(r.ym);
+      const k = keyOf(r.ym);
       const amt = Number(r.amount || 0);
       if (!k) return;
       if (String(r.category).toLowerCase() === 'revenue') {
@@ -290,7 +93,7 @@ async function renderPL(projectId, year) {
       }
     });
 
-    // Build rows
+    // Rows to render
     const rows = [
       { label: 'Revenue — Actual',    getter: k => safeNum(revActMap[k]) },
       { label: 'Revenue — Forecast',  getter: k => safeNum(revFcMap[k])  },
@@ -333,7 +136,6 @@ async function renderPL(projectId, year) {
         }
       });
       if (row.isPercent) {
-        // Compute full-year margin
         const Rtot = monthKeys.reduce((s, m) => s + (safeNum(revActMap[m]) + safeNum(revFcMap[m])), 0);
         const Ctot = monthKeys.reduce((s, m) => s + (safeNum(costActMap[m]) + safeNum(costFcMap[m])), 0);
         const mtot = (Rtot===0 && Ctot===0) ? null : (Rtot ? ((Rtot-Ctot)/Rtot*100) : (Ctot? -100 : 0));
@@ -354,24 +156,107 @@ async function renderPL(projectId, year) {
   }
 }
 
+// ---------- forecast from plans ----------
+async function computeForecastFromPlans(projectId, year) {
+  // Pull project revenue policy
+  const { data: proj, error: pErr } = await client
+    .from('projects')
+    .select('revenue_formula, fee_pct')
+    .eq('id', projectId)
+    .single();
+  if (pErr) throw pErr;
+  const formula = proj?.revenue_formula || 'TM';
+  const feePct = Number(proj?.fee_pct || 0);
+
+  // Fetch plans (tolerant; filter to year client-side)
+  const [lab, subs, eqp, mats, odc] = await Promise.all([
+    client.from('plan_labor').select('employee_id, ym, hours').eq('project_id', projectId),
+    client.from('plan_subs').select('ym, cost').eq('project_id', projectId),
+    client.from('plan_equipment').select('equipment_type, ym, hours').eq('project_id', projectId),
+    client.from('plan_materials').select('sku, ym, qty').eq('project_id', projectId),
+    client.from('plan_odc').select('odc_type, ym, cost').eq('project_id', projectId),
+  ]);
+
+  const inYear = r => (r?.ym && (typeof r.ym === 'string' ? r.ym.slice(0,4) : new Date(r.ym).getUTCFullYear().toString()) === String(year));
+  const planLabor = (lab.error ? [] : (lab.data || [])).filter(inYear);
+  const planSubs  = (subs.error ? [] : (subs.data||[])).filter(inYear);
+  const planEqp   = (eqp.error ? [] : (eqp.data || [])).filter(inYear);
+  const planMat   = (mats.error? [] : (mats.data||[])).filter(inYear);
+  const planODC   = (odc.error ? [] : (odc.data || [])).filter(inYear);
+
+  // Lookups for cost math
+  const empById = {};
+  (empLookup || []).forEach(e => { if (e?.id) empById[e.id] = e; });
+
+  const eqMeta = {};
+  (equipmentList || []).forEach(e => {
+    const t = e.equip_type ?? e.name;
+    if (t) eqMeta[t] = { rate: Number(e.rate||0), unit: e.rate_unit || 'hour' };
+  });
+
+  const matMeta = {};
+  (materialsList || []).forEach(m => {
+    if (m?.sku) matMeta[m.sku] = {
+      unit_cost: Number(m.unit_cost || 0),
+      waste_pct: Number(m.waste_pct || 0)
+    };
+  });
+
+  // Initialize month maps
+  const months = Array.from({ length: 12 }, (_, i) => `${year}-${String(i+1).padStart(2,'0')}`);
+  const costFcMap = Object.fromEntries(months.map(mm => [mm, 0]));
+  const revFcMap  = Object.fromEntries(months.map(mm => [mm, 0]));
+  const kOf = ym => (typeof ym === 'string') ? ym.slice(0,7) : new Date(ym).toISOString().slice(0,7);
+
+  // Accumulate COST
+  planLabor.forEach(r => {
+    const mm = kOf(r.ym); if (!mm) return;
+    const emp = empById[r.employee_id] || {};
+    const rate = Number(rolesRate[emp.role || ''] || 0);
+    costFcMap[mm] += Number(r.hours || 0) * rate;
+  });
+  planSubs.forEach(r => {
+    const mm = kOf(r.ym); if (!mm) return;
+    costFcMap[mm] += Number(r.cost || 0);
+  });
+  planEqp.forEach(r => {
+    const mm = kOf(r.ym); if (!mm) return;
+    const meta = eqMeta[r.equipment_type] || { rate: 0 };
+    costFcMap[mm] += Number(r.hours || 0) * Number(meta.rate || 0);
+  });
+  planMat.forEach(r => {
+    const mm = kOf(r.ym); if (!mm) return;
+    const m = matMeta[r.sku] || { unit_cost: 0, waste_pct: 0 };
+    const unitLoaded = Number(m.unit_cost || 0) * (1 + Number(m.waste_pct || 0));
+    costFcMap[mm] += Number(r.qty || 0) * unitLoaded;
+  });
+  planODC.forEach(r => {
+    const mm = kOf(r.ym); if (!mm) return;
+    costFcMap[mm] += Number(r.cost || 0);
+  });
+
+  // Compute REVENUE from cost
+  months.forEach(mm => {
+    const C = Number(costFcMap[mm] || 0);
+    let R = C;
+    if (formula === 'COST_PLUS') R = C * (1 + (feePct / 100));
+    // TM / FP placeholders equal cost until bill rates / rev rec rules are modeled
+    revFcMap[mm] = R;
+  });
+
+  return { costFcMap, revFcMap };
+}
+
 // ---------- helpers ----------
-function keyVal(ym) {
-  try {
-    return (typeof ym === 'string') ? ym.slice(0,7) : new Date(ym).toISOString().slice(0,7);
-  } catch { return null; }
+function keyOf(ym) {
+  try { return (typeof ym === 'string') ? ym.slice(0,7) : new Date(ym).toISOString().slice(0,7); }
+  catch { return null; }
 }
 function safeNum(v) {
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
 }
-
-// Use fmtUSD0 from dom.js if present; otherwise provide a tiny fallback
 function fmtUSD0(v) {
-  try {
-    // If dom.js exported it, use that one
-    const maybe = (/** @type {any} */($)).__fmtUSD0;
-    if (typeof maybe === 'function') return maybe(v);
-  } catch {}
   const n = Number(v || 0);
   return n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
 }
