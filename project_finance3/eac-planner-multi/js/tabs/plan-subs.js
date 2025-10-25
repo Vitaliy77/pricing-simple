@@ -76,6 +76,25 @@ export async function init(rootEl) {
     state.rows = Object.values(byVendor);
     if (state.rows.length === 0) state.rows.push(blankRow());
 
+        function withCaretPreserved(run) {
+      const active = document.activeElement;
+      const isCell = active?.classList?.contains('costInp');
+      const rowIdx = active?.closest?.('tr')?.getAttribute?.('data-idx');
+      const monthKey = active?.getAttribute?.('data-k');
+      const s = active?.selectionStart, e = active?.selectionEnd;
+    
+      run();
+    
+      if (isCell && rowIdx != null && monthKey) {
+        const el = document.querySelector(`tr[data-idx="${rowIdx}"] input.costInp[data-k="${monthKey}"]`);
+        if (el) {
+          el.focus();
+          if (s != null && e != null) { try { el.setSelectionRange(s, e); } catch {} }
+        }
+      }
+    }
+
+    
     renderGrid();
     msg.textContent = '';
   } catch (err) {
@@ -85,7 +104,7 @@ export async function init(rootEl) {
   }
 
   // Wire buttons
-  $('#subsAddRow').onclick = () => { state.rows.push(blankRow()); renderGrid(true); };
+  $('#subsAddRow').onclick = () => { state.rows.push(blankRow()); withCaretPreserved(() => renderGrid()); };
   $('#subsSave').onclick = saveAll;
 }
 
@@ -184,7 +203,7 @@ function renderGrid(preserveFocus=false) {
       const name = opt?.textContent || '';
       state.rows[idx].vendor_id = e.target.value || null;
       state.rows[idx].name = name;
-      renderGrid(true);
+      withCaretPreserved(() => renderGrid());
     });
   });
 
@@ -195,7 +214,7 @@ function renderGrid(preserveFocus=false) {
       const k = e.target.getAttribute('data-k');
       const n = e.target.value === '' ? '' : Math.max(0, Number(e.target.value));
       state.rows[idx].monthCost[k] = n === '' ? '' : (Number.isFinite(n) ? n : 0);
-      renderGrid(true);
+      withCaretPreserved(() => renderGrid());
     });
   });
 
@@ -213,7 +232,7 @@ function renderGrid(preserveFocus=false) {
       const idx = Number(tr.getAttribute('data-idx'));
       state.rows.splice(idx, 1);
       if (state.rows.length === 0) state.rows.push(blankRow());
-      renderGrid(true);
+      withCaretPreserved(() => renderGrid());
     });
   });
 }
