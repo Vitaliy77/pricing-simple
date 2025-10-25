@@ -206,7 +206,7 @@ function renderGrid(preserveFocus=false) {
   });
 
   table.querySelectorAll('.hrInp').forEach(inp => {
-    inp.addEventListener('input', (e) => {
+    inp.addEventListener('change', (e) => {
       const tr = e.target.closest('tr');
       const idx = Number(tr.getAttribute('data-idx'));
       const k = e.target.getAttribute('data-k');
