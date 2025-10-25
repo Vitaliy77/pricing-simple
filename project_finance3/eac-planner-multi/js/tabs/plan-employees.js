@@ -83,6 +83,29 @@ export async function init(rootEl) {
       state.rows.push(blankRow());
     }
 
+    function withCaretPreserved(run) {
+  const active = document.activeElement;
+  const isMonthInput = active && active.classList && active.classList.contains('hrInp');
+  const rowIdx = active?.closest?.('tr')?.getAttribute?.('data-idx');
+  const monthKey = active?.getAttribute?.('data-k');
+  const selStart = active?.selectionStart, selEnd = active?.selectionEnd;
+
+  run(); // do the re-render
+
+  // restore focus if we were in a month cell
+  if (isMonthInput && rowIdx != null && monthKey) {
+    const selector = `tr[data-idx="${rowIdx}"] input.hrInp[data-k="${monthKey}"]`;
+    const el = document.querySelector(selector);
+    if (el) {
+      el.focus();
+      if (selStart != null && selEnd != null) {
+        try { el.setSelectionRange(selStart, selEnd); } catch {}
+      }
+    }
+  }
+}
+
+    
     renderGrid();
     msg.textContent = '';
   } catch (err) {
@@ -94,7 +117,7 @@ export async function init(rootEl) {
   // Wire buttons
   $('#empAddRow').onclick = () => {
     state.rows.push(blankRow());
-    renderGrid(true);
+    withCaretPreserved(() => renderGrid());
   };
   $('#empSave').onclick = saveAll;
 }
@@ -201,7 +224,7 @@ function renderGrid(preserveFocus=false) {
       state.rows[idx].employee_id = e.target.value || null;
       state.rows[idx].role = role;
       state.rows[idx].name = name;
-      renderGrid(true);
+      withCaretPreserved(() => renderGrid());
     });
   });
 
@@ -212,7 +235,7 @@ function renderGrid(preserveFocus=false) {
       const k = e.target.getAttribute('data-k');
       const n = e.target.value === '' ? '' : Math.max(0, Number(e.target.value));
       state.rows[idx].monthHours[k] = n === '' ? '' : (Number.isFinite(n) ? n : 0);
-      renderGrid(true);
+      withCaretPreserved(() => renderGrid());
     });
   });
 
@@ -222,7 +245,7 @@ function renderGrid(preserveFocus=false) {
       const idx = Number(tr.getAttribute('data-idx'));
       state.rows.splice(idx, 1);
       if (state.rows.length === 0) state.rows.push(blankRow());
-      renderGrid(true);
+      withCaretPreserved(() => renderGrid());
     });
   });
 }
