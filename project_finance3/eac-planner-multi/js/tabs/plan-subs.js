@@ -22,6 +22,25 @@ export const template = /*html*/ `
   </div>
 `;
 
+/* ---------------- focus-preserve helper ---------------- */
+function withCaretPreserved(run) {
+  const active = document.activeElement;
+  const isCell = active?.classList?.contains('costInp');
+  const rowIdx = active?.closest?.('tr')?.getAttribute?.('data-idx');
+  const monthKey = active?.getAttribute?.('data-k');
+  const s = active?.selectionStart, e = active?.selectionEnd;
+
+  run(); // re-render
+
+  if (isCell && rowIdx != null && monthKey) {
+    const el = document.querySelector(`tr[data-idx="${rowIdx}"] input.costInp[data-k="${monthKey}"]`);
+    if (el) {
+      el.focus();
+      if (s != null && e != null) { try { el.setSelectionRange(s, e); } catch {} }
+    }
+  }
+}
+
 let state = {
   year: new Date().getUTCFullYear(),
   months: [],
@@ -49,6 +68,9 @@ export async function init(rootEl) {
   try {
     await loadLookups();
 
+    // Build a unique, sorted vendor list and maps
+    const { vendorList, venById, idByName } = buildVendorCaches(vendorLookup);
+
     // Project revenue formula/fee
     const proj = await fetchProject(pid);
     state.projectFormula = proj?.revenue_formula || 'TM';
@@ -57,44 +79,38 @@ export async function init(rootEl) {
     // Existing plan for this year
     const plan = await fetchPlanSubs(pid, state.year);
 
-    const venById = mapById(vendorLookup);
+    // Build rows keyed by vendor; drop legacy/stale vendor_ids (forces re-select)
     const byVendor = {};
     for (const r of plan) {
       const k = keyVal(r.ym);
       if (!k) continue;
-      const v = venById[r.vendor_id] || {};
-      if (!byVendor[r.vendor_id]) {
-        byVendor[r.vendor_id] = {
-          vendor_id: r.vendor_id,
-          name: v.name ?? '',
+
+      // if this vendor_id doesn't exist anymore in vendors, clear it
+      const vendorExists = !!venById[r.vendor_id];
+      const safeVendorId = vendorExists ? r.vendor_id : null;
+
+      const vMeta = venById[r.vendor_id] || {};
+      if (!byVendor[safeVendorId || `row_${Object.keys(byVendor).length}`]) {
+        byVendor[safeVendorId || `row_${Object.keys(byVendor).length}`] = {
+          vendor_id: safeVendorId,                         // null if stale
+          name: vendorExists ? (vMeta.name ?? '') : '',
           note: r.note ?? '',
           monthCost: {}
         };
       }
-      byVendor[r.vendor_id].monthCost[k] = Number(r.cost || 0);
+      // attach cost even if vendor_id was stale; user will reselect vendor
+      const rowKey = safeVendorId || Object.keys(byVendor).find(k2 => k2.startsWith('row_'));
+      byVendor[rowKey].monthCost[k] = Number(r.cost || 0);
     }
+
     state.rows = Object.values(byVendor);
     if (state.rows.length === 0) state.rows.push(blankRow());
 
-        function withCaretPreserved(run) {
-      const active = document.activeElement;
-      const isCell = active?.classList?.contains('costInp');
-      const rowIdx = active?.closest?.('tr')?.getAttribute?.('data-idx');
-      const monthKey = active?.getAttribute?.('data-k');
-      const s = active?.selectionStart, e = active?.selectionEnd;
-    
-      run();
-    
-      if (isCell && rowIdx != null && monthKey) {
-        const el = document.querySelector(`tr[data-idx="${rowIdx}"] input.costInp[data-k="${monthKey}"]`);
-        if (el) {
-          el.focus();
-          if (s != null && e != null) { try { el.setSelectionRange(s, e); } catch {} }
-        }
-      }
-    }
+    // stash caches for render/save
+    state._vendorList = vendorList;
+    state._venById = venById;
+    state._idByName = idByName;
 
-    
     renderGrid();
     msg.textContent = '';
   } catch (err) {
@@ -111,7 +127,7 @@ export async function init(rootEl) {
 // ---------------------
 // Rendering & helpers
 // ---------------------
-function renderGrid(preserveFocus=false) {
+function renderGrid() {
   const table = $('#subsTable');
   const months = state.months;
   const monthKeys = months.map(m => m.ym.slice(0,7));
@@ -128,8 +144,8 @@ function renderGrid(preserveFocus=false) {
   `;
   html += '</tr></thead><tbody>';
 
-  const venOptions = vendorLookup
-    .map(v => `<option value="${v.id}">${esc(v.name ?? '')}</option>`)
+  const vendorOptions = (state._vendorList || [])
+    .map(v => `<option value="${v.id}" data-name="${esc(v.name || '')}">${esc(v.name || '')}</option>`)
     .join('');
 
   state.rows.forEach((row, idx) => {
@@ -139,11 +155,11 @@ function renderGrid(preserveFocus=false) {
 
     html += `<tr data-idx="${idx}">`;
 
-    // Vendor select
+    // Vendor select (value must be UUID)
     html += `<td class="p-2 sticky left-0 bg-white">
       <select class="venSel border rounded-md p-1 min-w-56">
         <option value="">— Select —</option>
-        ${venOptions}
+        ${vendorOptions}
       </select>
     </td>`;
 
@@ -200,15 +216,15 @@ function renderGrid(preserveFocus=false) {
       const tr = e.target.closest('tr');
       const idx = Number(tr.getAttribute('data-idx'));
       const opt = e.target.selectedOptions[0];
-      const name = opt?.textContent || '';
-      state.rows[idx].vendor_id = e.target.value || null;
-      state.rows[idx].name = name;
+      state.rows[idx].vendor_id = e.target.value || null;                // UUID
+      state.rows[idx].name = opt?.dataset?.name || '';
       withCaretPreserved(() => renderGrid());
     });
   });
 
+  // Use 'change' to avoid re-render on each keystroke
   table.querySelectorAll('.costInp').forEach(inp => {
-    inp.addEventListener('input', (e) => {
+    inp.addEventListener('change', (e) => {
       const tr = e.target.closest('tr');
       const idx = Number(tr.getAttribute('data-idx'));
       const k = e.target.getAttribute('data-k');
@@ -216,10 +232,14 @@ function renderGrid(preserveFocus=false) {
       state.rows[idx].monthCost[k] = n === '' ? '' : (Number.isFinite(n) ? n : 0);
       withCaretPreserved(() => renderGrid());
     });
+    // optional: prevent Enter from jumping
+    inp.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); }
+    });
   });
 
   table.querySelectorAll('.noteInp').forEach(inp => {
-    inp.addEventListener('input', (e) => {
+    inp.addEventListener('change', (e) => {
       const tr = e.target.closest('tr');
       const idx = Number(tr.getAttribute('data-idx'));
       state.rows[idx].note = e.target.value;
@@ -249,6 +269,18 @@ function monthsForYear(year) {
       ym: d.toISOString().slice(0,10) // YYYY-MM-01
     };
   });
+}
+
+function buildVendorCaches(vendorsArr) {
+  // de-dup by id, then sort by name
+  const map = new Map();
+  (vendorsArr || []).forEach(v => { if (v?.id) map.set(v.id, v); });
+  const vendorList = Array.from(map.values())
+    .sort((a,b) => String(a.name||'').localeCompare(String(b.name||'')));
+  const venById = {};
+  const idByName = {};
+  vendorList.forEach(v => { venById[v.id] = v; if (v.name) idByName[v.name] = v.id; });
+  return { vendorList, venById, idByName };
 }
 
 function mapById(list) {
@@ -295,9 +327,7 @@ function esc(s) {
   return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
-// ---------------------
-// Persistence
-// ---------------------
+/* --------------------- Persistence --------------------- */
 async function fetchProject(projectId) {
   const { data, error } = await client
     .from('projects')
@@ -326,15 +356,25 @@ async function saveAll() {
   const months = state.months.map(m => m.ym.slice(0,7));
   const inserts = [];
 
+  // Only save rows with valid vendor UUIDs that exist in vendors
+  const venExists = (id) => !!state._venById?.[id];
+
   for (const row of state.rows) {
-    if (!row.vendor_id) continue;
+    let vendorId = row.vendor_id || null;
+    // (defensive) if only name is present, try to resolve to id
+    if (!vendorId && row.name && state._idByName?.[row.name]) {
+      vendorId = state._idByName[row.name];
+      row.vendor_id = vendorId;
+    }
+    if (!vendorId || !venExists(vendorId)) continue;
+
     for (const mk of months) {
       const cost = Number(row.monthCost[mk] || 0);
       const note = (row.note ?? '').trim() || null;
-      if (!cost && !note) continue; // skip pure empty cells
+      if (!cost && !note) continue; // skip empty
       inserts.push({
         project_id: pid,
-        vendor_id: row.vendor_id,
+        vendor_id: vendorId,           // FK-safe UUID
         ym: mk + '-01',
         cost,
         note
