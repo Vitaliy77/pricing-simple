@@ -69,10 +69,13 @@ export async function init(rootEl) {
 
   msg.textContent = 'Loading…';
   try {
-    await loadLookups();
-
-    // Build vendor caches (dedupe by id and normalized name)
-    const { list, byId, idByName } = buildVendorCaches(vendorLookup);
+    // fetch sub vendors directly from DB to match FK target
+    const { data: liveSubs, error: svErr } = await client
+    .from('sub_vendors')
+    .select('id, name')
+    .limit(2000);
+    if (svErr) throw svErr;
+    const { list, byId, idByName } = buildVendorCaches(liveSubs || []);
     state._vendorList = list;
     state._venById = byId;
     state._idByName = idByName;
@@ -362,9 +365,11 @@ async function saveAll() {
   try {
     // Re-fetch authoritative vendor list (avoid stale cache)
     const { data: liveVendors, error: vErr } = await client
-      .from('vendors')
-      .select('id, name')
-      .limit(2000);
+    .from('sub_vendors')
+        .select('id, name')
+        .limit(2000);
+          .select('id, name')
+          .limit(2000);
     if (vErr) throw vErr;
 
     const liveSet = new Set((liveVendors || []).map(v => v.id));
