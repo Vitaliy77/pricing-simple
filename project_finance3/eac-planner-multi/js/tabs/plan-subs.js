@@ -46,7 +46,10 @@ let state = {
   months: [],
   rows: [], // { vendor_id, name, note, monthCost: { 'YYYY-MM': number } }
   projectFormula: 'TM',
-  projectFeePct: 0
+  projectFeePct: 0,
+  _vendorList: [],
+  _venById: {},
+  _idByName: {}
 };
 
 export async function init(rootEl) {
@@ -67,13 +70,12 @@ export async function init(rootEl) {
   msg.textContent = 'Loading…';
   try {
     await loadLookups();
-    const { vendorList, venById, idByName } = buildVendorCaches(vendorLookup);
-    state._vendorList = vendorList;
-    state._venById = venById;
-    state._idByName = idByName;
 
-    // Build a unique, sorted vendor list and maps
-    const { vendorList, venById, idByName } = buildVendorCaches(vendorLookup);
+    // Build vendor caches (dedupe by id and normalized name)
+    const { list, byId, idByName } = buildVendorCaches(vendorLookup);
+    state._vendorList = list;
+    state._venById = byId;
+    state._idByName = idByName;
 
     // Project revenue formula/fee
     const proj = await fetchProject(pid);
@@ -84,36 +86,30 @@ export async function init(rootEl) {
     const plan = await fetchPlanSubs(pid, state.year);
 
     // Build rows keyed by vendor; drop legacy/stale vendor_ids (forces re-select)
-    const byVendor = {};
+    const rowsByKey = new Map(); // key = vendor_id or synthetic row key
+    let rowSeq = 0;
+
     for (const r of plan) {
       const k = keyVal(r.ym);
       if (!k) continue;
 
-      // if this vendor_id doesn't exist anymore in vendors, clear it
-      const vendorExists = !!venById[r.vendor_id];
-      const safeVendorId = vendorExists ? r.vendor_id : null;
+      const exists = !!state._venById[r.vendor_id];
+      const key = exists ? r.vendor_id : `row_${rowSeq++}`;
 
-      const vMeta = venById[r.vendor_id] || {};
-      if (!byVendor[safeVendorId || `row_${Object.keys(byVendor).length}`]) {
-        byVendor[safeVendorId || `row_${Object.keys(byVendor).length}`] = {
-          vendor_id: safeVendorId,                         // null if stale
-          name: vendorExists ? (vMeta.name ?? '') : '',
+      if (!rowsByKey.has(key)) {
+        rowsByKey.set(key, {
+          vendor_id: exists ? r.vendor_id : null,     // null if stale
+          name: exists ? (state._venById[r.vendor_id]?.name ?? '') : '',
           note: r.note ?? '',
           monthCost: {}
-        };
+        });
       }
-      // attach cost even if vendor_id was stale; user will reselect vendor
-      const rowKey = safeVendorId || Object.keys(byVendor).find(k2 => k2.startsWith('row_'));
-      byVendor[rowKey].monthCost[k] = Number(r.cost || 0);
+      const row = rowsByKey.get(key);
+      row.monthCost[k] = Number(r.cost || 0);
     }
 
-    state.rows = Object.values(byVendor);
+    state.rows = Array.from(rowsByKey.values());
     if (state.rows.length === 0) state.rows.push(blankRow());
-
-    // stash caches for render/save
-    state._vendorList = vendorList;
-    state._venById = venById;
-    state._idByName = idByName;
 
     renderGrid();
     msg.textContent = '';
@@ -220,12 +216,11 @@ function renderGrid() {
       const tr = e.target.closest('tr');
       const idx = Number(tr.getAttribute('data-idx'));
       const opt = e.target.selectedOptions[0];
-      state.rows[idx].vendor_id = e.target.value || null;         // <-- UUID from option.value
+      state.rows[idx].vendor_id = e.target.value || null;         // UUID
       state.rows[idx].name = opt?.dataset?.name || '';
       withCaretPreserved(() => renderGrid());
     });
   });
-
 
   // Use 'change' to avoid re-render on each keystroke
   table.querySelectorAll('.costInp').forEach(inp => {
@@ -276,22 +271,28 @@ function monthsForYear(year) {
   });
 }
 
+// Dedupes vendors by UUID and by normalized name
 function buildVendorCaches(vendorsArr) {
-  // de-dup by id, then sort by name
-  const map = new Map();
-  (vendorsArr || []).forEach(v => { if (v?.id) map.set(v.id, v); });
-  const vendorList = Array.from(map.values())
-    .sort((a,b) => String(a.name||'').localeCompare(String(b.name||'')));
-  const venById = {};
-  const idByName = {};
-  vendorList.forEach(v => { venById[v.id] = v; if (v.name) idByName[v.name] = v.id; });
-  return { vendorList, venById, idByName };
-}
+  // 1) de-dup by UUID
+  const byUuidMap = new Map();
+  (vendorsArr || []).forEach(v => { if (v?.id) byUuidMap.set(v.id, v); });
+  const uniqueById = Array.from(byUuidMap.values());
 
-function mapById(list) {
-  const m = {};
-  (list || []).forEach(x => { if (x?.id) m[x.id] = x; });
-  return m;
+  // 2) de-dup by normalized name (case/space-insensitive)
+  const norm = s => String(s || '').trim().toLowerCase();
+  const byNameMap = new Map();
+  uniqueById.forEach(v => {
+    const k = norm(v.name);
+    if (!k) return;
+    if (!byNameMap.has(k)) byNameMap.set(k, v);
+  });
+
+  const list = Array.from(byNameMap.values())
+    .sort((a,b) => String(a.name||'').localeCompare(String(b.name||'')));
+
+  const byId = Object.fromEntries(list.map(v => [v.id, v]));
+  const idByName = Object.fromEntries(list.map(v => [String(v.name || ''), v.id]));
+  return { list, byId, idByName };
 }
 
 function keyVal(ym) {
@@ -367,7 +368,7 @@ async function saveAll() {
     if (vErr) throw vErr;
 
     const liveSet = new Set((liveVendors || []).map(v => v.id));
-    const idByName = Object.fromEntries((liveVendors || []).map(v => [String(v.name || ''), v.id]));
+    const idByNameLive = Object.fromEntries((liveVendors || []).map(v => [String(v.name || ''), v.id]));
 
     const months = state.months.map(m => m.ym.slice(0,7));
     const inserts = [];
@@ -376,8 +377,8 @@ async function saveAll() {
     for (const row of state.rows) {
       // Resolve/validate vendor_id
       let vendorId = row.vendor_id || null;
-      if (!vendorId && row.name && idByName[row.name]) {
-        vendorId = idByName[row.name];
+      if (!vendorId && row.name && idByNameLive[row.name]) {
+        vendorId = idByNameLive[row.name];
         row.vendor_id = vendorId; // cache in UI state
       }
 
@@ -428,29 +429,5 @@ async function saveAll() {
   } catch (err) {
     console.error('Subs save error', err);
     msg.textContent = `Save failed: ${err?.details || err?.message || String(err)}`;
-  }
-}
-
-
-  try {
-    const yearPrefix = String(state.year) + '-';
-    const { error: delErr } = await client
-      .from('plan_subs')
-      .delete()
-      .eq('project_id', pid)
-      .gte('ym', yearPrefix + '01-01')
-      .lte('ym', yearPrefix + '12-31');
-    if (delErr) throw delErr;
-
-    if (inserts.length) {
-      const { error: insErr } = await client.from('plan_subs').insert(inserts);
-      if (insErr) throw insErr;
-    }
-
-    msg.textContent = 'Saved.';
-    setTimeout(() => (msg.textContent = ''), 1200);
-  } catch (err) {
-    console.error('Subs save error', err);
-    msg.textContent = `Save failed: ${err?.message || err}`;
   }
 }
