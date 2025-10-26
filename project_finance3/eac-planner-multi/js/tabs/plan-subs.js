@@ -4,15 +4,14 @@
 import { $ } from '../lib/dom.js';
 import { client } from '../api/supabase.js';
 import { getProjectId } from '../lib/state.js';
-import { loadLookups, vendors as vendorLookup } from '../data/lookups.js';
 
 export const template = /*html*/ `
   <div class="bg-white rounded-xl shadow-sm p-5">
     <div class="flex items-center justify-between mb-4">
       <h2 class="text-lg font-semibold">Subcontractors (Cost by Month)</h2>
       <div class="flex items-center gap-2">
-        <button id="subsAddRow" class="px-3 py-1.5 rounded-md border hover:bg-slate-50">+ Add Row</button>
-        <button id="subsSave" class="px-3 py-1.5 rounded-md bg-blue-600 text-white hover:bg-blue-700">Save</button>
+      <button id="subsAddRow" class="px-3 py-1.5 rounded-md border hover:bg-slate-50">+ Add Row</button>
+      <button id="subsSave" class="px-3 py-1.5 rounded-md bg-blue-600 text-white hover:bg-blue-700">Save</button>
       </div>
     </div>
     <div id="subsMsg" class="text-sm text-slate-500 mb-3"></div>
@@ -22,26 +21,31 @@ export const template = /*html*/ `
   </div>
 `;
 
-/* ---------------- focus-preserve helper ---------------- */
+/* ---------------- focus-preserve helper (no optional chaining) ---------------- */
 function withCaretPreserved(run) {
-  const active = document.activeElement;
-  const isCell = active?.classList?.contains('costInp');
-  const rowIdx = active?.closest?.('tr')?.getAttribute?.('data-idx');
-  const monthKey = active?.getAttribute?.('data-k');
-  const s = active?.selectionStart, e = active?.selectionEnd;
+  var active = document.activeElement;
+  var isCell = !!(active && active.classList && active.classList.contains('costInp'));
+  var rowEl = active ? active.closest && active.closest('tr') : null;
+  var rowIdx = rowEl ? rowEl.getAttribute('data-idx') : null;
+  var monthKey = active ? active.getAttribute && active.getAttribute('data-k') : null;
+  var s = (active && typeof active.selectionStart === 'number') ? active.selectionStart : null;
+  var e = (active && typeof active.selectionEnd === 'number') ? active.selectionEnd : null;
 
   run(); // re-render
 
-  if (isCell && rowIdx != null && monthKey) {
-    const el = document.querySelector(`tr[data-idx="${rowIdx}"] input.costInp[data-k="${monthKey}"]`);
+  if (isCell && rowIdx !== null && monthKey) {
+    var sel = 'tr[data-idx="' + rowIdx + '"] input.costInp[data-k="' + monthKey + '"]';
+    var el = document.querySelector(sel);
     if (el) {
       el.focus();
-      if (s != null && e != null) { try { el.setSelectionRange(s, e); } catch {} }
+      if (s !== null && e !== null) {
+        try { el.setSelectionRange(s, e); } catch (_) {}
+      }
     }
   }
 }
 
-let state = {
+var state = {
   year: new Date().getUTCFullYear(),
   months: [],
   rows: [], // { vendor_id, name, note, monthCost: { 'YYYY-MM': number } }
@@ -53,9 +57,9 @@ let state = {
 };
 
 export async function init(rootEl) {
-  const pid = getProjectId();
-  const msg = $('#subsMsg');
-  const table = $('#subsTable');
+  var pid = getProjectId();
+  var msg = $('#subsMsg');
+  var table = $('#subsTable');
 
   if (!pid) {
     msg.textContent = 'Select or create a project to edit subcontractors.';
@@ -64,50 +68,66 @@ export async function init(rootEl) {
   }
 
   // Year from the month picker
-  state.year = Number(($('#monthPicker')?.value || new Date().toISOString().slice(0,7)).slice(0,4));
+  var mp = $('#monthPicker');
+  var mpVal = mp && mp.value ? mp.value : new Date().toISOString().slice(0,7);
+  state.year = Number(mpVal.slice(0,4));
   state.months = monthsForYear(state.year);
 
   msg.textContent = 'Loading…';
   try {
-    // fetch sub vendors directly from DB to match FK target
-    const { data: liveSubs, error: svErr } = await client
-    .from('sub_vendors')
-    .select('id, name')
-    .limit(2000);
-    if (svErr) throw svErr;
-    const { list, byId, idByName } = buildVendorCaches(liveSubs || []);
-    state._vendorList = list;
-    state._venById = byId;
-    state._idByName = idByName;
+    // Fetch sub vendors directly from DB to match FK target
+    var resSV = await client.from('sub_vendors').select('id, name').limit(2000);
+    if (resSV.error) throw resSV.error;
+    var liveSubs = resSV.data || [];
+
+    var caches = buildVendorCaches(liveSubs);
+    state._vendorList = caches.list;
+    state._venById = caches.byId;
+    state._idByName = caches.idByName;
 
     // Project revenue formula/fee
-    const proj = await fetchProject(pid);
-    state.projectFormula = proj?.revenue_formula || 'TM';
-    state.projectFeePct = Number(proj?.fee_pct || 0);
+    var projRes = await client
+      .from('projects')
+      .select('id, revenue_formula, fee_pct')
+      .eq('id', pid)
+      .single();
+    if (projRes.error) throw projRes.error;
+    var proj = projRes.data || {};
+    state.projectFormula = proj.revenue_formula || 'TM';
+    state.projectFeePct = Number(proj.fee_pct || 0);
 
     // Existing plan for this year
-    const plan = await fetchPlanSubs(pid, state.year);
+    var planRes = await client
+      .from('plan_subs')
+      .select('vendor_id, ym, cost, note')
+      .eq('project_id', pid);
+    if (planRes.error) throw planRes.error;
+    var plan = (planRes.data || []).filter(function (r) {
+      var yk = keyVal(r.ym);
+      return yk && yk.slice(0,4) === String(state.year);
+    });
 
     // Build rows keyed by vendor; drop legacy/stale vendor_ids (forces re-select)
-    const rowsByKey = new Map(); // key = vendor_id or synthetic row key
-    let rowSeq = 0;
+    var rowsByKey = new Map();
+    var rowSeq = 0;
 
-    for (const r of plan) {
-      const k = keyVal(r.ym);
+    for (var i = 0; i < plan.length; i++) {
+      var r = plan[i];
+      var k = keyVal(r.ym);
       if (!k) continue;
 
-      const exists = !!state._venById[r.vendor_id];
-      const key = exists ? r.vendor_id : `row_${rowSeq++}`;
+      var exists = !!state._venById[r.vendor_id];
+      var key = exists ? r.vendor_id : ('row_' + (rowSeq++));
 
       if (!rowsByKey.has(key)) {
         rowsByKey.set(key, {
-          vendor_id: exists ? r.vendor_id : null,     // null if stale
-          name: exists ? (state._venById[r.vendor_id]?.name ?? '') : '',
-          note: r.note ?? '',
+          vendor_id: exists ? r.vendor_id : null,
+          name: exists ? (state._venById[r.vendor_id] && state._venById[r.vendor_id].name || '') : '',
+          note: (r.note || ''),
           monthCost: {}
         });
       }
-      const row = rowsByKey.get(key);
+      var row = rowsByKey.get(key);
       row.monthCost[k] = Number(r.cost || 0);
     }
 
@@ -118,12 +138,12 @@ export async function init(rootEl) {
     msg.textContent = '';
   } catch (err) {
     console.error('Subs init error', err);
-    table.innerHTML = `<tbody><tr><td class="p-3 text-red-600">Error: ${err?.message || err}</td></tr></tbody>`;
+    table.innerHTML = '<tbody><tr><td class="p-3 text-red-600">Error: ' + (err && err.message ? err.message : String(err)) + '</td></tr></tbody>';
     msg.textContent = '';
   }
 
   // Wire buttons
-  $('#subsAddRow').onclick = () => { state.rows.push(blankRow()); withCaretPreserved(() => renderGrid()); };
+  $('#subsAddRow').onclick = function () { state.rows.push(blankRow()); withCaretPreserved(function(){ renderGrid(); }); };
   $('#subsSave').onclick = saveAll;
 }
 
@@ -131,131 +151,132 @@ export async function init(rootEl) {
 // Rendering & helpers
 // ---------------------
 function renderGrid() {
-  const table = $('#subsTable');
-  const months = state.months;
-  const monthKeys = months.map(m => m.ym.slice(0,7));
+  var table = $('#subsTable');
+  var months = state.months;
+  var monthKeys = months.map(function(m){ return m.ym.slice(0,7); });
 
-  let html = '<thead><tr>';
+  var html = '<thead><tr>';
   html += '<th class="p-2 text-left sticky left-0 bg-white">Vendor</th>';
-  months.forEach(m => html += `<th class="p-2 text-right">${m.label}</th>`);
-  html += `
-    <th class="p-2 text-right">Year Cost</th>
-    <th class="p-2 text-right">Year Revenue</th>
-    <th class="p-2 text-right">Profit</th>
-    <th class="p-2 text-left">Note</th>
-    <th class="p-2"></th>
-  `;
+  months.forEach(function(m){ html += '<th class="p-2 text-right">' + m.label + '</th>'; });
+  html += ''
+    + '<th class="p-2 text-right">Year Cost</th>'
+    + '<th class="p-2 text-right">Year Revenue</th>'
+    + '<th class="p-2 text-right">Profit</th>'
+    + '<th class="p-2 text-left">Note</th>'
+    + '<th class="p-2"></th>';
   html += '</tr></thead><tbody>';
 
-  const vendorOptions = (state._vendorList || [])
-    .map(v => `<option value="${v.id}" data-name="${esc(v.name || '')}">${esc(v.name || '')}</option>`)
+  var vendorOptions = (state._vendorList || [])
+    .map(function(v){
+      return '<option value="' + v.id + '" data-name="' + esc(v.name || '') + '">' + esc(v.name || '') + '</option>';
+    })
     .join('');
 
-  state.rows.forEach((row, idx) => {
-    const costYear = monthKeys.reduce((s,k)=> s + Number(row.monthCost[k] || 0), 0);
-    const revYear  = computeRevenue(costYear, state.projectFormula, state.projectFeePct);
-    const profit   = revYear - costYear;
+  state.rows.forEach(function(row, idx){
+    var costYear = monthKeys.reduce(function(s,k){ return s + Number(row.monthCost[k] || 0); }, 0);
+    var revYear  = computeRevenue(costYear, state.projectFormula, state.projectFeePct);
+    var profit   = revYear - costYear;
 
-    html += `<tr data-idx="${idx}">`;
+    html += '<tr data-idx="' + idx + '">';
 
-    // Vendor select (value must be UUID)
-    html += `<td class="p-2 sticky left-0 bg-white">
-      <select class="venSel border rounded-md p-1 min-w-56">
-        <option value="">— Select —</option>
-        ${vendorOptions}
-      </select>
-    </td>`;
+    // Vendor select
+    html += '<td class="p-2 sticky left-0 bg-white">'
+          + '<select class="venSel border rounded-md p-1 min-w-56">'
+          + '<option value="">— Select —</option>'
+          + vendorOptions
+          + '</select>'
+          + '</td>';
 
-    // Month inputs (cost)
-    monthKeys.forEach(k => {
-      const v = row.monthCost[k] ?? '';
-      html += `<td class="p-1 text-right">
-        <input data-k="${k}" class="costInp border rounded-md p-1 w-24 text-right" type="number" min="0" step="0.01" value="${v !== '' ? String(v) : ''}">
-      </td>`;
+    // Month inputs
+    monthKeys.forEach(function(k){
+      var v = (row.monthCost[k] !== undefined && row.monthCost[k] !== null) ? row.monthCost[k] : '';
+      html += '<td class="p-1 text-right">'
+           +  '<input data-k="' + k + '" class="costInp border rounded-md p-1 w-24 text-right" type="number" min="0" step="0.01" value="' + (v !== '' ? String(v) : '') + '">'
+           +  '</td>';
     });
 
     // Totals
-    html += `<td class="p-2 text-right">${fmtUSD0(costYear)}</td>`;
-    html += `<td class="p-2 text-right">${fmtUSD0(revYear)}</td>`;
-    html += `<td class="p-2 text-right">${fmtUSD0(profit)}</td>`;
+    html += '<td class="p-2 text-right">' + fmtUSD0(costYear) + '</td>';
+    html += '<td class="p-2 text-right">' + fmtUSD0(revYear)  + '</td>';
+    html += '<td class="p-2 text-right">' + fmtUSD0(profit)   + '</td>';
 
     // Note
-    html += `<td class="p-2">
-      <input class="noteInp border rounded-md p-1 w-56" type="text" placeholder="optional" value="${esc(row.note || '')}">
-    </td>`;
+    html += '<td class="p-2">'
+         +  '<input class="noteInp border rounded-md p-1 w-56" type="text" placeholder="optional" value="' + esc(row.note || '') + '">'
+         +  '</td>';
 
     // Remove
-    html += `<td class="p-2 text-right">
-      <button class="rowDel px-2 py-1 rounded-md border hover:bg-slate-50">✕</button>
-    </td>`;
+    html += '<td class="p-2 text-right">'
+         +  '<button class="rowDel px-2 py-1 rounded-md border hover:bg-slate-50">✕</button>'
+         +  '</td>';
 
     html += '</tr>';
   });
 
   // Footer totals
-  const totals = calcTotals(state.rows, monthKeys, state.projectFormula, state.projectFeePct);
-  html += `<tr class="font-semibold">
-    <td class="p-2 sticky left-0 bg-white">Totals</td>
-    ${monthKeys.map(k => `<td class="p-2 text-right">${fmtUSD0(totals.costByMonth[k])}</td>`).join('')}
-    <td class="p-2 text-right">${fmtUSD0(totals.costYear)}</td>
-    <td class="p-2 text-right">${fmtUSD0(totals.revYear)}</td>
-    <td class="p-2 text-right">${fmtUSD0(totals.revYear - totals.costYear)}</td>
-    <td class="p-2" colspan="2"></td>
-  </tr>`;
+  var totals = calcTotals(state.rows, monthKeys, state.projectFormula, state.projectFeePct);
+  html += '<tr class="font-semibold">'
+      +  '<td class="p-2 sticky left-0 bg-white">Totals</td>'
+      +  monthKeys.map(function(k){ return '<td class="p-2 text-right">' + fmtUSD0(totals.costByMonth[k]) + '</td>'; }).join('')
+      +  '<td class="p-2 text-right">' + fmtUSD0(totals.costYear) + '</td>'
+      +  '<td class="p-2 text-right">' + fmtUSD0(totals.revYear)  + '</td>'
+      +  '<td class="p-2 text-right">' + fmtUSD0(totals.revYear - totals.costYear) + '</td>'
+      +  '<td class="p-2" colspan="2"></td>'
+      +  '</tr>';
 
   html += '</tbody>';
   table.innerHTML = html;
 
   // Set select values
-  table.querySelectorAll('tr[data-idx]').forEach(tr => {
-    const i = Number(tr.getAttribute('data-idx'));
-    const sel = tr.querySelector('.venSel');
+  table.querySelectorAll('tr[data-idx]').forEach(function(tr){
+    var i = Number(tr.getAttribute('data-idx'));
+    var sel = tr.querySelector('.venSel');
     if (sel) sel.value = state.rows[i].vendor_id || '';
   });
 
-  // Wire row handlers
-  table.querySelectorAll('.venSel').forEach(sel => {
-    sel.addEventListener('change', (e) => {
-      const tr = e.target.closest('tr');
-      const idx = Number(tr.getAttribute('data-idx'));
-      const opt = e.target.selectedOptions[0];
-      state.rows[idx].vendor_id = e.target.value || null;         // UUID
-      state.rows[idx].name = opt?.dataset?.name || '';
-      withCaretPreserved(() => renderGrid());
+  // Handlers
+  table.querySelectorAll('.venSel').forEach(function(sel){
+    sel.addEventListener('change', function(e){
+      var tr = e.target.closest && e.target.closest('tr');
+      var idx = tr ? Number(tr.getAttribute('data-idx')) : -1;
+      var opt = e.target.selectedOptions && e.target.selectedOptions[0];
+      state.rows[idx].vendor_id = e.target.value || null;
+      state.rows[idx].name = opt && opt.getAttribute('data-name') ? opt.getAttribute('data-name') : '';
+      withCaretPreserved(function(){ renderGrid(); });
     });
   });
 
-  // Use 'change' to avoid re-render on each keystroke
-  table.querySelectorAll('.costInp').forEach(inp => {
-    inp.addEventListener('change', (e) => {
-      const tr = e.target.closest('tr');
-      const idx = Number(tr.getAttribute('data-idx'));
-      const k = e.target.getAttribute('data-k');
-      const n = e.target.value === '' ? '' : Math.max(0, Number(e.target.value));
-      state.rows[idx].monthCost[k] = n === '' ? '' : (Number.isFinite(n) ? n : 0);
-      withCaretPreserved(() => renderGrid());
+  table.querySelectorAll('.costInp').forEach(function(inp){
+    inp.addEventListener('change', function(e){
+      var tr = e.target.closest && e.target.closest('tr');
+      var idx = tr ? Number(tr.getAttribute('data-idx')) : -1;
+      var k = e.target.getAttribute('data-k');
+      var n = e.target.value === '' ? '' : Math.max(0, Number(e.target.value));
+      state.rows[idx].monthCost[k] = (e.target.value === '') ? '' : (isFinite(n) ? n : 0);
+      withCaretPreserved(function(){ renderGrid(); });
     });
-    // optional: prevent Enter from jumping
-    inp.addEventListener('keydown', (e) => {
+    inp.addEventListener('keydown', function(e){
       if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); }
     });
   });
 
-  table.querySelectorAll('.noteInp').forEach(inp => {
-    inp.addEventListener('change', (e) => {
-      const tr = e.target.closest('tr');
-      const idx = Number(tr.getAttribute('data-idx'));
+  table.querySelectorAll('.noteInp').forEach(function(inp){
+    inp.addEventListener('change', function(e){
+      var tr = e.target.closest && e.target.closest('tr');
+      var idx = tr ? Number(tr.getAttribute('data-idx')) : -1;
       state.rows[idx].note = e.target.value;
     });
   });
 
-  table.querySelectorAll('.rowDel').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const tr = btn.closest('tr');
-      const idx = Number(tr.getAttribute('data-idx'));
-      state.rows.splice(idx, 1);
-      if (state.rows.length === 0) state.rows.push(blankRow());
-      withCaretPreserved(() => renderGrid());
+  table.querySelectorAll('.rowDel').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var tr = btn.closest && btn.closest('tr');
+      var idx = tr ? Number(tr.getAttribute('data-idx')) : -1;
+      if (idx >= 0) {
+        state.rows.splice(idx, 1);
+        if (state.rows.length === 0) state.rows.push(blankRow());
+        withCaretPreserved(function(){ renderGrid(); });
+      }
     });
   });
 }
@@ -265,174 +286,158 @@ function blankRow() {
 }
 
 function monthsForYear(year) {
-  return Array.from({ length: 12 }, (_, i) => {
-    const d = new Date(Date.UTC(year, i, 1));
-    return {
+  var arr = [];
+  for (var i = 0; i < 12; i++) {
+    var d = new Date(Date.UTC(year, i, 1));
+    arr.push({
       label: d.toLocaleString('en-US', { month: 'short', timeZone: 'UTC' }),
-      ym: d.toISOString().slice(0,10) // YYYY-MM-01
-    };
-  });
+      ym: d.toISOString().slice(0,10)
+    });
+  }
+  return arr;
 }
 
 // Dedupes vendors by UUID and by normalized name
 function buildVendorCaches(vendorsArr) {
-  // 1) de-dup by UUID
-  const byUuidMap = new Map();
-  (vendorsArr || []).forEach(v => { if (v?.id) byUuidMap.set(v.id, v); });
-  const uniqueById = Array.from(byUuidMap.values());
+  var byUuidMap = new Map();
+  (vendorsArr || []).forEach(function(v){ if (v && v.id) byUuidMap.set(v.id, v); });
+  var uniqueById = Array.from(byUuidMap.values());
 
-  // 2) de-dup by normalized name (case/space-insensitive)
-  const norm = s => String(s || '').trim().toLowerCase();
-  const byNameMap = new Map();
-  uniqueById.forEach(v => {
-    const k = norm(v.name);
+  var norm = function(s){ return String(s || '').trim().toLowerCase(); };
+  var byNameMap = new Map();
+  uniqueById.forEach(function(v){
+    var k = norm(v.name);
     if (!k) return;
     if (!byNameMap.has(k)) byNameMap.set(k, v);
   });
 
-  const list = Array.from(byNameMap.values())
-    .sort((a,b) => String(a.name||'').localeCompare(String(b.name||'')));
+  var list = Array.from(byNameMap.values())
+    .sort(function(a,b){ return String(a.name||'').localeCompare(String(b.name||'')); });
 
-  const byId = Object.fromEntries(list.map(v => [v.id, v]));
-  const idByName = Object.fromEntries(list.map(v => [String(v.name || ''), v.id]));
-  return { list, byId, idByName };
+  var byId = {};
+  var idByName = {};
+  list.forEach(function(v){
+    byId[v.id] = v;
+    idByName[String(v.name || '')] = v.id;
+  });
+  return { list: list, byId: byId, idByName: idByName };
 }
 
 function keyVal(ym) {
-  try { return (typeof ym === 'string') ? ym.slice(0,7) : new Date(ym).toISOString().slice(0,7); }
-  catch { return null; }
+  try {
+    if (typeof ym === 'string') return ym.slice(0,7);
+    return new Date(ym).toISOString().slice(0,7);
+  } catch (_) {
+    return null;
+  }
 }
 
 function computeRevenue(cost, formula, feePct) {
-  if (!Number.isFinite(cost)) return 0;
+  if (!isFinite(Number(cost))) return 0;
   switch (formula) {
-    case 'COST_PLUS': return cost * (1 + (Number(feePct || 0) / 100));
-    case 'TM':        return cost; // placeholder
-    case 'FP':        return cost; // placeholder
-    default:          return cost;
+    case 'COST_PLUS': return Number(cost) * (1 + (Number(feePct || 0) / 100));
+    case 'TM':        return Number(cost);
+    case 'FP':        return Number(cost);
+    default:          return Number(cost);
   }
 }
 
 function calcTotals(rows, monthKeys, formula, feePct) {
-  const costByMonth = {};
-  monthKeys.forEach(k => costByMonth[k] = 0);
-  let costYear = 0, revYear = 0;
+  var costByMonth = {};
+  monthKeys.forEach(function(k){ costByMonth[k] = 0; });
+  var costYear = 0, revYear = 0;
 
-  for (const row of rows) {
-    const yCost = monthKeys.reduce((s,k)=> s + Number(row.monthCost[k] || 0), 0);
-    const yRev  = computeRevenue(yCost, formula, feePct);
-    monthKeys.forEach(k => { costByMonth[k] += Number(row.monthCost[k] || 0); });
+  for (var i = 0; i < rows.length; i++) {
+    var row = rows[i];
+    var yCost = monthKeys.reduce(function(s,k){ return s + Number(row.monthCost[k] || 0); }, 0);
+    var yRev  = computeRevenue(yCost, formula, feePct);
+    monthKeys.forEach(function(k){ costByMonth[k] += Number(row.monthCost[k] || 0); });
     costYear += yCost;
     revYear  += yRev;
   }
-  return { costByMonth, costYear, revYear };
+  return { costByMonth: costByMonth, costYear: costYear, revYear: revYear };
 }
 
 function fmtUSD0(v) {
-  const n = Number(v || 0);
+  var n = Number(v || 0);
   return n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
 }
 function esc(s) {
-  return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  var str = (s == null ? '' : String(s));
+  return str.replace(/[&<>"']/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]); });
 }
 
 /* --------------------- Persistence --------------------- */
-async function fetchProject(projectId) {
-  const { data, error } = await client
-    .from('projects')
-    .select('id, revenue_formula, fee_pct')
-    .eq('id', projectId)
-    .single();
-  if (error) throw error;
-  return data;
-}
-
-async function fetchPlanSubs(projectId, year) {
-  const { data, error } = await client
-    .from('plan_subs')
-    .select('vendor_id, ym, cost, note')
-    .eq('project_id', projectId);
-  if (error) throw error;
-  return (data || []).filter(r => keyVal(r.ym)?.slice(0,4) === String(year));
-}
-
 async function saveAll() {
-  const msg = $('#subsMsg');
-  const pid = getProjectId();
+  var msg = $('#subsMsg');
+  var pid = getProjectId();
   if (!pid) { msg.textContent = 'Select a project first.'; return; }
   msg.textContent = 'Saving…';
 
   try {
-    // Re-fetch authoritative vendor list (avoid stale cache)
-    const { data: liveVendors, error: vErr } = await client
-    .from('sub_vendors')
-        .select('id, name')
-        .limit(2000);
-          .select('id, name')
-          .limit(2000);
-    if (vErr) throw vErr;
+    // re-fetch authoritative sub_vendors
+    var vres = await client.from('sub_vendors').select('id, name').limit(2000);
+    if (vres.error) throw vres.error;
+    var liveVendors = vres.data || [];
+    var liveSet = new Set(liveVendors.map(function(v){ return v.id; }));
+    var idByNameLive = {};
+    liveVendors.forEach(function(v){ idByNameLive[String(v.name || '')] = v.id; });
 
-    const liveSet = new Set((liveVendors || []).map(v => v.id));
-    const idByNameLive = Object.fromEntries((liveVendors || []).map(v => [String(v.name || ''), v.id]));
+    var months = state.months.map(function(m){ return m.ym.slice(0,7); });
+    var inserts = [];
+    var skipped = [];
 
-    const months = state.months.map(m => m.ym.slice(0,7));
-    const inserts = [];
-    const skipped = [];
-
-    for (const row of state.rows) {
-      // Resolve/validate vendor_id
-      let vendorId = row.vendor_id || null;
+    for (var i = 0; i < state.rows.length; i++) {
+      var row = state.rows[i];
+      var vendorId = row.vendor_id || null;
       if (!vendorId && row.name && idByNameLive[row.name]) {
         vendorId = idByNameLive[row.name];
-        row.vendor_id = vendorId; // cache in UI state
+        row.vendor_id = vendorId;
       }
-
       if (!vendorId || !liveSet.has(vendorId)) {
-        const hasAny = months.some(mk => Number(row.monthCost?.[mk] || 0)) || (row.note && row.note.trim() !== '');
+        var hasAny = months.some(function(mk){ return Number(row.monthCost && row.monthCost[mk] || 0); }) ||
+                     (row.note && row.note.trim() !== '');
         if (hasAny) skipped.push(row.name || '(no vendor selected)');
-        continue; // don’t try to insert invalid FK
+        continue;
       }
-
-      for (const mk of months) {
-        const cost = Number(row.monthCost?.[mk] || 0);
-        const note = (row.note ?? '').trim() || null;
+      for (var j = 0; j < months.length; j++) {
+        var mk = months[j];
+        var cost = Number(row.monthCost && row.monthCost[mk] || 0);
+        var note = (row.note || '').trim() || null;
         if (!cost && !note) continue;
         inserts.push({
           project_id: pid,
           vendor_id: vendorId,
           ym: mk + '-01',
-          cost,
-          note
+          cost: cost,
+          note: note
         });
       }
     }
 
-    // Wipe this year’s rows for this project, then insert only valid rows
-    const yearPrefix = String(state.year) + '-';
-    const { error: delErr } = await client
+    var yearPrefix = String(state.year) + '-';
+    var delRes = await client
       .from('plan_subs')
       .delete()
       .eq('project_id', pid)
       .gte('ym', yearPrefix + '01-01')
       .lte('ym', yearPrefix + '12-31');
-    if (delErr) throw delErr;
+    if (delRes.error) throw delRes.error;
 
     if (inserts.length) {
-      const { error: insErr } = await client.from('plan_subs').insert(inserts);
-      if (insErr) {
-        console.error('plan_subs insert error', insErr, { sample: inserts.slice(0,3) });
-        throw insErr;
+      var insRes = await client.from('plan_subs').insert(inserts);
+      if (insRes.error) {
+        console.error('plan_subs insert error', insRes, { sample: inserts.slice(0,3) });
+        throw insRes.error;
       }
     }
 
-    if (skipped.length) {
-      msg.textContent = `Saved with ${skipped.length} row(s) skipped (select a valid vendor): ${skipped.slice(0,3).join(', ')}${skipped.length>3?'…':''}`;
-    } else {
-      msg.textContent = 'Saved.';
-    }
-    setTimeout(() => (msg.textContent = ''), 2500);
+    msg.textContent = skipped.length
+      ? ('Saved with ' + skipped.length + ' row(s) skipped (select a valid vendor).')
+      : 'Saved.';
+    setTimeout(function(){ msg.textContent = ''; }, 2500);
   } catch (err) {
     console.error('Subs save error', err);
-    msg.textContent = `Save failed: ${err?.details || err?.message || String(err)}`;
+    msg.textContent = 'Save failed: ' + (err && (err.details || err.message) ? (err.details || err.message) : String(err));
   }
 }
