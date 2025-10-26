@@ -67,6 +67,10 @@ export async function init(rootEl) {
   msg.textContent = 'Loading…';
   try {
     await loadLookups();
+    const { vendorList, venById, idByName } = buildVendorCaches(vendorLookup);
+    state._vendorList = vendorList;
+    state._venById = venById;
+    state._idByName = idByName;
 
     // Build a unique, sorted vendor list and maps
     const { vendorList, venById, idByName } = buildVendorCaches(vendorLookup);
@@ -216,11 +220,12 @@ function renderGrid() {
       const tr = e.target.closest('tr');
       const idx = Number(tr.getAttribute('data-idx'));
       const opt = e.target.selectedOptions[0];
-      state.rows[idx].vendor_id = e.target.value || null;                // UUID
+      state.rows[idx].vendor_id = e.target.value || null;         // <-- UUID from option.value
       state.rows[idx].name = opt?.dataset?.name || '';
       withCaretPreserved(() => renderGrid());
     });
   });
+
 
   // Use 'change' to avoid re-render on each keystroke
   table.querySelectorAll('.costInp').forEach(inp => {
@@ -353,34 +358,79 @@ async function saveAll() {
   if (!pid) { msg.textContent = 'Select a project first.'; return; }
   msg.textContent = 'Saving…';
 
-  const months = state.months.map(m => m.ym.slice(0,7));
-  const inserts = [];
+  try {
+    // Re-fetch authoritative vendor list (avoid stale cache)
+    const { data: liveVendors, error: vErr } = await client
+      .from('vendors')
+      .select('id, name')
+      .limit(2000);
+    if (vErr) throw vErr;
 
-  // Only save rows with valid vendor UUIDs that exist in vendors
-  const venExists = (id) => !!state._venById?.[id];
+    const liveSet = new Set((liveVendors || []).map(v => v.id));
+    const idByName = Object.fromEntries((liveVendors || []).map(v => [String(v.name || ''), v.id]));
 
-  for (const row of state.rows) {
-    let vendorId = row.vendor_id || null;
-    // (defensive) if only name is present, try to resolve to id
-    if (!vendorId && row.name && state._idByName?.[row.name]) {
-      vendorId = state._idByName[row.name];
-      row.vendor_id = vendorId;
+    const months = state.months.map(m => m.ym.slice(0,7));
+    const inserts = [];
+    const skipped = [];
+
+    for (const row of state.rows) {
+      // Resolve/validate vendor_id
+      let vendorId = row.vendor_id || null;
+      if (!vendorId && row.name && idByName[row.name]) {
+        vendorId = idByName[row.name];
+        row.vendor_id = vendorId; // cache in UI state
+      }
+
+      if (!vendorId || !liveSet.has(vendorId)) {
+        const hasAny = months.some(mk => Number(row.monthCost?.[mk] || 0)) || (row.note && row.note.trim() !== '');
+        if (hasAny) skipped.push(row.name || '(no vendor selected)');
+        continue; // don’t try to insert invalid FK
+      }
+
+      for (const mk of months) {
+        const cost = Number(row.monthCost?.[mk] || 0);
+        const note = (row.note ?? '').trim() || null;
+        if (!cost && !note) continue;
+        inserts.push({
+          project_id: pid,
+          vendor_id: vendorId,
+          ym: mk + '-01',
+          cost,
+          note
+        });
+      }
     }
-    if (!vendorId || !venExists(vendorId)) continue;
 
-    for (const mk of months) {
-      const cost = Number(row.monthCost[mk] || 0);
-      const note = (row.note ?? '').trim() || null;
-      if (!cost && !note) continue; // skip empty
-      inserts.push({
-        project_id: pid,
-        vendor_id: vendorId,           // FK-safe UUID
-        ym: mk + '-01',
-        cost,
-        note
-      });
+    // Wipe this year’s rows for this project, then insert only valid rows
+    const yearPrefix = String(state.year) + '-';
+    const { error: delErr } = await client
+      .from('plan_subs')
+      .delete()
+      .eq('project_id', pid)
+      .gte('ym', yearPrefix + '01-01')
+      .lte('ym', yearPrefix + '12-31');
+    if (delErr) throw delErr;
+
+    if (inserts.length) {
+      const { error: insErr } = await client.from('plan_subs').insert(inserts);
+      if (insErr) {
+        console.error('plan_subs insert error', insErr, { sample: inserts.slice(0,3) });
+        throw insErr;
+      }
     }
+
+    if (skipped.length) {
+      msg.textContent = `Saved with ${skipped.length} row(s) skipped (select a valid vendor): ${skipped.slice(0,3).join(', ')}${skipped.length>3?'…':''}`;
+    } else {
+      msg.textContent = 'Saved.';
+    }
+    setTimeout(() => (msg.textContent = ''), 2500);
+  } catch (err) {
+    console.error('Subs save error', err);
+    msg.textContent = `Save failed: ${err?.details || err?.message || String(err)}`;
   }
+}
+
 
   try {
     const yearPrefix = String(state.year) + '-';
