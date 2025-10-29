@@ -10,11 +10,11 @@ export let equipmentList = []; // [{equip_type, rate, rate_unit}]
 export let materialsList = []; // [{sku, description, unit_cost, waste_pct}]
 
 export async function loadLookups() {
-  // Fetch everything in parallel; tolerate missing tables.
+  // Fetch common lookups in parallel
   const [emp, ven, roles, mats] = await Promise.all([
-    safeSel('employees',        'id, full_name, role',       500, 'full_name'),
-    safeSel('vendors',          'id, name',                  500, 'name'),
-    safeSel('labor_roles',      'role, loaded_rate',         500, 'role'),
+    safeSel('employees',        'id, full_name, role',              500, 'full_name'),
+    safeSel('vendors',          'id, name',                         500, 'name'),
+    safeSel('labor_roles',      'role, loaded_rate',                500, 'role'),
     safeSel('materials_catalog','sku, description, unit_cost, waste_pct', 1000, 'sku'),
   ]);
 
@@ -23,71 +23,62 @@ export async function loadLookups() {
   rolesRate = Object.fromEntries((roles || []).map(r => [r.role, Number(r.loaded_rate || 0)]));
   materialsList = mats || [];
 
-  // Equipment: try multiple shapes/sources & normalize
+  // Equipment: flex loader that tries your likely schema first
   equipmentList = await loadEquipmentFlexible();
 }
 
 /* ----------------- equipment flexible loader ----------------- */
 async function loadEquipmentFlexible() {
-  // Try the expected shape first
-  let rows = await safeSel('equipment_catalog', 'equip_type, rate, rate_unit', 1000, 'equip_type');
-  if (rows.length) return rows.map(r => normEquip(r, 'type_rate'));
+  // Try the most common schema you have: sku/description/unit_cost[/rate_unit]
+  let rows = await safeSel('equipment_catalog', 'sku, description, unit_cost, rate_unit', 1000, 'sku');
+  if (rows.length) return rows.map(function (r) { return normEquipFromSku(r, /*hasUnit*/ true); });
 
-  // Try catalog with sku/description/unit_cost (our earlier SQL)
-  rows = await safeSel('equipment_catalog', 'sku, description, unit_cost, rate_unit', 1000, 'sku');
-  if (rows.length) return rows.map(r => normEquip(r, 'sku_desc_cost_unit'));
-
-  // Try catalog with sku/description/unit_cost (no rate_unit)
   rows = await safeSel('equipment_catalog', 'sku, description, unit_cost', 1000, 'sku');
-  if (rows.length) return rows.map(r => normEquip(r, 'sku_desc_cost'));
+  if (rows.length) return rows.map(function (r) { return normEquipFromSku(r, /*hasUnit*/ false); });
 
-  // Try alternative table names you might have
+  // Fall back to an alt table name, if you had one before
   rows = await safeSel('equipment', 'sku, description, unit_cost, rate_unit', 1000, 'sku');
-  if (rows.length) return rows.map(r => normEquip(r, 'sku_desc_cost_unit'));
+  if (rows.length) return rows.map(function (r) { return normEquipFromSku(r, /*hasUnit*/ true); });
 
-  rows = await safeSel('equipment_items', 'sku, description, unit_cost', 1000, 'sku');
-  if (rows.length) return rows.map(r => normEquip(r, 'sku_desc_cost'));
+  rows = await safeSel('equipment', 'sku, description, unit_cost', 1000, 'sku');
+  if (rows.length) return rows.map(function (r) { return normEquipFromSku(r, /*hasUnit*/ false); });
 
-  // Nothing found — return empty list (UI will show empty dropdown)
+  // Finally try the original “type/rate” shape (only if it exists)
+  rows = await safeSel('equipment_catalog', 'equip_type, rate, rate_unit', 1000, 'equip_type');
+  if (rows.length) return rows.map(function (r) { return normEquipFromType(r); });
+
+  // Nothing found — return empty list
   return [];
 }
 
-function normEquip(row, shape) {
-  switch (shape) {
-    case 'type_rate':
-      return {
-        equip_type: String(row.equip_type || ''),
-        rate: Number(row.rate || 0),
-        rate_unit: String(row.rate_unit || 'day'),
-      };
-    case 'sku_desc_cost_unit':
-      return {
-        equip_type: String(row.description || row.sku || ''),
-        rate: Number(row.unit_cost || 0),
-        rate_unit: String(row.rate_unit || 'day'),
-      };
-    case 'sku_desc_cost':
-      return {
-        equip_type: String(row.description || row.sku || ''),
-        rate: Number(row.unit_cost || 0),
-        rate_unit: 'day',
-      };
-    default:
-      return { equip_type: '', rate: 0, rate_unit: 'day' };
-  }
+function normEquipFromSku(r, hasUnit) {
+  return {
+    // Use human-readable description as the "type" label; fall back to sku
+    equip_type: String((r && r.description) ? r.description : (r && r.sku) ? r.sku : ''),
+    rate: Number((r && r.unit_cost) ? r.unit_cost : 0),
+    rate_unit: String(hasUnit && r && r.rate_unit ? r.rate_unit : 'day'),
+  };
+}
+
+function normEquipFromType(r) {
+  return {
+    equip_type: String((r && r.equip_type) ? r.equip_type : ''),
+    rate: Number((r && r.rate) ? r.rate : 0),
+    rate_unit: String((r && r.rate_unit) ? r.rate_unit : 'day'),
+  };
 }
 
 /* --------------------- helpers --------------------- */
-async function safeSel(table, cols, limit = 100, orderBy = null) {
+async function safeSel(table, cols, limit, orderBy) {
   try {
     let q = client.from(table).select(cols);
     if (orderBy) q = q.order(orderBy, { ascending: true });
     if (limit)   q = q.limit(limit);
-    const { data, error } = await q;
-    if (error) throw error;
-    return data || [];
+    const res = await q;
+    if (res.error) throw res.error;
+    return res.data || [];
   } catch (e) {
-    console.warn(`Lookup: table "${table}" not available:`, e && e.message ? e.message : e);
+    console.warn('Lookup: table "' + table + '" not available:', (e && e.message) ? e.message : e);
     return [];
   }
 }
