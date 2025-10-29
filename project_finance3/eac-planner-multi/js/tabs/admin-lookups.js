@@ -1,5 +1,5 @@
 // js/tabs/admin-lookups.js
-// A simple CRUD admin for lookup tables: employees, vendors, equipment_catalog, materials_catalog, labor_roles.
+// Admin CRUD for lookup tables; equipment_catalog handled dynamically.
 
 import { $ } from '../lib/dom.js';
 import { client } from '../api/supabase.js';
@@ -30,8 +30,7 @@ export const template = /*html*/ `
     </div>
 
     <p class="text-xs text-slate-500">
-      Tip: Columns with gray background are read-only (e.g., computed “loaded_rate”).
-      Edits save with an upsert on the table’s natural key (see mapping in this file).
+      Tip: Gray columns are read-only. Edits save via upsert on the table’s natural key.
     </p>
   </div>
 `;
@@ -39,72 +38,51 @@ export const template = /*html*/ `
 let state = {
   table: 'employees',
   rows: [],
-  cols: [],          // [{key, label, type, readonly, pk, step}]
-  pk: [],            // primary key column(s)
+  cols: [],     // [{key, label, type, readonly, pk, step}]
+  pk: [],       // primary key column(s)
   loading: false,
   selected: new Set(),
 };
 
-/** Base column definitions per table */
+/** Static table configs (equipment_catalog is dynamic) */
 const TABLES = {
   employees: {
-    label: 'Employees',
-    table: 'employees',
-    orderBy: 'full_name',
+    table: 'employees', orderBy: 'full_name', pk: ['id'],
     cols: [
-      { key: 'id',         label: 'ID (uuid)',    type: 'text', readonly: false, pk: true },
+      { key: 'id',         label: 'ID (uuid)',    type: 'text', pk: true },
       { key: 'full_name',  label: 'Full Name',    type: 'text' },
       { key: 'role',       label: 'Role',         type: 'text' },
-    ],
-    pk: ['id']
+    ]
   },
   vendors: {
-    label: 'Vendors (Subs)',
-    table: 'vendors',
-    orderBy: 'name',
+    table: 'vendors', orderBy: 'name', pk: ['id'],
     cols: [
-      { key: 'id',   label: 'ID (uuid)', type: 'text', readonly: false, pk: true },
+      { key: 'id',   label: 'ID (uuid)', type: 'text', pk: true },
       { key: 'name', label: 'Name',      type: 'text' },
-    ],
-    pk: ['id']
+    ]
   },
-  // equipment_catalog will be adapted at runtime
   equipment_catalog: {
-    label: 'Equipment Catalog',
-    table: 'equipment_catalog',
-    orderBy: null, // will set dynamically if we find a type/name column
-    cols: [
-      // will be replaced dynamically (see applyEquipmentAdminColumns)
-      { key: 'equipment_type', label: 'Equipment Type', type: 'text', pk: true },
-      { key: 'rate',           label: 'Rate',           type: 'number', step: '0.01' },
-      { key: 'rate_unit',      label: 'Rate Unit',      type: 'text' },
-    ],
-    pk: ['equipment_type']
+    // dynamic; filled at runtime based on actual columns
+    table: 'equipment_catalog', orderBy: null, pk: ['__dynamic__'], cols: []
   },
   materials_catalog: {
-    label: 'Materials Catalog',
-    table: 'materials_catalog',
-    orderBy: 'sku',
+    table: 'materials_catalog', orderBy: 'sku', pk: ['sku'],
     cols: [
       { key: 'sku',         label: 'SKU',         type: 'text', pk: true },
       { key: 'description', label: 'Description', type: 'text' },
       { key: 'unit_cost',   label: 'Unit Cost',   type: 'number', step: '0.01' },
       { key: 'waste_pct',   label: 'Waste % (0–1)', type: 'number', step: '0.01' },
-    ],
-    pk: ['sku']
+    ]
   },
   labor_roles: {
-    label: 'Labor Roles',
-    table: 'labor_roles',
-    orderBy: 'role',
+    table: 'labor_roles', orderBy: 'role', pk: ['role'],
     cols: [
       { key: 'role',          label: 'Role',           type: 'text', pk: true },
       { key: 'base_rate',     label: 'Base Rate',      type: 'number', step: '0.01' },
       { key: 'burden_pct',    label: 'Burden % (0–1)', type: 'number', step: '0.01' },
       { key: 'ot_multiplier', label: 'OT Multiplier',  type: 'number', step: '0.01' },
       { key: 'loaded_rate',   label: 'Loaded Rate (gen)', type: 'number', readonly: true },
-    ],
-    pk: ['role']
+    ]
   }
 };
 
@@ -123,76 +101,97 @@ export async function init() {
   await reload();
 }
 
-/* ----------------- Equipment detectors & adapters ----------------- */
-
-// Prefer these for the “type/name” column; if none matches, we’ll pick the first string column.
-const EQUIP_PREFERRED_KEYS = [
-  'equipment_type','equip_type','type','name',
-  'equipment','equip','title','description','model','item','item_name','code','sku'
+/* -------------------- Equipment dynamic config -------------------- */
+const EQUIP_LABEL_CANDIDATES = [
+  'equipment_type','equip_type','type','name','description','title','equipment','equip','model','item','item_name','code','sku'
 ];
 
-// Try to infer a good “type/name” column from a sample row, then fall back to probing candidates.
-async function detectEquipTypeColumn() {
-  // 1) Try to look at any existing row and pick a string-looking column
-  const sample = await client.from('equipment_catalog').select('*').limit(1);
-  if (!sample.error && Array.isArray(sample.data) && sample.data.length) {
-    const row = sample.data[0];
-    const keys = Object.keys(row || {});
-    // Prefer well-known names if present in keys
-    for (const k of EQUIP_PREFERRED_KEYS) {
-      if (keys.includes(k)) return k;
-    }
-    // Otherwise, pick the first key whose value looks string-ish (and is not obviously numeric)
-    const fallback = keys.find(k => typeof row[k] === 'string');
-    if (fallback) return fallback;
-  }
-
-  // 2) If table is empty (or RLS prevented *), probe a long list of likely candidates directly
-  for (const col of EQUIP_PREFERRED_KEYS) {
-    const { error } = await client.from('equipment_catalog').select(col).limit(1);
-    if (!error) return col;
-  }
-
-  // 3) Give up with a helpful error
-  throw new Error('equipment_catalog: no usable label column found (tried: ' + EQUIP_PREFERRED_KEYS.join(', ') + ')');
+function looksNumeric(v) {
+  if (v === null || v === undefined || v === '') return false;
+  if (typeof v === 'number') return true;
+  if (typeof v === 'string' && v.trim() !== '' && !isNaN(Number(v))) return true;
+  return false;
 }
 
-// Apply the detected column to the TABLES config (orderBy, cols, pk)
-function applyEquipmentAdminColumns(typeCol) {
-  const ec = TABLES.equipment_catalog;
-  ec.orderBy = typeCol || null;
-  ec.cols = [
-    { key: typeCol,    label: 'Equipment Type', type: 'text', pk: true },
-    { key: 'rate',     label: 'Rate',           type: 'number', step: '0.01' },
-    { key: 'rate_unit',label: 'Rate Unit',      type: 'text' },
-  ];
-  ec.pk = [typeCol];
+function guessColumnsFromData(rows) {
+  // union of keys across rows
+  const keys = new Set();
+  for (const r of rows) Object.keys(r || {}).forEach(k => keys.add(k));
+  return Array.from(keys);
 }
 
-/* ------------ Load & render ------------ */
+function pickLabelColumn(keys, sampleRow) {
+  for (const k of EQUIP_LABEL_CANDIDATES) if (keys.includes(k)) return k;
+  // else first string-ish column
+  const strKey = keys.find(k => typeof (sampleRow?.[k]) === 'string');
+  if (strKey) return strKey;
+  // else first column
+  return keys[0] || 'name';
+}
+
+function buildCols(keys, sampleRow, labelKey) {
+  return keys.map(k => {
+    const isLabel = (k === labelKey);
+    const v = sampleRow?.[k];
+    const isNum = looksNumeric(v);
+    return {
+      key: k,
+      label: k.replace(/_/g,' ').replace(/\b\w/g, c => c.toUpperCase()),
+      type: isNum ? 'number' : 'text',
+      step: isNum ? '0.01' : undefined,
+      pk: isLabel, // treat label column as the natural key
+      readonly: false
+    };
+  });
+}
+
+async function configureEquipmentTable() {
+  // load some rows (all columns)
+  const { data, error } = await client.from('equipment_catalog').select('*').limit(1000);
+  if (error) throw error;
+
+  const rows = data || [];
+  const keys = rows.length ? guessColumnsFromData(rows) : ['name','rate','rate_unit']; // fallback if empty table
+  const sample = rows[0] || {};
+  const labelKey = pickLabelColumn(keys, sample);
+
+  const cfg = TABLES.equipment_catalog;
+  cfg.orderBy = labelKey || null;
+  cfg.pk = [labelKey];
+  cfg.cols = buildCols(keys, sample, labelKey);
+
+  return { rows, cfg };
+}
+
+/* ------------------------- Load & render ------------------------- */
 async function reload() {
   setMsg('Loading…');
   state.loading = true;
   state.selected = new Set();
 
   try {
+    let cfg = TABLES[state.table];
+    let rows;
+
     if (state.table === 'equipment_catalog') {
-      const detected = await detectEquipTypeColumn();
-      applyEquipmentAdminColumns(detected);
-      console.log('[Admin] equipment_catalog label column =', detected);
+      // dynamic: we already fetched rows inside configurator
+      const res = await configureEquipmentTable();
+      cfg = res.cfg;
+      rows = res.rows;
+    } else {
+      // static tables: select only the defined columns
+      const selectList = cfg.cols.map(c => c.key).join(',');
+      let q = client.from(cfg.table).select(selectList).limit(1000);
+      if (cfg.orderBy) q = q.order(cfg.orderBy, { ascending: true });
+      const { data, error } = await q;
+      if (error) throw error;
+      rows = data || [];
     }
 
-    const cfg = TABLES[state.table];
     state.cols = cfg.cols;
     state.pk   = cfg.pk;
+    state.rows = (rows || []).map(normalizeRow(state.cols));
 
-    let q = client.from(cfg.table).select(state.cols.map(c => c.key).join(',')).limit(1000);
-    if (cfg.orderBy) q = q.order(cfg.orderBy, { ascending: true });
-
-    const { data, error } = await q;
-    if (error) throw error;
-
-    state.rows = (data || []).map(normalizeRow(state.cols));
     render();
     setMsg('');
   } catch (e) {
@@ -226,8 +225,9 @@ function render() {
       } else {
         const type = c.type || 'text';
         const step = c.step ? ` step="${c.step}"` : '';
+        const val  = (type === 'number' && v !== '') ? String(Number(v)) : esc(String(v));
         tbody += `<td class="p-1">
-          <input class="cell border rounded-md p-1 w-48" data-k="${c.key}" type="${type}"${step} value="${type==='number' && v!=='' ? String(Number(v)) : esc(String(v))}">
+          <input class="cell border rounded-md p-1 w-48" data-k="${c.key}" type="${type}"${step} value="${val}">
         </td>`;
       }
     });
@@ -237,13 +237,13 @@ function render() {
 
   table.innerHTML = thead + tbody;
 
-  // Wire selects & edits
+  // handlers
   $('#admSelAll').addEventListener('change', (e) => {
     const boxes = table.querySelectorAll('.admSel');
     boxes.forEach(b => (b.checked = e.target.checked));
     recomputeSelection();
   });
-  table.querySelectorAll('.admSel').forEach(box => box.addEventListener('change', recomputeSelection));
+  table.querySelectorAll('.admSel').forEach(b => b.addEventListener('change', recomputeSelection));
   table.querySelectorAll('input.cell').forEach(inp => {
     inp.addEventListener('change', (e) => {
       const tr = e.target.closest('tr');
@@ -272,10 +272,10 @@ function recomputeSelection() {
   });
 }
 
-/* ------------ Actions ------------ */
+/* --------------------------- Actions --------------------------- */
 function addRow() {
   const blank = {};
-  state.cols.forEach(c => blank[c.key] = '');
+  state.cols.forEach(c => (blank[c.key] = ''));
   state.rows.unshift(blank);
   render();
 }
@@ -287,7 +287,7 @@ async function saveAll() {
   try {
     const cleaned = state.rows.map(r => {
       const x = { ...r };
-      cfg.cols.forEach(c => {
+      state.cols.forEach(c => {
         if (c.type === 'number' && x[c.key] !== '') {
           x[c.key] = Number(x[c.key]);
           if (!Number.isFinite(x[c.key])) x[c.key] = 0;
@@ -331,7 +331,7 @@ async function removeSelected() {
   }
 }
 
-/* ------------ helpers ------------ */
+/* --------------------------- helpers --------------------------- */
 function normalizeRow(cols) {
   return (r) => {
     const x = {};
@@ -339,7 +339,6 @@ function normalizeRow(cols) {
     return x;
   };
 }
-
 function pkValue(row, pk) {
   return pk.map(k => String(row[k] ?? '')).join('│');
 }
@@ -349,7 +348,6 @@ function pkFilterFromKey(keyStr, pk) {
   pk.forEach((k, i) => (obj[k] = parts[i]));
   return obj;
 }
-
 function setMsg(t) { $('#admMsg').textContent = t || ''; }
 function esc(s) {
   return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
