@@ -72,14 +72,15 @@ const TABLES = {
   equipment_catalog: {
     label: 'Equipment Catalog',
     table: 'equipment_catalog',
-    orderBy: 'equip_type',
+    orderBy: 'equipment_type',
     cols: [
-      { key: 'equip_type', label: 'Equipment Type', type: 'text', pk: true },
-      { key: 'rate',       label: 'Rate',           type: 'number', step: '0.01' },
-      { key: 'rate_unit',  label: 'Rate Unit',      type: 'text' }, // e.g., hour/day
+      { key: 'equipment_type', label: 'Equipment Type', type: 'text', pk: true },
+      { key: 'rate',           label: 'Rate',           type: 'number', step: '0.01' },
+      { key: 'rate_unit',      label: 'Rate Unit',      type: 'text' }, // e.g., hour/day
     ],
-    pk: ['equip_type']
-  },
+    pk: ['equipment_type']
+},
+
   materials_catalog: {
     label: 'Materials Catalog',
     table: 'materials_catalog',
