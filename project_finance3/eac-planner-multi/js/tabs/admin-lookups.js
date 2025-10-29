@@ -45,7 +45,7 @@ let state = {
   selected: new Set(), // ids or composite keys as string
 };
 
-/** Column definitions per table */
+/** Base column definitions per table */
 const TABLES = {
   employees: {
     label: 'Employees',
@@ -56,7 +56,6 @@ const TABLES = {
       { key: 'full_name',  label: 'Full Name',    type: 'text' },
       { key: 'role',       label: 'Role',         type: 'text' },
     ],
-    // upsert keys:
     pk: ['id']
   },
   vendors: {
@@ -69,10 +68,11 @@ const TABLES = {
     ],
     pk: ['id']
   },
+  // NOTE: equipment_catalog is adjusted dynamically at runtime (see detectors below)
   equipment_catalog: {
     label: 'Equipment Catalog',
     table: 'equipment_catalog',
-    orderBy: 'equipment_type',
+    orderBy: 'equipment_type', // placeholder; will be overwritten if needed
     cols: [
       { key: 'equipment_type', label: 'Equipment Type', type: 'text', pk: true },
       { key: 'rate',           label: 'Rate',           type: 'number', step: '0.01' },
@@ -80,7 +80,6 @@ const TABLES = {
     ],
     pk: ['equipment_type']
   },
-
   materials_catalog: {
     label: 'Materials Catalog',
     table: 'materials_catalog',
@@ -109,7 +108,6 @@ const TABLES = {
 };
 
 export async function init() {
-  // default table selection
   const sel = $('#admTableSel');
   sel.value = state.table;
   sel.addEventListener('change', async (e) => {
@@ -124,20 +122,58 @@ export async function init() {
   await reload();
 }
 
+/* ----------------- Equipment detectors & adapters ----------------- */
+// Probe which "type" column exists on equipment_catalog
+async function detectEquipTypeColumn() {
+  const candidates = ['equipment_type', 'equip_type', 'type', 'name'];
+  for (const col of candidates) {
+    const { error } = await client.from('equipment_catalog').select(col).limit(1);
+    if (!error) return col; // this column exists
+  }
+  throw new Error('equipment_catalog: no usable type column found (tried equipment_type, equip_type, type, name)');
+}
+
+// Apply the detected column to the TABLES config (orderBy, cols, pk)
+function applyEquipmentAdminColumns(typeCol) {
+  const ec = TABLES.equipment_catalog;
+  ec.orderBy = typeCol;
+  ec.cols = [
+    { key: typeCol,   label: 'Equipment Type', type: 'text', pk: true },
+    { key: 'rate',    label: 'Rate',           type: 'number', step: '0.01' },
+    { key: 'rate_unit', label: 'Rate Unit',    type: 'text' }, // e.g., hour/day
+  ];
+  ec.pk = [typeCol];
+}
+
 /* ------------ Load & render ------------ */
 async function reload() {
-  const cfg = TABLES[state.table];
-  state.cols = cfg.cols;
-  state.pk = cfg.pk;
-  state.selected = new Set();
   setMsg('Loading…');
   state.loading = true;
+  state.selected = new Set();
+
   try {
-    let q = client.from(cfg.table).select(cfg.cols.map(c => c.key).join(','));
+    // Detect equipment key column BEFORE we read the table config, if needed
+    if (state.table === 'equipment_catalog') {
+      const detected = await detectEquipTypeColumn();
+      applyEquipmentAdminColumns(detected);
+      // Optional debug:
+      console.log('[Admin] equipment_catalog type column =', detected);
+    }
+
+    const cfg = TABLES[state.table]; // use updated config (after detection)
+    state.cols = cfg.cols;
+    state.pk   = cfg.pk;
+
+    // Optional debug:
+    // console.log('[Admin] loading table=', cfg.table, 'cols=', state.cols.map(c => c.key));
+
+    let q = client.from(cfg.table).select(state.cols.map(c => c.key).join(',')).limit(1000);
     if (cfg.orderBy) q = q.order(cfg.orderBy, { ascending: true });
-    const { data, error } = await q.limit(1000);
+
+    const { data, error } = await q;
     if (error) throw error;
-    state.rows = (data || []).map(normalizeRow(cfg.cols));
+
+    state.rows = (data || []).map(normalizeRow(state.cols));
     render();
     setMsg('');
   } catch (e) {
@@ -201,12 +237,9 @@ function render() {
       let val = e.target.type === 'number'
         ? (e.target.value === '' ? '' : Number(e.target.value))
         : e.target.value;
-      // basic normalization
       if (typeof val === 'number' && !Number.isFinite(val)) val = 0;
       state.rows[idx][key] = val;
-      // don’t re-render on each change: keep the caret in place
     });
-    // quality-of-life: prevent Enter from jumping
     inp.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); }
     });
@@ -239,7 +272,6 @@ async function saveAll() {
   const cfg = TABLES[state.table];
   setMsg('Saving…');
   try {
-    // Make a shallow copy and coerce numeric fields
     const cleaned = state.rows.map(r => {
       const x = { ...r };
       cfg.cols.forEach(c => {
@@ -270,7 +302,6 @@ async function removeSelected() {
   const cfg = TABLES[state.table];
   setMsg('Deleting…');
   try {
-    // Delete by PK(s). We’ll loop because composite keys vary by table.
     for (const keyStr of state.selected) {
       const where = pkFilterFromKey(keyStr, cfg.pk);
       let q = client.from(cfg.table).delete();
