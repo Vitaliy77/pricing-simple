@@ -23,6 +23,29 @@ export const template = /*html*/ `
   </div>
 `;
 
+/* ---------- keep focus/caret when re-rendering ---------- */
+function withCaretPreserved(run) {
+  const active = document.activeElement;
+  const isCell = !!(active && active.classList && active.classList.contains('qtyInp'));
+  const rowEl = active && active.closest ? active.closest('tr') : null;
+  const rowIdx = rowEl ? rowEl.getAttribute('data-idx') : null;
+  const monthKey = active && active.getAttribute ? active.getAttribute('data-k') : null;
+  const s = (active && typeof active.selectionStart === 'number') ? active.selectionStart : null;
+  const e = (active && typeof active.selectionEnd === 'number') ? active.selectionEnd : null;
+
+  run();
+
+  if (isCell && rowIdx !== null && monthKey) {
+    const el = document.querySelector('tr[data-idx="' + rowIdx + '"] input.qtyInp[data-k="' + monthKey + '"]');
+    if (el) {
+      el.focus();
+      if (s !== null && e !== null) {
+        try { el.setSelectionRange(s, e); } catch (_) {}
+      }
+    }
+  }
+}
+
 let state = {
   year: new Date().getUTCFullYear(),
   months: [],
@@ -42,8 +65,10 @@ export async function init(rootEl) {
     return;
   }
 
-  // Year from the month picker
-  state.year = Number(($('#monthPicker')?.value || new Date().toISOString().slice(0,7)).slice(0,4));
+  // Year from the month picker (no optional chaining)
+  const mp = $('#monthPicker');
+  const mpVal = (mp && mp.value) ? mp.value : new Date().toISOString().slice(0,7);
+  state.year = Number(mpVal.slice(0,4));
   state.months = monthsForYear(state.year);
 
   msg.textContent = 'Loading…';
@@ -51,15 +76,30 @@ export async function init(rootEl) {
     await loadLookups();
 
     // Project revenue formula/fee
-    const proj = await fetchProject(pid);
-    state.projectFormula = proj?.revenue_formula || 'TM';
-    state.projectFeePct = Number(proj?.fee_pct || 0);
+    const projRes = await client
+      .from('projects')
+      .select('id, revenue_formula, fee_pct')
+      .eq('id', pid)
+      .single();
+    if (projRes.error) throw projRes.error;
+    const proj = projRes.data || {};
+    state.projectFormula = proj.revenue_formula || 'TM';
+    state.projectFeePct = Number(proj.fee_pct || 0);
 
     // Existing plan (this year)
-    const plan = await fetchPlanMaterials(pid, state.year);
+    const planRes = await client
+      .from('plan_materials')
+      .select('sku, ym, qty')
+      .eq('project_id', pid);
+    if (planRes.error) throw planRes.error;
+    const plan = (planRes.data || []).filter(r => {
+      const k = keyVal(r.ym);
+      return k && k.slice(0,4) === String(state.year);
+    });
 
     const bySku = {};
-    for (const r of plan) {
+    for (let i = 0; i < plan.length; i++) {
+      const r = plan[i];
       const k = keyVal(r.ym);
       if (!k) continue;
       const meta = findMaterialMeta(r.sku);
@@ -81,19 +121,19 @@ export async function init(rootEl) {
     msg.textContent = '';
   } catch (err) {
     console.error('Materials init error', err);
-    table.innerHTML = `<tbody><tr><td class="p-3 text-red-600">Error: ${err?.message || err}</td></tr></tbody>`;
+    table.innerHTML = '<tbody><tr><td class="p-3 text-red-600">Error: ' + (err && err.message ? err.message : String(err)) + '</td></tr></tbody>';
     msg.textContent = '';
   }
 
   // Wire buttons
-  $('#matAddRow').onclick = () => { state.rows.push(blankRow()); renderGrid(true); };
+  $('#matAddRow').onclick = () => { state.rows.push(blankRow()); withCaretPreserved(() => renderGrid()); };
   $('#matSave').onclick = saveAll;
 }
 
 // ---------------------
 // Rendering & helpers
 // ---------------------
-function renderGrid(preserveFocus=false) {
+function renderGrid() {
   const table = $('#matTable');
   const months = state.months;
   const monthKeys = months.map(m => m.ym.slice(0,7));
@@ -102,127 +142,148 @@ function renderGrid(preserveFocus=false) {
   html += '<th class="p-2 text-left sticky left-0 bg-white">Material</th>';
   html += '<th class="p-2 text-left sticky left-0 bg-white">Unit Cost</th>';
   html += '<th class="p-2 text-left sticky left-0 bg-white">Waste %</th>';
-  months.forEach(m => html += `<th class="p-2 text-right">${m.label}</th>`);
-  html += `
-    <th class="p-2 text-right">Year Qty</th>
-    <th class="p-2 text-right">Year Cost</th>
-    <th class="p-2 text-right">Year Revenue</th>
-    <th class="p-2 text-right">Profit</th>
-    <th class="p-2"></th>
-  `;
+  for (let i = 0; i < months.length; i++) html += '<th class="p-2 text-right">' + months[i].label + '</th>';
+  html += ''
+    + '<th class="p-2 text-right">Year Qty</th>'
+    + '<th class="p-2 text-right">Year Cost</th>'
+    + '<th class="p-2 text-right">Year Revenue</th>'
+    + '<th class="p-2 text-right">Profit</th>'
+    + '<th class="p-2"></th>';
   html += '</tr></thead><tbody>';
 
-  const matOptions = materialsList
-    .map(m => `<option value="${esc(m.sku || '')}" data-desc="${esc(m.description||'')}" data-unit="${Number(m.unit_cost||0)}" data-waste="${Number(m.waste_pct||0)}">${esc(labelMaterial(m))}</option>`)
+  const matOptions = (materialsList || [])
+    .map(m => {
+      const sku = m.sku ? String(m.sku) : '';
+      const desc = m.description ? String(m.description) : '';
+      const unit = Number(m.unit_cost || 0);
+      const waste = Number(m.waste_pct || 0);
+      return '<option value="' + esc(sku) + '" data-desc="' + esc(desc) + '" data-unit="' + unit + '" data-waste="' + waste + '">' + esc(labelMaterial(m)) + '</option>';
+    })
     .join('');
 
-  state.rows.forEach((row, idx) => {
+  for (let idx = 0; idx < state.rows.length; idx++) {
+    const row = state.rows[idx];
     const yearQty  = monthKeys.reduce((s,k)=> s + Number(row.monthQty[k] || 0), 0);
     const yearCost = yearQty * loadedUnitCost(row.unit_cost, row.waste_pct);
     const yearRev  = computeRevenue(yearCost, state.projectFormula, state.projectFeePct);
     const profit   = yearRev - yearCost;
 
-    html += `<tr data-idx="${idx}">`;
+    html += '<tr data-idx="' + idx + '">';
 
     // Material select
-    html += `<td class="p-2 sticky left-0 bg-white">
-      <select class="matSel border rounded-md p-1 min-w-56">
-        <option value="">— Select —</option>
-        ${matOptions}
-      </select>
-      <div class="text-xs text-slate-500">${esc(row.description || '')}</div>
-    </td>`;
+    html += '<td class="p-2 sticky left-0 bg-white">'
+         +  '<select class="matSel border rounded-md p-1 min-w-56">'
+         +    '<option value="">— Select —</option>'
+         +    matOptions
+         +  '</select>'
+         +  '<div class="text-xs text-slate-500">' + esc(row.description || '') + '</div>'
+         +  '</td>';
 
     // Unit cost & waste (readonly)
-    html += `<td class="p-2 sticky left-0 bg-white">
-      <input class="ucInp border rounded-md p-1 w-36 bg-slate-50" value="${fmtUSD0(row.unit_cost)}" disabled>
-    </td>`;
-    html += `<td class="p-2 sticky left-0 bg-white">
-      <input class="wasteInp border rounded-md p-1 w-20 bg-slate-50" value="${fmtPct(row.waste_pct)}" disabled>
-    </td>`;
+    html += '<td class="p-2 sticky left-0 bg-white">'
+         +  '<input class="ucInp border rounded-md p-1 w-36 bg-slate-50" value="' + fmtUSD0(row.unit_cost) + '" disabled>'
+         +  '</td>';
+    html += '<td class="p-2 sticky left-0 bg-white">'
+         +  '<input class="wasteInp border rounded-md p-1 w-20 bg-slate-50" value="' + fmtPct(row.waste_pct) + '" disabled>'
+         +  '</td>';
 
     // Month inputs (qty)
-    monthKeys.forEach(k => {
-      const v = row.monthQty[k] ?? '';
-      html += `<td class="p-1 text-right">
-        <input data-k="${k}" class="qtyInp border rounded-md p-1 w-20 text-right" type="number" min="0" step="0.01" value="${v !== '' ? String(v) : ''}">
-      </td>`;
-    });
+    for (let i = 0; i < monthKeys.length; i++) {
+      const k = monthKeys[i];
+      const v = (row.monthQty[k] !== undefined && row.monthQty[k] !== null) ? row.monthQty[k] : '';
+      html += '<td class="p-1 text-right">'
+           +  '<input data-k="' + k + '" class="qtyInp border rounded-md p-1 w-20 text-right" type="number" min="0" step="0.01" value="' + (v !== '' ? String(v) : '') + '">'
+           +  '</td>';
+    }
 
     // Totals
-    html += `<td class="p-2 text-right">${fmtNum(yearQty)}</td>`;
-    html += `<td class="p-2 text-right">${fmtUSD0(yearCost)}</td>`;
-    html += `<td class="p-2 text-right">${fmtUSD0(yearRev)}</td>`;
-    html += `<td class="p-2 text-right">${fmtUSD0(profit)}</td>`;
+    html += '<td class="p-2 text-right">' + fmtNum(yearQty) + '</td>';
+    html += '<td class="p-2 text-right">' + fmtUSD0(yearCost) + '</td>';
+    html += '<td class="p-2 text-right">' + fmtUSD0(yearRev)  + '</td>';
+    html += '<td class="p-2 text-right">' + fmtUSD0(profit)   + '</td>';
 
     // Remove
-    html += `<td class="p-2 text-right">
-      <button class="rowDel px-2 py-1 rounded-md border hover:bg-slate-50">✕</button>
-    </td>`;
+    html += '<td class="p-2 text-right">'
+         +  '<button class="rowDel px-2 py-1 rounded-md border hover:bg-slate-50">✕</button>'
+         +  '</td>';
 
     html += '</tr>';
-  });
+  }
 
   // Footer totals
   const totals = calcTotals(state.rows, monthKeys, state.projectFormula, state.projectFeePct);
-  html += `<tr class="font-semibold">
-    <td class="p-2 sticky left-0 bg-white">Totals</td>
-    <td class="p-2 sticky left-0 bg-white"></td>
-    <td class="p-2 sticky left-0 bg-white"></td>
-    ${monthKeys.map(k => `<td class="p-2 text-right">${fmtNum(totals.qtyByMonth[k])}</td>`).join('')}
-    <td class="p-2 text-right">${fmtNum(totals.qtyYear)}</td>
-    <td class="p-2 text-right">${fmtUSD0(totals.costYear)}</td>
-    <td class="p-2 text-right">${fmtUSD0(totals.revYear)}</td>
-    <td class="p-2 text-right">${fmtUSD0(totals.revYear - totals.costYear)}</td>
-    <td class="p-2"></td>
-  </tr>`;
+  html += '<tr class="font-semibold">'
+      +  '<td class="p-2 sticky left-0 bg-white">Totals</td>'
+      +  '<td class="p-2 sticky left-0 bg-white"></td>'
+      +  '<td class="p-2 sticky left-0 bg-white"></td>'
+      +   monthKeys.map(k => '<td class="p-2 text-right">' + fmtNum(totals.qtyByMonth[k]) + '</td>').join('')
+      +  '<td class="p-2 text-right">' + fmtNum(totals.qtyYear) + '</td>'
+      +  '<td class="p-2 text-right">' + fmtUSD0(totals.costYear) + '</td>'
+      +  '<td class="p-2 text-right">' + fmtUSD0(totals.revYear)  + '</td>'
+      +  '<td class="p-2 text-right">' + fmtUSD0(totals.revYear - totals.costYear) + '</td>'
+      +  '<td class="p-2"></td>'
+      +  '</tr>';
 
   html += '</tbody>';
   table.innerHTML = html;
 
-  // Set selects
+  // Set selects to current values
   table.querySelectorAll('tr[data-idx]').forEach(tr => {
     const i = Number(tr.getAttribute('data-idx'));
     const sel = tr.querySelector('.matSel');
     if (sel) sel.value = state.rows[i].sku || '';
   });
 
-  // Wire row handlers
+  // Handlers
+
+  // Material change -> update meta; re-render preserving caret
   table.querySelectorAll('.matSel').forEach(sel => {
     sel.addEventListener('change', (e) => {
-      const tr = e.target.closest('tr');
-      const idx = Number(tr.getAttribute('data-idx'));
-      const opt = e.target.selectedOptions[0];
+      const tr = e.target.closest ? e.target.closest('tr') : null;
+      const idx = tr ? Number(tr.getAttribute('data-idx')) : -1;
+      const opt = (e.target.selectedOptions && e.target.selectedOptions[0]) ? e.target.selectedOptions[0] : null;
       const sku   = e.target.value || '';
-      const desc  = opt?.dataset?.desc || '';
-      const unit  = Number(opt?.dataset?.unit || 0);
-      const waste = Number(opt?.dataset?.waste || 0);
-      state.rows[idx].sku = sku || null;
-      state.rows[idx].description = desc;
-      state.rows[idx].unit_cost = unit;
-      state.rows[idx].waste_pct = waste;
-      renderGrid(true);
+      const desc  = opt ? (opt.getAttribute('data-desc') || '') : '';
+      const unit  = opt ? Number(opt.getAttribute('data-unit') || 0) : 0;
+      const waste = opt ? Number(opt.getAttribute('data-waste') || 0) : 0;
+      if (idx >= 0) {
+        state.rows[idx].sku = sku || null;
+        state.rows[idx].description = desc;
+        state.rows[idx].unit_cost = unit;
+        state.rows[idx].waste_pct = waste;
+        withCaretPreserved(() => renderGrid());
+      }
     });
   });
 
+  // IMPORTANT: commit on change/blur, not on every keystroke
   table.querySelectorAll('.qtyInp').forEach(inp => {
-    inp.addEventListener('input', (e) => {
-      const tr = e.target.closest('tr');
-      const idx = Number(tr.getAttribute('data-idx'));
+    inp.addEventListener('change', (e) => {
+      const tr = e.target.closest ? e.target.closest('tr') : null;
+      const idx = tr ? Number(tr.getAttribute('data-idx')) : -1;
       const k = e.target.getAttribute('data-k');
-      const n = e.target.value === '' ? '' : Math.max(0, Number(e.target.value));
-      state.rows[idx].monthQty[k] = n === '' ? '' : (Number.isFinite(n) ? n : 0);
-      renderGrid(true);
+      let n = (e.target.value === '') ? '' : Number(e.target.value);
+      if (n !== '' && !Number.isFinite(n)) n = 0;
+      if (idx >= 0 && k) {
+        state.rows[idx].monthQty[k] = (e.target.value === '') ? '' : Math.max(0, n);
+        withCaretPreserved(() => renderGrid());
+      }
+    });
+    // prevent Enter from jumping
+    inp.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); }
     });
   });
 
   table.querySelectorAll('.rowDel').forEach(btn => {
     btn.addEventListener('click', () => {
-      const tr = btn.closest('tr');
-      const idx = Number(tr.getAttribute('data-idx'));
-      state.rows.splice(idx, 1);
-      if (state.rows.length === 0) state.rows.push(blankRow());
-      renderGrid(true);
+      const tr = btn.closest ? btn.closest('tr') : null;
+      const idx = tr ? Number(tr.getAttribute('data-idx')) : -1;
+      if (idx >= 0) {
+        state.rows.splice(idx, 1);
+        if (state.rows.length === 0) state.rows.push(blankRow());
+        withCaretPreserved(() => renderGrid());
+      }
     });
   });
 }
@@ -242,52 +303,65 @@ function monthsForYear(year) {
 }
 
 function keyVal(ym) {
-  try { return (typeof ym === 'string') ? ym.slice(0,7) : new Date(ym).toISOString().slice(0,7); }
-  catch { return null; }
+  try {
+    if (typeof ym === 'string') return ym.slice(0,7);
+    return new Date(ym).toISOString().slice(0,7);
+  } catch (_) { return null; }
 }
 
 function labelMaterial(m) {
-  const d = m.description ?? '';
+  const d = m.description ? m.description : '';
   const u = Number(m.unit_cost || 0);
-  return u ? `${m.sku ?? ''} — ${d} — ${fmtUSD0(u)}/unit` : `${m.sku ?? ''} — ${d}`;
+  const sku = m.sku ? m.sku : '';
+  return u ? (sku + ' — ' + d + ' — ' + fmtUSD0(u) + '/unit') : (sku + ' — ' + d);
 }
 
 function findMaterialMeta(sku) {
-  const found = (materialsList || []).find(x => x.sku === sku) || {};
-  return {
-    description: found.description ?? '',
-    unit_cost: Number(found.unit_cost || 0),
-    waste_pct: Number(found.waste_pct || 0)
-  };
+  const arr = materialsList || [];
+  for (let i = 0; i < arr.length; i++) {
+    const x = arr[i];
+    if (x.sku === sku) {
+      return {
+        description: x.description ? x.description : '',
+        unit_cost: Number(x.unit_cost || 0),
+        waste_pct: Number(x.waste_pct || 0)
+      };
+    }
+  }
+  return { description: '', unit_cost: 0, waste_pct: 0 };
 }
 
 function loadedUnitCost(unitCost, wastePct) {
   const u = Number(unitCost || 0);
-  const w = Number(wastePct || 0);
+  const w = Number(wastePct || 0); // assume fraction (e.g., 0.05 = 5%)
   return u * (1 + w);
 }
 
 function computeRevenue(cost, formula, feePct) {
-  if (!Number.isFinite(cost)) return 0;
+  const c = Number(cost || 0);
   switch (formula) {
-    case 'COST_PLUS': return cost * (1 + (Number(feePct || 0) / 100));
-    case 'TM':        return cost; // placeholder
-    case 'FP':        return cost; // placeholder
-    default:          return cost;
+    case 'COST_PLUS': return c * (1 + (Number(feePct || 0) / 100));
+    case 'TM':        return c; // placeholder
+    case 'FP':        return c; // placeholder
+    default:          return c;
   }
 }
 
 function calcTotals(rows, monthKeys, formula, feePct) {
   const qtyByMonth = {};
-  monthKeys.forEach(k => qtyByMonth[k] = 0);
+  for (let i = 0; i < monthKeys.length; i++) qtyByMonth[monthKeys[i]] = 0;
   let qtyYear = 0, costYear = 0, revYear = 0;
 
-  for (const row of rows) {
+  for (let r = 0; r < rows.length; r++) {
+    const row = rows[r];
     const qYear = monthKeys.reduce((s,k)=> s + Number(row.monthQty[k] || 0), 0);
     const cost  = qYear * loadedUnitCost(row.unit_cost, row.waste_pct);
     const rev   = computeRevenue(cost, formula, feePct);
 
-    monthKeys.forEach(k => { qtyByMonth[k] += Number(row.monthQty[k] || 0); });
+    for (let i = 0; i < monthKeys.length; i++) {
+      const k = monthKeys[i];
+      qtyByMonth[k] += Number(row.monthQty[k] || 0);
+    }
     qtyYear += qYear;
     costYear  += cost;
     revYear   += rev;
@@ -304,35 +378,17 @@ function fmtUSD0(v) {
   return n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
 }
 function fmtPct(v) {
-  const n = Number(v || 0) * 100;
+  const n = Number(v || 0) * 100; // assumes fraction in DB (e.g., 0.05 => "5%")
   return n.toFixed(0) + '%';
 }
 function esc(s) {
-  return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const str = (s == null ? '' : String(s));
+  return str.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
 // ---------------------
 // Persistence
 // ---------------------
-async function fetchProject(projectId) {
-  const { data, error } = await client
-    .from('projects')
-    .select('id, revenue_formula, fee_pct')
-    .eq('id', projectId)
-    .single();
-  if (error) throw error;
-  return data;
-}
-
-async function fetchPlanMaterials(projectId, year) {
-  const { data, error } = await client
-    .from('plan_materials')
-    .select('sku, ym, qty')
-    .eq('project_id', projectId);
-  if (error) throw error;
-  return (data || []).filter(r => keyVal(r.ym)?.slice(0,4) === String(year));
-}
-
 async function saveAll() {
   const msg = $('#matMsg');
   const pid = getProjectId();
@@ -342,39 +398,41 @@ async function saveAll() {
   const months = state.months.map(m => m.ym.slice(0,7));
   const inserts = [];
 
-  for (const row of state.rows) {
+  for (let i = 0; i < state.rows.length; i++) {
+    const row = state.rows[i];
     if (!row.sku) continue;
-    for (const mk of months) {
+    for (let j = 0; j < months.length; j++) {
+      const mk = months[j];
       const qty = Number(row.monthQty[mk] || 0);
       if (!qty) continue;
       inserts.push({
         project_id: pid,
         sku: row.sku,
         ym: mk + '-01',
-        qty
+        qty: qty
       });
     }
   }
 
   try {
     const yearPrefix = String(state.year) + '-';
-    const { error: delErr } = await client
+    const delRes = await client
       .from('plan_materials')
       .delete()
       .eq('project_id', pid)
       .gte('ym', yearPrefix + '01-01')
       .lte('ym', yearPrefix + '12-31');
-    if (delErr) throw delErr;
+    if (delRes.error) throw delRes.error;
 
     if (inserts.length) {
-      const { error: insErr } = await client.from('plan_materials').insert(inserts);
-      if (insErr) throw insErr;
+      const insRes = await client.from('plan_materials').insert(inserts);
+      if (insRes.error) throw insRes.error;
     }
 
     msg.textContent = 'Saved.';
     setTimeout(() => (msg.textContent = ''), 1200);
   } catch (err) {
     console.error('Materials save error', err);
-    msg.textContent = `Save failed: ${err?.message || err}`;
+    msg.textContent = 'Save failed: ' + (err && err.message ? err.message : String(err));
   }
 }
