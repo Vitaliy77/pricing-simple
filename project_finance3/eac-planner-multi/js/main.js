@@ -17,7 +17,7 @@ const routes = {
   '#plan-materials': () => import('./tabs/plan-materials.js'),
   '#plan-odc': () => import('./tabs/plan-odc.js'),
   '#benchmarks': () => import('./tabs/benchmarks.js'),
-  '#admin': () => import('./tabs/admin-lookups.js'),
+  '#admin': () => import('./tabs/admin-lookups.js?v=20251028b'),
 };
 
 async function render() {
