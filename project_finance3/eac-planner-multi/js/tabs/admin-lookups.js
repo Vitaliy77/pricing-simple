@@ -42,7 +42,7 @@ let state = {
   cols: [],          // [{key, label, type, readonly, pk, step}]
   pk: [],            // primary key column(s)
   loading: false,
-  selected: new Set(), // ids or composite keys as string
+  selected: new Set(),
 };
 
 /** Base column definitions per table */
@@ -68,12 +68,13 @@ const TABLES = {
     ],
     pk: ['id']
   },
-  // NOTE: equipment_catalog is adjusted dynamically at runtime (see detectors below)
+  // equipment_catalog will be adapted at runtime
   equipment_catalog: {
     label: 'Equipment Catalog',
     table: 'equipment_catalog',
-    orderBy: 'equipment_type', // placeholder; will be overwritten if needed
+    orderBy: null, // will set dynamically if we find a type/name column
     cols: [
+      // will be replaced dynamically (see applyEquipmentAdminColumns)
       { key: 'equipment_type', label: 'Equipment Type', type: 'text', pk: true },
       { key: 'rate',           label: 'Rate',           type: 'number', step: '0.01' },
       { key: 'rate_unit',      label: 'Rate Unit',      type: 'text' },
@@ -123,24 +124,47 @@ export async function init() {
 }
 
 /* ----------------- Equipment detectors & adapters ----------------- */
-// Probe which "type" column exists on equipment_catalog
+
+// Prefer these for the “type/name” column; if none matches, we’ll pick the first string column.
+const EQUIP_PREFERRED_KEYS = [
+  'equipment_type','equip_type','type','name',
+  'equipment','equip','title','description','model','item','item_name','code','sku'
+];
+
+// Try to infer a good “type/name” column from a sample row, then fall back to probing candidates.
 async function detectEquipTypeColumn() {
-  const candidates = ['equipment_type', 'equip_type', 'type', 'name'];
-  for (const col of candidates) {
-    const { error } = await client.from('equipment_catalog').select(col).limit(1);
-    if (!error) return col; // this column exists
+  // 1) Try to look at any existing row and pick a string-looking column
+  const sample = await client.from('equipment_catalog').select('*').limit(1);
+  if (!sample.error && Array.isArray(sample.data) && sample.data.length) {
+    const row = sample.data[0];
+    const keys = Object.keys(row || {});
+    // Prefer well-known names if present in keys
+    for (const k of EQUIP_PREFERRED_KEYS) {
+      if (keys.includes(k)) return k;
+    }
+    // Otherwise, pick the first key whose value looks string-ish (and is not obviously numeric)
+    const fallback = keys.find(k => typeof row[k] === 'string');
+    if (fallback) return fallback;
   }
-  throw new Error('equipment_catalog: no usable type column found (tried equipment_type, equip_type, type, name)');
+
+  // 2) If table is empty (or RLS prevented *), probe a long list of likely candidates directly
+  for (const col of EQUIP_PREFERRED_KEYS) {
+    const { error } = await client.from('equipment_catalog').select(col).limit(1);
+    if (!error) return col;
+  }
+
+  // 3) Give up with a helpful error
+  throw new Error('equipment_catalog: no usable label column found (tried: ' + EQUIP_PREFERRED_KEYS.join(', ') + ')');
 }
 
 // Apply the detected column to the TABLES config (orderBy, cols, pk)
 function applyEquipmentAdminColumns(typeCol) {
   const ec = TABLES.equipment_catalog;
-  ec.orderBy = typeCol;
+  ec.orderBy = typeCol || null;
   ec.cols = [
-    { key: typeCol,   label: 'Equipment Type', type: 'text', pk: true },
-    { key: 'rate',    label: 'Rate',           type: 'number', step: '0.01' },
-    { key: 'rate_unit', label: 'Rate Unit',    type: 'text' }, // e.g., hour/day
+    { key: typeCol,    label: 'Equipment Type', type: 'text', pk: true },
+    { key: 'rate',     label: 'Rate',           type: 'number', step: '0.01' },
+    { key: 'rate_unit',label: 'Rate Unit',      type: 'text' },
   ];
   ec.pk = [typeCol];
 }
@@ -152,20 +176,15 @@ async function reload() {
   state.selected = new Set();
 
   try {
-    // Detect equipment key column BEFORE we read the table config, if needed
     if (state.table === 'equipment_catalog') {
       const detected = await detectEquipTypeColumn();
       applyEquipmentAdminColumns(detected);
-      // Optional debug:
-      console.log('[Admin] equipment_catalog type column =', detected);
+      console.log('[Admin] equipment_catalog label column =', detected);
     }
 
-    const cfg = TABLES[state.table]; // use updated config (after detection)
+    const cfg = TABLES[state.table];
     state.cols = cfg.cols;
     state.pk   = cfg.pk;
-
-    // Optional debug:
-    // console.log('[Admin] loading table=', cfg.table, 'cols=', state.cols.map(c => c.key));
 
     let q = client.from(cfg.table).select(state.cols.map(c => c.key).join(',')).limit(1000);
     if (cfg.orderBy) q = q.order(cfg.orderBy, { ascending: true });
@@ -191,9 +210,7 @@ function render() {
 
   let thead = '<thead><tr>';
   thead += '<th class="p-2"><input type="checkbox" id="admSelAll"></th>';
-  cols.forEach(c => {
-    thead += `<th class="p-2 text-left">${esc(c.label)}</th>`;
-  });
+  cols.forEach(c => { thead += `<th class="p-2 text-left">${esc(c.label)}</th>`; });
   thead += '</tr></thead>';
 
   let tbody = '<tbody>';
@@ -226,9 +243,7 @@ function render() {
     boxes.forEach(b => (b.checked = e.target.checked));
     recomputeSelection();
   });
-  table.querySelectorAll('.admSel').forEach(box => {
-    box.addEventListener('change', recomputeSelection);
-  });
+  table.querySelectorAll('.admSel').forEach(box => box.addEventListener('change', recomputeSelection));
   table.querySelectorAll('input.cell').forEach(inp => {
     inp.addEventListener('change', (e) => {
       const tr = e.target.closest('tr');
@@ -253,9 +268,7 @@ function recomputeSelection() {
   rows.forEach(tr => {
     const idx = Number(tr.getAttribute('data-idx'));
     const box = tr.querySelector('.admSel');
-    if (box && box.checked) {
-      state.selected.add(pkValue(state.rows[idx], state.pk));
-    }
+    if (box && box.checked) state.selected.add(pkValue(state.rows[idx], state.pk));
   });
 }
 
@@ -328,12 +341,12 @@ function normalizeRow(cols) {
 }
 
 function pkValue(row, pk) {
-  return pk.map(k => String(row[k] ?? '')).join('│'); // safe composite key delimiter
+  return pk.map(k => String(row[k] ?? '')).join('│');
 }
 function pkFilterFromKey(keyStr, pk) {
   const parts = keyStr.split('│');
   const obj = {};
-  pk.forEach((k, i) => obj[k] = parts[i]);
+  pk.forEach((k, i) => (obj[k] = parts[i]));
   return obj;
 }
 
