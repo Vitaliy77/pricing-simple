@@ -76,10 +76,10 @@ const TABLES = {
     cols: [
       { key: 'equipment_type', label: 'Equipment Type', type: 'text', pk: true },
       { key: 'rate',           label: 'Rate',           type: 'number', step: '0.01' },
-      { key: 'rate_unit',      label: 'Rate Unit',      type: 'text' }, // e.g., hour/day
+      { key: 'rate_unit',      label: 'Rate Unit',      type: 'text' },
     ],
     pk: ['equipment_type']
-},
+  },
 
   materials_catalog: {
     label: 'Materials Catalog',
