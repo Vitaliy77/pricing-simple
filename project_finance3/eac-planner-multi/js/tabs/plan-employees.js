@@ -1,6 +1,5 @@
 // js/tabs/plan-employees.js
 // Employees planning tab: month columns for hours; saves to plan_labor.
-// Relies on tolerant lookups.js: rolesRate (role -> loaded rate) and employees list.
 
 import { $ } from '../lib/dom.js';
 import { client } from '../api/supabase.js';
@@ -23,10 +22,31 @@ export const template = /*html*/ `
   </div>
 `;
 
+// keep focus/caret when re-rendering
+function withCaretPreserved(run) {
+  const active = document.activeElement;
+  const isCell = active?.classList?.contains('hrInp');
+  const rowIdx = active?.closest?.('tr')?.dataset?.idx;
+  const monthKey = active?.dataset?.k;
+  const s = active?.selectionStart, e = active?.selectionEnd;
+
+  run();
+
+  if (isCell && rowIdx != null && monthKey) {
+    const el = document.querySelector(`tr[data-idx="${rowIdx}"] input.hrInp[data-k="${monthKey}"]`);
+    if (el) {
+      el.focus();
+      if (s != null && e != null) {
+        try { el.setSelectionRange(s, e); } catch {}
+      }
+    }
+  }
+}
+
 let state = {
   year: new Date().getUTCFullYear(),
   months: [],
-  rows: [], // { employee_id, name, role, monthHours: { 'YYYY-MM': number } }
+  rows: [],
   projectFormula: 'TM',
   projectFeePct: 0
 };
@@ -42,24 +62,18 @@ export async function init(rootEl) {
     return;
   }
 
-  // Year from the month picker
   state.year = Number(($('#monthPicker')?.value || new Date().toISOString().slice(0,7)).slice(0,4));
   state.months = monthsForYear(state.year);
 
   msg.textContent = 'Loading…';
   try {
-    // Lookups (roles & employees) — tolerant
     await loadLookups();
 
-    // Project revenue formula/fee
     const proj = await fetchProject(pid);
     state.projectFormula = proj?.revenue_formula || 'TM';
     state.projectFeePct = Number(proj?.fee_pct || 0);
 
-    // Existing plan for this year
     const plan = await fetchPlanLabor(pid, state.year);
-
-    // Build rows from plan (one per employee encountered)
     const empById = mapById(empLookup);
     const byEmp = {};
     for (const r of plan) {
@@ -77,35 +91,8 @@ export async function init(rootEl) {
       byEmp[r.employee_id].monthHours[k] = Number(r.hours || 0);
     }
     state.rows = Object.values(byEmp);
+    if (state.rows.length === 0) state.rows.push(blankRow());
 
-    // If nothing yet, start with a single empty row
-    if (state.rows.length === 0) {
-      state.rows.push(blankRow());
-    }
-
-    function withCaretPreserved(run) {
-  const active = document.activeElement;
-  const isMonthInput = active && active.classList && active.classList.contains('hrInp');
-  const rowIdx = active?.closest?.('tr')?.getAttribute?.('data-idx');
-  const monthKey = active?.getAttribute?.('data-k');
-  const selStart = active?.selectionStart, selEnd = active?.selectionEnd;
-
-  run(); // do the re-render
-
-  // restore focus if we were in a month cell
-  if (isMonthInput && rowIdx != null && monthKey) {
-    const selector = `tr[data-idx="${rowIdx}"] input.hrInp[data-k="${monthKey}"]`;
-    const el = document.querySelector(selector);
-    if (el) {
-      el.focus();
-      if (selStart != null && selEnd != null) {
-        try { el.setSelectionRange(selStart, selEnd); } catch {}
-      }
-    }
-  }
-}
-
-    
     renderGrid();
     msg.textContent = '';
   } catch (err) {
@@ -114,7 +101,6 @@ export async function init(rootEl) {
     msg.textContent = '';
   }
 
-  // Wire buttons
   $('#empAddRow').onclick = () => {
     state.rows.push(blankRow());
     withCaretPreserved(() => renderGrid());
@@ -122,12 +108,9 @@ export async function init(rootEl) {
   $('#empSave').onclick = saveAll;
 }
 
-// ---------------------
-// Rendering & helpers
-// ---------------------
-function renderGrid(preserveFocus=false) {
+function renderGrid() {
   const table = $('#empTable');
-  const months = state.months; // [{label, ym}...]
+  const months = state.months;
   const monthKeys = months.map(m => m.ym.slice(0,7));
 
   let html = '<thead><tr>';
@@ -149,26 +132,24 @@ function renderGrid(preserveFocus=false) {
 
   state.rows.forEach((row, idx) => {
     const rate = resolveLoadedRate(row.role);
-    // Compute totals for display
     const hoursYear = monthKeys.reduce((s, k) => s + Number(row.monthHours[k] || 0), 0);
     const costYear  = hoursYear * rate;
     const revYear   = computeRevenue(costYear, state.projectFormula, state.projectFeePct);
     const profit    = revYear - costYear;
 
     html += `<tr data-idx="${idx}">`;
-    // Employee select
+
     html += `<td class="p-2 sticky left-0 bg-white">
       <select class="empSel border rounded-md p-1 min-w-56">
         <option value="">— Select —</option>
         ${empOptions}
       </select>
     </td>`;
-    // Role (readonly)
+
     html += `<td class="p-2 sticky left-0 bg-white">
       <input class="roleInp border rounded-md p-1 w-40 bg-slate-50" value="${esc(row.role || '')}" disabled>
     </td>`;
 
-    // Month inputs
     monthKeys.forEach(k => {
       const v = row.monthHours[k] ?? '';
       html += `<td class="p-1 text-right">
@@ -176,13 +157,10 @@ function renderGrid(preserveFocus=false) {
       </td>`;
     });
 
-    // Totals
     html += `<td class="p-2 text-right">${fmtNum(hoursYear)}</td>`;
     html += `<td class="p-2 text-right">${fmtUSD0(costYear)}</td>`;
     html += `<td class="p-2 text-right">${fmtUSD0(revYear)}</td>`;
     html += `<td class="p-2 text-right">${fmtUSD0(profit)}</td>`;
-
-    // Remove
     html += `<td class="p-2 text-right">
       <button class="rowDel px-2 py-1 rounded-md border hover:bg-slate-50">✕</button>
     </td>`;
@@ -190,7 +168,6 @@ function renderGrid(preserveFocus=false) {
     html += '</tr>';
   });
 
-  // Footer totals (sum across rows)
   const totals = calcTotals(state.rows, monthKeys);
   html += `<tr class="font-semibold">
     <td class="p-2 sticky left-0 bg-white">Totals</td>
@@ -206,18 +183,16 @@ function renderGrid(preserveFocus=false) {
   html += '</tbody>';
   table.innerHTML = html;
 
-  // Set select values to current row employee_id
   table.querySelectorAll('tr[data-idx]').forEach(tr => {
-    const i = Number(tr.getAttribute('data-idx'));
+    const i = Number(tr.dataset.idx);
     const sel = tr.querySelector('.empSel');
     if (sel) sel.value = state.rows[i].employee_id || '';
   });
 
-  // Wire per-row handlers
   table.querySelectorAll('.empSel').forEach(sel => {
     sel.addEventListener('change', (e) => {
       const tr = e.target.closest('tr');
-      const idx = Number(tr.getAttribute('data-idx'));
+      const idx = Number(tr.dataset.idx);
       const opt = e.target.selectedOptions[0];
       const role = opt?.dataset?.role || '';
       const name = opt?.dataset?.name || '';
@@ -231,18 +206,21 @@ function renderGrid(preserveFocus=false) {
   table.querySelectorAll('.hrInp').forEach(inp => {
     inp.addEventListener('change', (e) => {
       const tr = e.target.closest('tr');
-      const idx = Number(tr.getAttribute('data-idx'));
-      const k = e.target.getAttribute('data-k');
+      const idx = Number(tr.dataset.idx);
+      const k = e.target.dataset.k;
       const n = e.target.value === '' ? '' : Math.max(0, Number(e.target.value));
       state.rows[idx].monthHours[k] = n === '' ? '' : (Number.isFinite(n) ? n : 0);
       withCaretPreserved(() => renderGrid());
+    });
+    inp.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); }
     });
   });
 
   table.querySelectorAll('.rowDel').forEach(btn => {
     btn.addEventListener('click', () => {
       const tr = btn.closest('tr');
-      const idx = Number(tr.getAttribute('data-idx'));
+      const idx = Number(tr.dataset.idx);
       state.rows.splice(idx, 1);
       if (state.rows.length === 0) state.rows.push(blankRow());
       withCaretPreserved(() => renderGrid());
@@ -259,7 +237,7 @@ function monthsForYear(year) {
     const d = new Date(Date.UTC(year, i, 1));
     return {
       label: d.toLocaleString('en-US', { month: 'short', timeZone: 'UTC' }),
-      ym: d.toISOString().slice(0,10) // YYYY-MM-01
+      ym: d.toISOString().slice(0,10)
     };
   });
 }
@@ -284,8 +262,8 @@ function computeRevenue(cost, formula, feePct) {
   if (!Number.isFinite(cost)) return 0;
   switch (formula) {
     case 'COST_PLUS': return cost * (1 + (Number(feePct || 0) / 100));
-    case 'TM':        return cost; // placeholder until bill rates are defined
-    case 'FP':        return cost; // placeholder; revenue recognition pattern can be added later
+    case 'TM':        return cost;
+    case 'FP':        return cost;
     default:          return cost;
   }
 }
@@ -298,8 +276,8 @@ function calcTotals(rows, monthKeys) {
   for (const row of rows) {
     const rate = resolveLoadedRate(row.role);
     const hYear = monthKeys.reduce((s,k)=> s + Number(row.monthHours[k] || 0), 0);
-    const cost = hYear * rate;
-    const rev  = computeRevenue(cost, state.projectFormula, state.projectFeePct);
+    const cost  = hYear * rate;
+    const rev   = computeRevenue(cost, state.projectFormula, state.projectFeePct);
 
     monthKeys.forEach(k => { hoursByMonth[k] += Number(row.monthHours[k] || 0); });
     hoursYear += hYear;
@@ -321,9 +299,7 @@ function esc(s) {
   return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
-// ---------------------
-// Persistence
-// ---------------------
+// ------------- persistence -------------
 async function fetchProject(projectId) {
   const { data, error } = await client
     .from('projects')
@@ -340,11 +316,7 @@ async function fetchPlanLabor(projectId, year) {
     .select('employee_id, ym, hours')
     .eq('project_id', projectId);
   if (error) throw error;
-  // filter to year on client (works if ym is text or date)
-  return (data || []).filter(r => {
-    const y = keyVal(r.ym)?.slice(0,4);
-    return y === String(year);
-  });
+  return (data || []).filter(r => keyVal(r.ym)?.slice(0,4) === String(year));
 }
 
 async function saveAll() {
@@ -354,7 +326,6 @@ async function saveAll() {
   msg.textContent = 'Saving…';
 
   const months = state.months.map(m => m.ym.slice(0,7));
-  // Build all rows to insert
   const inserts = [];
   for (const row of state.rows) {
     if (!row.employee_id) continue;
@@ -371,8 +342,6 @@ async function saveAll() {
   }
 
   try {
-    // Simple approach: wipe this year's plan for this project, then insert what we have.
-    // (If you prefer upsert per-row, we can flip to .upsert().)
     const yearPrefix = String(state.year) + '-';
     const { error: delErr } = await client
       .from('plan_labor')
