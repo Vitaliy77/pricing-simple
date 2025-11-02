@@ -7,25 +7,33 @@ import { initSupabase } from './api/supabase.js';
 const routes = {
   '#consol-pl': () => import('./tabs/consol-pl.js'),
   '#scenarios': () => import('./tabs/scenarios.js'),
-  '#indirect': () => import('./tabs/indirect.js'),   // 👈 new
+  '#indirect': () => import('./tabs/indirect.js'),
 };
 
 function setActiveTab(hash) {
-  ['consol','scenarios'].forEach(id => {
+  const map = {
+    '#consol-pl': 'consol-pl',
+    '#scenarios': 'scenarios',
+    '#indirect': 'indirect',
+  };
+  Object.values(map).forEach(id => {
     const el = document.getElementById('tab-' + id);
     if (!el) return;
-    el.className =
-      'py-2 inline-block ' +
-      (hash === '#' + id
-        ? 'text-blue-600 border-b-2 border-blue-600 font-semibold'
-        : 'text-slate-500 hover:text-slate-700');
+    el.className = 'py-2 inline-block text-slate-500 hover:text-slate-700';
   });
+  const activeId = map[hash];
+  if (activeId) {
+    const el = document.getElementById('tab-' + activeId);
+    if (el) {
+      el.className = 'py-2 inline-block text-blue-600 border-b-2 border-blue-600 font-semibold';
+    }
+  }
 }
 
 export async function render() {
-  const hash = location.hash || '#consol';
-  setActiveTab(hash.replace('#',''));
-  const loader = routes[hash] || routes['#consol'];
+  const hash = location.hash || '#consol-pl';
+  setActiveTab(hash);
+  const loader = routes[hash] || routes['#consol-pl'];
   const view = $('#view');
   try {
     const mod = await loader();
@@ -43,10 +51,12 @@ export async function render() {
 
 function initMonthPicker() {
   const el = $('#monthPicker');
-  if (!el.value) {
-    el.value = new Date().toISOString().slice(0,7); // YYYY-MM
+  if (el && !el.value) {
+    el.value = new Date().toISOString().slice(0,7);
   }
-  el.addEventListener('change', render);
+  if (el) {
+    el.addEventListener('change', render);
+  }
 }
 
 window.addEventListener('hashchange', render);
