@@ -5,8 +5,9 @@ import { $ } from './utils/dom.js';
 import { initSupabase } from './api/supabase.js';
 
 const routes = {
-  '#consol': () => import('./tabs/consol-pl.js'),
+  '#consol-pl': () => import('./tabs/consol-pl.js'),
   '#scenarios': () => import('./tabs/scenarios.js'),
+  '#indirect': () => import('./tabs/indirect.js'),   // 👈 new
 };
 
 function setActiveTab(hash) {
