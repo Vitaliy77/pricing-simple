@@ -1,0 +1,13 @@
+/* P&L sticky header + first column */
+#plWrap { overflow: auto; }
+#plTable { border-collapse: separate; border-spacing: 0; }
+#plTable th, #plTable td { white-space: nowrap; }
+#plTable thead th {
+  position: sticky; top: 0; z-index: 2; background: #fff;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.06);
+}
+#plTable .sticky-col {
+  position: sticky; left: 0; z-index: 3; background: #fff;
+  box-shadow: 1px 0 0 rgba(0,0,0,0.06);
+}
+#plTable thead th.sticky-col { z-index: 4; }
