@@ -97,7 +97,7 @@ async function loadAndRender(year) {
     // base structure
     const base = makeEmptyPnl(months);
 
-    // direct cost: labor
+    // labor
     for (const r of planLabor) {
       const m = ymKey(r.ym);
       const role = empRole[r.employee_id] || '';
@@ -142,7 +142,7 @@ async function loadAndRender(year) {
       addProjCost(base, r.project_id, m, cost);
     }
 
-    // revenue from project rules
+    // revenue from projects
     for (const projId of Object.keys(base.projCosts)) {
       const proj = projMap[projId];
       const formula = proj?.revenue_formula || 'TM';
@@ -155,7 +155,7 @@ async function loadAndRender(year) {
       }
     }
 
-    // extras (indirect, adjustments) from localStorage
+    // local extras
     const extras = loadExtras(year, months);
     for (const m of months) {
       add(base, 'indirect', m, extras.indirect[m] || 0);
@@ -170,12 +170,9 @@ async function loadAndRender(year) {
   }
 }
 
-/* ---------- helpers ---------- */
-
 function buildMonths(year) {
   return Array.from({ length: 12 }, (_, i) => `${year}-${String(i+1).padStart(2,'0')}`);
 }
-
 function makeEmptyPnl(months) {
   const base = {
     revenue: {},
@@ -200,17 +197,14 @@ function makeEmptyPnl(months) {
   });
   return base;
 }
-
 function add(base, bucket, month, val) {
   base[bucket][month] = (base[bucket][month] || 0) + Number(val || 0);
 }
-
 function addProjCost(base, projId, month, val) {
   if (!projId) return;
   if (!base.projCosts[projId]) base.projCosts[projId] = {};
   base.projCosts[projId][month] = (base.projCosts[projId][month] || 0) + Number(val || 0);
 }
-
 function priceByRule(directCost, formula, feePct) {
   switch (formula) {
     case 'COST_PLUS': return directCost * (1 + (Number(feePct || 0) / 100));
@@ -219,15 +213,12 @@ function priceByRule(directCost, formula, feePct) {
     default:          return directCost;
   }
 }
-
 function ymYear(ym) {
   try { return Number(String(ym).slice(0,4)); } catch { return 0; }
 }
 function ymKey(ym) {
   try { return String(ym).slice(0,7); } catch { return null; }
 }
-
-/* ---------- extras ---------- */
 function loadExtras(year, months) {
   const raw = localStorage.getItem(`consol-extras-${year}`);
   const parsed = raw ? JSON.parse(raw) : {};
@@ -242,13 +233,9 @@ function loadExtras(year, months) {
 function saveExtras(year, extras) {
   localStorage.setItem(`consol-extras-${year}`, JSON.stringify(extras));
 }
-
-/* ---------- render ---------- */
-
 function renderTable(base, months, year, extras) {
   const table = $('#conTable');
 
-  // derived
   const directByM = {};
   const grossByM  = {};
   const opByM     = {};
@@ -286,10 +273,8 @@ function renderTable(base, months, year, extras) {
   html += `<th class="p-2 text-right">Total</th>`;
   html += '</tr></thead><tbody>';
 
-  // revenue
   html += row('Revenue', base.revenue, revenueTot, months, true);
 
-  // direct costs
   html += sectionHeader('Direct Costs');
   html += row('Labor', base.labor, laborTot, months);
   html += row('Subcontractors', base.subs, subsTot, months);
@@ -298,12 +283,11 @@ function renderTable(base, months, year, extras) {
   html += row('Other Direct Cost', base.odc, odcTot, months);
   html += row('Total Direct Cost', directByM, directTot, months, true);
 
-  // gross profit + %
   html += row('Gross Profit', grossByM, grossTot, months, true);
   html += pctRow('Gross % of Rev', grossByM, base.revenue, months);
 
-  // indirect + operating + %
   html += sectionHeader('Indirect & Adjustments');
+
   html += editableRow('Indirect Cost', base.indirect, indirectTot, months, (m, val) => {
     extras.indirect[m] = Number(val || 0);
     saveExtras(year, extras);
@@ -313,7 +297,6 @@ function renderTable(base, months, year, extras) {
   html += row('Operating Profit', opByM, opTot, months, true);
   html += pctRow('Operating % of Rev', opByM, base.revenue, months);
 
-  // adjustments + adjusted + %
   html += editableRow('Adjustments / Add-backs', base.adjustments, adjTot, months, (m, val) => {
     extras.adjustments[m] = Number(val || 0);
     saveExtras(year, extras);
@@ -327,7 +310,6 @@ function renderTable(base, months, year, extras) {
   table.innerHTML = html;
 }
 
-/* ----- small helpers for render ----- */
 function row(label, obj, total, months, bold=false) {
   let tr = `<tr class="${bold ? 'font-semibold bg-slate-50' : ''}">`;
   tr += `<td class="p-2 sticky left-0 bg-white">${label}</td>`;
@@ -350,7 +332,6 @@ function editableRow(label, obj, total, months, onChange) {
   tr += `<td class="p-2 text-right">${fmt(total)}</td>`;
   tr += '</tr>';
 
-  // wire after insert
   setTimeout(() => {
     document.querySelectorAll('.conEdit').forEach(inp => {
       inp.addEventListener('change', (e) => {
@@ -395,3 +376,6 @@ function fmt(v) {
   const n = Number(v || 0);
   return n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
 }
+
+// 👇 this is what your main.js expects
+export const loader = init;
