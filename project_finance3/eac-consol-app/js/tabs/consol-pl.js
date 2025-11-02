@@ -335,8 +335,86 @@ function renderTable(base, months, year, extras) {
 
   html += row('Adjusted Profit', adjProfByM, adjProfTot, months, true);
 
-  html += '</tbody>';
+  // helper
+function pctRow(label, numByMonth, revByMonth, months) {
+  return `<tr class="text-xs text-slate-500">
+    <td>${label}</td>
+    ${months.map(m => {
+      const num = numByMonth[m] || 0;
+      const rev = revByMonth[m] || 0;
+      const pct = rev ? (num / rev) * 100 : 0;
+      return `<td class="text-right">${rev ? pct.toFixed(1) + '%' : ''}</td>`;
+    }).join('')}
+  </tr>`;
+}
 
+// ...inside render, after you computed these per month:
+ // revenue[m], labor[m], subs[m], equip[m], mats[m], odc[m]
+ // directCost[m], gross[m], indirect[m], operating[m], adjusted[m]
+
+tbody += `<tr class="font-semibold bg-slate-50">
+  <td>Revenue</td>
+  ${months.map(m => `<td class="text-right">${fmtUSD(revenue[m] || 0)}</td>`).join('')}
+</tr>`;
+
+tbody += `<tr>
+  <td>Labor</td>
+  ${months.map(m => `<td class="text-right">${fmtUSD(labor[m] || 0)}</td>`).join('')}
+</tr>`;
+tbody += `<tr>
+  <td>Subcontractors</td>
+  ${months.map(m => `<td class="text-right">${fmtUSD(subs[m] || 0)}</td>`).join('')}
+</tr>`;
+tbody += `<tr>
+  <td>Equipment</td>
+  ${months.map(m => `<td class="text-right">${fmtUSD(equip[m] || 0)}</td>`).join('')}
+</tr>`;
+tbody += `<tr>
+  <td>Materials</td>
+  ${months.map(m => `<td class="text-right">${fmtUSD(mats[m] || 0)}</td>`).join('')}
+</tr>`;
+tbody += `<tr>
+  <td>Other Direct Cost</td>
+  ${months.map(m => `<td class="text-right">${fmtUSD(odc[m] || 0)}</td>`).join('')}
+</tr>`;
+
+tbody += `<tr class="font-semibold">
+  <td>Total Direct Cost</td>
+  ${months.map(m => `<td class="text-right">${fmtUSD(directCost[m] || 0)}</td>`).join('')}
+</tr>`;
+
+// ⬇️ % for GROSS PROFIT (revenue - direct)
+tbody += `<tr class="font-semibold bg-emerald-50">
+  <td>Gross Profit</td>
+  ${months.map(m => `<td class="text-right">${fmtUSD(gross[m] || 0)}</td>`).join('')}
+</tr>`;
+tbody += pctRow('Gross % of Rev', gross, revenue, months);
+
+tbody += `<tr>
+  <td>Indirect Cost</td>
+  ${months.map(m => `<td class="text-right">${fmtUSD(indirect[m] || 0)}</td>`).join('')}
+</tr>`;
+
+tbody += `<tr class="font-semibold bg-sky-50">
+  <td>Operating Profit</td>
+  ${months.map(m => `<td class="text-right">${fmtUSD(operating[m] || 0)}</td>`).join('')}
+</tr>`;
+tbody += pctRow('Operating % of Rev', operating, revenue, months);
+
+tbody += `<tr>
+  <td>Adjustments / Add-backs</td>
+  ${months.map(m => `<td class="text-right">${fmtUSD(adj[m] || 0)}</td>`).join('')}
+</tr>`;
+
+tbody += `<tr class="font-semibold bg-amber-50">
+  <td>Adjusted Profit</td>
+  ${months.map(m => `<td class="text-right">${fmtUSD(adjusted[m] || 0)}</td>`).join('')}
+</tr>`;
+tbody += pctRow('Adjusted % of Rev', adjusted, revenue, months);
+
+  
+  html += '</tbody>';
+  
   table.innerHTML = html;
 }
 
