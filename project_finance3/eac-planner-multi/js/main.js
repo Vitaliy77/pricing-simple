@@ -1,3 +1,4 @@
+// main.js
 import { $ } from './lib/dom.js';
 import { setProjectId, getProjectId, restoreProjectId } from './lib/state.js';
 import { listProjects, createProject } from './data/projects.js';
@@ -11,6 +12,10 @@ import { makeLaborRow, saveLabor } from './features/plan-labor.js';
 import { makeSubRow, saveSubs } from './features/plan-subs.js';
 import { makeEquipRow, saveEquip } from './features/plan-equipment.js';
 import { makeMatRow, saveMat } from './features/plan-materials.js';
+
+/* -------------------------
+   Helpers
+------------------------- */
 
 async function loadExistingPlanForMonth() {
   try {
@@ -32,7 +37,7 @@ async function loadExistingPlanForMonth() {
         .select('employee_id, hours, override_rate')
         .eq('project_id', pid).eq('ym', ym);
       if (error) throw error;
-      data?.forEach(r => $('#laborTbody').appendChild(makeLaborRow(r)));
+      (data || []).forEach(r => $('#laborTbody').appendChild(makeLaborRow(r)));
     }
 
     // Subs
@@ -42,7 +47,7 @@ async function loadExistingPlanForMonth() {
         .select('vendor_id, cost, note')
         .eq('project_id', pid).eq('ym', ym);
       if (error) throw error;
-      data?.forEach(r => $('#subsTbody').appendChild(makeSubRow(r)));
+      (data || []).forEach(r => $('#subsTbody').appendChild(makeSubRow(r)));
     }
 
     // Equipment
@@ -52,7 +57,7 @@ async function loadExistingPlanForMonth() {
         .select('equipment_type, hours')
         .eq('project_id', pid).eq('ym', ym);
       if (error) throw error;
-      data?.forEach(r => $('#equipTbody').appendChild(makeEquipRow(r)));
+      (data || []).forEach(r => $('#equipTbody').appendChild(makeEquipRow(r)));
     }
 
     // Materials
@@ -62,15 +67,13 @@ async function loadExistingPlanForMonth() {
         .select('sku, qty')
         .eq('project_id', pid).eq('ym', ym);
       if (error) throw error;
-      data?.forEach(r => $('#matTbody').appendChild(makeMatRow(r)));
+      (data || []).forEach(r => $('#matTbody').appendChild(makeMatRow(r)));
     }
   } catch (err) {
     console.error('Error loading plan:', err);
     $('#status').textContent = `Error loading plan: ${err.message || err}`;
   }
 }
-
-
 
 async function refreshProjectsUI(selectAfterId = null) {
   $('#projMsg').textContent = 'Loading projects…';
@@ -86,12 +89,12 @@ async function refreshProjectsUI(selectAfterId = null) {
 
   // Build options
   sel.innerHTML = projects.map(p => {
-    const label = p.name; 
+    const label = p.name;
     return `<option value="${p.id}">${label}</option>`;
   }).join('');
 
   // Pick which project to select:
-  // 1) the one we just created, 2) stored id if still valid, 3) first in list
+  // 1) the one we just created, 2) stored id if valid, 3) first
   const stored = getProjectId();
   const validStored = projects.some(p => p.id === stored) ? stored : null;
   const toSelect = selectAfterId || validStored || projects[0].id;
@@ -108,108 +111,53 @@ function openProjectModal() {
   $('#projModal').classList.add('flex');
   $('#projName').focus();
 }
+
 function closeProjectModal() {
   $('#projModal').classList.add('hidden');
   $('#projModal').classList.remove('flex');
 }
 
-  async function handleProjectFormSubmit(e) {
-    e.preventDefault();
-    $('#projErr').textContent = '';
-    try {
-      const name = $('#projName').value.trim();
-      if (!name) { $('#projErr').textContent = 'Project name is required.'; return; }
-  
-      // Only send name (others ignored until columns exist)
-      const newId = await createProject({ name });
-  
-      await refreshProjectsUI(newId);   // selects new project
-      closeProjectModal();
-      await loadExistingPlanForMonth();
-      await refreshPL();
-    } catch (err) {
-      console.error('createProject error', err);
-      $('#projErr').textContent = err?.message || String(err);
-    }
-  }
-
-  async function recomputeEAC() {
-    const btn = document.getElementById('recomputeEac');
-    const statusEl = document.getElementById('status');
-    const projectId = (document.getElementById('projectSelect')?.value || '').trim();
-  
-    if (!projectId) { statusEl.textContent = 'Select a project first.'; return; }
-  
-    try {
-      btn.disabled = true;
-      btn.textContent = 'Recomputing…';
-      statusEl.textContent = 'Recomputing EAC…';
-  
-      const { error } = await client.rpc('recompute_eac', { p_project_id: projectId });
-      if (error) throw error;
-  
-      statusEl.textContent = 'Recompute finished. Refreshing…';
-      await refreshPL();
-      statusEl.textContent = 'Done.';
-    } catch (err) {
-      console.error('recomputeEAC error', err);
-      statusEl.textContent = `EAC recompute error: ${err.message || err}`;
-    } finally {
-      btn.disabled = false;
-      btn.textContent = 'Recompute EAC';
-    }
-  }
-
-
-async function recomputeEAC() {
-  const btn = document.getElementById('recomputeEac');
-  const statusEl = document.getElementById('status');
-  const projectId = (document.getElementById('projectSelect')?.value || '').trim();
-
-  if (!projectId) {
-    statusEl.textContent = 'Select a project first.';
-    return;
-  }
-
+async function handleProjectFormSubmit(e) {
+  e.preventDefault();
+  $('#projErr').textContent = '';
   try {
-    btn.disabled = true;
-    btn.textContent = 'Recomputing…';
-    statusEl.textContent = 'Recomputing EAC…';
+    const name = $('#projName').value.trim();
+    if (!name) { $('#projErr').textContent = 'Project name is required.'; return; }
 
-    // If your SQL function signature differs, adjust the name/params here:
-    // create or replace function recompute_eac(p_project_id uuid) returns void ...
-    const { error } = await client.rpc('recompute_eac', { p_project_id: projectId });
-    if (error) throw error;
+    // Only send name (others ignored until columns exist)
+    const newId = await createProject({ name });
 
-    statusEl.textContent = 'Recompute finished. Refreshing…';
-    await refreshPL(); // re-read and render
-    statusEl.textContent = 'Done.';
+    await refreshProjectsUI(newId);   // selects new project
+    closeProjectModal();
+    await loadExistingPlanForMonth();
+    await refreshPL();
   } catch (err) {
-    console.error('recomputeEAC error', err);
-    statusEl.textContent = `EAC recompute error: ${err.message || err}`;
-  } finally {
-    btn.disabled = false;
-    btn.textContent = 'Recompute EAC';
+    console.error('createProject error', err);
+    $('#projErr').textContent = err?.message || String(err);
   }
 }
 
+/* -------------------------
+   Init
+------------------------- */
 
 async function init() {
   try {
     // 1) Basic UI setup
-    $('#monthPicker').value = new Date().toISOString().slice(0, 7);
+    const mp = $('#monthPicker');
+    if (mp) mp.value = new Date().toISOString().slice(0, 7);
     $('#status').textContent = 'Loading catalogs…';
 
     // 2) Load lookups (tolerant version from lookups.js)
     await loadLookups();
     $('#status').textContent = 'Catalogs loaded.';
 
-    // 3) Prepare projects bar (restore → list → select)
+    // 3) Restore → list → select project
     restoreProjectId();
-    await refreshProjectsUI(); // must set setProjectId(...) or show "no projects"
+    await refreshProjectsUI();
     if (!getProjectId()) {
       $('#projMsg').textContent = 'Create your first project to continue.';
-      return; // stop here until user creates/selects a project
+      return;
     }
 
     // 4) With a project selected, load project-specific data
@@ -217,43 +165,45 @@ async function init() {
     await loadExistingPlanForMonth();
     await refreshPL();
 
-       // 5) Wire project controls (modal + switch)
-    $('#newProjectBtn').onclick = openProjectModal;     // open the form
-    $('#projCancel').onclick   = closeProjectModal;     // close (footer Cancel)
-    $('#projClose').onclick    = closeProjectModal;     // close (X button)
-    $('#projForm').addEventListener('submit', handleProjectFormSubmit); // create project
-    
+    // 5) Wire project controls (modal + switch)
+    $('#newProjectBtn').onclick = openProjectModal;
+    $('#projCancel').onclick   = closeProjectModal;
+    $('#projClose').onclick    = closeProjectModal;
+    $('#projForm').addEventListener('submit', handleProjectFormSubmit);
+
     $('#projectSelect').addEventListener('change', async (e) => {
       setProjectId(e.target.value || null);
       if (!getProjectId()) { $('#projMsg').textContent = 'Select a project.'; return; }
       await loadExistingPlanForMonth();
       await refreshPL();
     });
-    
-    // (Optional) If you still want this temporarily:
+
+    // Temporary manage button
     $('#manageProjectsBtn').onclick = () =>
       alert('Manage screen coming soon. For now, create/switch using this bar.');
-    
 
-    // 6) Wire planning buttons
+    // 6) Planning buttons
     $('#addLaborRow').onclick = () => $('#laborTbody').appendChild(makeLaborRow());
     $('#addSubRow').onclick   = () => $('#subsTbody').appendChild(makeSubRow());
     $('#addEquipRow').onclick = () => $('#equipTbody').appendChild(makeEquipRow());
     $('#addMatRow').onclick   = () => $('#matTbody').appendChild(makeMatRow());
 
-    $('#refreshPL').onclick = refreshPL;
-
-    // Recompute EAC button (if present in DOM)
-    document.getElementById('recomputeEac')?.addEventListener('click', recomputeEAC);
-    
+    // Saves → reload month plan → refresh P&L
     $('#saveLabor').onclick  = async () => { await saveLabor(); await loadExistingPlanForMonth(); await refreshPL(); };
     $('#saveSubs').onclick   = async () => { await saveSubs();  await loadExistingPlanForMonth(); await refreshPL(); };
     $('#saveEquip').onclick  = async () => { await saveEquip(); await loadExistingPlanForMonth(); await refreshPL(); };
     $('#saveMat').onclick    = async () => { await saveMat();   await loadExistingPlanForMonth(); await refreshPL(); };
 
+    // Revenue UI (enables/disables fields + save handler)
     wireRevenueUI(async () => { await refreshPL(); });
 
-    // 7) Month change
+    // P&L actions
+    $('#refreshPL').onclick = refreshPL;
+
+    // ✅ Recompute EAC button (RPC -> recompute_eac)
+    document.getElementById('recomputeEac')?.addEventListener('click', recomputeEAC);
+
+    // Month switch
     $('#monthPicker').addEventListener('change', async () => {
       $('#status').textContent = 'Loading month…';
       $('#laborMsg').textContent = '';
@@ -265,13 +215,21 @@ async function init() {
       $('#status').textContent = '';
     });
 
+    // “Load / Refresh” top button
+    $('#refreshBtn').onclick = async () => {
+      $('#status').textContent = 'Refreshing…';
+      await loadLookups();
+      await loadRevenueSettings();
+      await loadExistingPlanForMonth();
+      await refreshPL();
+      $('#status').textContent = 'Refreshed.';
+    };
+
   } catch (err) {
     console.error('Init error', err);
     const msg = (err && err.message) ? err.message : JSON.stringify(err || {}, null, 2);
     $('#status').textContent = `Error loading data: ${msg}`;
   }
 }
-
-
 
 init();
