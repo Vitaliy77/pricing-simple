@@ -1,4 +1,5 @@
 import { client } from '../api/supabase.js';
+import { publishMonthlyPL } from '../lib/publish-monthly.js';
 import { getProjectId } from '../lib/state.js';
 import { $, $$, monthToDate } from '../lib/dom.js';
 import { vendors } from '../data/lookups.js';
@@ -73,9 +74,21 @@ export async function saveSubs() {
     if (error) return error;
 
     $('#subsMsg').textContent = `Saved ${payload.length} row(s).`;
+
+    // 👉 Publish P&L only after a successful save; non-fatal if it fails.
+    try {
+      const pid = getProjectId();
+      // Prefer deriving year from ym if state.year might be undefined:
+      const year = typeof state?.year === 'number' ? state.year : Number(String(ym).slice(0, 4));
+      await publishMonthlyPL(pid, year);
+    } catch (e) {
+      console.warn('publishMonthlyPL warning:', e?.message || e);
+    }
+
   } catch (error) {
     $('#subsMsg').textContent = `Error: ${error.message}`;
   } finally {
     $('#saveSubs').disabled = false;
   }
 }
+
