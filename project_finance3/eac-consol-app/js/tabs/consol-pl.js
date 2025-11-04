@@ -1,5 +1,6 @@
 // js/tabs/consol-pl.js
-// Consolidated P&L (by month, by year) — reads pre-priced monthly data from plan_monthly_pl
+// Consolidated P&L (by month, by year)
+// Strategy: try plan_monthly_pl first; if empty/unreadable, aggregate from EAC views.
 
 import { $ } from '../lib/dom.js';
 import { client } from '../api/supabase.js';
@@ -44,7 +45,7 @@ export async function init() {
   await loadAndRender(nowY);
 }
 
-/* ---------------- Core loader (reads ONLY plan_monthly_pl) ---------------- */
+/* ---------------- Core loader with fallback ---------------- */
 
 async function loadAndRender(year) {
   const msg = $('#conMsg');
@@ -52,45 +53,111 @@ async function loadAndRender(year) {
   msg.textContent = 'Loading…';
   table.innerHTML = '';
 
+  const start = `${year}-01-01`;
+  const end   = `${year + 1}-01-01`;
+  const months = buildMonths(year);
+  const base = makeEmptyPnl(months);
+
   try {
-    // 1) Pull pre-priced monthly data for the year
-    const { data, error } = await client
+    // -------- A) Try consolidated table first
+    const { data: planRows, error: planErr } = await client
       .from('plan_monthly_pl')
       .select('project_id, ym, revenue, labor, subs, equipment, materials, odc')
-      .gte('ym', `${year}-01-01`)
-      .lte('ym', `${year}-12-31`);
+      .gte('ym', start)
+      .lt('ym', end);
 
-    if (error) throw error;
+    if (planErr) {
+      // Hard failure (e.g., relation missing or RLS)
+      console.warn('[Consol] plan_monthly_pl error → falling back:', planErr);
+    } else if (Array.isArray(planRows) && planRows.length > 0) {
+      // Populate from plan_monthly_pl
+      for (const r of planRows) {
+        const m = ymKey(r.ym);
+        add(base, 'revenue',   m, Number(r.revenue   || 0));
+        add(base, 'labor',     m, Number(r.labor     || 0));
+        add(base, 'subs',      m, Number(r.subs      || 0));
+        add(base, 'equipment', m, Number(r.equipment || 0));
+        add(base, 'materials', m, Number(r.materials || 0));
+        add(base, 'odc',       m, Number(r.odc       || 0));
+      }
 
-    // 2) Build the base structure and fill it from plan_monthly_pl
-    const months = buildMonths(year);
-    const base = makeEmptyPnl(months);
+      const extras = loadExtras(year, months);
+      for (const m of months) {
+        add(base, 'indirect',    m, extras.indirect[m]    || 0);
+        add(base, 'adjustments', m, extras.adjustments[m] || 0);
+      }
 
-    for (const r of (data || [])) {
-      const m = ymKey(r.ym); // 'YYYY-MM'
-      add(base, 'revenue',   m, Number(r.revenue   || 0));
-      add(base, 'labor',     m, Number(r.labor     || 0));
-      add(base, 'subs',      m, Number(r.subs      || 0));
-      add(base, 'equipment', m, Number(r.equipment || 0));
-      add(base, 'materials', m, Number(r.materials || 0));
-      add(base, 'odc',       m, Number(r.odc       || 0));
+      renderTable(base, months, year, extras);
+      msg.textContent = `Loaded ${planRows.length.toLocaleString('en-US')} rows from plan_monthly_pl.`;
+      return;
+    } else {
+      console.info('[Consol] plan_monthly_pl returned 0 rows; falling back to EAC views.');
     }
 
-    // 3) Load / apply local Indirect + Adjustments
+    // -------- B) Fallback: aggregate from EAC views (same sources as EAC app)
+    const { data: costRows, error: costErr } = await client
+      .from('vw_eac_monthly_pl')
+      .select('ym, labor, equip, materials, subs, fringe, overhead, gna, total_cost')
+      .gte('ym', start)
+      .lt('ym', end);
+
+    if (costErr) throw costErr;
+
+    const { data: revRows, error: revErr } = await client
+      .from('vw_eac_revenue_monthly')
+      .select('ym, revenue')
+      .gte('ym', start)
+      .lt('ym', end);
+
+    if (revErr) throw revErr;
+
+    // Sum across all projects per month
+    const costMap = {}; // k -> { labor, equip, materials, subs, total_cost }
+    for (const r of (costRows || [])) {
+      const k = ymKey(r.ym);
+      const cur = costMap[k] || { labor:0, equip:0, materials:0, subs:0, total_cost:0 };
+      cur.labor      += Number(r.labor      || 0);
+      cur.equip      += Number(r.equip      || 0);
+      cur.materials  += Number(r.materials  || 0);
+      cur.subs       += Number(r.subs       || 0);
+      cur.total_cost += Number(r.total_cost || 0);
+      costMap[k] = cur;
+    }
+
+    const revMap = {}; // k -> revenue
+    for (const r of (revRows || [])) {
+      const k = ymKey(r.ym);
+      revMap[k] = (revMap[k] || 0) + Number(r.revenue || 0);
+    }
+
+    // Fill base
+    for (const m of months) {
+      add(base, 'revenue',   m, Number(revMap[m] || 0));
+      add(base, 'labor',     m, Number(costMap[m]?.labor     || 0));
+      add(base, 'subs',      m, Number(costMap[m]?.subs      || 0));
+      add(base, 'equipment', m, Number(costMap[m]?.equip     || 0));
+      add(base, 'materials', m, Number(costMap[m]?.materials || 0));
+      // If you want to split ODC from total_cost (- known buckets), you can do:
+      const known = (costMap[m]?.labor||0) + (costMap[m]?.subs||0) + (costMap[m]?.equip||0) + (costMap[m]?.materials||0);
+      const odc = Math.max(0, (costMap[m]?.total_cost || 0) - known);
+      add(base, 'odc', m, odc);
+    }
+
     const extras = loadExtras(year, months);
     for (const m of months) {
-      add(base, 'indirect',   m, extras.indirect[m]   || 0);
-      add(base, 'adjustments',m, extras.adjustments[m]|| 0);
+      add(base, 'indirect',    m, extras.indirect[m]    || 0);
+      add(base, 'adjustments', m, extras.adjustments[m] || 0);
     }
 
-    // 4) Render P&L (with subtotal % rows)
     renderTable(base, months, year, extras);
-    msg.textContent = '';
+    const srcNote = `Fallback used: ${revRows?.length || 0} revenue rows, ${costRows?.length || 0} cost rows from EAC views.`;
+    msg.textContent = srcNote;
+
   } catch (err) {
     console.error('consol-pl error', err);
     const notFound = /relation .*plan_monthly_pl.* does not exist/i.test(String(err?.message || err));
     $('#conMsg').textContent = notFound
-      ? 'Error: table plan_monthly_pl not found. Publish from the EAC app or create the table first.'
+      ? 'Error: table plan_monthly_pl not found. Either publish consolidated rows from EAC or rely on the automatic fallback (EAC views).'
       : 'Error loading consolidated P&L: ' + (err?.message || err);
   }
 }
@@ -243,12 +310,11 @@ function editableRow(label, obj, total, months, onChange) {
   tr += `<td class="p-2 text-right">${fmt(total)}</td>`;
   tr += '</tr>';
 
-  // wire after insertion so caret behavior is smooth
   setTimeout(() => {
     document.querySelectorAll('.conEdit').forEach(inp => {
       inp.addEventListener('change', (e) => {
-        const m = e.target.getAttribute('data-m');
-        onChange(m, e.target.value);
+        const mm = e.target.getAttribute('data-m');
+        onChange(mm, e.target.value);
       });
       inp.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); }
