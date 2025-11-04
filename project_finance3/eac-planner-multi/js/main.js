@@ -4,6 +4,7 @@
 import { $ } from './lib/dom.js';
 import { setProjectId, getProjectId, restoreProjectId } from './lib/state.js';
 import { listProjects, createProject } from './data/projects.js';
+import { client } from './api/supabase.js'; // <-- needed for RPC
 
 // -------------------------------
 // Tab routing (lazy-loaded files)
@@ -27,15 +28,65 @@ async function render() {
   try {
     const mod = await loader();
     view.innerHTML = mod.template || `<div class="text-sm text-slate-500">Loaded.</div>`;
-    // Each tab module should export: template (string) and optional init(viewEl)
     if (typeof mod.init === 'function') {
       await mod.init(view);
     }
+    // Wire buttons that may have appeared in this tab (like #recomputeEac)
+    wireActionButtons();
   } catch (err) {
     console.error('Tab render error:', err);
     view.innerHTML = `<div class="p-4 rounded-md bg-red-50 text-red-700 text-sm">
       Failed to load tab. ${err?.message || err}
     </div>`;
+  }
+}
+
+// -------------------------------
+// EAC recompute wiring (post-render)
+// -------------------------------
+function wireActionButtons() {
+  const btn = document.getElementById('recomputeEac');
+  if (btn && !btn.dataset.wired) {
+    btn.addEventListener('click', recomputeEAC);
+    btn.dataset.wired = '1';
+  }
+}
+
+async function recomputeEAC() {
+  const status = $('#status');
+  const btn = $('#recomputeEac');
+  const projectId = getProjectId();
+
+  if (!projectId) {
+    status.textContent = 'Select a project first.';
+    return;
+  }
+
+  try {
+    if (btn) { btn.disabled = true; btn.textContent = 'Recomputing…'; }
+    status.textContent = 'Recomputing EAC…';
+
+    // Must match your DB function signature:
+    // create function public.recompute_eac(p_project_id uuid) returns void
+    const { error } = await client.rpc('recompute_eac', { p_project_id: projectId });
+    if (error) throw error;
+
+    status.textContent = 'Recompute finished. Refreshing…';
+
+    // If the P&L tab exposed a refresh button, click it; otherwise just re-render the tab.
+    const refreshBtn = document.getElementById('refreshPL');
+    if (refreshBtn) {
+      refreshBtn.click();
+    } else {
+      await render();
+    }
+
+    status.textContent = 'Done.';
+  } catch (err) {
+    console.error('recomputeEAC error', err);
+    status.textContent = `EAC recompute error: ${err.message || err}`;
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Recompute EAC'; }
   }
 }
 
@@ -93,12 +144,10 @@ async function handleProjectFormSubmit(e) {
     await refreshProjectsUI(newId);
     closeProjectModal();
 
-    // Optional: jump to revenue settings later (when we implement it on #project tab)
     if ($('#projOpenRev')?.checked) {
       location.hash = '#project';
     }
 
-    // Re-render current tab with the new context
     await render();
   } catch (err) {
     console.error('createProject error', err);
@@ -110,11 +159,10 @@ async function handleProjectFormSubmit(e) {
 // App bootstrap
 // -------------------------------
 function wireProjectControls() {
-  // Switch projects
   $('#projectSelect').addEventListener('change', async (e) => {
     setProjectId(e.target.value || null);
     if (!getProjectId()) { $('#projMsg').textContent = 'Select a project.'; return; }
-    await render(); // refresh current tab with the new project context
+    await render();
   });
 
   // Modal open/close + submit
@@ -134,7 +182,6 @@ function initMonthPicker() {
     el.value = new Date().toISOString().slice(0, 7); // YYYY-MM
   }
   el.addEventListener('change', () => {
-    // Tabs can read #monthPicker when they compute monthly views
     render();
   });
 }
@@ -144,12 +191,10 @@ async function init() {
     $('#status').textContent = 'Loading…';
     initMonthPicker();
 
-    // Restore selection, populate projects, ensure we have something selected
     restoreProjectId();
     await refreshProjectsUI();
     wireProjectControls();
 
-    // Default route
     if (!location.hash) location.hash = '#project';
     await render();
 
