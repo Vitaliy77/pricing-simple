@@ -1,4 +1,5 @@
 import { client } from '../api/supabase.js';
+import { publishMonthlyPL } from '../lib/publish-monthly.js';
 import { getProjectId } from '../lib/state.js';
 import { $, $$, formatMoney, monthToDate } from '../lib/dom.js';
 import { equipmentList } from '../data/lookups.js';
@@ -88,9 +89,23 @@ export async function saveEquip() {
     if (error) return error;
 
     $('#equipMsg').textContent = `Saved ${payload.length} row(s).`;
+
+    // 👉 Publish P&L only after a successful save; log warning if it fails.
+    try {
+      const pid = getProjectId();
+      const year =
+        typeof state?.year === 'number'
+          ? state.year
+          : (ym instanceof Date ? ym.getFullYear() : Number(String(ym).slice(0, 4)));
+      await publishMonthlyPL(pid, year);
+    } catch (e) {
+      console.warn('publishMonthlyPL warning:', e?.message || e);
+    }
+
   } catch (error) {
     $('#equipMsg').textContent = `Error: ${error.message}`;
   } finally {
     $('#saveEquip').disabled = false;
   }
 }
+
