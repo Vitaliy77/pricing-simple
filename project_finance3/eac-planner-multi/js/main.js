@@ -5,7 +5,7 @@ import { loadLookups } from './data/lookups.js';
 import { wireRevenueUI, loadRevenueSettings } from './features/revenue.js';
 import { refreshPL } from './features/pl-table.js';
 import { client } from './api/supabase.js';
-
+import { recomputeEAC } from './features/eac.js';
 
 import { makeLaborRow, saveLabor } from './features/plan-labor.js';
 import { makeSubRow, saveSubs } from './features/plan-subs.js';
