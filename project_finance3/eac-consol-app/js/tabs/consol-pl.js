@@ -1,5 +1,5 @@
 // js/tabs/consol-pl.js
-// Consolidated P&L (by month, by year) built from project-level plans
+// Consolidated P&L (by month, by year) — reads pre-priced monthly data from plan_monthly_pl
 
 import { $ } from '../lib/dom.js';
 import { client } from '../api/supabase.js';
@@ -9,7 +9,9 @@ export const template = /*html*/ `
     <div class="flex items-center justify-between">
       <div>
         <h2 class="text-lg font-semibold">Consolidated P&amp;L</h2>
-        <p class="text-sm text-slate-500">Revenue → Direct costs → Gross profit → Indirect → Operating profit → Adjustments → Adjusted profit</p>
+        <p class="text-sm text-slate-500">
+          Revenue → Direct costs → Gross profit → Indirect → Operating profit → Adjustments → Adjusted profit
+        </p>
       </div>
       <div class="flex items-center gap-2">
         <label class="text-sm text-slate-500">Year:</label>
@@ -21,7 +23,9 @@ export const template = /*html*/ `
     <div class="overflow-x-auto">
       <table id="conTable" class="min-w-full text-sm border-separate border-spacing-y-1"></table>
     </div>
-    <p class="text-xs text-slate-500">Indirect and Adjustments are stored locally for now. Later we can push them to Supabase.</p>
+    <p class="text-xs text-slate-500">
+      Indirect and Adjustments are stored locally for now. Later we can push them to Supabase.
+    </p>
   </div>
 `;
 
@@ -35,12 +39,12 @@ export async function init() {
     if (y === nowY) opt.selected = true;
     sel.appendChild(opt);
   }
-
   $('#conReload').onclick = () => loadAndRender(Number($('#conYear').value));
   sel.onchange = () => loadAndRender(Number(sel.value));
-
   await loadAndRender(nowY);
 }
+
+/* ---------------- Core loader (reads ONLY plan_monthly_pl) ---------------- */
 
 async function loadAndRender(year) {
   const msg = $('#conMsg');
@@ -49,176 +53,77 @@ async function loadAndRender(year) {
   table.innerHTML = '';
 
   try {
-    const [
-      projectsRes,
-      employeesRes,
-      rolesRes,
-      equipRes,
-      matsRes,
-      planLaborRes,
-      planSubsRes,
-      planEquipRes,
-      planMatsRes,
-      planOdcRes
-    ] = await Promise.all([
-      client.from('projects').select('id, name, revenue_formula, fee_pct'),
-      client.from('employees').select('id, full_name, role'),
-      client.from('labor_roles').select('role, loaded_rate'),
-      client.from('equipment_catalog').select('equipment_type, description, rate, rate_unit'),
-      client.from('materials_catalog').select('sku, unit_cost, waste_pct'),
-      client.from('plan_labor').select('project_id, employee_id, ym, hours'),
-      client.from('plan_subs').select('project_id, vendor_id, ym, cost'),
-      client.from('plan_equipment').select('project_id, equipment_type, ym, hours'),
-      client.from('plan_materials').select('project_id, sku, ym, qty'),
-      client.from('plan_odc').select('project_id, odc_type, ym, cost'),
-    ]);
+    // 1) Pull pre-priced monthly data for the year
+    const { data, error } = await client
+      .from('plan_monthly_pl')
+      .select('project_id, ym, revenue, labor, subs, equipment, materials, odc')
+      .gte('ym', `${year}-01-01`)
+      .lte('ym', `${year}-12-31`);
 
-    const projects   = projectsRes.data   || [];
-    const employees  = employeesRes.data  || [];
-    const laborRoles = rolesRes.data      || [];
-    const equipCat   = equipRes.data      || [];
-    const matsCat    = matsRes.data       || [];
+    if (error) throw error;
 
-    const planLabor  = (planLaborRes.data  || []).filter(r => ymYear(r.ym) === year);
-    const planSubs   = (planSubsRes.data   || []).filter(r => ymYear(r.ym) === year);
-    const planEquip  = (planEquipRes.data  || []).filter(r => ymYear(r.ym) === year);
-    const planMats   = (planMatsRes.data   || []).filter(r => ymYear(r.ym) === year);
-    const planOdc    = (planOdcRes.data    || []).filter(r => ymYear(r.ym) === year);
-
+    // 2) Build the base structure and fill it from plan_monthly_pl
     const months = buildMonths(year);
-
-    // maps
-    const roleRate = Object.fromEntries(laborRoles.map(r => [r.role, Number(r.loaded_rate || 0)]));
-    const empRole  = Object.fromEntries(employees.map(e => [e.id, e.role]));
-    const equipRate = Object.fromEntries(equipCat.map(e => [e.equipment_type ?? e.description, Number(e.rate || 0)]));
-    const matInfo   = Object.fromEntries(matsCat.map(m => [m.sku, { unit_cost: Number(m.unit_cost || 0), waste_pct: Number(m.waste_pct || 0) }]));
-    const projMap   = Object.fromEntries(projects.map(p => [p.id, p]));
-
-    // base structure
     const base = makeEmptyPnl(months);
 
-    // labor
-    for (const r of planLabor) {
-      const m = ymKey(r.ym);
-      const role = empRole[r.employee_id] || '';
-      const rate = roleRate[role] || 0;
-      const cost = Number(r.hours || 0) * rate;
-      add(base, 'labor', m, cost);
-      addProjCost(base, r.project_id, m, cost);
+    for (const r of (data || [])) {
+      const m = ymKey(r.ym); // 'YYYY-MM'
+      add(base, 'revenue',   m, Number(r.revenue   || 0));
+      add(base, 'labor',     m, Number(r.labor     || 0));
+      add(base, 'subs',      m, Number(r.subs      || 0));
+      add(base, 'equipment', m, Number(r.equipment || 0));
+      add(base, 'materials', m, Number(r.materials || 0));
+      add(base, 'odc',       m, Number(r.odc       || 0));
     }
 
-    // subs
-    for (const r of planSubs) {
-      const m = ymKey(r.ym);
-      const cost = Number(r.cost || 0);
-      add(base, 'subs', m, cost);
-      addProjCost(base, r.project_id, m, cost);
-    }
-
-    // equipment
-    for (const r of planEquip) {
-      const m = ymKey(r.ym);
-      const rate = equipRate[r.equipment_type] || 0;
-      const cost = Number(r.hours || 0) * rate;
-      add(base, 'equipment', m, cost);
-      addProjCost(base, r.project_id, m, cost);
-    }
-
-    // materials
-    for (const r of planMats) {
-      const m = ymKey(r.ym);
-      const mi = matInfo[r.sku] || { unit_cost: 0, waste_pct: 0 };
-      const loaded = mi.unit_cost * (1 + mi.waste_pct);
-      const cost = Number(r.qty || 0) * loaded;
-      add(base, 'materials', m, cost);
-      addProjCost(base, r.project_id, m, cost);
-    }
-
-    // odc
-    for (const r of planOdc) {
-      const m = ymKey(r.ym);
-      const cost = Number(r.cost || 0);
-      add(base, 'odc', m, cost);
-      addProjCost(base, r.project_id, m, cost);
-    }
-
-    // revenue from projects
-    for (const projId of Object.keys(base.projCosts)) {
-      const proj = projMap[projId];
-      const formula = proj?.revenue_formula || 'TM';
-      const feePct  = Number(proj?.fee_pct || 0);
-      const perMonth = base.projCosts[projId];
-      for (const m of months) {
-        const dc = Number(perMonth[m] || 0);
-        const rev = priceByRule(dc, formula, feePct);
-        add(base, 'revenue', m, rev);
-      }
-    }
-
-    // local extras
+    // 3) Load / apply local Indirect + Adjustments
     const extras = loadExtras(year, months);
     for (const m of months) {
-      add(base, 'indirect', m, extras.indirect[m] || 0);
-      add(base, 'adjustments', m, extras.adjustments[m] || 0);
+      add(base, 'indirect',   m, extras.indirect[m]   || 0);
+      add(base, 'adjustments',m, extras.adjustments[m]|| 0);
     }
 
+    // 4) Render P&L (with subtotal % rows)
     renderTable(base, months, year, extras);
     msg.textContent = '';
   } catch (err) {
     console.error('consol-pl error', err);
-    msg.textContent = 'Error loading consolidated P&L: ' + (err?.message || err);
+    const notFound = /relation .*plan_monthly_pl.* does not exist/i.test(String(err?.message || err));
+    $('#conMsg').textContent = notFound
+      ? 'Error: table plan_monthly_pl not found. Publish from the EAC app or create the table first.'
+      : 'Error loading consolidated P&L: ' + (err?.message || err);
   }
 }
 
+/* ---------------- Helpers: structure & math ---------------- */
+
 function buildMonths(year) {
-  return Array.from({ length: 12 }, (_, i) => `${year}-${String(i+1).padStart(2,'0')}`);
+  return Array.from({ length: 12 }, (_, i) => `${year}-${String(i + 1).padStart(2, '0')}`);
 }
+
 function makeEmptyPnl(months) {
   const base = {
-    revenue: {},
-    labor: {},
-    subs: {},
-    equipment: {},
-    materials: {},
-    odc: {},
-    indirect: {},
-    adjustments: {},
-    projCosts: {}
+    revenue: {}, labor: {}, subs: {}, equipment: {}, materials: {}, odc: {},
+    indirect: {}, adjustments: {}
   };
   months.forEach(m => {
-    base.revenue[m] = 0;
-    base.labor[m] = 0;
-    base.subs[m] = 0;
-    base.equipment[m] = 0;
-    base.materials[m] = 0;
-    base.odc[m] = 0;
-    base.indirect[m] = 0;
-    base.adjustments[m] = 0;
+    base.revenue[m] = 0; base.labor[m] = 0; base.subs[m] = 0; base.equipment[m] = 0;
+    base.materials[m] = 0; base.odc[m] = 0; base.indirect[m] = 0; base.adjustments[m] = 0;
   });
   return base;
 }
+
 function add(base, bucket, month, val) {
+  if (!month) return;
   base[bucket][month] = (base[bucket][month] || 0) + Number(val || 0);
 }
-function addProjCost(base, projId, month, val) {
-  if (!projId) return;
-  if (!base.projCosts[projId]) base.projCosts[projId] = {};
-  base.projCosts[projId][month] = (base.projCosts[projId][month] || 0) + Number(val || 0);
-}
-function priceByRule(directCost, formula, feePct) {
-  switch (formula) {
-    case 'COST_PLUS': return directCost * (1 + (Number(feePct || 0) / 100));
-    case 'TM':        return directCost;
-    case 'FP':        return directCost;
-    default:          return directCost;
-  }
-}
-function ymYear(ym) {
-  try { return Number(String(ym).slice(0,4)); } catch { return 0; }
-}
+
 function ymKey(ym) {
-  try { return String(ym).slice(0,7); } catch { return null; }
+  try { return String(ym).slice(0, 7); } catch { return null; }
 }
+
+/* ---------------- Indirect / Adjustments (local) ---------------- */
+
 function loadExtras(year, months) {
   const raw = localStorage.getItem(`consol-extras-${year}`);
   const parsed = raw ? JSON.parse(raw) : {};
@@ -233,26 +138,30 @@ function loadExtras(year, months) {
 function saveExtras(year, extras) {
   localStorage.setItem(`consol-extras-${year}`, JSON.stringify(extras));
 }
+
+/* ---------------- Rendering ---------------- */
+
 function renderTable(base, months, year, extras) {
   const table = $('#conTable');
 
-  const directByM = {};
-  const grossByM  = {};
-  const opByM     = {};
-  const adjProfByM = {};
+  // Derived rows
+  const directByM   = {};
+  const grossByM    = {};
+  const opByM       = {};
+  const adjProfByM  = {};
 
   months.forEach(m => {
     const dc = (base.labor[m]||0) + (base.subs[m]||0) + (base.equipment[m]||0) + (base.materials[m]||0) + (base.odc[m]||0);
-    directByM[m] = dc;
-    const gp = (base.revenue[m]||0) - dc;
-    grossByM[m] = gp;
-    const op = gp - (base.indirect[m]||0);
-    opByM[m] = op;
-    const adj = base.adjustments[m]||0;
+    directByM[m]  = dc;
+    const gp      = (base.revenue[m]||0) - dc;
+    grossByM[m]   = gp;
+    const op      = gp - (base.indirect[m]||0);
+    opByM[m]      = op;
+    const adj     = (base.adjustments[m]||0);
     adjProfByM[m] = op + adj;
   });
 
-  const tot = (obj) => months.reduce((s,m)=> s + Number(obj[m]||0), 0);
+  const tot = obj => months.reduce((s, m) => s + Number(obj[m] || 0), 0);
 
   const revenueTot = tot(base.revenue);
   const laborTot   = tot(base.labor);
@@ -262,7 +171,7 @@ function renderTable(base, months, year, extras) {
   const odcTot     = tot(base.odc);
   const directTot  = tot(directByM);
   const grossTot   = tot(grossByM);
-  const indirectTot = tot(base.indirect);
+  const indirectTot= tot(base.indirect);
   const opTot      = tot(opByM);
   const adjTot     = tot(base.adjustments);
   const adjProfTot = tot(adjProfByM);
@@ -273,19 +182,23 @@ function renderTable(base, months, year, extras) {
   html += `<th class="p-2 text-right">Total</th>`;
   html += '</tr></thead><tbody>';
 
+  // Revenue
   html += row('Revenue', base.revenue, revenueTot, months, true);
 
+  // Direct costs
   html += sectionHeader('Direct Costs');
-  html += row('Labor', base.labor, laborTot, months);
-  html += row('Subcontractors', base.subs, subsTot, months);
-  html += row('Equipment', base.equipment, equipTot, months);
-  html += row('Materials', base.materials, matsTot, months);
-  html += row('Other Direct Cost', base.odc, odcTot, months);
-  html += row('Total Direct Cost', directByM, directTot, months, true);
+  html += row('Labor',             base.labor,     laborTot, months);
+  html += row('Subcontractors',    base.subs,      subsTot,  months);
+  html += row('Equipment',         base.equipment, equipTot, months);
+  html += row('Materials',         base.materials, matsTot,  months);
+  html += row('Other Direct Cost', base.odc,       odcTot,   months);
+  html += row('Total Direct Cost', directByM,      directTot,months, true);
 
+  // Gross Profit + %
   html += row('Gross Profit', grossByM, grossTot, months, true);
   html += pctRow('Gross % of Rev', grossByM, base.revenue, months);
 
+  // Indirect & Adjustments
   html += sectionHeader('Indirect & Adjustments');
 
   html += editableRow('Indirect Cost', base.indirect, indirectTot, months, (m, val) => {
@@ -313,9 +226,7 @@ function renderTable(base, months, year, extras) {
 function row(label, obj, total, months, bold=false) {
   let tr = `<tr class="${bold ? 'font-semibold bg-slate-50' : ''}">`;
   tr += `<td class="p-2 sticky left-0 bg-white">${label}</td>`;
-  months.forEach(m => {
-    tr += `<td class="p-2 text-right">${fmt(obj[m])}</td>`;
-  });
+  months.forEach(m => { tr += `<td class="p-2 text-right">${fmt(obj[m])}</td>`; });
   tr += `<td class="p-2 text-right">${fmt(total)}</td>`;
   tr += '</tr>';
   return tr;
@@ -332,6 +243,7 @@ function editableRow(label, obj, total, months, onChange) {
   tr += `<td class="p-2 text-right">${fmt(total)}</td>`;
   tr += '</tr>';
 
+  // wire after insertion so caret behavior is smooth
   setTimeout(() => {
     document.querySelectorAll('.conEdit').forEach(inp => {
       inp.addEventListener('change', (e) => {
@@ -353,12 +265,11 @@ function pctRow(label, numByMonth, revByMonth, months) {
   months.forEach(m => {
     const num = numByMonth[m] || 0;
     const rev = revByMonth[m] || 0;
-    const pct = rev ? (num / rev) * 100 : 0;
-    tr += `<td class="p-1 text-right">${rev ? pct.toFixed(1) + '%' : ''}</td>`;
+    tr += `<td class="p-1 text-right">${rev ? ((num / rev) * 100).toFixed(1) + '%' : ''}</td>`;
   });
   const numTot = months.reduce((s,m)=> s + Number(numByMonth[m]||0), 0);
   const revTot = months.reduce((s,m)=> s + Number(revByMonth[m]||0), 0);
-  tr += `<td class="p-1 text-right">${revTot ? (numTot / revTot * 100).toFixed(1) + '%' : ''}</td>`;
+  tr += `<td class="p-1 text-right">${revTot ? ((numTot / revTot) * 100).toFixed(1) + '%' : ''}</td>`;
   tr += '</tr>';
   return tr;
 }
@@ -368,14 +279,16 @@ function sectionHeader(label) {
 }
 
 function monthLabel(ym) {
-  const [y,m] = ym.split('-').map(Number);
-  return new Date(y, m-1, 1).toLocaleString('en-US', { month: 'short' });
+  const [y, m] = ym.split('-').map(Number);
+  return new Date(y, m - 1, 1).toLocaleString('en-US', { month: 'short' });
 }
 
 function fmt(v) {
   const n = Number(v || 0);
-  return n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+  return n.toLocaleString('en-US', {
+    style: 'currency', currency: 'USD', maximumFractionDigits: 0
+  });
 }
 
-// 👇 this is what your main.js expects
+// Export alias (harmless if not used)
 export const loader = init;
