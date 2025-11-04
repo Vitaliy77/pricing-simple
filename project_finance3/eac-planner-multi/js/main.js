@@ -222,13 +222,6 @@ async function init() {
     $('#saveSubs').onclick   = async () => { await saveSubs();  await loadExistingPlanForMonth(); await refreshPL(); };
     $('#saveEquip').onclick  = async () => { await saveEquip(); await loadExistingPlanForMonth(); await refreshPL(); };
     $('#saveMat').onclick    = async () => { await saveMat();   await loadExistingPlanForMonth(); await refreshPL(); };
-    
-    $('#projectSelect').addEventListener('change', async (e) => {
-      setProjectId(e.target.value || null);
-      if (!getProjectId()) { $('#projMsg').textContent = 'Select a project.'; return; }
-      await loadExistingPlanForMonth();
-      await refreshPL();
-    });
 
     wireRevenueUI(async () => { await refreshPL(); });
 
