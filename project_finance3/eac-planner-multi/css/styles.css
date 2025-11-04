@@ -1,13 +1,53 @@
-/* P&L sticky header + first column */
-#plWrap { overflow: auto; }
-#plTable { border-collapse: separate; border-spacing: 0; }
-#plTable th, #plTable td { white-space: nowrap; }
+/* ===== P&L sticky table (header + first column) ===== */
+#plWrap {
+  overflow: auto;                 /* enables horizontal + vertical scroll */
+  max-height: 520px;              /* let the grid breathe; adjust if needed */
+  -webkit-overflow-scrolling: touch;
+}
+
+#plTable {
+  border-collapse: separate;      /* required for sticky to layer correctly */
+  border-spacing: 0;
+  background: #fff;               /* ensures no see-through when sticky */
+}
+
+#plTable th,
+#plTable td {
+  white-space: nowrap;
+  background-clip: padding-box;   /* avoid subtle overlap artifacts */
+}
+
+/* Sticky header */
 #plTable thead th {
-  position: sticky; top: 0; z-index: 2; background: #fff;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #fff;
   box-shadow: 0 1px 0 rgba(0,0,0,0.06);
 }
+
+/* Sticky first column (header + body) */
 #plTable .sticky-col {
-  position: sticky; left: 0; z-index: 3; background: #fff;
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  background: #fff;
   box-shadow: 1px 0 0 rgba(0,0,0,0.06);
+  min-width: 150px;               /* keep row labels readable; tweak as needed */
 }
-#plTable thead th.sticky-col { z-index: 4; }
+
+/* Top-left corner cell needs the highest z-index */
+#plTable thead th.sticky-col {
+  z-index: 4;
+}
+
+/* Optional: tidy numeric cells */
+#plTable td.text-right,
+#plTable th.text-right {
+  text-align: right;
+}
+
+/* Optional: make totals pop a bit */
+#plTable td.font-semibold {
+  font-weight: 600;
+}
