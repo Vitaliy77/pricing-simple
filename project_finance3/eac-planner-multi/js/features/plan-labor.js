@@ -1,4 +1,5 @@
 import { client } from '../api/supabase.js';
+import { publishMonthlyPL } from '../lib/publish-monthly.js';
 import { getProjectId } from '../lib/state.js';
 import { $, $$, formatMoney, monthToDate } from '../lib/dom.js';
 import { employees, rolesRate } from '../data/lookups.js';
@@ -107,6 +108,15 @@ export async function saveLabor() {
     if (error) return error;
 
     $('#laborMsg').textContent = `Saved ${payload.length} row(s).`;
+
+    // 👉 Publish P&L only after a successful save; non-fatal if it fails.
+    try {
+      const pid = getProjectId();
+      await publishMonthlyPL(pid, state.year);  // or derive from ym if you prefer
+    } catch (e) {
+      console.warn('publishMonthlyPL warning:', e?.message || e);
+    }
+
   } catch (error) {
     $('#laborMsg').textContent = `Error: ${error.message}`;
   } finally {
