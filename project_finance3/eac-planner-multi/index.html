@@ -45,7 +45,7 @@
       <ul id="tabs" class="flex gap-6 text-sm">
         <li><a href="#project"         class="py-3 block font-semibold text-blue-600">Project Information</a></li>
         <li><a href="#pnl"             class="py-3 block font-semibold text-blue-600">P&amp;L</a></li>
-        <li><a href="#benchmarks" class="py-3 block font-semibold text-blue-600">Benchmarks</a></li>
+        <li><a href="#benchmarks"      class="py-3 block font-semibold text-blue-600">Benchmarks</a></li>
         <li><a href="#plan-employees"  class="py-3 block font-semibold text-blue-600">Employees</a></li>
         <li><a href="#plan-subs"       class="py-3 block font-semibold text-blue-600">Subcontractors</a></li>
         <li><a href="#plan-equipment"  class="py-3 block font-semibold text-blue-600">Equipment</a></li>
@@ -55,6 +55,21 @@
       </ul>
     </div>
   </nav>
+
+  <!-- P&L action bar (hidden by default; unhide when #pnl is active) -->
+  <section id="pnlActions" class="bg-white border-b hidden">
+    <div class="max-w-6xl mx-auto px-5 py-3 flex items-center justify-between">
+      <h3 class="text-sm font-semibold text-slate-700">P&amp;L Actions</h3>
+      <div class="flex items-center gap-2">
+        <button id="recomputeEac" class="px-3 py-1.5 rounded-md bg-emerald-600 text-white hover:bg-emerald-700">
+          Recompute EAC
+        </button>
+        <button id="refreshPL" class="px-3 py-1.5 rounded-md border hover:bg-slate-50">
+          Refresh P&amp;L
+        </button>
+      </div>
+    </div>
+  </section>
 
   <!-- Main: current tab renders here -->
   <main class="max-w-6xl mx-auto px-5 py-6">
@@ -106,6 +121,17 @@
   </div>
 
   <!-- App entrypoint -->
-  <script type="module" src="js/main.js?v=admin-eq-auto1"></script>
+  <script type="module" src="js/main.js?v=admin-eq-auto2"></script>
+  <script>
+    // Optional tiny helper: show P&L action bar whenever #pnl hash is active.
+    // If your router already handles this, you can delete this snippet.
+    function togglePnlActions() {
+      const pnl = document.getElementById('pnlActions');
+      if (!pnl) return;
+      pnl.classList.toggle('hidden', location.hash !== '#pnl');
+    }
+    window.addEventListener('hashchange', togglePnlActions);
+    document.addEventListener('DOMContentLoaded', togglePnlActions);
+  </script>
 </body>
 </html>
