@@ -37,7 +37,7 @@ export async function fetchIndirectLinesForCurrentMonth() {
 
   const { data, error, status } = await client
     .from('indirect_lines')
-    .select('id, label, ym, amount')
+    .select('id, ym, amount')   // ← removed label
     .gte('ym', start)
     .lte('ym', endStr);
 
