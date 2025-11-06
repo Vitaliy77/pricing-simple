@@ -14,238 +14,277 @@ export const template = /*html*/`
         <button id="indSave" class="px-3 py-1.5 rounded-md bg-blue-600 text-white">Save</button>
       </div>
     </div>
-    <div id="indMsg" class="text-sm text-slate-500"></div>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+    <div id="indMsg" class="text-sm text-slate-600"></div>
+
+    <div class="grid md:grid-cols-2 gap-6">
       <div>
-        <h3 class="font-semibold mb-2">Indirect costs</h3>
-        <div class="overflow-x-auto">
-          <table id="indIndirectTbl" class="min-w-full text-sm border-separate border-spacing-y-1"></table>
-        </div>
+        <h3 class="font-medium mb-2">Indirect</h3>
+        <div id="indirectTable" class="overflow-auto border rounded-lg"></div>
       </div>
       <div>
-        <h3 class="font-semibold mb-2">Add-backs / Adjustments</h3>
-        <div class="overflow-x-auto">
-          <table id="indAddbackTbl" class="min-w-full text-sm border-separate border-spacing-y-1"></table>
-        </div>
+        <h3 class="font-medium mb-2">Add-backs</h3>
+        <div id="addbacksTable" class="overflow-auto border rounded-lg"></div>
       </div>
     </div>
   </div>
 `;
 
-let state = {
-  year: new Date().getFullYear(),
-  months: [],
-  indirect: [],
-  addbacks: [],
+/* -------------------------------------------------------------
+   Local state
+------------------------------------------------------------- */
+const state = {
+  year: null,
+  months: [],         // [{ ym:'YYYY-MM-01', key:'YYYY-MM', label:'Jan', short:'Jan' }, ...]
+  indirect: [],       // [{ label:'Rent', month:{ 'YYYY-MM': 123, ... } }, ...]
+  addbacks: [],       // same shape
+  hasLabel: true,     // auto-detected; if false we omit label in queries/writes
 };
 
-// Save root element so loadAll/saveAll can access it
 let rootElement = null;
 
+/* -------------------------------------------------------------
+   Init & wiring
+------------------------------------------------------------- */
 export async function init(root) {
-  rootElement = root;  // ← Save root for later use
+  rootElement = root;
 
-  const ym = getCurrentYm();
+  const ym = getCurrentYm();                    // e.g. "2025-03"
   state.year = Number(ym.slice(0, 4));
   state.months = monthsForYear(state.year);
 
   const yearInput = root.querySelector('#indYear');
   if (yearInput) yearInput.value = state.year;
 
-  root.querySelector('#indReload').onclick = loadAll;
-  root.querySelector('#indAddIndirect').onclick = () => {
+  root.querySelector('#indReload')?.addEventListener('click', loadAll);
+  root.querySelector('#indSave')?.addEventListener('click', saveAll);
+  root.querySelector('#indAddIndirect')?.addEventListener('click', () => {
     state.indirect.push(blankLine());
     render();
-  };
-  root.querySelector('#indAddAddback').onclick = () => {
+  });
+  root.querySelector('#indAddAddback')?.addEventListener('click', () => {
     state.addbacks.push(blankLine());
     render();
-  };
-  root.querySelector('#indSave').onclick = saveAll;
+  });
 
   await loadAll();
 }
 
 /* -------------------------------------------------------------
-   LOAD: Use .like('ym', 'YYYY-%') instead of .gte/.lte
-   ------------------------------------------------------------- */
-async function loadAll() {
+   Load: DATE ranges, auto-fallback if 'label' column missing
+------------------------------------------------------------- */
+export async function loadAll() {
   const msg = rootElement.querySelector('#indMsg') || $('#indMsg');
   msg.textContent = 'Loading…';
 
-  const yearPattern = `${state.year}-%`; // e.g. "2025-%"
+  // Read year from input (if provided)
+  const yearInput = rootElement.querySelector('#indYear');
+  const pickedYear = Number(yearInput?.value);
+  if (pickedYear && pickedYear !== state.year) {
+    state.year = pickedYear;
+    state.months = monthsForYear(state.year);
+  }
 
-  const [{ data: ind, error: e1 }, { data: ab, error: e2 }] = await Promise.all([
-    client
-      .from('indirect_lines')
-      .select('id,label,ym,amount')
-      .like('ym', yearPattern),
-    client
-      .from('addback_lines')
-      .select('id,label,ym,amount')
-      .like('ym', yearPattern),
-  ]);
+  const start = `${state.year}-01-01`;
+  const next  = `${state.year + 1}-01-01`;
 
-  if (e1 && e1.code === '42P01') {
-    msg.textContent = 'Tables not found. Create indirect_lines and addback_lines in Supabase.';
-    state.indirect = [blankLine()];
-    state.addbacks = [blankLine()];
+  try {
+    // First try selecting with 'label'; if that fails, retry without it and set hasLabel=false
+    const trySelect = async (table) => {
+      let q = client.from(table).select('id,label,ym,amount').gte('ym', start).lt('ym', next);
+      let { data, error } = await q;
+      if (error && labelMissing(error)) {
+        state.hasLabel = false;
+        const q2 = client.from(table).select('id,ym,amount').gte('ym', start).lt('ym', next);
+        const r2 = await q2;
+        data = r2.data; error = r2.error;
+      }
+      if (error) throw error;
+      return data || [];
+    };
+
+    const [indRows, abRows] = await Promise.all([
+      trySelect('indirect_lines'),
+      trySelect('addback_lines'),
+    ]);
+
+    state.indirect = groupLines(indRows, state.hasLabel);
+    state.addbacks = groupLines(abRows, state.hasLabel);
     render();
-    return;
+    msg.textContent = `Loaded ${state.indirect.length + state.addbacks.length} lines for ${state.year}.`;
+  } catch (e) {
+    console.error(e);
+    msg.textContent = 'Load error: ' + (e?.message || e);
+    // Show blank rows so the user can start typing even if the tables are empty/not present
+    if (!state.indirect.length) state.indirect = [blankLine()];
+    if (!state.addbacks.length) state.addbacks = [blankLine()];
+    render();
   }
-  if (e1) {
-    msg.textContent = e1.message;
-    return;
-  }
-  if (e2) {
-    msg.textContent = e2.message;
-    return;
-  }
-
-  state.indirect = groupLines(ind || []);
-  state.addbacks = groupLines(ab || []);
-  render();
-  msg.textContent = '';
 }
 
 /* -------------------------------------------------------------
-   SAVE: Use ym as 'YYYY-MM-01' (text-safe)
-   ------------------------------------------------------------- */
-async function saveAll() {
+   Save: delete by DATE range, then bulk insert
+   (omits 'label' if the tables don't have it)
+------------------------------------------------------------- */
+export async function saveAll() {
   const msg = rootElement.querySelector('#indMsg') || $('#indMsg');
   msg.textContent = 'Saving…';
 
-  const mks = state.months.map(m => m.ym.slice(0, 7)); // ['2025-01', ...]
-  const rowsToInsert = [];
+  // sync year again to be safe
+  const yearInput = rootElement.querySelector('#indYear');
+  const pickedYear = Number(yearInput?.value);
+  if (pickedYear && pickedYear !== state.year) {
+    state.year = pickedYear;
+    state.months = monthsForYear(state.year);
+  }
 
-  state.indirect.forEach(r => {
-    const label = (r.label || '').trim();
-    if (!label) return;
-    mks.forEach(k => {
-      const amt = Number(r.month[k] || 0);
-      if (!amt) return;
-      rowsToInsert.push({
-        label,
-        ym: k + '-01',
-        amount: amt,
-      });
-    });
-  });
+  const start = `${state.year}-01-01`;
+  const next  = `${state.year + 1}-01-01`;
 
-  state.addbacks.forEach(r => {
+  // Build rows from UI state
+  const monthKeys = state.months.map(m => m.key); // ['YYYY-MM', ...]
+  const rowsIndirect = [];
+  const rowsAddbacks = [];
+
+  const pushRow = (arr, label, ymKey, amt) => {
+    if (!amt) return;
+    const ym = `${ymKey}-01`;
+    if (state.hasLabel) {
+      arr.push({ label, ym, amount: amt });
+    } else {
+      arr.push({ ym, amount: amt });
+    }
+  };
+
+  // indirect
+  for (const r of state.indirect) {
     const label = (r.label || '').trim();
-    if (!label) return;
-    mks.forEach(k => {
-      const amt = Number(r.month[k] || 0);
-      if (!amt) return;
-      rowsToInsert.push({
-        __addback: true,
-        label,
-        ym: k + '-01',
-        amount: amt,
-      });
-    });
-  });
+    // if label is required but empty, skip this line entirely
+    if (state.hasLabel && !label) continue;
+    for (const k of monthKeys) {
+      const amt = num(r.month?.[k]);
+      if (amt) pushRow(rowsIndirect, label, k, amt);
+    }
+  }
+  // addbacks
+  for (const r of state.addbacks) {
+    const label = (r.label || '').trim();
+    if (state.hasLabel && !label) continue;
+    for (const k of monthKeys) {
+      const amt = num(r.month?.[k]);
+      if (amt) pushRow(rowsAddbacks, label, k, amt);
+    }
+  }
 
   try {
-    await client.from('indirect_lines').delete().like('ym', `${state.year}-%`);
-    await client.from('addback_lines').delete().like('ym', `${state.year}-%`);
+    // wipe existing year
+    {
+      const { error } = await client.from('indirect_lines').delete().gte('ym', start).lt('ym', next);
+      if (error && tableMissing(error)) {
+        // if table missing, skip delete (first-time run)
+      } else if (error) throw error;
+    }
+    {
+      const { error } = await client.from('addback_lines').delete().gte('ym', start).lt('ym', next);
+      if (error && tableMissing(error)) {
+        // skip if table missing
+      } else if (error) throw error;
+    }
 
-    const indirectRows = rowsToInsert.filter(r => !r.__addback);
-    const addbackRows = rowsToInsert.filter(r => r.__addback).map(({ __addback, ...rest }) => rest);
-
-    if (indirectRows.length) {
-      const { error } = await client.from('indirect_lines').insert(indirectRows);
+    // insert new rows
+    if (rowsIndirect.length) {
+      const { error } = await client.from('indirect_lines').insert(rowsIndirect);
       if (error) throw error;
     }
-    if (addbackRows.length) {
-      const { error } = await client.from('addback_lines').insert(addbackRows);
+    if (rowsAddbacks.length) {
+      const { error } = await client.from('addback_lines').insert(rowsAddbacks);
       if (error) throw error;
     }
 
     msg.textContent = 'Saved.';
     setTimeout(() => (msg.textContent = ''), 1800);
-  } catch (err) {
-    console.error(err);
-    msg.textContent = 'Save failed: ' + (err.message || err);
+  } catch (e) {
+    console.error(e);
+    msg.textContent = 'Save failed: ' + (e?.message || e);
   }
 }
 
 /* -------------------------------------------------------------
-   RENDER
-   ------------------------------------------------------------- */
+   Render
+------------------------------------------------------------- */
 function render() {
-  renderTable('indIndirectTbl', state.indirect, false);
-  renderTable('indAddbackTbl', state.addbacks, true);
+  const indEl = rootElement.querySelector('#indirectTable');
+  const abEl  = rootElement.querySelector('#addbacksTable');
+
+  indEl.innerHTML = buildTableHTML(state.indirect, state.months, { title: 'Indirect' });
+  abEl.innerHTML  = buildTableHTML(state.addbacks, state.months, { title: 'Add-backs' });
+
+  // wire inputs
+  wireTable(indEl, state.indirect);
+  wireTable(abEl,  state.addbacks);
 }
 
-function renderTable(elId, rows, isAddback) {
-  const tbl = document.getElementById(elId);
-  const mks = state.months.map(m => m.ym.slice(0, 7));
-  let html = '<thead><tr>';
-  html += '<th class="p-2 text-left sticky left-0 bg-white">Label</th>';
-  mks.forEach(mk => (html += `<th class="p-2 text-right">${mk.slice(5)}</th>`));
-  html += '<th class="p-2 text-right">Year Total</th>';
-  html += '<th class="p-2"></th>';
-  html += '</tr></thead><tbody>';
-
-  rows.forEach((row, idx) => {
-    const total = mks.reduce((s, k) => s + Number(row.month[k] || 0), 0);
-    html += `<tr data-idx="${idx}">`;
-    html += `<td class="p-2 sticky left-0 bg-white">
-      <input class="lblInp border rounded-md p-1 w-48" value="${esc(row.label)}">
-    </td>`;
-    mks.forEach(k => {
-      const v = row.month[k] ?? '';
-      html += `<td class="p-1 text-right">
-        <input data-k="${k}" class="amtInp border rounded-md p-1 w-20 text-right" type="number" step="0.01" min="0" value="${v}">
+function buildTableHTML(rows, months, opts = {}) {
+  const headMonths = months.map(m => `<th class="text-right px-2 py-2 whitespace-nowrap">${esc(m.short)}</th>`).join('');
+  const body = rows.map((r, i) => {
+    const labelCell = `<input data-row="${i}" data-field="label" class="border rounded px-2 py-1 w-full" value="${esc(r.label || '')}" ${state.hasLabel ? '' : 'placeholder="(label omitted)"} />`;
+    const monthCells = months.map(m => {
+      const val = fmtUSD0(r.month?.[m.key] || '');
+      return `<td class="px-2 py-1 text-right">
+        <input data-row="${i}" data-month="${m.key}" class="border rounded px-2 py-1 w-28 text-right" value="${val}" />
       </td>`;
+    }).join('');
+    const total = fmtUSD0(sum(Object.values(r.month || {})));
+    return `<tr>
+      <td class="px-2 py-1 w-56">${labelCell}</td>
+      ${monthCells}
+      <td class="px-2 py-1 text-right font-medium">${total}</td>
+      <td class="px-2 py-1 text-right">
+        <button data-del="${i}" class="text-red-600 hover:underline">Delete</button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  return `
+    <table class="min-w-full text-sm">
+      <thead class="bg-slate-50 sticky top-0">
+        <tr>
+          <th class="text-left px-2 py-2">Label</th>
+          ${headMonths}
+          <th class="text-right px-2 py-2">Total</th>
+          <th class="px-2 py-2"></th>
+        </tr>
+      </thead>
+      <tbody>${body || `<tr><td colspan="${months.length + 3}" class="px-2 py-10 text-center text-slate-500">No lines — add one</td></tr>`}</tbody>
+    </table>
+  `;
+}
+
+function wireTable(container, rowsRef) {
+  container.querySelectorAll('input[data-field="label"]').forEach(inp => {
+    inp.addEventListener('input', e => {
+      const idx = Number(e.target.dataset.row);
+      rowsRef[idx].label = e.target.value;
     });
-    html += `<td class="p-2 text-right font-medium">${fmtUSD0(total)}</td>`;
-    html += `<td class="p-2">
-      <button class="rowDel px-2 py-1 rounded-md border hover:bg-slate-50">X</button>
-    </td>`;
-    html += '</tr>';
   });
-
-  const foot = mks.map(k => rows.reduce((s, r) => s + Number(r.month[k] || 0), 0));
-  const totalYear = foot.reduce((s, x) => s + x, 0);
-  html += `<tr class="font-semibold bg-slate-50">
-    <td class="p-2 sticky left-0 bg-white">Totals</td>
-    ${foot.map(v => `<td class="p-2 text-right">${fmtUSD0(v)}</td>`).join('')}
-    <td class="p-2 text-right">${fmtUSD0(totalYear)}</td>
-    <td class="p-2"></td>
-  </tr>`;
-
-  html += '</tbody>';
-  tbl.innerHTML = html;
-
-  tbl.querySelectorAll('.lblInp').forEach(inp => {
-    inp.addEventListener('change', e => {
-      const row = rows[e.target.closest('tr').dataset.idx];
-      row.label = e.target.value;
-    });
-  });
-  tbl.querySelectorAll('.amtInp').forEach(inp => {
-    inp.addEventListener('change', e => {
+  container.querySelectorAll('input[data-month]').forEach(inp => {
+    inp.addEventListener('input', e => {
+      const idx = Number(e.target.dataset.row);
+      const key = e.target.dataset.month; // 'YYYY-MM'
+      const v = parseMoney(e.target.value);
+      rowsRef[idx].month[key] = v;
+      // update total cell visually
       const tr = e.target.closest('tr');
-      const row = rows[tr.dataset.idx];
-      const k = e.target.dataset.k;
-      const val = e.target.value;
-      row.month[k] = val === '' ? '' : Number(val);
-      render();
-    });
-    inp.addEventListener('keydown', e => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        e.target.blur();
+      if (tr) {
+        const totalCell = tr.querySelector('td:nth-last-child(2)');
+        if (totalCell) totalCell.textContent = fmtUSD0(sum(Object.values(rowsRef[idx].month)));
       }
     });
   });
-  tbl.querySelectorAll('.rowDel').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const idx = btn.closest('tr').dataset.idx;
-      rows.splice(idx, 1);
+  container.querySelectorAll('button[data-del]').forEach(btn => {
+    btn.addEventListener('click', e => {
+      const idx = Number(e.currentTarget.dataset.del);
+      rowsRef.splice(idx, 1);
       render();
     });
   });
@@ -253,43 +292,71 @@ function renderTable(elId, rows, isAddback) {
 
 /* -------------------------------------------------------------
    Helpers
-   ------------------------------------------------------------- */
-function monthsForYear(y) {
-  return Array.from({ length: 12 }, (_, i) => {
-    const d = new Date(Date.UTC(y, i, 1));
-    return { ym: d.toISOString().slice(0, 10) };
-  });
-}
-
-function groupLines(rows) {
-  const byLabel = {};
-  rows.forEach(r => {
-    const k = r.label || '(no label)';
-    const m = r.ym.slice(0, 7);
-    if (!byLabel[k]) byLabel[k] = { label: k, month: {} };
-    byLabel[k].month[m] = Number(r.amount || 0);
-  });
-  return Object.values(byLabel);
+------------------------------------------------------------- */
+function monthsForYear(year) {
+  const arr = [];
+  const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  for (let m = 0; m < 12; m++) {
+    const d = new Date(Date.UTC(year, m, 1));
+    const key = d.toISOString().slice(0, 7);     // 'YYYY-MM'
+    const ym  = `${key}-01`;                     // 'YYYY-MM-01'
+    arr.push({ ym, key, short: monthNames[m] });
+  }
+  return arr;
 }
 
 function blankLine() {
   return { label: '', month: {} };
 }
 
-function fmtUSD0(v) {
-  return Number(v || 0).toLocaleString('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: 0,
-  });
+function groupLines(rows, hasLabel = true) {
+  const map = new Map(); // key: label (or 'line') → { label, month:{} }
+  for (const r of rows) {
+    const key = hasLabel ? (r.label || '') : 'line';
+    if (!map.has(key)) map.set(key, { label: hasLabel ? key : '', month: {} });
+    const obj = map.get(key);
+    const ymKey = String(r.ym).slice(0, 7);    // 'YYYY-MM'
+    obj.month[ymKey] = (obj.month[ymKey] || 0) + Number(r.amount || 0);
+  }
+  return Array.from(map.values());
 }
 
+function labelMissing(error) {
+  // PGRST204 (schema cache) or Postgres 42703 (undefined column)
+  return (error && (
+    error.code === 'PGRST204' ||
+    error.code === '42703' ||
+    /column .*label.* does not exist/i.test(error.message || '')
+  ));
+}
+function tableMissing(error) {
+  return (error && (
+    error.code === '42P01' || /relation .* does not exist/i.test(error.message || '')
+  ));
+}
+
+function num(v) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+}
+function sum(arr) {
+  let s = 0;
+  for (const v of arr) s += Number(v || 0);
+  return s;
+}
+function parseMoney(s) {
+  if (s == null) return 0;
+  const str = String(s).replace(/[, $]/g, '');
+  const n = Number(str);
+  return Number.isFinite(n) ? n : 0;
+}
+function fmtUSD0(v) {
+  const n = Number(v || 0);
+  if (!Number.isFinite(n)) return '';
+  return n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+}
 function esc(s) {
   return String(s ?? '').replace(/[&<>"']/g, c => ({
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#39;',
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
   }[c]));
 }
