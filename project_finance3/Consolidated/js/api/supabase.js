@@ -23,23 +23,6 @@ export function getCurrentYm() {
 /* -------------------------------------------------------------
    NEW: fetch indirect_lines for a **full year** (or any range)
 ------------------------------------------------------------- */
-export async function fetchIndirectLinesForYear(year = 2025) {
-  const start = `${year}-01-01`;   // first day of the year
-  const end   = `${year}-12-31`;   // last day of the year
-
-  const { data, error, status } = await client
-    .from('indirect_lines')
-    .select('id, label, ym, amount')
-    .gte('ym', start)   // ≥ start date
-    .lte('ym', end);    // ≤ end date
-
-  if (error) {
-    console.error('Supabase error:', error);
-    throw new Error(`Supabase ${status}: ${error.message}`);
-  }
-
-  return data;   // array of rows
-}
 
 /* -------------------------------------------------------------
    OPTIONAL: fetch for the **currently selected month** only
