@@ -8,6 +8,7 @@ const routes = {
   '#consol-pl': () => import('./tabs/consol-pl.js'),
   '#scenarios': () => import('./tabs/scenarios.js'),
   '#indirect': () => import('./tabs/indirect.js'),
+  '#addbacks': () => import('./tabs/addbacks.js'),
 };
 
 function setActiveTab(hash) {
@@ -15,6 +16,7 @@ function setActiveTab(hash) {
     '#consol-pl': 'consol-pl',
     '#scenarios': 'scenarios',
     '#indirect': 'indirect',
+    '#addbacks': 'addbacks',
   };
   Object.values(map).forEach(id => {
     const el = document.getElementById('tab-' + id);
