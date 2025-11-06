@@ -39,12 +39,16 @@ let state = {
   addbacks: [],
 };
 
+// Save root element so loadAll/saveAll can access it
+let rootElement = null;
+
 export async function init(root) {
+  rootElement = root;  // ← Save root for later use
+
   const ym = getCurrentYm();
   state.year = Number(ym.slice(0, 4));
   state.months = monthsForYear(state.year);
 
-  // Use root.querySelector to avoid DOM timing issues
   const yearInput = root.querySelector('#indYear');
   if (yearInput) yearInput.value = state.year;
 
@@ -66,7 +70,7 @@ export async function init(root) {
    LOAD: Use .like('ym', 'YYYY-%') instead of .gte/.lte
    ------------------------------------------------------------- */
 async function loadAll() {
-  const msg = root.querySelector('#indMsg') || $('#indMsg');
+  const msg = rootElement.querySelector('#indMsg') || $('#indMsg');
   msg.textContent = 'Loading…';
 
   const yearPattern = `${state.year}-%`; // e.g. "2025-%"
@@ -108,7 +112,7 @@ async function loadAll() {
    SAVE: Use ym as 'YYYY-MM-01' (text-safe)
    ------------------------------------------------------------- */
 async function saveAll() {
-  const msg = root.querySelector('#indMsg') || $('#indMsg');
+  const msg = rootElement.querySelector('#indMsg') || $('#indMsg');
   msg.textContent = 'Saving…';
 
   const mks = state.months.map(m => m.ym.slice(0, 7)); // ['2025-01', ...]
@@ -122,7 +126,7 @@ async function saveAll() {
       if (!amt) return;
       rowsToInsert.push({
         label,
-        ym: k + '-01', // text-safe: "2025-01-01"
+        ym: k + '-01',
         amount: amt,
       });
     });
@@ -144,7 +148,6 @@ async function saveAll() {
   });
 
   try {
-    // Delete old data for this year
     await client.from('indirect_lines').delete().like('ym', `${state.year}-%`);
     await client.from('addback_lines').delete().like('ym', `${state.year}-%`);
 
@@ -205,7 +208,6 @@ function renderTable(elId, rows, isAddback) {
     html += '</tr>';
   });
 
-  // Footer: Totals
   const foot = mks.map(k => rows.reduce((s, r) => s + Number(r.month[k] || 0), 0));
   const totalYear = foot.reduce((s, x) => s + x, 0);
   html += `<tr class="font-semibold bg-slate-50">
@@ -218,7 +220,6 @@ function renderTable(elId, rows, isAddback) {
   html += '</tbody>';
   tbl.innerHTML = html;
 
-  // Wire events
   tbl.querySelectorAll('.lblInp').forEach(inp => {
     inp.addEventListener('change', e => {
       const row = rows[e.target.closest('tr').dataset.idx];
