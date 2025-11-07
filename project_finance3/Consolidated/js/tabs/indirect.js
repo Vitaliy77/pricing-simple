@@ -241,8 +241,8 @@ const indirectState = makeState();
 const addbacksState = makeState();
 
 export const indirectTab = {
-  template,                     // the HTML string
-  async init(root) {            // called by router after inserting HTML
+  template: template,  // ← explicitly reference the named export
+  async init(root) {
     rootEl = root;
     const ym = getCurrentYm();
     state.year = Number(ym.slice(0, 4));
