@@ -199,6 +199,28 @@ function wire(container, rowsRef) {
   });
 }
 
+EXPORT A TAB OBJECT
+------------------------------------------------------------- */
+export const addbacksTab = {
+  template,
+  async init(root) {
+    rootEl = root;
+    const ym = getCurrentYm();
+    state.year = Number(ym.slice(0, 4));
+    state.months = monthsForYear(state.year);
+    root.querySelector('#abYear').value = state.year;
+
+    root.querySelector('#abReload')?.addEventListener('click', loadAll);
+    root.querySelector('#abAddLine')?.addEventListener('click', () => {
+      state.rows.push(blankLine());
+      render();
+    });
+    root.querySelector('#abSave')?.addEventListener('click', saveAll);
+
+    await loadAll();
+  }
+};
+
 /* helpers */
 function monthsForYear(year) {
   const names = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
