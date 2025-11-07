@@ -11,7 +11,6 @@ const routes = {
   '#consol-pl': () => import('./tabs/consol-pl.js'),
   '#scenarios': () => import('./tabs/scenarios.js'),
   '#indirect':  () => import('./tabs/indirect.js'),
-  // If/when you add a separate Add-backs tab:
   '#addbacks':  () => import('./tabs/addbacks.js'),
 };
 
