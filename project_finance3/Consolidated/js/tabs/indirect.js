@@ -241,7 +241,7 @@ const indirectState = makeState();
 const addbacksState = makeState();
 
 export const indirectTab = {
-  template: template,  // ← explicitly reference the named export
+  template: template,  // ← explicitly reference the exported value
   async init(root) {
     rootEl = root;
     const ym = getCurrentYm();
