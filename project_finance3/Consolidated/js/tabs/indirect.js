@@ -241,19 +241,22 @@ const indirectState = makeState();
 const addbacksState = makeState();
 
 export const indirectTab = {
-  template: indirectTemplate,
-  async init(root) {
-    indirectRoot = root;
+  template,                     // the HTML string
+  async init(root) {            // called by router after inserting HTML
+    rootEl = root;
     const ym = getCurrentYm();
-    indirectState.year = Number(ym.slice(0,4));
-    indirectState.months = monthsForYear(indirectState.year);
-    root.querySelector('#indYear').value = indirectState.year;
+    state.year = Number(ym.slice(0, 4));
+    state.months = monthsForYear(state.year);
+    root.querySelector('#indYear').value = state.year;
 
-    root.querySelector('#indReload').addEventListener('click',()=>loadFor(root,indirectState,'indirect_lines'));
-    root.querySelector('#indAdd').addEventListener('click',()=>{ indirectState.lines.push(blankLine()); renderFor(root,indirectState); });
-    root.querySelector('#indSave').addEventListener('click',()=>saveFor(root,indirectState,'indirect_lines'));
+    root.querySelector('#indReload')?.addEventListener('click', loadAll);
+    root.querySelector('#indAddLine')?.addEventListener('click', () => {
+      state.rows.push(blankLine());
+      render();
+    });
+    root.querySelector('#indSave')?.addEventListener('click', saveAll);
 
-    await loadFor(root,indirectState,'indirect_lines');
+    await loadAll();
   }
 };
 
