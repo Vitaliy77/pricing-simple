@@ -47,9 +47,6 @@ const makeState = () => ({
   hasLabel: true,
 });
 
-let indirectRoot = null;
-let addbacksRoot = null;
-
 const monthsForYear = (year) => {
   const names = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   return Array.from({length:12}, (_,i) => {
@@ -83,108 +80,121 @@ const fmtUSD0 = v => { const n=Number(v||0); return Number.isFinite(n)?n.toLocal
 const esc = s => String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 /* -------------------------------------------------------------
-   Core CRUD (shared)
+   Core CRUD (shared) — NO GLOBALS
 ------------------------------------------------------------- */
 const loadFor = async (root, state, table) => {
-  const msg = root.querySelector(root===indirectRoot ? '#indMsg' : '#abMsg');
+  const isIndirect = table === 'indirect_lines';
+  const msg = root.querySelector(isIndirect ? '#indMsg' : '#abMsg');
+  if (!msg) return;
+
   msg.textContent = 'Loading…';
 
-  const yearInput = root.querySelector(root===indirectRoot ? '#indYear' : '#abYear');
+  const yearInput = root.querySelector(isIndirect ? '#indYear' : '#abYear');
   const picked = Number(yearInput?.value);
-  if (picked && picked!==state.year) {
+  if (picked && picked !== state.year) {
     state.year = picked;
     state.months = monthsForYear(state.year);
   }
 
   const start = `${state.year}-01-01`;
-  const next = `${state.year+1}-01-01`;
+  const next = `${state.year + 1}-01-01`;
 
   const trySelect = async () => {
-    let q = client.from(table).select('id,label,ym,amount').gte('ym',start).lt('ym',next);
-    let {data,error} = await q;
+    let q = client.from(table).select('id,label,ym,amount').gte('ym', start).lt('ym', next);
+    let { data, error } = await q;
     if (error && labelMissing(error)) {
       state.hasLabel = false;
-      const q2 = client.from(table).select('id,ym,amount').gte('ym',start).lt('ym',next);
-      ({data,error} = await q2);
+      const q2 = client.from(table).select('id,ym,amount').gte('ym', start).lt('ym', next);
+      ({ data, error } = await q2);
     }
     if (error) throw error;
-    return data||[];
+    return data || [];
   };
 
-  const rows = await trySelect();
-  state.lines = groupLines(rows, state.hasLabel);
-  renderFor(root, state);
-  msg.textContent = `Loaded ${state.lines.length} line${state.lines.length===1?'':'s'} for ${state.year}.`;
+  try {
+    const rows = await trySelect();
+    state.lines = groupLines(rows, state.hasLabel);
+    renderFor(root, state, table);
+    msg.textContent = `Loaded ${state.lines.length} line${state.lines.length === 1 ? '' : 's'} for ${state.year}.`;
+  } catch (e) {
+    console.error(e);
+    msg.textContent = 'Load error: ' + (e?.message || e);
+  }
 };
 
 const saveFor = async (root, state, table) => {
-  const msg = root.querySelector(root===indirectRoot ? '#indMsg' : '#abMsg');
+  const isIndirect = table === 'indirect_lines';
+  const msg = root.querySelector(isIndirect ? '#indMsg' : '#abMsg');
+  if (!msg) return;
+
   msg.textContent = 'Saving…';
 
-  const yearInput = root.querySelector(root===indirectRoot ? '#indYear' : '#abYear');
+  const yearInput = root.querySelector(isIndirect ? '#indYear' : '#abYear');
   const picked = Number(yearInput?.value);
-  if (picked && picked!==state.year) {
+  if (picked && picked !== state.year) {
     state.year = picked;
     state.months = monthsForYear(state.year);
   }
 
   const start = `${state.year}-01-01`;
-  const next = `${state.year+1}-01-01`;
-  const monthKeys = state.months.map(m=>m.key);
+  const next = `${state.year + 1}-01-01`;
+  const monthKeys = state.months.map(m => m.key);
 
   const rows = [];
-  const push = (label,ymKey,amt) => {
+  const push = (label, ymKey, amt) => {
     if (!amt) return;
     const ym = `${ymKey}-01`;
-    if (state.hasLabel) rows.push({label,ym,amount:amt});
-    else rows.push({ym,amount:amt});
+    if (state.hasLabel) rows.push({ label, ym, amount: amt });
+    else rows.push({ ym, amount: amt });
   };
 
   for (const r of state.lines) {
-    const label = (r.label||'').trim();
+    const label = (r.label || '').trim();
     if (state.hasLabel && !label) continue;
     for (const k of monthKeys) {
       const amt = num(r.month?.[k]);
-      if (amt) push(label,k,amt);
+      if (amt) push(label, k, amt);
     }
   }
 
   try {
-    const del = await client.from(table).delete().gte('ym',start).lt('ym',next);
+    const del = await client.from(table).delete().gte('ym', start).lt('ym', next);
     if (del.error && !tableMissing(del.error)) throw del.error;
 
     if (rows.length) {
-      const {error} = await client.from(table).insert(rows);
+      const { error } = await client.from(table).insert(rows);
       if (error) throw error;
     }
 
     msg.textContent = 'Saved.';
-    setTimeout(() => (msg.textContent=''),1800);
+    setTimeout(() => (msg.textContent = ''), 1800);
   } catch (e) {
     console.error(e);
-    msg.textContent = 'Save failed: '+(e?.message||e);
+    msg.textContent = 'Save failed: ' + (e?.message || e);
   }
 };
 
 /* -------------------------------------------------------------
    Rendering (shared)
 ------------------------------------------------------------- */
-const renderFor = (root, state) => {
-  const tableEl = root.querySelector(root===indirectRoot ? '#indTable' : '#abTable');
+const renderFor = (root, state, table) => {
+  const isIndirect = table === 'indirect_lines';
+  const tableEl = root.querySelector(isIndirect ? '#indTable' : '#abTable');
   if (!tableEl) return;
+
   tableEl.innerHTML = buildTableHTML(state.lines, state.months);
   wireTable(tableEl, state.lines, root, state);
 };
 
 const buildTableHTML = (rows, months) => {
-  const head = months.map(m=>`<th class="text-right px-2 py-2 whitespace-nowrap">${esc(m.short)}</th>`).join('');
-  const body = rows.map((r,i)=>{
+  const head = months.map(m => `<th class="text-right px-2 py-2 whitespace-nowrap">${esc(m.short)}</th>`).join('');
+  const body = rows.map((r, i) => {
     const labelCell = `<input data-row="${i}" data-field="label" class="border rounded px-2 py-1 w-full" value="${esc(r.label||'')}">`;
-    const monthCells = months.map(m=>{
-      const val = fmtUSD0(r.month?.[m.key]||'');
+    const monthCells = months.map(m => {
+      const val = fmtUSD0(r.month?.[m.key] || '');
       return `<td class="px-2 py-1 text-right"><input data-row="${i}" data-month="${m.key}" class="border rounded px-2 py-1 w-28 text-right" value="${val}"></td>`;
     }).join('');
-    const total = fmtUSD0(sum(Object.values(r.month||{})));
+    const total = fmtUSD0(sum(Object.values(r.month || {})));
     return `<tr>
       <td class="px-2 py-1 w-56">${labelCell}</td>
       ${monthCells}
@@ -192,26 +202,26 @@ const buildTableHTML = (rows, months) => {
       <td class="px-2 py-1 text-right"><button data-del="${i}" class="text-red-600 hover:underline">Delete</button></td>
     </tr>`;
   }).join('');
-  const empty = `<tr><td colspan="${months.length+3}" class="px-2 py-10 text-center text-slate-500">No lines — add one</td></tr>`;
+  const empty = `<tr><td colspan="${months.length + 3}" class="px-2 py-10 text-center text-slate-500">No lines — add one</td></tr>`;
   return `
     <table class="min-w-full text-sm">
       <thead class="bg-slate-50 sticky top-0">
         <tr><th class="text-left px-2 py-2">Label</th>${head}<th class="text-right px-2 py-2">Total</th><th class="px-2 py-2"></th></tr>
       </thead>
-      <tbody>${body||empty}</tbody>
+      <tbody>${body || empty}</tbody>
     </table>
   `;
 };
 
 const wireTable = (container, rows, root, state) => {
-  container.querySelectorAll('input[data-field="label"]').forEach(inp=>{
-    inp.addEventListener('change', e=>{
+  container.querySelectorAll('input[data-field="label"]').forEach(inp => {
+    inp.addEventListener('change', e => {
       const idx = Number(e.target.dataset.row);
       rows[idx].label = e.target.value.trim();
     });
   });
 
-  container.querySelectorAll('input[data-month]').forEach(inp=>{
+  container.querySelectorAll('input[data-month]').forEach(inp => {
     const update = () => {
       const idx = Number(inp.dataset.row);
       const key = inp.dataset.month;
@@ -220,15 +230,15 @@ const wireTable = (container, rows, root, state) => {
       const tot = tr?.querySelector('td:nth-last-child(2)');
       if (tot) tot.textContent = fmtUSD0(sum(Object.values(rows[idx].month)));
     };
-    inp.addEventListener('change',update);
-    inp.addEventListener('blur',update);
+    inp.addEventListener('change', update);
+    inp.addEventListener('blur', update);
   });
 
-  container.querySelectorAll('button[data-del]').forEach(btn=>{
-    btn.addEventListener('click',()=>{
+  container.querySelectorAll('button[data-del]').forEach(btn => {
+    btn.addEventListener('click', () => {
       const idx = Number(btn.dataset.del);
-      rows.splice(idx,1);
-      renderFor(root, state);
+      rows.splice(idx, 1);
+      renderFor(root, state, root.querySelector('#indTable') ? 'indirect_lines' : 'addback_lines');
     });
   });
 };
@@ -242,39 +252,41 @@ const addbacksState = makeState();
 export const indirectTab = {
   template: indirectTemplate,
   async init(root) {
-    indirectRoot = root;
+    const state = indirectState;
+    const yearInput = root.querySelector('#indYear');
     const ym = getCurrentYm();
-    indirectState.year = Number(ym.slice(0,4));
-    indirectState.months = monthsForYear(indirectState.year);
-    root.querySelector('#indYear').value = indirectState.year;
+    state.year = Number(ym.slice(0, 4));
+    state.months = monthsForYear(state.year);
+    yearInput.value = state.year;
 
-    root.querySelector('#indReload')?.addEventListener('click', () => loadFor(root, indirectState, 'indirect_lines'));
+    root.querySelector('#indReload')?.addEventListener('click', () => loadFor(root, state, 'indirect_lines'));
     root.querySelector('#indAdd')?.addEventListener('click', () => {
-      indirectState.lines.push(blankLine());
-      renderFor(root, indirectState);
+      state.lines.push(blankLine());
+      renderFor(root, state, 'indirect_lines');
     });
-    root.querySelector('#indSave')?.addEventListener('click', () => saveFor(root, indirectState, 'indirect_lines'));
+    root.querySelector('#indSave')?.addEventListener('click', () => saveFor(root, state, 'indirect_lines'));
 
-    await loadFor(root, indirectState, 'indirect_lines');
+    await loadFor(root, state, 'indirect_lines');
   }
 };
 
 export const addbacksTab = {
   template: addbacksTemplate,
   async init(root) {
-    addbacksRoot = root;
+    const state = addbacksState;
+    const yearInput = root.querySelector('#abYear');
     const ym = getCurrentYm();
-    addbacksState.year = Number(ym.slice(0,4));
-    addbacksState.months = monthsForYear(addbacksState.year);
-    root.querySelector('#abYear').value = addbacksState.year;
+    state.year = Number(ym.slice(0, 4));
+    state.months = monthsForYear(state.year);
+    yearInput.value = state.year;
 
-    root.querySelector('#abReload')?.addEventListener('click', () => loadFor(root, addbacksState, 'addback_lines'));
+    root.querySelector('#abReload')?.addEventListener('click', () => loadFor(root, state, 'addback_lines'));
     root.querySelector('#abAdd')?.addEventListener('click', () => {
-      addbacksState.lines.push(blankLine());
-      renderFor(root, addbacksState);
+      state.lines.push(blankLine());
+      renderFor(root, state, 'addback_lines');
     });
-    root.querySelector('#abSave')?.addEventListener('click', () => saveFor(root, addbacksState, 'addback_lines'));
+    root.querySelector('#abSave')?.addEventListener('click', () => saveFor(root, state, 'addback_lines'));
 
-    await loadFor(root, addbacksState, 'addback_lines');
+    await loadFor(root, state, 'addback_lines');
   }
 };
