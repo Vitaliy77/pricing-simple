@@ -10,8 +10,8 @@ import { initSupabase } from './api/supabase.js';
 const routes = {
   '#consol-pl': () => import('./tabs/consol-pl.js'),
   '#scenarios': () => import('./tabs/scenarios.js'),
-  '#indirect':  () => import('./tabs/indirect.js'),
-  '#addbacks':  () => import('./tabs/addbacks.js'),
+  '#indirect': () => import('./tabs/indirect.js').then(m => m.indirectTab),
+  '#addbacks': () => import('./tabs/indirect.js').then(m => m.addbacksTab),
 };
 
 function setActiveTab(hash) {
