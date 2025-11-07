@@ -1,5 +1,5 @@
 // js/tabs/indirect.js
-//import { $ } from '../lib/dom.js';
+
 import { $ } from '../lib/dom.js';
 import { client, getCurrentYm } from '../api/supabase.js';
 
