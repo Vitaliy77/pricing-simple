@@ -43,7 +43,7 @@ const addbacksTemplate = /*html*/`
 const makeState = () => ({
   year: null,
   months: [],
-  lines: [],        // [{ label, month:{'YYYY-MM':123} }]
+  lines: [],
   hasLabel: true,
 });
 
@@ -97,7 +97,7 @@ const loadFor = async (root, state, table) => {
   }
 
   const start = `${state.year}-01-01`;
-  const next  = `${state.year+1}-01-01`;
+  const next = `${state.year+1}-01-01`;
 
   const trySelect = async () => {
     let q = client.from(table).select('id,label,ym,amount').gte('ym',start).lt('ym',next);
@@ -129,7 +129,7 @@ const saveFor = async (root, state, table) => {
   }
 
   const start = `${state.year}-01-01`;
-  const next  = `${state.year+1}-01-01`;
+  const next = `${state.year+1}-01-01`;
   const monthKeys = state.months.map(m=>m.key);
 
   const rows = [];
@@ -171,8 +171,9 @@ const saveFor = async (root, state, table) => {
 ------------------------------------------------------------- */
 const renderFor = (root, state) => {
   const tableEl = root.querySelector(root===indirectRoot ? '#indTable' : '#abTable');
+  if (!tableEl) return;
   tableEl.innerHTML = buildTableHTML(state.lines, state.months);
-  wireTable(tableEl, state.lines);
+  wireTable(tableEl, state.lines, root, state);
 };
 
 const buildTableHTML = (rows, months) => {
@@ -202,7 +203,7 @@ const buildTableHTML = (rows, months) => {
   `;
 };
 
-const wireTable = (container, rows) => {
+const wireTable = (container, rows, root, state) => {
   container.querySelectorAll('input[data-field="label"]').forEach(inp=>{
     inp.addEventListener('change', e=>{
       const idx = Number(e.target.dataset.row);
@@ -227,9 +228,7 @@ const wireTable = (container, rows) => {
     btn.addEventListener('click',()=>{
       const idx = Number(btn.dataset.del);
       rows.splice(idx,1);
-      renderFor(container.closest('[data-root]')||indirectRoot, // fallback safe
-                container===indirectRoot.querySelector('#indTable') ?
-                indirectState : addbacksState);
+      renderFor(root, state);
     });
   });
 };
@@ -241,22 +240,22 @@ const indirectState = makeState();
 const addbacksState = makeState();
 
 export const indirectTab = {
-  template: template,  // ← explicitly reference the exported value
+  template: indirectTemplate,
   async init(root) {
-    rootEl = root;
+    indirectRoot = root;
     const ym = getCurrentYm();
-    state.year = Number(ym.slice(0, 4));
-    state.months = monthsForYear(state.year);
-    root.querySelector('#indYear').value = state.year;
+    indirectState.year = Number(ym.slice(0,4));
+    indirectState.months = monthsForYear(indirectState.year);
+    root.querySelector('#indYear').value = indirectState.year;
 
-    root.querySelector('#indReload')?.addEventListener('click', loadAll);
-    root.querySelector('#indAddLine')?.addEventListener('click', () => {
-      state.rows.push(blankLine());
-      render();
+    root.querySelector('#indReload')?.addEventListener('click', () => loadFor(root, indirectState, 'indirect_lines'));
+    root.querySelector('#indAdd')?.addEventListener('click', () => {
+      indirectState.lines.push(blankLine());
+      renderFor(root, indirectState);
     });
-    root.querySelector('#indSave')?.addEventListener('click', saveAll);
+    root.querySelector('#indSave')?.addEventListener('click', () => saveFor(root, indirectState, 'indirect_lines'));
 
-    await loadAll();
+    await loadFor(root, indirectState, 'indirect_lines');
   }
 };
 
@@ -269,10 +268,13 @@ export const addbacksTab = {
     addbacksState.months = monthsForYear(addbacksState.year);
     root.querySelector('#abYear').value = addbacksState.year;
 
-    root.querySelector('#abReload').addEventListener('click',()=>loadFor(root,addbacksState,'addback_lines'));
-    root.querySelector('#abAdd').addEventListener('click',()=>{ addbacksState.lines.push(blankLine()); renderFor(root,addbacksState); });
-    root.querySelector('#abSave').addEventListener('click',()=>saveFor(root,addbacksState,'addback_lines'));
+    root.querySelector('#abReload')?.addEventListener('click', () => loadFor(root, addbacksState, 'addback_lines'));
+    root.querySelector('#abAdd')?.addEventListener('click', () => {
+      addbacksState.lines.push(blankLine());
+      renderFor(root, addbacksState);
+    });
+    root.querySelector('#abSave')?.addEventListener('click', () => saveFor(root, addbacksState, 'addback_lines'));
 
-    await loadFor(root,addbacksState,'addback_lines');
+    await loadFor(root, addbacksState, 'addback_lines');
   }
 };
