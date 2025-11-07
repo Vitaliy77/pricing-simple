@@ -12,7 +12,7 @@ const routes = {
   '#scenarios': () => import('./tabs/scenarios.js'),
   '#indirect':  () => import('./tabs/indirect.js'),
   // If/when you add a separate Add-backs tab:
-  // '#addbacks':  () => import('./tabs/addbacks.js'),
+  '#addbacks':  () => import('./tabs/addbacks.js'),
 };
 
 function setActiveTab(hash) {
