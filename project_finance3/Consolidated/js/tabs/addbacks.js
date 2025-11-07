@@ -202,7 +202,7 @@ function wire(container, rowsRef) {
 EXPORT A TAB OBJECT
 ------------------------------------------------------------- */
 export const addbacksTab = {
-  template,
+  template: template,
   async init(root) {
     rootEl = root;
     const ym = getCurrentYm();
