@@ -37,7 +37,8 @@ async function render() {
   if (status) status.textContent = 'Loading…';
 
   try {
-    const mod = await loader();
+    console.log('[router] loading', hash, loader.toString());
+    const mod = await loader(); // this import() is where a bad tab file will throw
     const view = $('#view');
     // Each tab module must export: template (string) and init(container)
     view.innerHTML = mod.template;
