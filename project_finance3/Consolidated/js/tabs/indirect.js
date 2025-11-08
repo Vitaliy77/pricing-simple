@@ -110,22 +110,27 @@ const loadFor = async (root, state, table) => {
   const start = `${state.year}-01-01`;
   const next = `${state.year + 1}-01-01`;
 
-  const trySelect = async () => {
-    let q = client
-     .from(table)
-     .select('id,label,ym,amount')
-     .eq('scenario_id', scenarioId)
-     .gte('ym', start)
-     .lt('ym', next);
-    let { data, error } = await q;
-    if (error && labelMissing(error)) {
-      state.hasLabel = false;
-      const q2 = client.from(table).select('id,ym,amount').gte('ym', start).lt('ym', next);
-      ({ data, error } = await q2);
-    }
-    if (error) throw error;
-    return data || [];
-  };
+   const trySelect = async () => {
+     let q = client
+       .from(table)
+       .select('id,label,ym,amount')
+       .eq('scenario_id', scenarioId)
+       .gte('ym', start)
+       .lt('ym', next);
+     let { data, error } = await q;
+     if (error && labelMissing(error)) {
+       state.hasLabel = false;
+       const q2 = client
+         .from(table)
+         .select('id,ym,amount')
+         .eq('scenario_id', scenarioId)  // ← THIS WAS MISSING!
+         .gte('ym', start)
+         .lt('ym', next);
+       ({ data, error } = await q2);
+     }
+     if (error) throw error;
+     return data || [];
+   };
 
   try {
     const rows = await trySelect();
