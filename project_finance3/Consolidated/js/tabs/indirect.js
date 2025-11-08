@@ -8,14 +8,14 @@ let scenarioId = urlParams.get('scenario');
 
 // Use default UUID if not provided
 if (!scenarioId) {
-  scenarioId = '018c2f3a-0000-0000-0000-000000000001'; // ← CHANGE TO YOUR DEFAULT SCENARIO UUID
+  scenarioId = '3857bc3c-78d5-42f6-8fbb-493ce34063f2'; // ← CHANGE TO YOUR DEFAULT SCENARIO UUID
 }
 
 // Validate UUID format
 const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 if (!uuidRegex.test(scenarioId)) {
   console.warn('Invalid scenario UUID, using default');
-  scenarioId = '018c2f3a-0000-0000-0000-000000000001';
+  scenarioId = '3857bc3c-78d5-42f6-8fbb-493ce34063f2';
 }
 
 /* -------------------------------------------------------------
