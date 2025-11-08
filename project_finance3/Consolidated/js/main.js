@@ -12,6 +12,7 @@ const routes = {
   '#scenarios': () => import('./tabs/scenarios.js'),
   '#indirect': () => import('./tabs/indirect.js').then(m => m.indirectTab),
   '#addbacks': () => import('./tabs/addbacks.js').then(m => m.addbacksTab),
+  '#eac-summary': () => import('./tabs/eac-summary.js').then(m => m.eacSummaryTab),
 };
 
 function setActiveTab(hash) {
