@@ -61,26 +61,24 @@ export async function loadAll() {
   const next = `${state.year + 1}-01-01`;
 
   try {
-    let { data, error } = await client
+    const { data, error } = await client
       .from('addback_lines')
-      .select('id,line_code,line_name,label,ym,amount')
+      .select('id,label,ym,amount')
       .eq('scenario_id', SCENARIO_ID)
       .gte('ym', start)
       .lt('ym', next);
 
-    if (error && labelMissing(error)) {
-      state.hasLabel = false;
-      const { data: data2, error: error2 } = await client
-        .from('addback_lines')
-        .select('id,line_code,line_name,ym,amount')
-        .eq('scenario_id', SCENARIO_ID)
-        .gte('ym', start)
-        .lt('ym', next);
-      data = data2; error = error2;
+    if (error) {
+      if (error.code === 'PGRST116') {
+        // No rows — treat as empty
+        state.rows = [];
+      } else {
+        throw error;
+      }
+    } else {
+      state.rows = groupLines(data || []);
     }
-    if (error) throw error;
 
-    state.rows = groupLines(data || [], state.hasLabel);
     render();
     msg.textContent = `Loaded ${state.rows.length} lines for ${state.year}.`;
   } catch (e) {
@@ -108,30 +106,23 @@ export async function saveAll() {
 
   const pushRow = (label, ymKey, amt) => {
     if (!amt) return;
+    if (!label || label.trim() === '') {
+      throw new Error('Label is required for add-back lines');
+    }
     const ym = `${ymKey}-01`;
     const amountNum = Number(amt);
-    const lineIndex = rowsToInsert.length + 1;
-    const lineCode = `ADB${String(lineIndex).padStart(3, '0')}`;
-    const lineName = (label || '').trim() || `Add-back Line ${lineIndex}`;
 
-    const row = {
+    rowsToInsert.push({
       scenario_id: SCENARIO_ID,
-      line_code: lineCode,
-      line_name: lineName,
+      label: label.trim(),
       ym: ym,
-      amount: amountNum,
-    };
-
-    if (state.hasLabel && label && label.trim()) {
-      row.label = label.trim();
-    }
-
-    rowsToInsert.push(row);
+      amount: amountNum
+    });
   };
 
   for (const r of state.rows) {
-    const label = (r.label || r.line_name || '').trim();
-    if (state.hasLabel && !label) continue;
+    const label = (r.label || '').trim();
+    if (!label) continue;
     for (const k of monthKeys) {
       const amt = toNum(r.month?.[k]);
       if (amt) pushRow(label, k, amt);
@@ -139,15 +130,17 @@ export async function saveAll() {
   }
 
   try {
+    // Delete old
     const { error: delError } = await client
       .from('addback_lines')
       .delete()
       .eq('scenario_id', SCENARIO_ID)
       .gte('ym', start)
-      .lt('ym', next)
-      .returns();
-    if (delError && !tableMissing(delError)) throw delError;
+      .lt('ym', next);
 
+    if (delError) throw delError;
+
+    // Insert new
     if (rowsToInsert.length) {
       const { error } = await client.from('addback_lines').insert(rowsToInsert);
       if (error) throw error;
@@ -163,15 +156,14 @@ export async function saveAll() {
 
 function render() {
   const table = rootEl.querySelector('#abTable');
-  table.innerHTML = buildTableHTML(state.rows, state.months, state.hasLabel);
+  table.innerHTML = buildTableHTML(state.rows, state.months);
   wire(table, state.rows);
 }
 
-function buildTableHTML(rows, months, showLabel) {
+function buildTableHTML(rows, months) {
   const monthHeads = months.map(m => `<th class="text-right px-2 py-2">${m.short}</th>`).join('');
   const body = rows.map((r, i) => {
-    const displayName = r.line_name || r.label || '';
-    const labelInput = `<input data-row="${i}" data-field="label" class="border rounded px-2 py-1 w-80" placeholder="Enter description..." value="${esc(displayName)}" />`;
+    const labelInput = `<input data-row="${i}" data-field="label" class="border rounded px-2 py-1 w-80" placeholder="Required: Enter description..." value="${esc(r.label || '')}" required />`;
     const monthCells = months.map(m => {
       const val = fmt0(r.month?.[m.key]);
       return `<td class="px-2 py-1 text-right">
@@ -192,7 +184,7 @@ function buildTableHTML(rows, months, showLabel) {
     <table class="min-w-full text-sm">
       <thead class="bg-slate-50 sticky top-0">
         <tr>
-          <th class="text-left px-2 py-2 w-80">Description</th>
+          <th class="text-left px-2 py-2 w-80">Description (Required)</th>
           ${monthHeads}
           <th class="text-right px-2 py-2">Total</th>
           <th class="px-2 py-2"></th>
@@ -207,9 +199,7 @@ function wire(container, rowsRef) {
   container.querySelectorAll('input[data-field="label"]').forEach(inp => {
     inp.addEventListener('change', e => {
       const idx = Number(e.target.dataset.row);
-      const value = e.target.value.trim();
-      rowsRef[idx].line_name = value;
-      if (state.hasLabel) rowsRef[idx].label = value;
+      rowsRef[idx].label = e.target.value.trim();
     });
   });
 
@@ -267,33 +257,21 @@ function monthsForYear(year) {
 }
 
 function blankLine() {
-  return { line_name: '', label: '', month: {} };
+  return { label: '', month: {} };
 }
 
-function groupLines(rows, hasLabel = true) {
+function groupLines(rows) {
   const map = new Map();
   for (const r of rows) {
-    const key = hasLabel ? (r.label || r.line_name || '') : r.line_code;
+    const key = r.label || 'unnamed';
     if (!map.has(key)) {
-      map.set(key, {
-        line_name: r.line_name || '',
-        label: hasLabel ? (r.label || r.line_name || '') : '',
-        month: {}
-      });
+      map.set(key, { label: r.label || '', month: {} });
     }
     const obj = map.get(key);
     const ymKey = String(r.ym).slice(0, 7);
     obj.month[ymKey] = (obj.month[ymKey] || 0) + Number(r.amount || 0);
   }
   return Array.from(map.values());
-}
-
-function labelMissing(err) {
-  return err && (err.code === 'PGRST204' || err.code === '42703' || /label.*does not exist/i.test(err.message || ''));
-}
-
-function tableMissing(err) {
-  return err && (err.code === '42P01' || /relation .* does not exist/i.test(err.message || ''));
 }
 
 function toNum(v) {
