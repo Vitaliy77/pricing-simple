@@ -153,7 +153,7 @@ const saveFor = async (root, state, table) => {
     const ym = `${ymKey}-01`;
     const amountNum = Number(amt);
     
-    // DEBUG: Remove later
+    // DEBUG: Remove after testing
     console.log('Inserting:', { label, ym, amount: amountNum, type: typeof amountNum });
 
     if (state.hasLabel) {
@@ -173,7 +173,6 @@ const saveFor = async (root, state, table) => {
   }
 
   try {
-    // Safer delete
     const { error: delError } = await client.from(table).delete().gte('ym', start).lt('ym', next).returns();
     if (delError && !tableMissing(delError)) throw delError;
 
@@ -191,27 +190,29 @@ const saveFor = async (root, state, table) => {
 };
 
 /* -------------------------------------------------------------
-   Rendering (shared)
+   Rendering (shared) — FIXED
 ------------------------------------------------------------- */
-const renderFor = (table === 'indirect_lines') ? '#indTable' : '#abTable';
-const tableEl = root.querySelector(isIndirect ? '#indTable' : '#abTable');
-if (!tableEl) return;
+const renderFor = (root, state, table) => {
+  const isIndirect = table === 'indirect_lines';
+  const tableEl = root.querySelector(isIndirect ? '#indTable' : '#abTable');
+  if (!tableEl) return;
 
-tableEl.innerHTML = buildTableHTML(state.lines, state.months);
-wireTable(tableEl, state.lines, root, state, table);
+  tableEl.innerHTML = buildTableHTML(state.lines, state.months);
+  wireTable(tableEl, state.lines, root, state, table);
 };
 
 const buildTableHTML = (rows, months) => {
   const head = months.map(m => `<th class="text-right px-2 py-2 whitespace-nowrap">${esc(m.short)}</th>`).join('');
   const body = rows.map((r, i) => {
-    const labelCell = `<input data-row="${i}" data-field="label" class="border rounded px-2 py-1 w-full" value="${esc(r.label||'')}">`;
+    // WIDER DESCRIPTION FIELD (w-80 = ~320px)
+    const labelCell = `<input data-row="${i}" data-field="label" class="border rounded px-2 py-1 w-80" placeholder="Enter description..." value="${esc(r.label||'')}">`;
     const monthCells = months.map(m => {
       const val = fmtUSD0(r.month?.[m.key] || '');
       return `<td class="px-2 py-1 text-right"><input data-row="${i}" data-month="${m.key}" class="border rounded px-2 py-1 w-28 text-right" value="${val}"></td>`;
     }).join('');
     const total = fmtUSD0(sum(Object.values(r.month || {})));
     return `<tr>
-      <td class="px-2 py-1 w-56">${labelCell}</td>
+      <td class="px-2 py-1">${labelCell}</td>
       ${monthCells}
       <td class="px-2 py-1 text-right font-medium">${total}</td>
       <td class="px-2 py-1 text-right"><button data-del="${i}" class="text-red-600 hover:underline">Delete</button></td>
@@ -221,7 +222,7 @@ const buildTableHTML = (rows, months) => {
   return `
     <table class="min-w-full text-sm">
       <thead class="bg-slate-50 sticky top-0">
-        <tr><th class="text-left px-2 py-2">Label</th>${head}<th class="text-right px-2 py-2">Total</th><th class="px-2 py-2"></th></tr>
+        <tr><th class="text-left px-2 py-2 w-80">Description</th>${head}<th class="text-right px-2 py-2">Total</th><th class="px-2 py-2"></th></tr>
       </thead>
       <tbody>${body || empty}</tbody>
     </table>
