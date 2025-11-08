@@ -2,9 +2,21 @@
 import { $ } from '../lib/dom.js';
 import { client, getCurrentYm } from '../api/supabase.js';
 
-// Get scenario_id from URL (e.g., ?scenario=1)
+// Get scenario_id from URL as UUID string
 const urlParams = new URLSearchParams(window.location.search);
-const scenarioId = Number(urlParams.get('scenario')) || 1; // default to 1
+let scenarioId = urlParams.get('scenario');
+
+// Use default UUID if not provided
+if (!scenarioId) {
+  scenarioId = '018c2f3a-0000-0000-0000-000000000001'; // ← CHANGE TO YOUR DEFAULT SCENARIO UUID
+}
+
+// Validate UUID format
+const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+if (!uuidRegex.test(scenarioId)) {
+  console.warn('Invalid scenario UUID, using default');
+  scenarioId = '018c2f3a-0000-0000-0000-000000000001';
+}
 
 /* -------------------------------------------------------------
    Templates – one for each tab
