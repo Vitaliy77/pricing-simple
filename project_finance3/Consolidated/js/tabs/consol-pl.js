@@ -1,8 +1,11 @@
 // js/tabs/consol-pl.js
 // Consolidated P&L (by month, by year)
-// Strategy: try plan_monthly_pl first; if empty/unreadable, aggregate from EAC views.
+// Now pulls Indirect & Adjustments from Supabase using scenario_id
 import { $ } from '../lib/dom.js';
 import { client } from '../api/supabase.js';
+
+// Your scenario ID
+const SCENARIO_ID = '3857bc3c-78d5-42f6-8fbb-493ce34063f2';
 
 export const template = /*html*/`
   <div class="bg-white rounded-xl shadow-sm p-5 space-y-4">
@@ -10,7 +13,7 @@ export const template = /*html*/`
       <div>
         <h2 class="text-lg font-semibold">Consolidated P&amp;L</h2>
         <p class="text-sm text-slate-500">
-          Revenue → Direct costs → Gross profit → Indirect → Operating profit → Adjustments → Adjusted profit
+          Revenue to Direct costs to Gross profit to Indirect to Operating profit to Adjustments to Adjusted profit
         </p>
       </div>
       <div class="flex items-center gap-2">
@@ -24,14 +27,13 @@ export const template = /*html*/`
       <table id="conTable" class="min-w-full text-sm border-separate border-spacing-y-1"></table>
     </div>
     <p class="text-xs text-slate-500">
-      Indirect and Adjustments are stored locally for now. Later we can push them to Supabase.
+      Indirect and Adjustments are now loaded from Supabase (scenario: ${SCENARIO_ID}).
     </p>
   </div>
 `;
 
 // ---------------------------------------------------------------------
-// init now receives the root element (the #view div) so we can safely
-// query inside it after the template is inserted.
+// init now receives the root element
 // ---------------------------------------------------------------------
 export async function init(root) {
   const sel = root.querySelector('#conYear');
@@ -47,7 +49,6 @@ export async function init(root) {
     sel.appendChild(opt);
   }
 
-  // Use setTimeout to ensure DOM is updated after innerHTML
   reloadBtn.onclick = () => setTimeout(() => loadAndRender(root, Number(sel.value)), 0);
   sel.onchange = () => setTimeout(() => loadAndRender(root, Number(sel.value)), 0);
 
@@ -63,7 +64,6 @@ async function loadAndRender(root, year) {
     console.error('#conTable not found in root');
     return;
   }
-
   msg.textContent = 'Loading…';
   table.innerHTML = '';
 
@@ -92,16 +92,6 @@ async function loadAndRender(root, year) {
         add(base, 'materials', m, Number(r.materials || 0));
         add(base, 'odc', m, Number(r.odc || 0));
       }
-
-      const extras = loadExtras(year, months);
-      for (const m of months) {
-        add(base, 'indirect', m, extras.indirect[m] || 0);
-        add(base, 'adjustments', m, extras.adjustments[m] || 0);
-      }
-
-      renderTable(root, base, months, year, extras);
-      msg.textContent = `Loaded ${planRows.length.toLocaleString('en-US')} rows from plan_monthly_pl.`;
-      return;
     } else {
       console.info('[Consol] plan_monthly_pl returned 0 rows; falling back to EAC views.');
     }
@@ -151,21 +141,49 @@ async function loadAndRender(root, year) {
       add(base, 'odc', m, odc);
     }
 
-    const extras = loadExtras(year, months);
-    for (const m of months) {
-      add(base, 'indirect', m, extras.indirect[m] || 0);
-      add(base, 'adjustments', m, extras.adjustments[m] || 0);
+    // -------- C) Load Indirect from Supabase
+    const { data: indirectRows, error: indirectErr } = await client
+      .from('indirect_lines')
+      .select('ym, amount')
+      .eq('scenario_id', SCENARIO_ID)
+      .gte('ym', start)
+      .lt('ym', end);
+
+    if (indirectErr) {
+      console.warn('Indirect load error:', indirectErr);
+    } else {
+      for (const r of indirectRows) {
+        const m = ymKey(r.ym);
+        add(base, 'indirect', m, Number(r.amount || 0));
+      }
     }
 
-    renderTable(root, base, months, year, extras);
-    const srcNote = `Fallback used: ${revRows?.length || 0} revenue rows, ${costRows?.length || 0} cost rows from EAC views.`;
-    msg.textContent = srcNote;
+    // -------- D) Load Add-backs from Supabase
+    const { data: addbackRows, error: addbackErr } = await client
+      .from('addback_lines')
+      .select('ym, amount')
+      .eq('scenario_id', SCENARIO_ID)
+      .gte('ym', start)
+      .lt('ym', end);
+
+    if (addbackErr) {
+      console.warn('Add-back load error:', addbackErr);
+    } else {
+      for (const r of addbackRows) {
+        const m = ymKey(r.ym);
+        add(base, 'adjustments', m, Number(r.amount || 0));
+      }
+    }
+
+    // Render
+    renderTable(root, base, months, year);
+    msg.textContent = `Loaded from Supabase (scenario: ${SCENARIO_ID}).`;
 
   } catch (err) {
     console.error('consol-pl error', err);
     const notFound = /relation .*plan_monthly_pl.* does not exist/i.test(String(err?.message || err));
     msg.textContent = notFound
-      ? 'Error: table plan_monthly_pl not found. Either publish consolidated rows from EAC or rely on the automatic fallback (EAC views).'
+      ? 'Error: table plan_monthly_pl not found. Using EAC fallback.'
       : 'Error loading consolidated P&L: ' + (err?.message || err);
   }
 }
@@ -196,25 +214,8 @@ function ymKey(ym) {
   try { return String(ym).slice(0, 7); } catch { return null; }
 }
 
-/* ---------------- Indirect / Adjustments (local) ---------------- */
-function loadExtras(year, months) {
-  const raw = localStorage.getItem(`consol-extras-${year}`);
-  const parsed = raw ? JSON.parse(raw) : {};
-  const indirect = {};
-  const adjustments = {};
-  for (const m of months) {
-    indirect[m] = Number(parsed.indirect?.[m] || 0);
-    adjustments[m] = Number(parsed.adjustments?.[m] || 0);
-  }
-  return { indirect, adjustments };
-}
-
-function saveExtras(year, extras) {
-  localStorage.setItem(`consol-extras-${year}`, JSON.stringify(extras));
-}
-
 /* ---------------- Rendering ---------------- */
-function renderTable(root, base, months, year, extras) {
+function renderTable(root, base, months, year) {
   const table = root.querySelector('#conTable');
   if (!table) return;
 
@@ -267,18 +268,10 @@ function renderTable(root, base, months, year, extras) {
   html += pctRow('Gross % of Rev', grossByM, base.revenue, months);
   // Indirect & Adjustments
   html += sectionHeader('Indirect & Adjustments');
-  html += editableRow('Indirect Cost', base.indirect, indirectTot, months, root, (m, val) => {
-    extras.indirect[m] = Number(val || 0);
-    saveExtras(year, extras);
-    loadAndRender(root, year);
-  });
+  html += row('Indirect Cost', base.indirect, indirectTot, months);
   html += row('Operating Profit', opByM, opTot, months, true);
   html += pctRow('Operating % of Rev', opByM, base.revenue, months);
-  html += editableRow('Adjustments / Add-backs', base.adjustments, adjTot, months, root, (m, val) => {
-    extras.adjustments[m] = Number(val || 0);
-    saveExtras(year, extras);
-    loadAndRender(root, year);
-  });
+  html += row('Adjustments / Add-backs', base.adjustments, adjTot, months);
   html += row('Adjusted Profit', adjProfByM, adjProfTot, months, true);
   html += pctRow('Adjusted % of Rev', adjProfByM, base.revenue, months);
   html += '</tbody>';
@@ -293,33 +286,6 @@ function row(label, obj, total, months, bold = false) {
   months.forEach(m => { tr += `<td class="p-2 text-right">${fmt(obj[m])}</td>`; });
   tr += `<td class="p-2 text-right">${fmt(total)}</td>`;
   tr += '</tr>';
-  return tr;
-}
-
-function editableRow(label, obj, total, months, root, onChange) {
-  let tr = '<tr>';
-  tr += `<td class="p-2 sticky left-0 bg-white">${label}</td>`;
-  months.forEach(m => {
-    tr += `<td class="p-1 text-right">
-      <input data-m="${m}" class="conEdit border rounded-md p-1 w-24 text-right" type="number" step="0.01" value="${Number(obj[m]||0)}">
-    </td>`;
-  });
-  tr += `<td class="p-2 text-right">${fmt(total)}</td>`;
-  tr += '</tr>';
-
-  // Wait for DOM, then wire events using root
-  setTimeout(() => {
-    root.querySelectorAll('.conEdit').forEach(inp => {
-      inp.addEventListener('change', e => {
-        const mm = e.target.getAttribute('data-m');
-        onChange(mm, e.target.value);
-      });
-      inp.addEventListener('keydown', e => {
-        if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); }
-      });
-    });
-  }, 0);
-
   return tr;
 }
 
@@ -354,5 +320,5 @@ function fmt(v) {
   });
 }
 
-// Export alias (harmless if not used)
+// Export alias
 export const loader = init;
