@@ -2,6 +2,10 @@
 import { $ } from '../lib/dom.js';
 import { client, getCurrentYm } from '../api/supabase.js';
 
+// Get scenario_id from URL (e.g., ?scenario=1)
+const urlParams = new URLSearchParams(window.location.search);
+const scenarioId = Number(urlParams.get('scenario')) || 1; // default to 1
+
 /* -------------------------------------------------------------
    Templates – one for each tab
 ------------------------------------------------------------- */
@@ -107,7 +111,12 @@ const loadFor = async (root, state, table) => {
   const next = `${state.year + 1}-01-01`;
 
   const trySelect = async () => {
-    let q = client.from(table).select('id,label,ym,amount').gte('ym', start).lt('ym', next);
+    let q = client
+     .from(table)
+     .select('id,label,ym,amount')
+     .eq('scenario_id', scenarioId)
+     .gte('ym', start)
+     .lt('ym', next);
     let { data, error } = await q;
     if (error && labelMissing(error)) {
       state.hasLabel = false;
@@ -148,20 +157,17 @@ const saveFor = async (root, state, table) => {
   const monthKeys = state.months.map(m => m.key);
 
   const rows = [];
-  const push = (label, ymKey, amt) => {
-    if (!amt) return;
-    const ym = `${ymKey}-01`;
-    const amountNum = Number(amt);
-    
-    // DEBUG: Remove after testing
-    console.log('Inserting:', { label, ym, amount: amountNum, type: typeof amountNum });
-
-    if (state.hasLabel) {
-      rows.push({ label, ym, amount: amountNum });
-    } else {
-      rows.push({ ym, amount: amountNum });
-    }
-  };
+   const push = (label, ymKey, amt) => {
+     if (!amt) return;
+     const ym = `${ymKey}-01`;
+     const amountNum = Number(amt);
+     
+     if (state.hasLabel) {
+       rows.push({ scenario_id: scenarioId, label, ym, amount: amountNum });
+     } else {
+       rows.push({ scenario_id: scenarioId, ym, amount: amountNum });
+     }
+   };
 
   for (const r of state.lines) {
     const label = (r.label || '').trim();
@@ -173,7 +179,13 @@ const saveFor = async (root, state, table) => {
   }
 
   try {
-    const { error: delError } = await client.from(table).delete().gte('ym', start).lt('ym', next).returns();
+    const { error: delError } = await client
+     .from(table)
+     .delete()
+     .eq('scenario_id', scenarioId)
+     .gte('ym', start)
+     .lt('ym', next)
+     .returns();
     if (delError && !tableMissing(delError)) throw delError;
 
     if (rows.length) {
