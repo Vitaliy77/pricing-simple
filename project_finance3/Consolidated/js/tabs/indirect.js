@@ -6,16 +6,16 @@ import { client, getCurrentYm } from '../api/supabase.js';
 const urlParams = new URLSearchParams(window.location.search);
 let scenarioId = urlParams.get('scenario');
 
-// Use default UUID if not provided
+// Use your DEFAULT SCENARIO UUID if not provided
 if (!scenarioId) {
-  scenarioId = '3857bc3c-78d5-42f6-8fbb-493ce34063f2'; // ← CHANGE TO YOUR DEFAULT SCENARIO UUID
+  scenarioId = '3857bc3c-78d5-42f6-8fbb-493ce34063f2'; // CHANGE THIS TO YOUR REAL DEFAULT SCENARIO ID
 }
 
 // Validate UUID format
 const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 if (!uuidRegex.test(scenarioId)) {
-  console.warn('Invalid scenario UUID, using default');
-  scenarioId = '3857bc3c-78d5-42f6-8fbb-493ce34063f2';
+  console.warn('Invalid scenario UUID. Using default.');
+  scenarioId = '3857bc3c-78d5-42f6-8fbb-493ce34063f2'; // SAME DEFAULT
 }
 
 /* -------------------------------------------------------------
@@ -72,38 +72,44 @@ const monthsForYear = (year) => {
   });
 };
 
-const blankLine = () => ({ label:'', month:{} });
+const blankLine = () => ({ line_name: '', label: '', month: {} });
 
 const groupLines = (rows, hasLabel) => {
   const map = new Map();
   for (const r of rows) {
-    const key = hasLabel ? (r.label||'') : 'line';
-    if (!map.has(key)) map.set(key, { label:hasLabel?key:'', month:{} });
+    const key = hasLabel ? (r.label || r.line_name || '') : r.line_code;
+    if (!map.has(key)) {
+      map.set(key, {
+        line_name: r.line_name || '',
+        label: hasLabel ? (r.label || r.line_name || '') : '',
+        month: {}
+      });
+    }
     const obj = map.get(key);
     const ymKey = String(r.ym).slice(0,7);
-    obj.month[ymKey] = (obj.month[ymKey]||0) + Number(r.amount||0);
+    obj.month[ymKey] = (obj.month[ymKey] || 0) + Number(r.amount || 0);
   }
   return Array.from(map.values());
 };
 
-const labelMissing = e => e && (e.code==='PGRST204' || e.code==='42703' || /column .*label.* does not exist/i.test(e.message||''));
-const tableMissing = e => e && (e.code==='42P01' || /relation .* does not exist/i.test(e.message||''));
+const labelMissing = e => e && (e.code === 'PGRST204' || e.code === '42703' || /column .*label.* does not exist/i.test(e.message || ''));
+const tableMissing = e => e && (e.code === '42P01' || /relation .* does not exist/i.test(e.message || ''));
 
-const num = v => { const n=Number(v); return Number.isFinite(n)?n:0; };
-const sum = arr => arr.reduce((s,v)=>s+num(v),0);
-const parseMoney = s => { 
-  if(!s) return 0; 
-  const n=Number(String(s).replace(/[, $]/g,'')); 
-  return Number.isFinite(n)?n:0; 
+const num = v => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
+const sum = arr => arr.reduce((s, v) => s + num(v), 0);
+const parseMoney = s => {
+  if (!s) return 0;
+  const n = Number(String(s).replace(/[, $]/g, ''));
+  return Number.isFinite(n) ? n : 0;
 };
-const fmtUSD0 = v => { 
-  const n=Number(v||0); 
-  return Number.isFinite(n)?n.toLocaleString('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}):''; 
+const fmtUSD0 = v => {
+  const n = Number(v || 0);
+  return Number.isFinite(n) ? n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }) : '';
 };
-const esc = s => String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 /* -------------------------------------------------------------
-   Core CRUD (shared) — NO GLOBALS
+   Core CRUD (shared)
 ------------------------------------------------------------- */
 const loadFor = async (root, state, table) => {
   const isIndirect = table === 'indirect_lines';
@@ -122,27 +128,27 @@ const loadFor = async (root, state, table) => {
   const start = `${state.year}-01-01`;
   const next = `${state.year + 1}-01-01`;
 
-   const trySelect = async () => {
-     let q = client
-       .from(table)
-       .select('id,label,ym,amount')
-       .eq('scenario_id', scenarioId)
-       .gte('ym', start)
-       .lt('ym', next);
-     let { data, error } = await q;
-     if (error && labelMissing(error)) {
-       state.hasLabel = false;
-       const q2 = client
-         .from(table)
-         .select('id,ym,amount')
-         .eq('scenario_id', scenarioId)  // ← THIS WAS MISSING!
-         .gte('ym', start)
-         .lt('ym', next);
-       ({ data, error } = await q2);
-     }
-     if (error) throw error;
-     return data || [];
-   };
+  const trySelect = async () => {
+    let q = client
+      .from(table)
+      .select('id,line_code,line_name,label,ym,amount')
+      .eq('scenario_id', scenarioId)
+      .gte('ym', start)
+      .lt('ym', next);
+    let { data, error } = await q;
+    if (error && labelMissing(error)) {
+      state.hasLabel = false;
+      const q2 = client
+        .from(table)
+        .select('id,line_code,line_name,ym,amount')
+        .eq('scenario_id', scenarioId)
+        .gte('ym', start)
+        .lt('ym', next);
+      ({ data, error } = await q2);
+    }
+    if (error) throw error;
+    return data || [];
+  };
 
   try {
     const rows = await trySelect();
@@ -172,22 +178,34 @@ const saveFor = async (root, state, table) => {
   const start = `${state.year}-01-01`;
   const next = `${state.year + 1}-01-01`;
   const monthKeys = state.months.map(m => m.key);
-
   const rows = [];
-   const push = (label, ymKey, amt) => {
-     if (!amt) return;
-     const ym = `${ymKey}-01`;
-     const amountNum = Number(amt);
-     
-     if (state.hasLabel) {
-       rows.push({ scenario_id: scenarioId, label, ym, amount: amountNum });
-     } else {
-       rows.push({ scenario_id: scenarioId, ym, amount: amountNum });
-     }
-   };
+
+  const push = (label, ymKey, amt) => {
+    if (!amt) return;
+    const ym = `${ymKey}-01`;
+    const amountNum = Number(amt);
+    const lineIndex = rows.length + 1;
+    const prefix = table === 'indirect_lines' ? 'IND' : 'ADB';
+    const lineCode = `${prefix}${String(lineIndex).padStart(3, '0')}`;
+    const lineName = (label || '').trim() || `Line ${lineIndex}`;
+
+    const row = {
+      scenario_id: scenarioId,
+      line_code: lineCode,
+      line_name: lineName,
+      ym: ym,
+      amount: amountNum,
+    };
+
+    if (state.hasLabel && label && label.trim()) {
+      row.label = label.trim();
+    }
+
+    rows.push(row);
+  };
 
   for (const r of state.lines) {
-    const label = (r.label || '').trim();
+    const label = (r.label || r.line_name || '').trim();
     if (state.hasLabel && !label) continue;
     for (const k of monthKeys) {
       const amt = num(r.month?.[k]);
@@ -197,12 +215,12 @@ const saveFor = async (root, state, table) => {
 
   try {
     const { error: delError } = await client
-     .from(table)
-     .delete()
-     .eq('scenario_id', scenarioId)
-     .gte('ym', start)
-     .lt('ym', next)
-     .returns();
+      .from(table)
+      .delete()
+      .eq('scenario_id', scenarioId)
+      .gte('ym', start)
+      .lt('ym', next)
+      .returns();
     if (delError && !tableMissing(delError)) throw delError;
 
     if (rows.length) {
@@ -219,7 +237,7 @@ const saveFor = async (root, state, table) => {
 };
 
 /* -------------------------------------------------------------
-   Rendering (shared) — FIXED
+   Rendering (shared)
 ------------------------------------------------------------- */
 const renderFor = (root, state, table) => {
   const isIndirect = table === 'indirect_lines';
@@ -233,8 +251,8 @@ const renderFor = (root, state, table) => {
 const buildTableHTML = (rows, months) => {
   const head = months.map(m => `<th class="text-right px-2 py-2 whitespace-nowrap">${esc(m.short)}</th>`).join('');
   const body = rows.map((r, i) => {
-    // WIDER DESCRIPTION FIELD (w-80 = ~320px)
-    const labelCell = `<input data-row="${i}" data-field="label" class="border rounded px-2 py-1 w-80" placeholder="Enter description..." value="${esc(r.label||'')}">`;
+    const displayName = r.line_name || r.label || '';
+    const labelCell = `<input data-row="${i}" data-field="label" class="border rounded px-2 py-1 w-80" placeholder="Enter description..." value="${esc(displayName)}">`;
     const monthCells = months.map(m => {
       const val = fmtUSD0(r.month?.[m.key] || '');
       return `<td class="px-2 py-1 text-right"><input data-row="${i}" data-month="${m.key}" class="border rounded px-2 py-1 w-28 text-right" value="${val}"></td>`;
@@ -262,7 +280,9 @@ const wireTable = (container, rows, root, state, table) => {
   container.querySelectorAll('input[data-field="label"]').forEach(inp => {
     inp.addEventListener('change', e => {
       const idx = Number(e.target.dataset.row);
-      rows[idx].label = e.target.value.trim();
+      const value = e.target.value.trim();
+      rows[idx].line_name = value;
+      if (state.hasLabel) rows[idx].label = value;
     });
   });
 
