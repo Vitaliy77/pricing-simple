@@ -69,16 +69,29 @@ async function load(year) {
   const end   = `${year + 1}-01-01`;
 
   try {
-    // ---- 1. Revenue per project / month
+    // ---- 1. Get project names first
+    const { data: projRows, error: projErr } = await client
+      .from('projects')
+      .select('id, name')
+      .in('id', []); // will fill below
+
+    if (projErr) throw projErr;
+
+    const projNameMap = {};
+    for (const p of projRows) {
+      projNameMap[p.id] = p.name || `Project ${p.id.slice(0, 8)}`;
+    }
+
+    // ---- 2. Revenue (no project_name)
     const { data: revRows, error: revErr } = await client
       .from('vw_eac_revenue_monthly')
-      .select('project_id, project_name, ym, revenue')
+      .select('project_id, ym, revenue')
       .gte('ym', start)
       .lt('ym', end);
 
     if (revErr) throw revErr;
 
-    // ---- 2. Direct cost per project / month
+    // ---- 3. Direct cost
     const { data: costRows, error: costErr } = await client
       .from('vw_eac_monthly_pl')
       .select('project_id, ym, labor, subs, equipment, materials, odc')
@@ -87,16 +100,32 @@ async function load(year) {
 
     if (costErr) throw costErr;
 
-    // ---- 3. Build in-memory map
-    const projMap = new Map(); // project_id → object
+    // ---- 4. Collect all project_ids
+    const allIds = new Set();
+    for (const r of revRows) allIds.add(r.project_id);
+    for (const r of costRows) allIds.add(r.project_id);
 
-    // helper to get/create project entry
-    const getProj = (pid, name) => {
+    // ---- 5. Fetch names for all project_ids
+    const { data: namesData, error: namesErr } = await client
+      .from('projects')
+      .select('id, name')
+      .in('id', Array.from(allIds));
+
+    if (namesErr) console.warn('Could not load project names:', namesErr);
+    const nameMap = {};
+    for (const p of (namesData || [])) {
+      nameMap[p.id] = p.name || `Project ${p.id.slice(0, 8)}`;
+    }
+
+    // ---- 6. Build in-memory map
+    const projMap = new Map();
+
+    const getProj = (pid) => {
       if (!projMap.has(pid)) {
         projMap.set(pid, {
           project_id: pid,
-          name: name ?? `Project ${pid.slice(0, 8)}`,
-          months: {},          // '2025-01' → {rev,dc}
+          name: nameMap[pid] || `Project ${pid.slice(0, 8)}`,
+          months: {},
           totals: { rev: 0, dc: 0 }
         });
       }
@@ -106,7 +135,7 @@ async function load(year) {
     // revenue
     for (const r of revRows) {
       const m = ymKey(r.ym);
-      const p = getProj(r.project_id, r.project_name);
+      const p = getProj(r.project_id);
       p.months[m] = p.months[m] || { rev: 0, dc: 0 };
       p.months[m].rev += Number(r.revenue || 0);
       p.totals.rev += Number(r.revenue || 0);
@@ -125,7 +154,7 @@ async function load(year) {
     }
 
     state.projects = Array.from(projMap.values())
-      .sort((a, b) => b.totals.rev - a.totals.rev); // biggest rev first
+      .sort((a, b) => b.totals.rev - a.totals.rev);
 
     render();
     msg.textContent = `${state.projects.length} projects loaded for ${year}.`;
