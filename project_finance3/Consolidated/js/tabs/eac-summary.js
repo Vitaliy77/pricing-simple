@@ -1,0 +1,228 @@
+// js/tabs/eac-summary.js
+import { client } from '../api/supabase.js';
+
+export const template = /*html*/`
+  <div class="bg-white rounded-xl shadow-sm p-5 space-y-4">
+    <div class="flex items-center justify-between">
+      <h2 class="text-lg font-semibold">EAC Summary – Revenue & Margin by Project</h2>
+      <div class="flex gap-2 items-center">
+        <label class="text-sm text-slate-500">Year:</label>
+        <select id="eacYear" class="border rounded-md p-1 text-sm"></select>
+        <button id="eacReload" class="px-3 py-1.5 rounded-md border hover:bg-slate-50 text-sm">
+          Reload
+        </button>
+      </div>
+    </div>
+
+    <div id="eacMsg" class="text-sm text-slate-500"></div>
+
+    <div class="overflow-x-auto">
+      <table id="eacTable" class="min-w-full text-sm border-separate border-spacing-y-1"></table>
+    </div>
+  </div>
+`;
+
+/* -------------------------------------------------------------
+   State & helpers
+------------------------------------------------------------- */
+const state = {
+  year: new Date().getUTCFullYear(),
+  projects: []          // [{project_id, name, months:{'2025-01':{rev:0,dc:0}}, totals:{rev:0,dc:0}}]
+};
+
+let rootEl = null;
+
+/* -------------------------------------------------------------
+   Init – called by the router
+------------------------------------------------------------- */
+export async function init(root) {
+  rootEl = root;
+
+  const sel = root.querySelector('#eacYear');
+  const nowY = new Date().getUTCFullYear();
+
+  // year dropdown (±1 year)
+  for (let y = nowY - 1; y <= nowY + 1; y++) {
+    const opt = document.createElement('option');
+    opt.value = String(y);
+    opt.textContent = String(y);
+    if (y === nowY) opt.selected = true;
+    sel.appendChild(opt);
+  }
+
+  sel.addEventListener('change', () => load(state.year = Number(sel.value)));
+  root.querySelector('#eacReload')?.addEventListener('click', () => load(state.year));
+
+  await load(nowY);
+}
+
+/* -------------------------------------------------------------
+   Core loader
+------------------------------------------------------------- */
+async function load(year) {
+  const msg = rootEl.querySelector('#eacMsg');
+  const table = rootEl.querySelector('#eacTable');
+  msg.textContent = 'Loading…';
+  table.innerHTML = '';
+
+  const start = `${year}-01-01`;
+  const end   = `${year + 1}-01-01`;
+
+  try {
+    // ---- 1. Revenue per project / month
+    const { data: revRows, error: revErr } = await client
+      .from('vw_eac_revenue_monthly')
+      .select('project_id, project_name, ym, revenue')
+      .gte('ym', start)
+      .lt('ym', end);
+
+    if (revErr) throw revErr;
+
+    // ---- 2. Direct cost per project / month
+    const { data: costRows, error: costErr } = await client
+      .from('vw_eac_monthly_pl')
+      .select('project_id, ym, labor, subs, equipment, materials, odc')
+      .gte('ym', start)
+      .lt('ym', end);
+
+    if (costErr) throw costErr;
+
+    // ---- 3. Build in-memory map
+    const projMap = new Map(); // project_id → object
+
+    // helper to get/create project entry
+    const getProj = (pid, name) => {
+      if (!projMap.has(pid)) {
+        projMap.set(pid, {
+          project_id: pid,
+          name: name ?? `Project ${pid.slice(0, 8)}`,
+          months: {},          // '2025-01' → {rev,dc}
+          totals: { rev: 0, dc: 0 }
+        });
+      }
+      return projMap.get(pid);
+    };
+
+    // revenue
+    for (const r of revRows) {
+      const m = ymKey(r.ym);
+      const p = getProj(r.project_id, r.project_name);
+      p.months[m] = p.months[m] || { rev: 0, dc: 0 };
+      p.months[m].rev += Number(r.revenue || 0);
+      p.totals.rev += Number(r.revenue || 0);
+    }
+
+    // direct cost
+    for (const r of costRows) {
+      const m = ymKey(r.ym);
+      const p = getProj(r.project_id);
+      const dc = Number(r.labor || 0) + Number(r.subs || 0) +
+                 Number(r.equipment || 0) + Number(r.materials || 0) +
+                 Number(r.odc || 0);
+      p.months[m] = p.months[m] || { rev: 0, dc: 0 };
+      p.months[m].dc += dc;
+      p.totals.dc += dc;
+    }
+
+    state.projects = Array.from(projMap.values())
+      .sort((a, b) => b.totals.rev - a.totals.rev); // biggest rev first
+
+    render();
+    msg.textContent = `${state.projects.length} projects loaded for ${year}.`;
+  } catch (e) {
+    console.error(e);
+    msg.textContent = 'Load error: ' + (e?.message || e);
+  }
+}
+
+/* -------------------------------------------------------------
+   Rendering
+------------------------------------------------------------- */
+function render() {
+  const table = rootEl.querySelector('#eacTable');
+  if (!table) return;
+
+  const months = Array.from({ length: 12 }, (_, i) => {
+    const m = String(i + 1).padStart(2, '0');
+    return `${state.year}-${m}`;
+  });
+
+  let html = `<thead class="bg-slate-50 sticky top-0"><tr>
+    <th class="p-2 text-left sticky left-0 bg-white w-56">Project</th>`;
+
+  months.forEach(m => html += `<th class="p-2 text-right">${monthLabel(m)}</th>`);
+  html += `<th class="p-2 text-right">Rev YTD</th>
+           <th class="p-2 text-right">DC YTD</th>
+           <th class="p-2 text-right">Margin $</th>
+           <th class="p-2 text-right">Margin %</th>
+         </tr></thead><tbody>`;
+
+  for (const p of state.projects) {
+    const row = `<tr>
+      <td class="p-2 sticky left-0 bg-white font-medium">${esc(p.name)}</td>`;
+
+    let monthHtml = '';
+    let revYtd = 0, dcYtd = 0;
+
+    for (const m of months) {
+      const data = p.months[m] || { rev: 0, dc: 0 };
+      revYtd += data.rev;
+      dcYtd  += data.dc;
+      monthHtml += `<td class="p-2 text-right">${fmt(data.rev)}</td>`;
+    }
+
+    const margin$ = revYtd - dcYtd;
+    const marginPct = revYtd ? (margin$ / revYtd) * 100 : 0;
+
+    html += row + monthHtml +
+            `<td class="p-2 text-right font-medium">${fmt(revYtd)}</td>` +
+            `<td class="p-2 text-right">${fmt(dcYtd)}</td>` +
+            `<td class="p-2 text-right ${margin$ >= 0 ? 'text-green-600' : 'text-red-600'}">${fmt(margin$)}</td>` +
+            `<td class="p-2 text-right ${marginPct >= 0 ? 'text-green-600' : 'text-red-600'}">${marginPct.toFixed(1)}%</td>` +
+            `</tr>`;
+  }
+
+  html += `</tbody>`;
+  table.innerHTML = html;
+}
+
+/* -------------------------------------------------------------
+   Small helpers
+------------------------------------------------------------- */
+function ymKey(ym) { return String(ym).slice(0, 7); }
+
+function monthLabel(ym) {
+  const [y, m] = ym.split('-').map(Number);
+  return new Date(y, m - 1, 1).toLocaleString('en-US', { month: 'short' });
+}
+
+function fmt(v) {
+  const n = Number(v || 0);
+  return n.toLocaleString('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 0
+  });
+}
+
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[c]));
+}
+
+/* -------------------------------------------------------------
+   Export tab object (same pattern as indirect / addbacks)
+------------------------------------------------------------- */
+export const eacSummaryTab = {
+  template,
+  async init(root) {
+    rootEl = root;
+    const nowY = new Date().getUTCFullYear();
+    const sel = root.querySelector('#eacYear');
+    sel.value = nowY;
+    sel.addEventListener('change', () => load(state.year = Number(sel.value)));
+    root.querySelector('#eacReload')?.addEventListener('click', () => load(state.year));
+    await load(nowY);
+  }
+};
