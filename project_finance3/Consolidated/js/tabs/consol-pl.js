@@ -1,6 +1,5 @@
 // js/tabs/consol-pl.js
-// Consolidated P&L (by month, by year)
-// Now pulls Indirect & Adjustments from Supabase using scenario_id
+// Consolidated P&L — pulls from Supabase, no line_code
 import { $ } from '../lib/dom.js';
 import { client } from '../api/supabase.js';
 
@@ -27,20 +26,16 @@ export const template = /*html*/`
       <table id="conTable" class="min-w-full text-sm border-separate border-spacing-y-1"></table>
     </div>
     <p class="text-xs text-slate-500">
-      Indirect and Adjustments are now loaded from Supabase (scenario: ${SCENARIO_ID}).
+      Indirect and Adjustments loaded from Supabase (scenario: ${SCENARIO_ID}).
     </p>
   </div>
 `;
 
-// ---------------------------------------------------------------------
-// init now receives the root element
-// ---------------------------------------------------------------------
 export async function init(root) {
   const sel = root.querySelector('#conYear');
   const reloadBtn = root.querySelector('#conReload');
   const nowY = new Date().getUTCFullYear();
 
-  // Populate year dropdown
   for (let y = nowY - 1; y <= nowY + 1; y++) {
     const opt = document.createElement('option');
     opt.value = String(y);
@@ -52,18 +47,14 @@ export async function init(root) {
   reloadBtn.onclick = () => setTimeout(() => loadAndRender(root, Number(sel.value)), 0);
   sel.onchange = () => setTimeout(() => loadAndRender(root, Number(sel.value)), 0);
 
-  // Initial load
   setTimeout(() => loadAndRender(root, nowY), 0);
 }
 
-/* ---------------- Core loader with fallback ---------------- */
 async function loadAndRender(root, year) {
   const msg = root.querySelector('#conMsg');
   const table = root.querySelector('#conTable');
-  if (!table) {
-    console.error('#conTable not found in root');
-    return;
-  }
+  if (!table) return;
+
   msg.textContent = 'Loading…';
   table.innerHTML = '';
 
@@ -73,16 +64,14 @@ async function loadAndRender(root, year) {
   const base = makeEmptyPnl(months);
 
   try {
-    // -------- A) Try consolidated table first
+    // A) Try plan_monthly_pl
     const { data: planRows, error: planErr } = await client
       .from('plan_monthly_pl')
       .select('project_id, ym, revenue, labor, subs, equipment, materials, odc')
       .gte('ym', start)
       .lt('ym', end);
 
-    if (planErr) {
-      console.warn('[Consol] plan_monthly_pl error → falling back:', planErr);
-    } else if (Array.isArray(planRows) && planRows.length > 0) {
+    if (!planErr && planRows?.length > 0) {
       for (const r of planRows) {
         const m = ymKey(r.ym);
         add(base, 'revenue', m, Number(r.revenue || 0));
@@ -93,111 +82,91 @@ async function loadAndRender(root, year) {
         add(base, 'odc', m, Number(r.odc || 0));
       }
     } else {
-      console.info('[Consol] plan_monthly_pl returned 0 rows; falling back to EAC views.');
+      // B) Fallback to EAC views
+      const { data: costRows } = await client
+        .from('vw_eac_monthly_pl')
+        .select('ym, labor, equip, materials, subs, total_cost')
+        .gte('ym', start)
+        .lt('ym', end);
+
+      const { data: revRows } = await client
+        .from('vw_eac_revenue_monthly')
+        .select('ym, revenue')
+        .gte('ym', start)
+        .lt('ym', end);
+
+      const costMap = {};
+      for (const r of (costRows || [])) {
+        const k = ymKey(r.ym);
+        const cur = costMap[k] || { labor:0, equip:0, materials:0, subs:0, total_cost:0 };
+        cur.labor += Number(r.labor || 0);
+        cur.equip += Number(r.equip || 0);
+        cur.materials += Number(r.materials || 0);
+        cur.subs += Number(r.subs || 0);
+        cur.total_cost += Number(r.total_cost || 0);
+        costMap[k] = cur;
+      }
+
+      const revMap = {};
+      for (const r of (revRows || [])) {
+        const k = ymKey(r.ym);
+        revMap[k] = (revMap[k] || 0) + Number(r.revenue || 0);
+      }
+
+      for (const m of months) {
+        add(base, 'revenue', m, Number(revMap[m] || 0));
+        add(base, 'labor', m, Number(costMap[m]?.labor || 0));
+        add(base, 'subs', m, Number(costMap[m]?.subs || 0));
+        add(base, 'equipment', m, Number(costMap[m]?.equip || 0));
+        add(base, 'materials', m, Number(costMap[m]?.materials || 0));
+        const known = (costMap[m]?.labor||0) + (costMap[m]?.subs||0) +
+                      (costMap[m]?.equip||0) + (costMap[m]?.materials||0);
+        const odc = Math.max(0, (costMap[m]?.total_cost || 0) - known);
+        add(base, 'odc', m, odc);
+      }
     }
 
-    // -------- B) Fallback: aggregate from EAC views
-    const { data: costRows, error: costErr } = await client
-      .from('vw_eac_monthly_pl')
-      .select('ym, labor, equip, materials, subs, fringe, overhead, gna, total_cost')
-      .gte('ym', start)
-      .lt('ym', end);
-    if (costErr) throw costErr;
-
-    const { data: revRows, error: revErr } = await client
-      .from('vw_eac_revenue_monthly')
-      .select('ym, revenue')
-      .gte('ym', start)
-      .lt('ym', end);
-    if (revErr) throw revErr;
-
-    const costMap = {};
-    for (const r of (costRows || [])) {
-      const k = ymKey(r.ym);
-      const cur = costMap[k] || { labor:0, equip:0, materials:0, subs:0, total_cost:0 };
-      cur.labor += Number(r.labor || 0);
-      cur.equip += Number(r.equip || 0);
-      cur.materials += Number(r.materials || 0);
-      cur.subs += Number(r.subs || 0);
-      cur.total_cost += Number(r.total_cost || 0);
-      costMap[k] = cur;
-    }
-
-    const revMap = {};
-    for (const r of (revRows || [])) {
-      const k = ymKey(r.ym);
-      revMap[k] = (revMap[k] || 0) + Number(r.revenue || 0);
-    }
-
-    for (const m of months) {
-      add(base, 'revenue', m, Number(revMap[m] || 0));
-      add(base, 'labor', m, Number(costMap[m]?.labor || 0));
-      add(base, 'subs', m, Number(costMap[m]?.subs || 0));
-      add(base, 'equipment', m, Number(costMap[m]?.equip || 0));
-      add(base, 'materials', m, Number(costMap[m]?.materials || 0));
-      const known = (costMap[m]?.labor||0) + (costMap[m]?.subs||0) +
-                    (costMap[m]?.equip||0) + (costMap[m]?.materials||0);
-      const odc = Math.max(0, (costMap[m]?.total_cost || 0) - known);
-      add(base, 'odc', m, odc);
-    }
-
-    // -------- C) Load Indirect from Supabase
-    const { data: indirectRows, error: indirectErr } = await client
+    // C) Load Indirect
+    const { data: indirectRows } = await client
       .from('indirect_lines')
       .select('ym, amount')
       .eq('scenario_id', SCENARIO_ID)
       .gte('ym', start)
       .lt('ym', end);
 
-    if (indirectErr) {
-      console.warn('Indirect load error:', indirectErr);
-    } else {
-      for (const r of indirectRows) {
-        const m = ymKey(r.ym);
-        add(base, 'indirect', m, Number(r.amount || 0));
-      }
+    for (const r of (indirectRows || [])) {
+      const m = ymKey(r.ym);
+      add(base, 'indirect', m, Number(r.amount || 0));
     }
 
-    // -------- D) Load Add-backs from Supabase
-    const { data: addbackRows, error: addbackErr } = await client
+    // D) Load Add-backs — NO line_code!
+    const { data: addbackRows } = await client
       .from('addback_lines')
-      .select('ym, amount')
+      .select('ym, amount')  // ← ONLY ym, amount
       .eq('scenario_id', SCENARIO_ID)
       .gte('ym', start)
       .lt('ym', end);
 
-    if (addbackErr) {
-      console.warn('Add-back load error:', addbackErr);
-    } else {
-      for (const r of addbackRows) {
-        const m = ymKey(r.ym);
-        add(base, 'adjustments', m, Number(r.amount || 0));
-      }
+    for (const r of (addbackRows || [])) {
+      const m = ymKey(r.ym);
+      add(base, 'adjustments', m, Number(r.amount || 0));
     }
 
-    // Render
     renderTable(root, base, months, year);
     msg.textContent = `Loaded from Supabase (scenario: ${SCENARIO_ID}).`;
 
   } catch (err) {
     console.error('consol-pl error', err);
-    const notFound = /relation .*plan_monthly_pl.* does not exist/i.test(String(err?.message || err));
-    msg.textContent = notFound
-      ? 'Error: table plan_monthly_pl not found. Using EAC fallback.'
-      : 'Error loading consolidated P&L: ' + (err?.message || err);
+    msg.textContent = 'Error: ' + (err?.message || err);
   }
 }
 
-/* ---------------- Helpers: structure & math ---------------- */
 function buildMonths(year) {
   return Array.from({ length: 12 }, (_, i) => `${year}-${String(i + 1).padStart(2, '0')}`);
 }
 
 function makeEmptyPnl(months) {
-  const base = {
-    revenue: {}, labor: {}, subs: {}, equipment: {}, materials: {}, odc: {},
-    indirect: {}, adjustments: {}
-  };
+  const base = { revenue: {}, labor: {}, subs: {}, equipment: {}, materials: {}, odc: {}, indirect: {}, adjustments: {} };
   months.forEach(m => {
     base.revenue[m] = 0; base.labor[m] = 0; base.subs[m] = 0; base.equipment[m] = 0;
     base.materials[m] = 0; base.odc[m] = 0; base.indirect[m] = 0; base.adjustments[m] = 0;
@@ -214,16 +183,13 @@ function ymKey(ym) {
   try { return String(ym).slice(0, 7); } catch { return null; }
 }
 
-/* ---------------- Rendering ---------------- */
 function renderTable(root, base, months, year) {
   const table = root.querySelector('#conTable');
   if (!table) return;
 
-  // Derived rows
   const directByM = {}; const grossByM = {}; const opByM = {}; const adjProfByM = {};
   months.forEach(m => {
-    const dc = (base.labor[m]||0) + (base.subs[m]||0) + (base.equipment[m]||0) +
-               (base.materials[m]||0) + (base.odc[m]||0);
+    const dc = (base.labor[m]||0) + (base.subs[m]||0) + (base.equipment[m]||0) + (base.materials[m]||0) + (base.odc[m]||0);
     directByM[m] = dc;
     const gp = (base.revenue[m]||0) - dc;
     grossByM[m] = gp;
@@ -253,9 +219,7 @@ function renderTable(root, base, months, year) {
   html += `<th class="p-2 text-right">Total</th>`;
   html += '</tr></thead><tbody>';
 
-  // Revenue
   html += row('Revenue', base.revenue, revenueTot, months, true);
-  // Direct costs
   html += sectionHeader('Direct Costs');
   html += row('Labor', base.labor, laborTot, months);
   html += row('Subcontractors', base.subs, subsTot, months);
@@ -263,10 +227,8 @@ function renderTable(root, base, months, year) {
   html += row('Materials', base.materials, matsTot, months);
   html += row('Other Direct Cost', base.odc, odcTot, months);
   html += row('Total Direct Cost', directByM, directTot, months, true);
-  // Gross Profit + %
   html += row('Gross Profit', grossByM, grossTot, months, true);
   html += pctRow('Gross % of Rev', grossByM, base.revenue, months);
-  // Indirect & Adjustments
   html += sectionHeader('Indirect & Adjustments');
   html += row('Indirect Cost', base.indirect, indirectTot, months);
   html += row('Operating Profit', opByM, opTot, months, true);
@@ -279,7 +241,6 @@ function renderTable(root, base, months, year) {
   table.innerHTML = html;
 }
 
-/* ---------------- Row helpers ---------------- */
 function row(label, obj, total, months, bold = false) {
   let tr = `<tr class="${bold ? 'font-semibold bg-slate-50' : ''}">`;
   tr += `<td class="p-2 sticky left-0 bg-white">${label}</td>`;
@@ -315,10 +276,7 @@ function monthLabel(ym) {
 
 function fmt(v) {
   const n = Number(v || 0);
-  return n.toLocaleString('en-US', {
-    style: 'currency', currency: 'USD', maximumFractionDigits: 0
-  });
+  return n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
 }
 
-// Export alias
 export const loader = init;
