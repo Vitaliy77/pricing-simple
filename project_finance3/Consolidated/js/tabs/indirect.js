@@ -75,8 +75,15 @@ const tableMissing = e => e && (e.code==='42P01' || /relation .* does not exist/
 
 const num = v => { const n=Number(v); return Number.isFinite(n)?n:0; };
 const sum = arr => arr.reduce((s,v)=>s+num(v),0);
-const parseMoney = s => { if(!s) return 0; const n=Number(String(s).replace(/[, $]/g,'')); return Number.isFinite(n)?n:0; };
-const fmtUSD0 = v => { const n=Number(v||0); return Number.isFinite(n)?n.toLocaleString('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}):''; };
+const parseMoney = s => { 
+  if(!s) return 0; 
+  const n=Number(String(s).replace(/[, $]/g,'')); 
+  return Number.isFinite(n)?n:0; 
+};
+const fmtUSD0 = v => { 
+  const n=Number(v||0); 
+  return Number.isFinite(n)?n.toLocaleString('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}):''; 
+};
 const esc = s => String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 /* -------------------------------------------------------------
@@ -144,8 +151,16 @@ const saveFor = async (root, state, table) => {
   const push = (label, ymKey, amt) => {
     if (!amt) return;
     const ym = `${ymKey}-01`;
-    if (state.hasLabel) rows.push({ label, ym, amount: amt });
-    else rows.push({ ym, amount: amt });
+    const amountNum = Number(amt);
+    
+    // DEBUG: Remove later
+    console.log('Inserting:', { label, ym, amount: amountNum, type: typeof amountNum });
+
+    if (state.hasLabel) {
+      rows.push({ label, ym, amount: amountNum });
+    } else {
+      rows.push({ ym, amount: amountNum });
+    }
   };
 
   for (const r of state.lines) {
@@ -158,8 +173,9 @@ const saveFor = async (root, state, table) => {
   }
 
   try {
-    const del = await client.from(table).delete().gte('ym', start).lt('ym', next);
-    if (del.error && !tableMissing(del.error)) throw del.error;
+    // Safer delete
+    const { error: delError } = await client.from(table).delete().gte('ym', start).lt('ym', next).returns();
+    if (delError && !tableMissing(delError)) throw delError;
 
     if (rows.length) {
       const { error } = await client.from(table).insert(rows);
@@ -169,7 +185,7 @@ const saveFor = async (root, state, table) => {
     msg.textContent = 'Saved.';
     setTimeout(() => (msg.textContent = ''), 1800);
   } catch (e) {
-    console.error(e);
+    console.error('Save failed:', e);
     msg.textContent = 'Save failed: ' + (e?.message || e);
   }
 };
@@ -177,13 +193,12 @@ const saveFor = async (root, state, table) => {
 /* -------------------------------------------------------------
    Rendering (shared)
 ------------------------------------------------------------- */
-const renderFor = (root, state, table) => {
-  const isIndirect = table === 'indirect_lines';
-  const tableEl = root.querySelector(isIndirect ? '#indTable' : '#abTable');
-  if (!tableEl) return;
+const renderFor = (table === 'indirect_lines') ? '#indTable' : '#abTable';
+const tableEl = root.querySelector(isIndirect ? '#indTable' : '#abTable');
+if (!tableEl) return;
 
-  tableEl.innerHTML = buildTableHTML(state.lines, state.months);
-  wireTable(tableEl, state.lines, root, state);
+tableEl.innerHTML = buildTableHTML(state.lines, state.months);
+wireTable(tableEl, state.lines, root, state, table);
 };
 
 const buildTableHTML = (rows, months) => {
@@ -213,7 +228,7 @@ const buildTableHTML = (rows, months) => {
   `;
 };
 
-const wireTable = (container, rows, root, state) => {
+const wireTable = (container, rows, root, state, table) => {
   container.querySelectorAll('input[data-field="label"]').forEach(inp => {
     inp.addEventListener('change', e => {
       const idx = Number(e.target.dataset.row);
@@ -238,7 +253,7 @@ const wireTable = (container, rows, root, state) => {
     btn.addEventListener('click', () => {
       const idx = Number(btn.dataset.del);
       rows.splice(idx, 1);
-      renderFor(root, state, root.querySelector('#indTable') ? 'indirect_lines' : 'addback_lines');
+      renderFor(root, state, table);
     });
   });
 };
