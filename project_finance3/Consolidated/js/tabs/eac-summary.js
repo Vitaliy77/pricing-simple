@@ -23,17 +23,17 @@ export const template = /*html*/`
 `;
 
 /* -------------------------------------------------------------
-   State & helpers
+   State
 ------------------------------------------------------------- */
 const state = {
   year: new Date().getUTCFullYear(),
-  projects: []          // [{project_id, name, months:{'2025-01':{rev:0,dc:0}}, totals:{rev:0,dc:0}}]
+  projects: [] // [{project_id, name, months:{'2025-01':{rev,dc}}, totals:{rev,dc}}]
 };
 
 let rootEl = null;
 
 /* -------------------------------------------------------------
-   Init – called by the router
+   Init
 ------------------------------------------------------------- */
 export async function init(root) {
   rootEl = root;
@@ -41,7 +41,7 @@ export async function init(root) {
   const sel = root.querySelector('#eacYear');
   const nowY = new Date().getUTCFullYear();
 
-  // year dropdown (±1 year)
+  // year dropdown
   for (let y = nowY - 1; y <= nowY + 1; y++) {
     const opt = document.createElement('option');
     opt.value = String(y);
@@ -50,14 +50,14 @@ export async function init(root) {
     sel.appendChild(opt);
   }
 
-  sel.addEventListener('change', () => load(state.year = Number(sel.value)));
+  sel.addEventListener('change', () => load(Number(sel.value)));
   root.querySelector('#eacReload')?.addEventListener('click', () => load(state.year));
 
   await load(nowY);
 }
 
 /* -------------------------------------------------------------
-   Core loader
+   Core loader – NO project_name in the EAC view
 ------------------------------------------------------------- */
 async function load(year) {
   const msg = rootEl.querySelector('#eacMsg');
@@ -69,20 +69,7 @@ async function load(year) {
   const end   = `${year + 1}-01-01`;
 
   try {
-    // ---- 1. Get project names first
-    const { data: projRows, error: projErr } = await client
-      .from('projects')
-      .select('id, name')
-      .in('id', []); // will fill below
-
-    if (projErr) throw projErr;
-
-    const projNameMap = {};
-    for (const p of projRows) {
-      projNameMap[p.id] = p.name || `Project ${p.id.slice(0, 8)}`;
-    }
-
-    // ---- 2. Revenue (no project_name)
+    /* ---------- 1. Revenue (only columns that definitely exist) ---------- */
     const { data: revRows, error: revErr } = await client
       .from('vw_eac_revenue_monthly')
       .select('project_id, ym, revenue')
@@ -91,7 +78,7 @@ async function load(year) {
 
     if (revErr) throw revErr;
 
-    // ---- 3. Direct cost
+    /* ---------- 2. Direct cost (same – only known columns) ---------- */
     const { data: costRows, error: costErr } = await client
       .from('vw_eac_monthly_pl')
       .select('project_id, ym, labor, subs, equipment, materials, odc')
@@ -100,24 +87,25 @@ async function load(year) {
 
     if (costErr) throw costErr;
 
-    // ---- 4. Collect all project_ids
+    /* ---------- 3. Gather every project_id that appears ---------- */
     const allIds = new Set();
-    for (const r of revRows) allIds.add(r.project_id);
-    for (const r of costRows) allIds.add(r.project_id);
+    revRows.forEach(r => allIds.add(r.project_id));
+    costRows.forEach(r => allIds.add(r.project_id));
 
-    // ---- 5. Fetch names for all project_ids
-    const { data: namesData, error: namesErr } = await client
+    /* ---------- 4. Pull project names in ONE call ---------- */
+    const { data: nameRows, error: nameErr } = await client
       .from('projects')
       .select('id, name')
       .in('id', Array.from(allIds));
 
-    if (namesErr) console.warn('Could not load project names:', namesErr);
-    const nameMap = {};
-    for (const p of (namesData || [])) {
-      nameMap[p.id] = p.name || `Project ${p.id.slice(0, 8)}`;
-    }
+    if (nameErr) console.warn('Project names could not be loaded:', nameErr);
 
-    // ---- 6. Build in-memory map
+    const nameMap = {};
+    (nameRows || []).forEach(p => {
+      nameMap[p.id] = p.name || `Project ${p.id.slice(0, 8)}`;
+    });
+
+    /* ---------- 5. Build in-memory map ---------- */
     const projMap = new Map();
 
     const getProj = (pid) => {
@@ -178,7 +166,6 @@ function render() {
 
   let html = `<thead class="bg-slate-50 sticky top-0"><tr>
     <th class="p-2 text-left sticky left-0 bg-white w-56">Project</th>`;
-
   months.forEach(m => html += `<th class="p-2 text-right">${monthLabel(m)}</th>`);
   html += `<th class="p-2 text-right">Rev YTD</th>
            <th class="p-2 text-right">DC YTD</th>
@@ -187,28 +174,27 @@ function render() {
          </tr></thead><tbody>`;
 
   for (const p of state.projects) {
-    const row = `<tr>
-      <td class="p-2 sticky left-0 bg-white font-medium">${esc(p.name)}</td>`;
-
     let monthHtml = '';
     let revYtd = 0, dcYtd = 0;
 
     for (const m of months) {
-      const data = p.months[m] || { rev: 0, dc: 0 };
-      revYtd += data.rev;
-      dcYtd  += data.dc;
-      monthHtml += `<td class="p-2 text-right">${fmt(data.rev)}</td>`;
+      const d = p.months[m] || { rev: 0, dc: 0 };
+      revYtd += d.rev;
+      dcYtd  += d.dc;
+      monthHtml += `<td class="p-2 text-right">${fmt(d.rev)}</td>`;
     }
 
     const margin$ = revYtd - dcYtd;
     const marginPct = revYtd ? (margin$ / revYtd) * 100 : 0;
 
-    html += row + monthHtml +
-            `<td class="p-2 text-right font-medium">${fmt(revYtd)}</td>` +
-            `<td class="p-2 text-right">${fmt(dcYtd)}</td>` +
-            `<td class="p-2 text-right ${margin$ >= 0 ? 'text-green-600' : 'text-red-600'}">${fmt(margin$)}</td>` +
-            `<td class="p-2 text-right ${marginPct >= 0 ? 'text-green-600' : 'text-red-600'}">${marginPct.toFixed(1)}%</td>` +
-            `</tr>`;
+    html += `<tr>
+      <td class="p-2 sticky left-0 bg-white font-medium">${esc(p.name)}</td>
+      ${monthHtml}
+      <td class="p-2 text-right font-medium">${fmt(revYtd)}</td>
+      <td class="p-2 text-right">${fmt(dcYtd)}</td>
+      <td class="p-2 text-right ${margin$ >= 0 ? 'text-green-600' : 'text-red-600'}">${fmt(margin$)}</td>
+      <td class="p-2 text-right ${marginPct >= 0 ? 'text-green-600' : 'text-red-600'}">${marginPct.toFixed(1)}%</td>
+    </tr>`;
   }
 
   html += `</tbody>`;
@@ -216,7 +202,7 @@ function render() {
 }
 
 /* -------------------------------------------------------------
-   Small helpers
+   Helpers
 ------------------------------------------------------------- */
 function ymKey(ym) { return String(ym).slice(0, 7); }
 
@@ -241,7 +227,7 @@ function esc(s) {
 }
 
 /* -------------------------------------------------------------
-   Export tab object (same pattern as indirect / addbacks)
+   Export tab (same pattern as indirect / addbacks)
 ------------------------------------------------------------- */
 export const eacSummaryTab = {
   template,
@@ -250,7 +236,7 @@ export const eacSummaryTab = {
     const nowY = new Date().getUTCFullYear();
     const sel = root.querySelector('#eacYear');
     sel.value = nowY;
-    sel.addEventListener('change', () => load(state.year = Number(sel.value)));
+    sel.addEventListener('change', () => load(Number(sel.value)));
     root.querySelector('#eacReload')?.addEventListener('click', () => load(state.year));
     await load(nowY);
   }
