@@ -59,17 +59,29 @@ async function load(year) {
   const end   = `${year + 1}-01-01`;
 
   try {
-    // 1. Pull ALL data from the single EAC view
-    const { data: rows, error } = await client
+    // 1. REVENUE — only from vw_eac_revenue_monthly
+    const { data: revRows, error: revErr } = await client
       .from('vw_eac_revenue_monthly')
-      .select('project_id, ym, revenue, labor, equip, materials, subs')
+      .select('project_id, ym, revenue')
       .gte('ym', start)
       .lt('ym', end);
 
-    if (error) throw error;
+    if (revErr) throw revErr;
 
-    // 2. Get project names
-    const allIds = new Set(rows.map(r => r.project_id));
+    // 2. DIRECT COST — from vw_eac_monthly_pl
+    const { data: costRows, error: costErr } = await client
+      .from('vw_eac_monthly_pl')
+      .select('project_id, ym, labor, equip, materials, subs')
+      .gte('ym', start)
+      .lt('ym', end);
+
+    if (costErr) throw costErr;
+
+    // 3. Get project names
+    const allIds = new Set();
+    revRows.forEach(r => allIds.add(r.project_id));
+    costRows.forEach(r => allIds.add(r.project_id));
+
     const { data: nameRows } = await client
       .from('projects')
       .select('id, name')
@@ -80,7 +92,7 @@ async function load(year) {
       nameMap[p.id] = p.name || `Project ${p.id.slice(0, 8)}`;
     });
 
-    // 3. Build project map
+    // 4. Build map
     const projMap = new Map();
 
     const getProj = (pid) => {
@@ -95,19 +107,23 @@ async function load(year) {
       return projMap.get(pid);
     };
 
-    // 4. Aggregate
-    for (const r of rows) {
-      const m = String(r.ym).slice(0, 7); // '2025-01'
+    // Revenue
+    for (const r of revRows) {
+      const m = String(r.ym).slice(0, 7);
       const p = getProj(r.project_id);
-
       p.months[m] = p.months[m] || { rev: 0, dc: 0 };
       p.months[m].rev += Number(r.revenue || 0);
+      p.totals.rev += Number(r.revenue || 0);
+    }
 
+    // Direct Cost
+    for (const r of costRows) {
+      const m = String(r.ym).slice(0, 7);
+      const p = getProj(r.project_id);
       const dc = Number(r.labor || 0) + Number(r.equip || 0) +
                  Number(r.materials || 0) + Number(r.subs || 0);
+      p.months[m] = p.months[m] || { rev: 0, dc: 0 };
       p.months[m].dc += dc;
-
-      p.totals.rev += p.months[m].rev;
       p.totals.dc += dc;
     }
 
