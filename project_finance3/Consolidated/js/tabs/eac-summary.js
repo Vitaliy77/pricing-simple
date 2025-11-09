@@ -55,28 +55,21 @@ async function load(year) {
   msg.textContent = 'Loading…';
   table.innerHTML = '';
 
+  const start = `${year}-01-01`;
+  const end   = `${year + 1}-01-01`;
+
   try {
-    // 1. Revenue — use year filter only
-    const { data: revRows, error: revErr } = await client
+    // 1. Pull ALL data from the single EAC view
+    const { data: rows, error } = await client
       .from('vw_eac_revenue_monthly')
-      .select('project_id, year, month, revenue')
-      .eq('year', year);
+      .select('project_id, ym, revenue, labor, equip, materials, subs')
+      .gte('ym', start)
+      .lt('ym', end);
 
-    if (revErr) throw revErr;
+    if (error) throw error;
 
-    // 2. Direct cost — same
-    const { data: costRows, error: costErr } = await client
-      .from('vw_eac_monthly_pl')
-      .select('project_id, year, month, labor, subs, equipment, materials')
-      .eq('year', year);
-
-    if (costErr) throw costErr;
-
-    // 3. Get project names
-    const allIds = new Set();
-    revRows.forEach(r => allIds.add(r.project_id));
-    costRows.forEach(r => allIds.add(r.project_id));
-
+    // 2. Get project names
+    const allIds = new Set(rows.map(r => r.project_id));
     const { data: nameRows } = await client
       .from('projects')
       .select('id, name')
@@ -87,7 +80,7 @@ async function load(year) {
       nameMap[p.id] = p.name || `Project ${p.id.slice(0, 8)}`;
     });
 
-    // 4. Build map
+    // 3. Build project map
     const projMap = new Map();
 
     const getProj = (pid) => {
@@ -102,23 +95,19 @@ async function load(year) {
       return projMap.get(pid);
     };
 
-    // Revenue
-    for (const r of revRows) {
-      const m = `${r.year}-${String(r.month).padStart(2, '0')}`;
+    // 4. Aggregate
+    for (const r of rows) {
+      const m = String(r.ym).slice(0, 7); // '2025-01'
       const p = getProj(r.project_id);
+
       p.months[m] = p.months[m] || { rev: 0, dc: 0 };
       p.months[m].rev += Number(r.revenue || 0);
-      p.totals.rev += Number(r.revenue || 0);
-    }
 
-    // Direct Cost
-    for (const r of costRows) {
-      const m = `${r.year}-${String(r.month).padStart(2, '0')}`;
-      const p = getProj(r.project_id);
-      const dc = Number(r.labor || 0) + Number(r.subs || 0) +
-                 Number(r.equipment || 0) + Number(r.materials || 0);
-      p.months[m] = p.months[m] || { rev: 0, dc: 0 };
+      const dc = Number(r.labor || 0) + Number(r.equip || 0) +
+                 Number(r.materials || 0) + Number(r.subs || 0);
       p.months[m].dc += dc;
+
+      p.totals.rev += p.months[m].rev;
       p.totals.dc += dc;
     }
 
