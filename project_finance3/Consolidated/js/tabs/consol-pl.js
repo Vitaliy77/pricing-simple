@@ -3,6 +3,9 @@
 import { $ } from '../lib/dom.js';
 import { client } from '../api/supabase.js';
 
+let activeScenarioId = sessionStorage.getItem('activeScenarioId') || null;
+export function reloadConsol() { loadAndRender(rootEl, state.year); }   // expose
+
 // Your scenario ID
 const SCENARIO_ID = '3857bc3c-78d5-42f6-8fbb-493ce34063f2';
 
@@ -30,6 +33,36 @@ export const template = /*html*/`
     </p>
   </div>
 `;
+
+function applyScenarioToBase(base, lines, year) {
+  const monthKeys = Array.from({length:12},(_,i)=>`${year}-${String(i+1).padStart(2,'0')}`);
+  const lineMap = {};
+  lines.forEach(l => {
+    const m = l.ym.slice(0,7);
+    lineMap[m] = lineMap[m] || {rev_delta:0,rev_pct:0,cost_delta:0,cost_pct:0,oh_delta:0};
+    Object.assign(lineMap[m], l);
+  });
+
+  monthKeys.forEach(m => {
+    const l = lineMap[m] || {};
+    const rev = base.revenue[m] || 0;
+    const dc  = (base.labor[m]||0)+(base.subs[m]||0)+(base.equipment[m]||0)+(base.materials[m]||0)+(base.odc[m]||0);
+
+    // % first, then $
+    const revAdj = rev * (l.rev_pct/100) + l.rev_delta;
+    const costAdj = dc * (l.cost_pct/100) + l.cost_delta;
+
+    base.revenue[m] = rev + revAdj;
+    // distribute costAdj proportionally (simple)
+    const totalDc = dc || 1;
+    ['labor','subs','equipment','materials','odc'].forEach(k => {
+      if (base[k][m] !== undefined) {
+        base[k][m] = (base[k][m] || 0) + (base[k][m]/totalDc)*costAdj;
+      }
+    });
+    base.indirect[m] = (base.indirect[m]||0) + l.oh_delta;
+  });
+}
 
 export async function init(root) {
   const sel = root.querySelector('#conYear');
@@ -62,6 +95,14 @@ async function loadAndRender(root, year) {
   const end = `${year + 1}-01-01`;
   const months = buildMonths(year);
   const base = makeEmptyPnl(months);
+  
+  if (activeScenarioId) {
+  const { data: lines } = await client
+    .from('scenario_lines')
+    .select('*')
+    .eq('scenario_id', activeScenarioId);
+  applyScenarioToBase(base, lines || [], state.year);
+}
 
   try {
     // A) Try plan_monthly_pl
