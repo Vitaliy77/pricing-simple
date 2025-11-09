@@ -3,9 +3,17 @@ import { client } from '../api/supabase.js';
 import { reloadConsol } from './consol-pl.js';
 
 const SCENARIO_ID_KEY = 'activeScenarioId';
+let rootEl = null;
+let current = null;               // {id, name, description, base_year, base_month, lines:[]}
+let baseYear = null;
+let isRendering = false;          // <-- prevents double-render loops
 
 export const template = /*html*/`
-  <div class="bg-white rounded-xl shadow-sm p-5 space-y-4">
+  <div class="bg-white rounded-xl shadow-sm p-5 space-y-4 relative">
+    <div id="overlay" class="hidden absolute inset-0 bg-white/70 flex items-center justify-center z-10">
+      <div class="text-sm text-slate-600">Loading…</div>
+    </div>
+
     <div class="flex items-center justify-between">
       <h2 class="text-lg font-semibold">Scenarios / What-ifs</h2>
       <button id="newScenario" class="px-3 py-1.5 rounded-md bg-green-600 text-white text-sm">
@@ -18,7 +26,7 @@ export const template = /*html*/`
     <!-- Scenario list -->
     <div id="list" class="space-y-2"></div>
 
-    <!-- Editor (hidden until a scenario is selected) -->
+    <!-- Editor -->
     <div id="editor" class="hidden space-y-4 border-t pt-4">
       <div class="flex gap-2">
         <input id="scName" placeholder="Scenario name" class="flex-1 border rounded px-2 py-1 text-sm">
@@ -79,15 +87,11 @@ export const template = /*html*/`
   </div>
 `;
 
-let rootEl = null;
-let current = null;               // {id, name, description, base_year, base_month, lines:[]}
-let baseYear = null;              // selected year
-
 export async function init(root) {
   rootEl = root;
   baseYear = new Date().getUTCFullYear();
 
-  // ---- YEAR SELECTOR (must be in DOM BEFORE any async call) ----
+  // ---- YEAR SELECTOR (must exist before any async) ----
   const yearSel = document.createElement('select');
   yearSel.id = 'scYear';
   yearSel.className = 'border rounded-md p-1 text-sm mr-2';
@@ -99,22 +103,21 @@ export async function init(root) {
   }
   yearSel.addEventListener('change', () => {
     baseYear = Number(yearSel.value);
-    if (current) loadLines(current.id).catch(console.error);
+    if (current) loadLines(current.id).catch(logErr);
   });
   root.querySelector('#newScenario').before(yearSel);
 
-  // ---- BUTTONS ----------------------------------------------------
+  // ---- BUTTONS -------------------------------------------------
   root.querySelector('#newScenario').addEventListener('click', newScenario);
   root.querySelector('#addRow').addEventListener('click', addEmptyRow);
   root.querySelector('#saveScenario').addEventListener('click', saveScenario);
   root.querySelector('#activateScenario').addEventListener('click', activateScenario);
   root.querySelector('#deleteScenario').addEventListener('click', deleteScenario);
 
-  await loadScenarioList();
+  await safe(loadScenarioList);
 
-  // ---- AUTO-ACTIVATE FROM URL ------------------------------------
   const urlId = new URLSearchParams(location.hash.split('?')[1]).get('active');
-  if (urlId) await activateById(urlId);
+  if (urlId) await safe(() => activateById(urlId));
 }
 
 /* ------------------------------------------------------------------ */
@@ -126,7 +129,7 @@ async function loadScenarioList() {
     .select('id,name,description,base_year')
     .order('created_at', { ascending: false });
 
-  if (error) { msg(error.message); return; }
+  if (error) throw error;
 
   const list = rootEl.querySelector('#list');
   list.innerHTML = '';
@@ -142,7 +145,7 @@ async function loadScenarioList() {
       </div>
       <button class="text-xs text-blue-600 hover:underline loadBtn" data-id="${sc.id}">Edit</button>
     `;
-    div.querySelector('.loadBtn').addEventListener('click', () => loadScenario(sc.id).catch(console.error));
+    div.querySelector('.loadBtn').addEventListener('click', () => safe(() => loadScenario(sc.id)));
     list.appendChild(div);
   });
 }
@@ -151,13 +154,13 @@ async function loadScenarioList() {
 /*  EDITOR                                                            */
 /* ------------------------------------------------------------------ */
 async function loadScenario(id) {
-  const { data: sc, error: e1 } = await client
+  const { data: sc, error } = await client
     .from('scenarios')
     .select('*')
     .eq('id', id)
     .single();
 
-  if (e1) { msg(e1.message); return; }
+  if (error) throw error;
 
   current = {
     id: sc.id,
@@ -168,7 +171,7 @@ async function loadScenario(id) {
     lines: []
   };
 
-  // make sure the year selector matches the scenario
+  // sync year selector
   const sel = rootEl.querySelector('#scYear');
   if (sel && sc.base_year) {
     sel.value = sc.base_year;
@@ -197,17 +200,21 @@ async function loadLines(scId) {
     .lt('ym', end)
     .order('ym');
 
-  if (error) { msg(error.message); return; }
+  if (error) throw error;
 
   current.lines = (data || []).map(l => ({
     ...l,
-    id: l.id ?? crypto.randomUUID()   // guarantee an id
+    id: l.id ?? crypto.randomUUID()
   }));
 
   renderLines();
 }
 
+/* ------------------------------------------------------------------ */
 function renderLines() {
+  if (isRendering) return;               // <-- BLOCK RE-ENTRY
+  isRendering = true;
+
   const tbody = rootEl.querySelector('#adjTable tbody');
   tbody.innerHTML = '';
 
@@ -239,14 +246,18 @@ function renderLines() {
     tbody.appendChild(tr);
   });
 
-  // ---- fill missing months (no infinite loop) --------------------
+  // ---- fill missing months (safe) --------------------------------
   const existing = current.lines.map(l => l.ym.slice(0,7));
   months.forEach(ym => {
     if (!existing.includes(ym)) addEmptyRow(ym);
   });
+
+  isRendering = false;
 }
 
+/* ------------------------------------------------------------------ */
 function addEmptyRow(ym = null) {
+  if (!current) return;
   const month = ym || `${baseYear}-${String((current.lines.length % 12) + 1).padStart(2,'0')}-01`;
   current.lines.push({
     id: crypto.randomUUID(),
@@ -283,7 +294,7 @@ async function saveScenario() {
     .select()
     .single();
 
-  if (e1) { msg(e1.message); return; }
+  if (e1) throw e1;
 
   await client.from('scenario_lines').delete().eq('scenario_id', sc.id);
 
@@ -300,7 +311,7 @@ async function saveScenario() {
 
   if (lines.length) {
     const { error: e2 } = await client.from('scenario_lines').insert(lines);
-    if (e2) { msg(e2.message); return; }
+    if (e2) throw e2;
   }
 
   const shiftRev  = Number(rootEl.querySelector('#shiftRev').value) || 0;
@@ -308,7 +319,7 @@ async function saveScenario() {
   if (shiftRev || shiftCost) await applyShifts(sc.id, shiftRev, shiftCost);
 
   msg('Saved');
-  await loadScenarioList();
+  await safe(loadScenarioList);
 }
 
 /* ------------------------------------------------------------------ */
@@ -375,7 +386,7 @@ async function deleteScenario() {
 
   current = null;
   rootEl.querySelector('#editor').classList.add('hidden');
-  await loadScenarioList();
+  await safe(loadScenarioList);
   sessionStorage.removeItem(SCENARIO_ID_KEY);
   msg('Deleted');
 }
@@ -395,6 +406,25 @@ function esc(s) {
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
   }[c]));
 }
+
+/* ------------------------------------------------------------------ */
+/*  SAFE WRAPPERS                                                     */
+/* ------------------------------------------------------------------ */
+async function safe(fn) {
+  try {
+    showOverlay(true);
+    await fn();
+  } catch (e) {
+    console.error('Scenarios error:', e);
+    msg(`Error: ${e.message || e}`);
+  } finally {
+    showOverlay(false);
+  }
+}
+function showOverlay(on) {
+  rootEl.querySelector('#overlay').classList.toggle('hidden', !on);
+}
+function logErr(e) { console.error(e); }
 
 /* ------------------------------------------------------------------ */
 /*  Export tab (router)                                               */
