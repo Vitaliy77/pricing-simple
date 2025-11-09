@@ -1,6 +1,6 @@
 // js/tabs/scenarios.js
 import { client } from '../api/supabase.js';
-import { reloadConsol } from './consol-pl.js';   // <-- expose reloadConsol in consol-pl.js
+import { reloadConsol } from './consol-pl.js';
 
 const SCENARIO_ID_KEY = 'activeScenarioId';
 
@@ -80,17 +80,17 @@ export const template = /*html*/`
 `;
 
 let rootEl = null;
-let current = null;               // {id, name, description, lines:[]}
-let baseYear = null;              // selected year (from dropdown)
+let current = null;               // {id, name, description, base_year, base_month, lines:[]}
+let baseYear = null;              // selected year
 
 export async function init(root) {
   rootEl = root;
   baseYear = new Date().getUTCFullYear();
 
-  // ---- YEAR SELECTOR -------------------------------------------------
+  // ---- YEAR SELECTOR (must be in DOM BEFORE any async call) ----
   const yearSel = document.createElement('select');
   yearSel.id = 'scYear';
-  yearSel.className = 'border rounded-md p-1 text-sm';
+  yearSel.className = 'border rounded-md p-1 text-sm mr-2';
   for (let y = baseYear - 1; y <= baseYear + 1; y++) {
     const o = document.createElement('option');
     o.value = y; o.text = y;
@@ -99,11 +99,11 @@ export async function init(root) {
   }
   yearSel.addEventListener('change', () => {
     baseYear = Number(yearSel.value);
-    if (current) loadLines(current.id);
+    if (current) loadLines(current.id).catch(console.error);
   });
   root.querySelector('#newScenario').before(yearSel);
 
-  // ---- BUTTONS -------------------------------------------------------
+  // ---- BUTTONS ----------------------------------------------------
   root.querySelector('#newScenario').addEventListener('click', newScenario);
   root.querySelector('#addRow').addEventListener('click', addEmptyRow);
   root.querySelector('#saveScenario').addEventListener('click', saveScenario);
@@ -112,7 +112,7 @@ export async function init(root) {
 
   await loadScenarioList();
 
-  // ---- AUTO-ACTIVATE FROM URL ----------------------------------------
+  // ---- AUTO-ACTIVATE FROM URL ------------------------------------
   const urlId = new URLSearchParams(location.hash.split('?')[1]).get('active');
   if (urlId) await activateById(urlId);
 }
@@ -136,11 +136,13 @@ async function loadScenarioList() {
     div.innerHTML = `
       <div>
         <div class="font-medium">${esc(sc.name)}</div>
-        <div class="text-xs text-slate-500">${esc(sc.description || '—no description—')} (Year ${sc.base_year})</div>
+        <div class="text-xs text-slate-500">
+          ${esc(sc.description || '—no description—')} (Year ${sc.base_year ?? baseYear})
+        </div>
       </div>
       <button class="text-xs text-blue-600 hover:underline loadBtn" data-id="${sc.id}">Edit</button>
     `;
-    div.querySelector('.loadBtn').addEventListener('click', () => loadScenario(sc.id));
+    div.querySelector('.loadBtn').addEventListener('click', () => loadScenario(sc.id).catch(console.error));
     list.appendChild(div);
   });
 }
@@ -161,10 +163,17 @@ async function loadScenario(id) {
     id: sc.id,
     name: sc.name,
     description: sc.description,
-    base_year: sc.base_year,
-    base_month: sc.base_month,
+    base_year: sc.base_year ?? baseYear,
+    base_month: sc.base_month ?? `${baseYear}-01`,
     lines: []
   };
+
+  // make sure the year selector matches the scenario
+  const sel = rootEl.querySelector('#scYear');
+  if (sel && sc.base_year) {
+    sel.value = sc.base_year;
+    baseYear = sc.base_year;
+  }
 
   rootEl.querySelector('#editor').classList.remove('hidden');
   rootEl.querySelector('#scName').value = sc.name;
@@ -190,7 +199,11 @@ async function loadLines(scId) {
 
   if (error) { msg(error.message); return; }
 
-  current.lines = data || [];
+  current.lines = (data || []).map(l => ({
+    ...l,
+    id: l.id ?? crypto.randomUUID()   // guarantee an id
+  }));
+
   renderLines();
 }
 
@@ -226,7 +239,7 @@ function renderLines() {
     tbody.appendChild(tr);
   });
 
-  // ---- auto-fill missing months (optional) -------------------------
+  // ---- fill missing months (no infinite loop) --------------------
   const existing = current.lines.map(l => l.ym.slice(0,7));
   months.forEach(ym => {
     if (!existing.includes(ym)) addEmptyRow(ym);
@@ -256,7 +269,6 @@ async function saveScenario() {
   const desc = rootEl.querySelector('#scDesc').value.trim();
   if (!name) { msg('Name required'); return; }
 
-  // ← NEW: write base_year / base_month (use selected year)
   const payload = {
     id: current.id,
     name,
@@ -273,7 +285,6 @@ async function saveScenario() {
 
   if (e1) { msg(e1.message); return; }
 
-  // ---- delete old lines, insert fresh ones -------------------------
   await client.from('scenario_lines').delete().eq('scenario_id', sc.id);
 
   const ohDelta = Number(rootEl.querySelector('#monthlyOH').value) || 0;
@@ -292,7 +303,6 @@ async function saveScenario() {
     if (e2) { msg(e2.message); return; }
   }
 
-  // ---- apply global month shifts ------------------------------------
   const shiftRev  = Number(rootEl.querySelector('#shiftRev').value) || 0;
   const shiftCost = Number(rootEl.querySelector('#shiftCost').value) || 0;
   if (shiftRev || shiftCost) await applyShifts(sc.id, shiftRev, shiftCost);
@@ -342,8 +352,8 @@ function newScenario() {
     id: crypto.randomUUID(),
     name: '',
     description: '',
-    base_year: baseYear,                     // ← NEW
-    base_month: `${baseYear}-01`,            // ← NEW
+    base_year: baseYear,
+    base_month: `${baseYear}-01`,
     lines: []
   };
 
@@ -375,13 +385,15 @@ async function deleteScenario() {
 /* ------------------------------------------------------------------ */
 function msg(txt) { rootEl.querySelector('#msg').textContent = txt; }
 
-function monthShort(ym) { // '2025-01' → 'Jan'
-  const [y,m] = ym.split('-');
-  return new Date(y, m-1, 1).toLocaleString('en-US', {month:'short'});
+function monthShort(ym) {
+  const [y, m] = ym.split('-');
+  return new Date(y, m - 1, 1).toLocaleString('en-US', { month: 'short' });
 }
 
 function esc(s) {
-  return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  return String(s ?? '').replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[c]));
 }
 
 /* ------------------------------------------------------------------ */
