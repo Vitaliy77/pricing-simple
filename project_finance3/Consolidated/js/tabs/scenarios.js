@@ -1,6 +1,6 @@
 // js/tabs/scenarios.js
 import { client } from '../api/supabase.js';
-import { reloadConsol } from './consol-pl.js';   // <-- we will expose this later
+import { reloadConsol } from './consol-pl.js';   // <-- expose reloadConsol in consol-pl.js
 
 const SCENARIO_ID_KEY = 'activeScenarioId';
 
@@ -81,13 +81,13 @@ export const template = /*html*/`
 
 let rootEl = null;
 let current = null;               // {id, name, description, lines:[]}
-let baseYear = null;              // current selected year
+let baseYear = null;              // selected year (from dropdown)
 
 export async function init(root) {
   rootEl = root;
   baseYear = new Date().getUTCFullYear();
 
-  // year selector (reuse consol logic)
+  // ---- YEAR SELECTOR -------------------------------------------------
   const yearSel = document.createElement('select');
   yearSel.id = 'scYear';
   yearSel.className = 'border rounded-md p-1 text-sm';
@@ -103,6 +103,7 @@ export async function init(root) {
   });
   root.querySelector('#newScenario').before(yearSel);
 
+  // ---- BUTTONS -------------------------------------------------------
   root.querySelector('#newScenario').addEventListener('click', newScenario);
   root.querySelector('#addRow').addEventListener('click', addEmptyRow);
   root.querySelector('#saveScenario').addEventListener('click', saveScenario);
@@ -110,6 +111,8 @@ export async function init(root) {
   root.querySelector('#deleteScenario').addEventListener('click', deleteScenario);
 
   await loadScenarioList();
+
+  // ---- AUTO-ACTIVATE FROM URL ----------------------------------------
   const urlId = new URLSearchParams(location.hash.split('?')[1]).get('active');
   if (urlId) await activateById(urlId);
 }
@@ -118,8 +121,13 @@ export async function init(root) {
 /*  LIST                                                              */
 /* ------------------------------------------------------------------ */
 async function loadScenarioList() {
-  const { data, error } = await client.from('scenarios').select('id,name,description');
+  const { data, error } = await client
+    .from('scenarios')
+    .select('id,name,description,base_year')
+    .order('created_at', { ascending: false });
+
   if (error) { msg(error.message); return; }
+
   const list = rootEl.querySelector('#list');
   list.innerHTML = '';
   data.forEach(sc => {
@@ -128,7 +136,7 @@ async function loadScenarioList() {
     div.innerHTML = `
       <div>
         <div class="font-medium">${esc(sc.name)}</div>
-        <div class="text-xs text-slate-500">${esc(sc.description || '—no description—')}</div>
+        <div class="text-xs text-slate-500">${esc(sc.description || '—no description—')} (Year ${sc.base_year})</div>
       </div>
       <button class="text-xs text-blue-600 hover:underline loadBtn" data-id="${sc.id}">Edit</button>
     `;
@@ -141,16 +149,37 @@ async function loadScenarioList() {
 /*  EDITOR                                                            */
 /* ------------------------------------------------------------------ */
 async function loadScenario(id) {
-  const { data: sc, error: e1 } = await client.from('scenarios').select('*').eq('id', id).single();
+  const { data: sc, error: e1 } = await client
+    .from('scenarios')
+    .select('*')
+    .eq('id', id)
+    .single();
+
   if (e1) { msg(e1.message); return; }
-  current = { id: sc.id, name: sc.name, description: sc.description, lines: [] };
+
+  current = {
+    id: sc.id,
+    name: sc.name,
+    description: sc.description,
+    base_year: sc.base_year,
+    base_month: sc.base_month,
+    lines: []
+  };
+
   rootEl.querySelector('#editor').classList.remove('hidden');
   rootEl.querySelector('#scName').value = sc.name;
   rootEl.querySelector('#scDesc').value = sc.description || '';
+  rootEl.querySelector('#shiftRev').value = 0;
+  rootEl.querySelector('#shiftCost').value = 0;
+  rootEl.querySelector('#monthlyOH').value = 0;
+
   await loadLines(id);
 }
+
 async function loadLines(scId) {
-  const start = `${baseYear}-01-01`, end = `${baseYear + 1}-01-01`;
+  const start = `${baseYear}-01-01`;
+  const end   = `${baseYear + 1}-01-01`;
+
   const { data, error } = await client
     .from('scenario_lines')
     .select('*')
@@ -158,14 +187,19 @@ async function loadLines(scId) {
     .gte('ym', start)
     .lt('ym', end)
     .order('ym');
+
   if (error) { msg(error.message); return; }
+
   current.lines = data || [];
   renderLines();
 }
+
 function renderLines() {
   const tbody = rootEl.querySelector('#adjTable tbody');
   tbody.innerHTML = '';
+
   const months = Array.from({ length: 12 }, (_, i) => `${baseYear}-${String(i + 1).padStart(2, '0')}-01`);
+
   current.lines.forEach(ln => {
     const tr = document.createElement('tr');
     const m = ln.ym.slice(0, 7);
@@ -177,30 +211,37 @@ function renderLines() {
       <td class="p-1"><input type="number" step="0.1" class="w-20 text-right border rounded px-1" value="${ln.cost_pct||0}"></td>
       <td class="p-1"><button class="text-xs text-red-600 hover:underline removeRow">×</button></td>
     `;
+
     const inputs = tr.querySelectorAll('input');
     inputs.forEach((inp, idx) => inp.addEventListener('change', () => {
-      const vals = ['rev_delta','rev_pct','cost_delta','cost_pct'];
-      ln[vals[idx]] = Number(inp.value) || 0;
+      const fields = ['rev_delta','rev_pct','cost_delta','cost_pct'];
+      ln[fields[idx]] = Number(inp.value) || 0;
     }));
+
     tr.querySelector('.removeRow').addEventListener('click', () => {
       current.lines = current.lines.filter(l => l.id !== ln.id);
       renderLines();
     });
+
     tbody.appendChild(tr);
   });
-  // fill missing months with empty rows (optional)
+
+  // ---- auto-fill missing months (optional) -------------------------
   const existing = current.lines.map(l => l.ym.slice(0,7));
   months.forEach(ym => {
     if (!existing.includes(ym)) addEmptyRow(ym);
   });
 }
+
 function addEmptyRow(ym = null) {
-  const month = ym || `${baseYear}-${String(current.lines.length % 12 + 1).padStart(2,'0')}-01`;
+  const month = ym || `${baseYear}-${String((current.lines.length % 12) + 1).padStart(2,'0')}-01`;
   current.lines.push({
     id: crypto.randomUUID(),
     scenario_id: current.id,
     ym: month,
-    rev_delta: 0, rev_pct: 0, cost_delta: 0, cost_pct: 0, oh_delta: 0
+    rev_delta: 0, rev_pct: 0,
+    cost_delta: 0, cost_pct: 0,
+    oh_delta: 0
   });
   renderLines();
 }
@@ -210,19 +251,32 @@ function addEmptyRow(ym = null) {
 /* ------------------------------------------------------------------ */
 async function saveScenario() {
   if (!current) return;
+
   const name = rootEl.querySelector('#scName').value.trim();
   const desc = rootEl.querySelector('#scDesc').value.trim();
   if (!name) { msg('Name required'); return; }
 
+  // ← NEW: write base_year / base_month (use selected year)
+  const payload = {
+    id: current.id,
+    name,
+    description: desc,
+    base_year: baseYear,
+    base_month: `${baseYear}-${String(new Date().getUTCMonth() + 1).padStart(2, '0')}`
+  };
+
   const { data: sc, error: e1 } = await client
     .from('scenarios')
-    .upsert({ id: current.id, name, description: desc }, { onConflict: 'id' })
+    .upsert(payload, { onConflict: 'id' })
     .select()
     .single();
+
   if (e1) { msg(e1.message); return; }
 
-  // delete old lines, insert new
+  // ---- delete old lines, insert fresh ones -------------------------
   await client.from('scenario_lines').delete().eq('scenario_id', sc.id);
+
+  const ohDelta = Number(rootEl.querySelector('#monthlyOH').value) || 0;
   const lines = current.lines.map(l => ({
     scenario_id: sc.id,
     ym: l.ym,
@@ -230,30 +284,31 @@ async function saveScenario() {
     rev_pct: l.rev_pct,
     cost_delta: l.cost_delta,
     cost_pct: l.cost_pct,
-    oh_delta: Number(rootEl.querySelector('#monthlyOH').value) || 0
+    oh_delta: ohDelta
   }));
+
   if (lines.length) {
     const { error: e2 } = await client.from('scenario_lines').insert(lines);
     if (e2) { msg(e2.message); return; }
   }
 
-  // apply global shifts
-  const shiftRev = Number(rootEl.querySelector('#shiftRev').value) || 0;
+  // ---- apply global month shifts ------------------------------------
+  const shiftRev  = Number(rootEl.querySelector('#shiftRev').value) || 0;
   const shiftCost = Number(rootEl.querySelector('#shiftCost').value) || 0;
   if (shiftRev || shiftCost) await applyShifts(sc.id, shiftRev, shiftCost);
 
   msg('Saved');
   await loadScenarioList();
 }
+
+/* ------------------------------------------------------------------ */
 async function applyShifts(scId, revMo, costMo) {
-  // simple shift: move all rev/cost rows by N months (wrap around year)
   const { data } = await client.from('scenario_lines').select('*').eq('scenario_id', scId);
   const shifted = data.map(l => {
     const d = new Date(l.ym);
-    if (revMo) d.setMonth(d.getMonth() + revMo);
+    if (revMo)  d.setMonth(d.getMonth() + revMo);
     if (costMo) d.setMonth(d.getMonth() + costMo);
-    const newYm = d.toISOString().slice(0,10);
-    return { ...l, ym: newYm };
+    return { ...l, ym: d.toISOString().slice(0,10) };
   });
   await client.from('scenario_lines').delete().eq('scenario_id', scId);
   await client.from('scenario_lines').insert(shifted);
@@ -264,14 +319,16 @@ async function applyShifts(scId, revMo, costMo) {
 /* ------------------------------------------------------------------ */
 async function activateScenario() {
   if (!current) return;
+
   const url = new URL(location);
   url.hash = `#scenarios?active=${current.id}`;
   history.replaceState(null, '', url);
   sessionStorage.setItem(SCENARIO_ID_KEY, current.id);
+
   msg('Scenario activated – P&L will reflect it on next load');
-  // force consol tab reload
   if (typeof reloadConsol === 'function') reloadConsol();
 }
+
 async function activateById(id) {
   await loadScenario(id);
   rootEl.querySelector('#activateScenario').click();
@@ -281,7 +338,15 @@ async function activateById(id) {
 /*  NEW / DELETE                                                      */
 /* ------------------------------------------------------------------ */
 function newScenario() {
-  current = { id: crypto.randomUUID(), name: '', description: '', lines: [] };
+  current = {
+    id: crypto.randomUUID(),
+    name: '',
+    description: '',
+    base_year: baseYear,                     // ← NEW
+    base_month: `${baseYear}-01`,            // ← NEW
+    lines: []
+  };
+
   rootEl.querySelector('#editor').classList.remove('hidden');
   rootEl.querySelector('#scName').value = '';
   rootEl.querySelector('#scDesc').value = '';
@@ -290,11 +355,14 @@ function newScenario() {
   rootEl.querySelector('#monthlyOH').value = 0;
   renderLines();
 }
+
 async function deleteScenario() {
   if (!current) return;
   if (!confirm('Delete this scenario?')) return;
+
   await client.from('scenario_lines').delete().eq('scenario_id', current.id);
   await client.from('scenarios').delete().eq('id', current.id);
+
   current = null;
   rootEl.querySelector('#editor').classList.add('hidden');
   await loadScenarioList();
@@ -306,11 +374,15 @@ async function deleteScenario() {
 /*  HELPERS                                                           */
 /* ------------------------------------------------------------------ */
 function msg(txt) { rootEl.querySelector('#msg').textContent = txt; }
-function monthShort(ym) {                     // '2025-01' → 'Jan'
+
+function monthShort(ym) { // '2025-01' → 'Jan'
   const [y,m] = ym.split('-');
   return new Date(y, m-1, 1).toLocaleString('en-US', {month:'short'});
 }
-function esc(s) { return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+function esc(s) {
+  return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
 
 /* ------------------------------------------------------------------ */
 /*  Export tab (router)                                               */
