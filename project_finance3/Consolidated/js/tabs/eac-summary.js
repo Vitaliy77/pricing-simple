@@ -22,26 +22,19 @@ export const template = /*html*/`
   </div>
 `;
 
-/* -------------------------------------------------------------
-   State
-------------------------------------------------------------- */
 const state = {
   year: new Date().getUTCFullYear(),
-  projects: [] // [{project_id, name, months:{'2025-01':{rev,dc}}, totals:{rev,dc}}]
+  projects: []
 };
 
 let rootEl = null;
 
-/* -------------------------------------------------------------
-   Init
-------------------------------------------------------------- */
 export async function init(root) {
   rootEl = root;
 
   const sel = root.querySelector('#eacYear');
   const nowY = new Date().getUTCFullYear();
 
-  // year dropdown
   for (let y = nowY - 1; y <= nowY + 1; y++) {
     const opt = document.createElement('option');
     opt.value = String(y);
@@ -56,9 +49,6 @@ export async function init(root) {
   await load(nowY);
 }
 
-/* -------------------------------------------------------------
-   Core loader – NO project_name in the EAC view
-------------------------------------------------------------- */
 async function load(year) {
   const msg = rootEl.querySelector('#eacMsg');
   const table = rootEl.querySelector('#eacTable');
@@ -69,7 +59,7 @@ async function load(year) {
   const end   = `${year + 1}-01-01`;
 
   try {
-    /* ---------- 1. Revenue (only columns that definitely exist) ---------- */
+    // 1. Revenue — safe columns only
     const { data: revRows, error: revErr } = await client
       .from('vw_eac_revenue_monthly')
       .select('project_id, ym, revenue')
@@ -78,34 +68,32 @@ async function load(year) {
 
     if (revErr) throw revErr;
 
-    /* ---------- 2. Direct cost (same – only known columns) ---------- */
+    // 2. Direct cost — ONLY columns that exist
     const { data: costRows, error: costErr } = await client
       .from('vw_eac_monthly_pl')
-      .select('project_id, ym, labor, subs, equipment, materials, odc')
+      .select('project_id, ym, labor, subs, equipment, materials')
       .gte('ym', start)
       .lt('ym', end);
 
     if (costErr) throw costErr;
 
-    /* ---------- 3. Gather every project_id that appears ---------- */
+    // 3. Get all project IDs
     const allIds = new Set();
     revRows.forEach(r => allIds.add(r.project_id));
     costRows.forEach(r => allIds.add(r.project_id));
 
-    /* ---------- 4. Pull project names in ONE call ---------- */
-    const { data: nameRows, error: nameErr } = await client
+    // 4. Get project names
+    const { data: nameRows } = await client
       .from('projects')
       .select('id, name')
       .in('id', Array.from(allIds));
-
-    if (nameErr) console.warn('Project names could not be loaded:', nameErr);
 
     const nameMap = {};
     (nameRows || []).forEach(p => {
       nameMap[p.id] = p.name || `Project ${p.id.slice(0, 8)}`;
     });
 
-    /* ---------- 5. Build in-memory map ---------- */
+    // 5. Build project map
     const projMap = new Map();
 
     const getProj = (pid) => {
@@ -120,7 +108,7 @@ async function load(year) {
       return projMap.get(pid);
     };
 
-    // revenue
+    // Revenue
     for (const r of revRows) {
       const m = ymKey(r.ym);
       const p = getProj(r.project_id);
@@ -129,13 +117,12 @@ async function load(year) {
       p.totals.rev += Number(r.revenue || 0);
     }
 
-    // direct cost
+    // Direct Cost — NO odc!
     for (const r of costRows) {
       const m = ymKey(r.ym);
       const p = getProj(r.project_id);
       const dc = Number(r.labor || 0) + Number(r.subs || 0) +
-                 Number(r.equipment || 0) + Number(r.materials || 0) +
-                 Number(r.odc || 0);
+                 Number(r.equipment || 0) + Number(r.materials || 0);
       p.months[m] = p.months[m] || { rev: 0, dc: 0 };
       p.months[m].dc += dc;
       p.totals.dc += dc;
@@ -152,17 +139,11 @@ async function load(year) {
   }
 }
 
-/* -------------------------------------------------------------
-   Rendering
-------------------------------------------------------------- */
 function render() {
   const table = rootEl.querySelector('#eacTable');
   if (!table) return;
 
-  const months = Array.from({ length: 12 }, (_, i) => {
-    const m = String(i + 1).padStart(2, '0');
-    return `${state.year}-${m}`;
-  });
+  const months = Array.from({ length: 12 }, (_, i) => `${state.year}-${String(i + 1).padStart(2, '0')}`);
 
   let html = `<thead class="bg-slate-50 sticky top-0"><tr>
     <th class="p-2 text-left sticky left-0 bg-white w-56">Project</th>`;
@@ -180,7 +161,7 @@ function render() {
     for (const m of months) {
       const d = p.months[m] || { rev: 0, dc: 0 };
       revYtd += d.rev;
-      dcYtd  += d.dc;
+      dcYtd += d.dc;
       monthHtml += `<td class="p-2 text-right">${fmt(d.rev)}</td>`;
     }
 
@@ -201,34 +182,22 @@ function render() {
   table.innerHTML = html;
 }
 
-/* -------------------------------------------------------------
-   Helpers
-------------------------------------------------------------- */
+/* Helpers */
 function ymKey(ym) { return String(ym).slice(0, 7); }
-
 function monthLabel(ym) {
   const [y, m] = ym.split('-').map(Number);
   return new Date(y, m - 1, 1).toLocaleString('en-US', { month: 'short' });
 }
-
 function fmt(v) {
   const n = Number(v || 0);
-  return n.toLocaleString('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: 0
-  });
+  return n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
 }
-
 function esc(s) {
   return String(s ?? '').replace(/[&<>"']/g, c => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
   }[c]));
 }
 
-/* -------------------------------------------------------------
-   Export tab (same pattern as indirect / addbacks)
-------------------------------------------------------------- */
 export const eacSummaryTab = {
   template,
   async init(root) {
