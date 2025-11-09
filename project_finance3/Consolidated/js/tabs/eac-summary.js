@@ -55,34 +55,28 @@ async function load(year) {
   msg.textContent = 'Loading…';
   table.innerHTML = '';
 
-  const start = `${year}-01-01`;
-  const end   = `${year + 1}-01-01`;
-
   try {
-    // 1. Revenue — safe columns only
+    // 1. Revenue — use year filter only
     const { data: revRows, error: revErr } = await client
       .from('vw_eac_revenue_monthly')
-      .select('project_id, ym, revenue')
-      .gte('ym', start)
-      .lt('ym', end);
+      .select('project_id, year, month, revenue')
+      .eq('year', year);
 
     if (revErr) throw revErr;
 
-    // 2. Direct cost — ONLY columns that exist
+    // 2. Direct cost — same
     const { data: costRows, error: costErr } = await client
       .from('vw_eac_monthly_pl')
-      .select('project_id, ym, labor, subs, equipment, materials')
-      .gte('ym', start)
-      .lt('ym', end);
+      .select('project_id, year, month, labor, subs, equipment, materials')
+      .eq('year', year);
 
     if (costErr) throw costErr;
 
-    // 3. Get all project IDs
+    // 3. Get project names
     const allIds = new Set();
     revRows.forEach(r => allIds.add(r.project_id));
     costRows.forEach(r => allIds.add(r.project_id));
 
-    // 4. Get project names
     const { data: nameRows } = await client
       .from('projects')
       .select('id, name')
@@ -93,7 +87,7 @@ async function load(year) {
       nameMap[p.id] = p.name || `Project ${p.id.slice(0, 8)}`;
     });
 
-    // 5. Build project map
+    // 4. Build map
     const projMap = new Map();
 
     const getProj = (pid) => {
@@ -110,16 +104,16 @@ async function load(year) {
 
     // Revenue
     for (const r of revRows) {
-      const m = ymKey(r.ym);
+      const m = `${r.year}-${String(r.month).padStart(2, '0')}`;
       const p = getProj(r.project_id);
       p.months[m] = p.months[m] || { rev: 0, dc: 0 };
       p.months[m].rev += Number(r.revenue || 0);
       p.totals.rev += Number(r.revenue || 0);
     }
 
-    // Direct Cost — NO odc!
+    // Direct Cost
     for (const r of costRows) {
-      const m = ymKey(r.ym);
+      const m = `${r.year}-${String(r.month).padStart(2, '0')}`;
       const p = getProj(r.project_id);
       const dc = Number(r.labor || 0) + Number(r.subs || 0) +
                  Number(r.equipment || 0) + Number(r.materials || 0);
@@ -183,15 +177,16 @@ function render() {
 }
 
 /* Helpers */
-function ymKey(ym) { return String(ym).slice(0, 7); }
 function monthLabel(ym) {
   const [y, m] = ym.split('-').map(Number);
   return new Date(y, m - 1, 1).toLocaleString('en-US', { month: 'short' });
 }
+
 function fmt(v) {
   const n = Number(v || 0);
   return n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
 }
+
 function esc(s) {
   return String(s ?? '').replace(/[&<>"']/g, c => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
