@@ -9,6 +9,28 @@ let budgetDirect = new Map();    // key: `${category}-${ym}`, value: amount
 
 const YM_FORMAT = /^\d{4}-\d{2}-01$/;
 
+export async function init(root, params = {}) {
+  rootEl = root;
+  const urlGrantId = params.grantId;
+
+  await Promise.all([
+    loadGrants(),
+    loadLaborCategories()
+  ]);
+
+  setupEventListeners();
+
+  // Auto-select grant from URL
+  if (urlGrantId) {
+    const sel = rootEl.querySelector('#grantSelect');
+    sel.value = urlGrantId;
+    currentGrant = { id: urlGrantId };
+    await loadBudgetForSelectedGrant();
+  } else {
+    await loadBudgetForSelectedGrant();
+  }
+}
+
 export const template = /*html*/`
   <div class="bg-white rounded-xl shadow-sm p-6 space-y-6">
     <div class="flex items-center justify-between">
