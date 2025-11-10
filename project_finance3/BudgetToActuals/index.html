@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Non-Profit Budget to Actuals</title>
+  <script type="module" src="./js/router.js"></script>
+  <script type="module" src="./js/api/supabase.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, sans-serif; margin: 0; background: #f9fafb; }
+    #app { padding: 1rem; }
+    .nav-link { text-decoration: none; color: #374151; }
+    .nav-link:hover { background: #f3f4f6; }
+  </style>
+</head>
+<body>
+  <!-- Navigation auto-inserted here -->
+  <div id="app"></div>
+
+  <script type="module">
+    import { initRouter } from './js/router.js';
+    import { initSupabase } from './js/api/supabase.js';
+
+    // Initialize Supabase first
+    await initSupabase();
+    // Then start router
+    initRouter();
+  </script>
+</body>
+</html>
