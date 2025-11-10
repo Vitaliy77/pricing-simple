@@ -52,6 +52,14 @@ async function loadTab(loader, hash) {
 
   appContainer.innerHTML = '<div class="p-8 text-center">Loading...</div>';
 
+      // After loading the tab module
+    const urlParams = new URLSearchParams(window.location.hash.split('?')[1]);
+    const grantId = urlParams.get('grant');
+    
+    // Pass grantId to init if supported
+    if (typeof init === 'function') {
+      await init(appContainer, { grantId });
+    }
   try {
     const { template, init } = await loader();
     appContainer.innerHTML = template;
