@@ -5,48 +5,40 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Non-Profit Grant Tracker</title>
 
-  <!-- Tailwind CSS (via CDN) -->
+  <!-- Tailwind (CDN - OK for demo) -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            slate: {
-              50: '#f8fafc', 100: '#f1f5f9', 200: '#e2e8f0', 300: '#cbd5e1',
-              400: '#94a3b8', 500: '#64748b', 600: '#475569', 700: '#334155',
-              800: '#1e293b', 900: '#0f172a'
-            }
-          }
-        }
-      }
-    }
+    tailwind.config = { theme: { extend: { colors: { slate: {
+      50: '#f8fafc', 100: '#f1f5f9', 200: '#e2e8f0', 300: '#cbd5e1',
+      400: '#94a3b8', 500: '#64748b', 600: '#475569', 700: '#334155',
+      800: '#1e293b', 900: '#0f172a'
+    }}}}}
   </script>
 
-  <!-- Your Custom CSS -->
+  <!-- Custom CSS -->
   <link rel="stylesheet" href="./css/styles.css">
 
-  <!-- Icons (optional) -->
+  <!-- Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
 </head>
 <body class="antialiased">
 
   <!-- Navigation -->
-  <nav class="nav no-print">
-    <div class="nav-container">
+  <nav class="bg-white border-b border-slate-200 sticky top-0 z-10 no-print">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16">
       <h1 class="text-lg font-bold text-slate-800">Grant Tracker</h1>
       <div class="flex gap-1">
-        <a href="#grant" class="nav-link" data-nav>Grant Info</a>
-        <a href="#budget" class="nav-link" data-nav>Budget</a>
-        <a href="#actuals" class="nav-link" data-nav>Actuals</a>
-        <a href="#bva" class="nav-link" data-nav>BvA</a>
-        <a href="#metrics" class="nav-link" data-nav>Metrics</a>
+        <a href="#grant" class="px-4 py-2 text-sm font-medium text-slate-700 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors" data-nav>Grant Info</a>
+        <a href="#budget" class="px-4 py-2 text-sm font-medium text-slate-700 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors" data-nav>Budget</a>
+        <a href="#actuals" class="px-4 py-2 text-sm font-medium text-slate-700 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors" data-nav>Actuals</a>
+        <a href="#bva" class="px-4 py-2 text-sm font-medium text-slate-700 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors" data-nav>BvA</a>
+        <a href="#metrics" class="px-4 py-2 text-sm font-medium text-slate-700 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors" data-nav>Metrics</a>
       </div>
     </div>
   </nav>
 
   <!-- Main App -->
-  <main class="container-max py-8">
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
     <div id="app">Loading...</div>
   </main>
 
@@ -61,20 +53,16 @@
     import { initRouter } from './js/router.js';
     import { initSupabase } from './js/api/supabase.js';
 
-    // Active nav highlighting
+    // Active nav
     document.querySelectorAll('[data-nav]').forEach(link => {
       link.addEventListener('click', () => {
-        document.querySelectorAll('[data-nav]').forEach(l => l.classList.remove('active'));
-        link.classList.add('active');
+        document.querySelectorAll('[data-nav]').forEach(l => l.classList.remove('bg-blue-50', 'text-blue-600'));
+        link.classList.add('bg-blue-50', 'text-blue-600');
       });
     });
-
-    // Auto-highlight current tab
     const setActive = () => {
       const hash = location.hash || '#grant';
-      document.querySelectorAll('[data-nav]').forEach(l => {
-        l.classList.toggle('active', l.getAttribute('href') === hash);
-      });
+      document.querySelectorAll('[data-nav]').forEach('href', hash);
     };
     window.addEventListener('hashchange', setActive);
     setActive();
@@ -84,9 +72,8 @@
       initRouter();
     } catch (e) {
       document.getElementById('app').innerHTML = `
-        <div class="card">
-          <h2 class="text-xl font-bold text-red-600">App Failed to Load</h2>
-          <p class="mt-2 text-slate-600">${e.message}</p>
+        <div class="bg-red-50 border border-red-200 text-red-700 p-4 rounded-lg">
+          <strong>App failed to load:</strong> ${e.message}
         </div>`;
     }
   </script>
