@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Non-Profit Budget to Actuals</title>
 
-  <!-- CDNs -->
+  <!-- CDNs (must be BEFORE any module scripts) -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -18,13 +18,19 @@
 <body>
   <div id="app">Loading…</div>
 
+  <!-- Your app -->
   <script type="module" src="./js/router.js"></script>
   <script type="module">
     import { initRouter } from './js/router.js';
     import { initSupabase } from './js/api/supabase.js';
 
-    try { await initSupabase(); initRouter(); }
-    catch (e) { document.getElementById('app').innerHTML = `<div style="color:red;padding:1rem">Error: ${e.message}</div>`; }
+    try {
+      await initSupabase();
+      initRouter();
+    } catch (e) {
+      document.getElementById('app').innerHTML =
+        `<div style="color:red;padding:1rem">Error: ${e.message}</div>`;
+    }
   </script>
 </body>
 </html>
