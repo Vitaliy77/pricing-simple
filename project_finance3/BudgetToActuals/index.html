@@ -53,19 +53,29 @@
     import { initRouter } from './js/router.js';
     import { initSupabase } from './js/api/supabase.js';
 
-    // Active nav
-    document.querySelectorAll('[data-nav]').forEach(link => {
+    // ---- ACTIVE NAVIGATION ----
+    const navLinks = document.querySelectorAll('[data-nav]');
+
+    // Click handler – highlight the clicked link
+    navLinks.forEach(link => {
       link.addEventListener('click', () => {
-        document.querySelectorAll('[data-nav]').forEach(l => l.classList.remove('bg-blue-50', 'text-blue-600'));
+        navLinks.forEach(l => l.classList.remove('bg-blue-50', 'text-blue-600'));
         link.classList.add('bg-blue-50', 'text-blue-600');
       });
     });
+
+    // Highlight the link that matches the current hash
     const setActive = () => {
       const hash = location.hash || '#grant';
-      document.querySelectorAll('[data-nav]').forEach('href', hash);
+      navLinks.forEach(link => {
+        const isActive = link.getAttribute('href') === hash;
+        link.classList.toggle('bg-blue-50', isActive);
+        link.classList.toggle('text-blue-600', isActive);
+      });
     };
+
     window.addEventListener('hashchange', setActive);
-    setActive();
+    setActive();   // run once on load
 
     try {
       await initSupabase();
