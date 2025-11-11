@@ -5,20 +5,28 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Non-Profit Grant Tracker</title>
 
-  <!-- Tailwind (CDN - OK for demo) -->
+  <!-- Tailwind (CDN – OK for demo) -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
-    tailwind.config = { theme: { extend: { colors: { slate: {
-      50: '#f8fafc', 100: '#f1f5f9', 200: '#e2e8f0', 300: '#cbd5e1',
-      400: '#94a3b8', 500: '#64748b', 600: '#475569', 700: '#334155',
-      800: '#1e293b', 900: '#0f172a'
-    }}}}}
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            slate: {
+              50: '#f8fafc', 100: '#f1f5f9', 200: '#e2e8f0', 300: '#cbd5e1',
+              400: '#94a3b8', 500: '#64748b', 600: '#475569', 700: '#334155',
+              800: '#1e293b', 900: '#0f172a'
+            }
+          }
+        }
+      }
+    }
   </script>
 
   <!-- Custom CSS -->
   <link rel="stylesheet" href="./css/styles.css">
 
-  <!-- Icons -->
+  <!-- Icons (optional) -->
   <script src="https://unpkg.com/lucide@latest"></script>
 </head>
 <body class="antialiased">
@@ -28,10 +36,10 @@
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16">
       <h1 class="text-lg font-bold text-slate-800">Grant Tracker</h1>
       <div class="flex gap-1">
-        <a href="#grant" class="px-4 py-2 text-sm font-medium text-slate-700 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors" data-nav>Grant Info</a>
-        <a href="#budget" class="px-4 py-2 text-sm font-medium text-slate-700 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors" data-nav>Budget</a>
+        <a href="#grant"   class="px-4 py-2 text-sm font-medium text-slate-700 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors" data-nav>Grant Info</a>
+        <a href="#budget"  class="px-4 py-2 text-sm font-medium text-slate-700 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors" data-nav>Budget</a>
         <a href="#actuals" class="px-4 py-2 text-sm font-medium text-slate-700 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors" data-nav>Actuals</a>
-        <a href="#bva" class="px-4 py-2 text-sm font-medium text-slate-700 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors" data-nav>BvA</a>
+        <a href="#bva"     class="px-4 py-2 text-sm font-medium text-slate-700 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors" data-nav>BvA</a>
         <a href="#metrics" class="px-4 py-2 text-sm font-medium text-slate-700 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors" data-nav>Metrics</a>
       </div>
     </div>
@@ -56,7 +64,6 @@
     // ---- ACTIVE NAVIGATION ----
     const navLinks = document.querySelectorAll('[data-nav]');
 
-    // Click handler – highlight the clicked link
     navLinks.forEach(link => {
       link.addEventListener('click', () => {
         navLinks.forEach(l => l.classList.remove('bg-blue-50', 'text-blue-600'));
@@ -64,7 +71,6 @@
       });
     });
 
-    // Highlight the link that matches the current hash
     const setActive = () => {
       const hash = location.hash || '#grant';
       navLinks.forEach(link => {
@@ -75,8 +81,9 @@
     };
 
     window.addEventListener('hashchange', setActive);
-    setActive();   // run once on load
+    setActive();
 
+    // ---- START APP ----
     try {
       await initSupabase();
       initRouter();
