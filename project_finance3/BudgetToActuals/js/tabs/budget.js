@@ -13,58 +13,58 @@ const EXPENSE_CATEGORIES = [
 ];
 
 export const template = /*html*/`
-  <div class="card space-y-6">
+  <div class="card space-y-8">
     <div class="flex items-center justify-between">
       <h2 class="text-xl font-semibold text-slate-800">Budget Entry</h2>
-      <select id="grantSelect" class="input text-sm w-64"></select>
+      <select id="grantSelect" class="input text-sm w-72"></select>
     </div>
 
     <div id="msg" class="text-sm text-slate-600"></div>
 
     <!-- Labor Table -->
     <div>
-      <div class="flex justify-between items-center mb-3">
-        <h3 class="font-medium text-slate-700">Labor</h3>
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="font-semibold text-slate-700">Labor</h3>
         <button id="addLabor" class="btn btn-primary btn-sm">+ Add Employee</button>
       </div>
-      <div class="overflow-x-auto -mx-6 px-6">
-        <table class="min-w-full table-auto border-collapse">
-          <thead>
-            <tr class="bg-slate-50 text-xs font-medium text-slate-600 uppercase tracking-wider">
-              <th class="p-3 text-left sticky left-0 bg-slate-50">Employee</th>
-              <th class="p-3 text-left w-32">Position</th>
-              <th class="p-3 text-right w-24">Rate ($/hr)</th>
-              <th id="laborMonths" colspan="12" class="text-center"></th>
-              <th class="p-3 w-12"></th>
+      <div class="overflow-x-auto rounded-lg border border-slate-200">
+        <table class="min-w-full divide-y divide-slate-200">
+          <thead class="bg-slate-50">
+            <tr>
+              <th class="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider sticky left-0 bg-slate-50 z-10">Employee</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider w-40">Position</th>
+              <th class="px-4 py-3 text-right text-xs font-medium text-slate-600 uppercase tracking-wider w-24">Rate ($/hr)</th>
+              <th id="laborMonths" class="text-center"></th>
+              <th class="px-4 py-3 w-12"></th>
             </tr>
           </thead>
-          <tbody id="laborBody" class="bg-white"></tbody>
+          <tbody id="laborBody" class="bg-white divide-y divide-slate-200"></tbody>
         </table>
       </div>
     </div>
 
     <!-- Direct Costs Table -->
     <div>
-      <div class="flex justify-between items-center mb-3">
-        <h3 class="font-medium text-slate-700">Direct Costs</h3>
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="font-semibold text-slate-700">Direct Costs</h3>
         <button id="addDirect" class="btn btn-primary btn-sm">+ Add Expense</button>
       </div>
-      <div class="overflow-x-auto -mx-6 px-6">
-        <table class="min-w-full table-auto border-collapse">
-          <thead>
-            <tr class="bg-slate-50 text-xs font-medium text-slate-600 uppercase tracking-wider">
-              <th class="p-3 text-left sticky left-0 bg-slate-50">Category</th>
-              <th class="p-3 text-left">Description</th>
-              <th id="directMonths" colspan="12" class="text-center"></th>
-              <th class="p-3 w-12"></th>
+      <div class="overflow-x-auto rounded-lg border border-slate-200">
+        <table class="min-w-full divide-y divide-slate-200">
+          <thead class="bg-slate-50">
+            <tr>
+              <th class="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider sticky left-0 bg-slate-50 z-10">Category</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">Description</th>
+              <th id="directMonths" class="text-center"></th>
+              <th class="px-4 py-3 w-12"></th>
             </tr>
           </thead>
-          <tbody id="directBody" class="bg-white"></tbody>
+          <tbody id="directBody" class="bg-white divide-y divide-slate-200"></tbody>
         </table>
       </div>
     </div>
 
-    <div class="flex justify-end gap-3 mt-6">
+    <div class="flex justify-end gap-3 mt-8">
       <button id="saveBudget" class="btn btn-success">Save Budget</button>
     </div>
   </div>
@@ -131,41 +131,40 @@ async function getGrantMonths() {
 }
 
 function renderMonthHeaders() {
+  const makeHeader = (month) => {
+    const short = new Date(month).toLocaleString('en-US', { month: 'short' });
+    return `<th class="px-3 py-2 text-center text-xs font-medium text-slate-600 bg-slate-50 border-l border-slate-200 first:border-l-0">${short}</th>`;
+  };
+
   const laborHeader = rootEl.querySelector('#laborMonths');
   const directHeader = rootEl.querySelector('#directMonths');
-  const headerHTML = months.map(m => `<th class="p-3 text-center text-xs font-medium text-slate-600">${monthShort(m)}</th>`).join('');
-  laborHeader.innerHTML = headerHTML;
-  directHeader.innerHTML = headerHTML;
-}
-
-function monthShort(ym) {
-  return new Date(ym).toLocaleString('en-US', { month: 'short' });
+  laborHeader.innerHTML = months.map(makeHeader).join('');
+  directHeader.innerHTML = months.map(makeHeader).join('');
 }
 
 function renderLabor() {
   const tbody = rootEl.querySelector('#laborBody');
   tbody.innerHTML = laborData.map((row, i) => `
-    <tr class="border-b hover:bg-slate-50">
-      <td class="p-3 sticky left-0 bg-white">
+    <tr class="hover:bg-slate-50">
+      <td class="px-4 py-3 sticky left-0 bg-white border-r border-slate-200 z-10">
         <select class="input text-sm w-full" data-index="${i}" data-field="employee_id">
           <option value="">— Select —</option>
         </select>
       </td>
-      <td class="p-3">
+      <td class="px-4 py-3 border-r border-slate-200">
         <input type="text" class="input text-sm w-full" value="${row.position || ''}" readonly>
       </td>
-      <td class="p-3 text-right">
+      <td class="px-4 py-3 text-right border-r border-slate-200">
         <input type="number" class="input text-sm w-20 text-right" value="${row.hourly_rate || ''}" readonly>
       </td>
       ${months.map(m => `
-        <td class="p-3 text-center">
+        <td class="px-3 py-2 text-center border-l border-slate-200 first:border-l-0">
           <input type="number" class="input text-sm w-16 text-center" 
-                 placeholder="${m.slice(5,7)}" 
                  value="${row[`hours_${m}`] || ''}" 
                  data-index="${i}" data-month="${m}">
         </td>
       `).join('')}
-      <td class="p-3 text-center">
+      <td class="px-4 py-3 text-center">
         <button class="text-red-600 hover:text-red-800 text-xl" onclick="removeLabor(${i})">×</button>
       </td>
     </tr>
@@ -177,24 +176,23 @@ function renderLabor() {
 function renderDirect() {
   const tbody = rootEl.querySelector('#directBody');
   tbody.innerHTML = directData.map((row, i) => `
-    <tr class="border-b hover:bg-slate-50">
-      <td class="p-3 sticky left-0 bg-white">
+    <tr class="hover:bg-slate-50">
+      <td class="px-4 py-3 sticky left-0 bg-white border-r border-slate-200 z-10">
         <select class="input text-sm w-full" data-index="${i}" data-field="category">
           ${EXPENSE_CATEGORIES.map(c => `<option value="${c}" ${row.category === c ? 'selected' : ''}>${c}</option>`).join('')}
         </select>
       </td>
-      <td class="p-3">
+      <td class="px-4 py-3 border-r border-slate-200">
         <input type="text" class="input text-sm w-full" placeholder="Description" value="${row.description || ''}" data-index="${i}" data-field="description">
       </td>
       ${months.map(m => `
-        <td class="p-3 text-center">
+        <td class="px-3 py-2 text-center border-l border-slate-200 first:border-l-0">
           <input type="number" class="input text-sm w-20 text-center" 
-                 placeholder="${m.slice(5,7)}" 
                  value="${row[`amount_${m}`] || ''}" 
                  data-index="${i}" data-month="${m}">
         </td>
       `).join('')}
-      <td class="p-3 text-center">
+      <td class="px-4 py-3 text-center">
         <button class="text-red-600 hover:text-red-800 text-xl" onclick="removeDirect(${i})">×</button>
       </td>
     </tr>
