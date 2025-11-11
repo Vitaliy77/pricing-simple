@@ -2,34 +2,92 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Non-Profit Budget to Actuals</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Non-Profit Grant Tracker</title>
 
-  <!-- CDNs (must be BEFORE any module scripts) -->
+  <!-- Tailwind CSS (via CDN) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            slate: {
+              50: '#f8fafc', 100: '#f1f5f9', 200: '#e2e8f0', 300: '#cbd5e1',
+              400: '#94a3b8', 500: '#64748b', 600: '#475569', 700: '#334155',
+              800: '#1e293b', 900: '#0f172a'
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Your Custom CSS -->
+  <link rel="stylesheet" href="./css/styles.css">
+
+  <!-- Icons (optional) -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="antialiased">
+
+  <!-- Navigation -->
+  <nav class="nav no-print">
+    <div class="nav-container">
+      <h1 class="text-lg font-bold text-slate-800">Grant Tracker</h1>
+      <div class="flex gap-1">
+        <a href="#grant" class="nav-link" data-nav>Grant Info</a>
+        <a href="#budget" class="nav-link" data-nav>Budget</a>
+        <a href="#actuals" class="nav-link" data-nav>Actuals</a>
+        <a href="#bva" class="nav-link" data-nav>BvA</a>
+        <a href="#metrics" class="nav-link" data-nav>Metrics</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main App -->
+  <main class="container-max py-8">
+    <div id="app">Loading...</div>
+  </main>
+
+  <!-- CDNs -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-  <style>
-    body{font-family:system-ui,sans-serif;margin:0;background:#f9fafb}
-    #app{padding:1rem}
-  </style>
-</head>
-<body>
-  <div id="app">Loading…</div>
-
-  <!-- Your app -->
+  <!-- App -->
   <script type="module" src="./js/router.js"></script>
   <script type="module">
     import { initRouter } from './js/router.js';
     import { initSupabase } from './js/api/supabase.js';
 
+    // Active nav highlighting
+    document.querySelectorAll('[data-nav]').forEach(link => {
+      link.addEventListener('click', () => {
+        document.querySelectorAll('[data-nav]').forEach(l => l.classList.remove('active'));
+        link.classList.add('active');
+      });
+    });
+
+    // Auto-highlight current tab
+    const setActive = () => {
+      const hash = location.hash || '#grant';
+      document.querySelectorAll('[data-nav]').forEach(l => {
+        l.classList.toggle('active', l.getAttribute('href') === hash);
+      });
+    };
+    window.addEventListener('hashchange', setActive);
+    setActive();
+
     try {
       await initSupabase();
       initRouter();
     } catch (e) {
-      document.getElementById('app').innerHTML =
-        `<div style="color:red;padding:1rem">Error: ${e.message}</div>`;
+      document.getElementById('app').innerHTML = `
+        <div class="card">
+          <h2 class="text-xl font-bold text-red-600">App Failed to Load</h2>
+          <p class="mt-2 text-slate-600">${e.message}</p>
+        </div>`;
     }
   </script>
 </body>
