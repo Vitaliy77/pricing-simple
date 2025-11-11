@@ -7,40 +7,40 @@ let chartMonthly = null;
 let chartCumulative = null;
 
 export const template = /*html*/`
-  <div class="bg-white rounded-xl shadow-sm p-6 space-y-6">
+  <div class="card space-y-6">
     <div class="flex items-center justify-between">
-      <h2 class="text-xl font-semibold">Budget vs Actuals</h2>
-      <select id="grantSelect" class="border rounded-md px-3 py-1.5 text-sm"></select>
+      <h2 class="text-xl font-semibold text-slate-800">Budget vs Actuals</h2>
+      <select id="grantSelect" class="input text-sm"></select>
     </div>
 
     <div id="msg" class="text-sm text-slate-600"></div>
 
     <!-- Summary Cards -->
     <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-      <div class="bg-blue-50 p-4 rounded">
-        <div class="text-xs text-slate-500 uppercase">Total Budget</div>
-        <div id="totalBudget" class="text-2xl font-bold">$0</div>
+      <div class="bg-blue-50 p-4 rounded-lg border border-blue-100">
+        <div class="text-xs text-slate-500 uppercase tracking-wider">Total Budget</div>
+        <div id="totalBudget" class="text-2xl font-bold text-blue-700">$0</div>
       </div>
-      <div class="bg-green-50 p-4 rounded">
-        <div class="text-xs text-slate-500 uppercase">Spent to Date</div>
-        <div id="spentToDate" class="text-2xl font-bold">$0</div>
+      <div class="bg-green-50 p-4 rounded-lg border border-green-100">
+        <div class="text-xs text-slate-500 uppercase tracking-wider">Spent to Date</div>
+        <div id="spentToDate" class="text-2xl font-bold text-green-700">$0</div>
       </div>
-      <div class="bg-yellow-50 p-4 rounded">
-        <div class="text-xs text-slate-500 uppercase">Remaining</div>
-        <div id="remaining" class="text-2xl font-bold">$0</div>
+      <div class="bg-yellow-50 p-4 rounded-lg border border-yellow-100">
+        <div class="text-xs text-slate-500 uppercase tracking-wider">Remaining</div>
+        <div id="remaining" class="text-2xl font-bold text-yellow-700">$0</div>
       </div>
-      <div class="bg-purple-50 p-4 rounded">
-        <div class="text-xs text-slate-500 uppercase">% Spent</div>
-        <div id="pctSpent" class="text-2xl font-bold">0%</div>
+      <div class="bg-purple-50 p-4 rounded-lg border border-purple-100">
+        <div class="text-xs text-slate-500 uppercase tracking-wider">% Spent</div>
+        <div id="pctSpent" class="text-2xl font-bold text-purple-700">0%</div>
       </div>
     </div>
 
     <!-- Monthly Table -->
-    <div class="overflow-x-auto">
-      <table id="bvaTable" class="min-w-full text-sm">
-        <thead class="bg-slate-50">
+    <div class="overflow-x-auto -mx-6 px-6">
+      <table id="bvaTable" class="table">
+        <thead>
           <tr>
-            <th class="p-2 text-left sticky left-0 bg-white">Category</th>
+            <th class="sticky left-0 bg-white">Category</th>
             <!-- months added dynamically -->
           </tr>
         </thead>
@@ -49,13 +49,13 @@ export const template = /*html*/`
     </div>
 
     <!-- Charts -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <div class="bg-slate-50 p-4 rounded">
-        <h3 class="font-medium mb-2">Monthly BvA</h3>
+    <div class="grid-2">
+      <div class="bg-slate-50 p-5 rounded-lg">
+        <h3 class="font-medium mb-3 text-slate-700">Monthly BvA</h3>
         <canvas id="chartMonthly"></canvas>
       </div>
-      <div class="bg-slate-50 p-4 rounded">
-        <h3 class="font-medium mb-2">Cumulative Spend</h3>
+      <div class="bg-slate-50 p-5 rounded-lg">
+        <h3 class="font-medium mb-3 text-slate-700">Cumulative Spend</h3>
         <canvas id="chartCumulative"></canvas>
       </div>
     </div>
@@ -67,7 +67,7 @@ export async function init(root, params = {}) {
   const urlGrantId = params.grantId;
 
   await loadGrants();
-  setupEventListeners();               // <-- now defined
+  setupEventListeners();
 
   if (urlGrantId) {
     const sel = rootEl.querySelector('#grantSelect');
@@ -132,9 +132,8 @@ async function getGrantMonths() {
     .single();
 
   const start = new Date(data.start_date);
-  const end   = new Date(data.end_date);
-  const list  = [];
-
+  const end = new Date(data.end_date);
+  const list = [];
   for (let d = new Date(start); d <= end; d.setMonth(d.getMonth() + 1)) {
     list.push(d.toISOString().slice(0, 7) + '-01');
   }
@@ -158,7 +157,7 @@ async function loadBudgetData() {
 
 async function loadActualsData(months) {
   const start = months[0];
-  const end   = new Date(months[months.length - 1]);
+  const end = new Date(months[months.length - 1]);
   end.setMonth(end.getMonth() + 1);
 
   const { data } = await client
@@ -182,20 +181,22 @@ function renderTable(months, budget, actuals) {
   const thead = rootEl.querySelector('#bvaTable thead tr');
   const tbody = rootEl.querySelector('#bvaTable tbody');
 
-  // ---- headers ----
+  // Clear old headers
   while (thead.children.length > 1) thead.removeChild(thead.lastChild);
+
+  // Add month headers
   months.forEach(m => {
     const th = document.createElement('th');
-    th.className = 'p-2 text-right';
+    th.className = 'px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase bg-slate-50';
     th.textContent = monthShort(m);
     thead.appendChild(th);
   });
   const totalTh = document.createElement('th');
-  totalTh.className = 'p-2 text-right font-medium';
+  totalTh.className = 'px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase bg-slate-50';
   totalTh.textContent = 'Total';
   thead.appendChild(totalTh);
 
-  // ---- rows ----
+  // Build rows
   const cats = new Set();
   budget.laborMap.forEach((_, k) => cats.add(k.split('-')[0]));
   budget.directMap.forEach((_, k) => cats.add(k.split('-')[0]));
@@ -209,26 +210,26 @@ function renderTable(months, budget, actuals) {
     const cells = months.map(ym => {
       const bLabor = budget.laborMap.get(`${cat}-${ym}`) || 0;
       const bDirect = budget.directMap.get(`${cat}-${ym}`) || 0;
-      const bAmt = bLabor * 100 + bDirect;               // $100/hr
+      const bAmt = bLabor * 100 + bDirect;
       const aAmt = actuals.get(`${cat}-${ym}`) || 0;
       rowB += bAmt; rowA += aAmt;
-      const varAmt = bAmt - aAmt;
-      const cls = varAmt > 0 ? 'text-green-600' : varAmt < 0 ? 'text-red-600' : '';
-      return `<td class="p-2 text-right ${cls}">${fmt(varAmt)}</td>`;
+      const variance = bAmt - aAmt;
+      const cls = variance > 0 ? 'text-success font-medium' : variance < 0 ? 'text-danger font-bold' : 'text-muted';
+      return `<td class="px-4 py-3 text-right ${cls}">${fmt(variance)}</td>`;
     }).join('');
 
     grandBudget += rowB; grandActual += rowA;
     const totalVar = rowB - rowA;
-    const totalCls = totalVar > 0 ? 'text-green-600' : 'font-bold text-red-600';
+    const totalCls = totalVar > 0 ? 'text-success font-medium' : 'text-danger font-bold';
 
-    html += `<tr>
-      <td class="p-2 sticky left-0 bg-white font-medium">${esc(cat)}</td>
+    html += `<tr class="hover:bg-slate-50">
+      <td class="px-4 py-3 sticky left-0 bg-white font-medium text-slate-700">${esc(cat)}</td>
       ${cells}
-      <td class="p-2 text-right font-medium ${totalCls}">${fmt(totalVar)}</td>
+      <td class="px-4 py-3 text-right font-medium ${totalCls}">${fmt(totalVar)}</td>
     </tr>`;
   });
 
-  // ---- totals row ----
+  // Totals row
   const totalCells = months.map(ym => {
     let b = 0, a = 0;
     cats.forEach(c => {
@@ -236,17 +237,17 @@ function renderTable(months, budget, actuals) {
       a += actuals.get(`${c}-${ym}`) || 0;
     });
     const v = b - a;
-    const vc = v > 0 ? 'text-green-600' : 'text-red-600';
-    return `<td class="p-2 text-right font-medium ${vc}">${fmt(v)}</td>`;
+    const vc = v > 0 ? 'text-success font-medium' : 'text-danger font-bold';
+    return `<td class="px-4 py-3 text-right font-medium ${vc}">${fmt(v)}</td>`;
   }).join('');
 
   const grandVar = grandBudget - grandActual;
-  const grandCls = grandVar > 0 ? 'text-green-600' : 'font-bold text-red-600';
+  const grandCls = grandVar > 0 ? 'text-success font-medium' : 'text-danger font-bold';
 
   html += `<tr class="bg-slate-100 font-bold">
-    <td class="p-2 sticky left-0 bg-slate-100">TOTAL</td>
+    <td class="px-4 py-3 sticky left-0 bg-slate-100">TOTAL</td>
     ${totalCells}
-    <td class="p-2 text-right ${grandCls}">${fmt(grandVar)}</td>
+    <td class="px-4 py-3 text-right ${grandCls}">${fmt(grandVar)}</td>
   </tr>`;
 
   tbody.innerHTML = html;
@@ -268,28 +269,32 @@ function renderCharts(months, budget, actuals) {
     return tot;
   });
 
-  // Monthly bar
   if (chartMonthly) chartMonthly.destroy();
   chartMonthly = new Chart(rootEl.querySelector('#chartMonthly'), {
     type: 'bar',
-    data: { labels, datasets: [
-      { label: 'Budget', data: budgetData, backgroundColor: '#3b82f6' },
-      { label: 'Actual', data: actualData, backgroundColor: '#10b981' }
-    ]},
+    data: {
+      labels,
+      datasets: [
+        { label: 'Budget', data: budgetData, backgroundColor: '#3b82f6' },
+        { label: 'Actual', data: actualData, backgroundColor: '#10b981' }
+      ]
+    },
     options: { responsive: true, plugins: { legend: { position: 'top' } } }
   });
 
-  // Cumulative line
   const cumB = budgetData.reduce((a, v, i) => [...a, (a[i-1] ?? 0) + v], []);
   const cumA = actualData.reduce((a, v, i) => [...a, (a[i-1] ?? 0) + v], []);
 
   if (chartCumulative) chartCumulative.destroy();
   chartCumulative = new Chart(rootEl.querySelector('#chartCumulative'), {
     type: 'line',
-    data: { labels, datasets: [
-      { label: 'Cumulative Budget', data: cumB, borderColor: '#3b82f6', fill: false },
-      { label: 'Cumulative Actual', data: cumA, borderColor: '#10b981', fill: false }
-    ]},
+    data: {
+      labels,
+      datasets: [
+        { label: 'Cumulative Budget', data: cumB, borderColor: '#3b82f6', fill: false },
+        { label: 'Cumulative Actual', data: cumA, borderColor: '#10b981', fill: false }
+      ]
+    },
     options: { responsive: true, plugins: { legend: { position: 'top' } } }
   });
 }
