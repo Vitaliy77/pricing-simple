@@ -1,25 +1,35 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Non-Profit Budget to Actuals</title>
-  <!-- Supabase CDN -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <!-- PapaParse CDN -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
-  <!-- Chart.js (for dashboards) -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; background: #f9fafb; }
+    #app { padding: 1rem; }
+  </style>
 </head>
 <body>
-  <div id="app"></div>
+  <div id="app">Loading...</div>
+
+  <!-- CDNs -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- App -->
   <script type="module" src="./js/router.js"></script>
   <script type="module">
     import { initRouter } from './js/router.js';
     import { initSupabase } from './js/api/supabase.js';
 
-    await initSupabase();
-    initRouter();
+    try {
+      await initSupabase();
+      initRouter();
+    } catch (e) {
+      document.getElementById('app').innerHTML = 
+        `<div style="color:red; padding:1rem;">Error: ${e.message}</div>`;
+    }
   </script>
 </body>
 </html>
