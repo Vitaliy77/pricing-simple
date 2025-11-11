@@ -1,6 +1,6 @@
 // js/tabs/actuals.js
 import { client } from '../api/supabase.js';
-import Papa from 'https://cdn.jsdelivr.net/npm/papaparse@5';
+
 
 let rootEl = null;
 let grants = [];
