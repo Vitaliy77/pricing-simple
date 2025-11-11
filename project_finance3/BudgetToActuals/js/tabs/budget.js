@@ -84,18 +84,6 @@ export const template = /*html*/`
   </div>
 `;
 
-export async function init(root) {
-  rootEl = root;
-
-  await Promise.all([
-    loadGrants(),
-    loadLaborCategories()
-  ]);
-
-  setupEventListeners();
-  await loadBudgetForSelectedGrant();
-}
-
 async function loadGrants() {
   const { data, error } = await client
     .from('grants')
