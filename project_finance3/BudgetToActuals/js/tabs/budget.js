@@ -1,27 +1,25 @@
 // js/tabs/budget.js
 import { client } from '../api/supabase.js';
 
-// ───────────────────────────────────────────────────────────────────────────────
-// Module state
 let rootEl = null;
 let currentGrant = null;     // { id: string(uuid) }
-let months = [];             // ['YYYY-MM-01', ...] first-of-month ISO dates
-let laborUI = [];            // [{ employee_name, category_id, months: { 'YYYY-MM-01': hours|null } }]
-let directUI = [];           // [{ category, description, months: { 'YYYY-MM-01': amount|null } }]
-let laborCats = [];          // labor_categories rows
+let months = [];             // ['YYYY-MM-01', ...]
+let laborUI = [];
+let directUI = [];
+let laborCats = [];
 let laborCatById = new Map();
+let currentUser = null;
 
 const EXPENSE_CATEGORIES = [
   'Travel','Licenses','Computers','Software','Office Supplies',
   'Training','Consultants','Marketing','Events','Insurance'
 ];
 
-// ───────────────────────────────────────────────────────────────────────────────
-// Utilities
+// ───────── utils ─────────
 const isoFirstOfMonth = (d) => {
   const x = new Date(d);
   x.setDate(1); x.setHours(0,0,0,0);
-  return new Date(x).toISOString().slice(0,10); // YYYY-MM-DD
+  return new Date(x).toISOString().slice(0,10);
 };
 const esc = (x) => (x ?? '').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;');
 
@@ -32,10 +30,31 @@ function msg(text, isErr = false) {
   if (text) setTimeout(() => { if (el.textContent === text) el.textContent = ''; }, 4000);
 }
 
-// ───────────────────────────────────────────────────────────────────────────────
-// Template
+function setSignedInUI() {
+  const badge = rootEl.querySelector('#signedInBadge');
+  const saveBtn = rootEl.querySelector('#saveBudget');
+  if (currentUser) {
+    badge.textContent = `Signed in: ${currentUser.email || currentUser.id}`;
+    badge.className = 'text-xs text-green-700';
+    saveBtn.disabled = false;
+  } else {
+    badge.textContent = 'Not signed in — you can view data but cannot save.';
+    badge.className = 'text-xs text-red-700';
+    saveBtn.disabled = true;
+  }
+}
+
+// ───────── template ─────────
 export const template = /*html*/`
-  <div class="card space-y-8">
+  <div class="card space-y-6">
+    <!-- Auth bar -->
+    <div class="flex items-center gap-3">
+      <span id="signedInBadge" class="text-xs text-slate-600">Checking sign-in…</span>
+      <input id="authEmail" type="email" placeholder="you@example.com" class="input text-sm w-64" />
+      <button id="sendMagic" class="btn btn-outline btn-sm">Send magic link</button>
+      <button id="signOut" class="btn btn-ghost btn-sm">Sign out</button>
+    </div>
+
     <div class="flex items-center justify-between">
       <h2 class="text-xl font-semibold text-slate-800">Budget Entry</h2>
       <select id="grantSelect" class="input text-sm w-80"></select>
@@ -84,14 +103,13 @@ export const template = /*html*/`
       </div>
     </div>
 
-    <div class="flex justify-end gap-3 mt-8">
+    <div class="flex justify-end gap-3 mt-2">
       <button id="saveBudget" class="btn btn-success">Save Budget</button>
     </div>
   </div>
 `;
 
-// ───────────────────────────────────────────────────────────────────────────────
-// Lifecycle
+// ───────── lifecycle ─────────
 export async function init(root, params = {}) {
   rootEl = root;
   currentGrant = null;
@@ -100,20 +118,29 @@ export async function init(root, params = {}) {
   directUI = [];
   laborCats = [];
   laborCatById = new Map();
+  currentUser = null;
 
-  // ✅ Use the SAME client for auth + data
+  // Read current session/user and react to auth changes
   try {
-    const { data: { session } } = await client.auth.getSession();
-    const { data: { user } } = await client.auth.getUser();
-    console.log('session', session);
-    console.log('user', user?.id);
-    // Optional UX: if not signed in, tell the user (prevents 401 confusion)
-    if (!user) {
-      msg('You are not signed in. Sign in to save budget data.', true);
-    }
-  } catch (e) {
-    console.warn('Auth check failed:', e);
-  }
+    const [{ data: { session } }, { data: { user } }] = await Promise.all([
+      client.auth.getSession(),
+      client.auth.getUser()
+    ]);
+    currentUser = user || session?.user || null;
+  } catch (_) { currentUser = null; }
+  setSignedInUI();
+
+  client.auth.onAuthStateChange((_event, session) => {
+    currentUser = session?.user || null;
+    setSignedInUI();
+  });
+
+  // Auth UI events
+  rootEl.querySelector('#sendMagic').addEventListener('click', sendMagicLink);
+  rootEl.querySelector('#signOut').addEventListener('click', async () => {
+    await client.auth.signOut();
+    msg('Signed out.');
+  });
 
   await loadGrants();
   await loadLaborCategories();
@@ -127,6 +154,24 @@ export async function init(root, params = {}) {
   }
 }
 
+async function sendMagicLink() {
+  const email = rootEl.querySelector('#authEmail').value?.trim();
+  if (!email) { msg('Enter your email first.', true); return; }
+  try {
+    const { error } = await client.auth.signInWithOtp({
+      email,
+      options: {
+        emailRedirectTo: window.location.origin, // make sure this origin is allowed in Auth → Redirect URLs
+      }
+    });
+    if (error) throw error;
+    msg('Magic link sent. Check your email to finish sign-in.');
+  } catch (e) {
+    msg('Failed to send magic link: ' + e.message, true);
+  }
+}
+
+// ───────── data loads ─────────
 function setupEventListeners() {
   rootEl.querySelector('#grantSelect').addEventListener('change', async (e) => {
     const id = e.target.value || null;
@@ -140,8 +185,6 @@ function setupEventListeners() {
   rootEl.querySelector('#saveBudget').addEventListener('click', saveBudget);
 }
 
-// ───────────────────────────────────────────────────────────────────────────────
-// Loads
 async function loadGrants() {
   const sel = rootEl.querySelector('#grantSelect');
   sel.innerHTML = '<option value="">— Select Grant —</option>';
@@ -199,7 +242,7 @@ async function loadBudget() {
     if (lab.error) throw lab.error;
     if (dir.error) throw dir.error;
 
-    laborUI = pivotLabor(lab.data || []);
+    laborUI  = pivotLabor(lab.data || []);
     directUI = pivotDirect(dir.data || []);
 
     renderMonthHeaders();
@@ -210,16 +253,13 @@ async function loadBudget() {
   }
 }
 
-// ───────────────────────────────────────────────────────────────────────────────
-// Pivot helpers (normalized -> UI)
+// ───────── pivot helpers ─────────
 function pivotLabor(rows) {
   const key = (r) => `${r.employee_name || ''}||${r.category_id || ''}`;
   const map = new Map();
   for (const r of rows) {
     const k = key(r);
-    if (!map.has(k)) {
-      map.set(k, { employee_name: r.employee_name || '', category_id: r.category_id || null, months: {} });
-    }
+    if (!map.has(k)) map.set(k, { employee_name: r.employee_name || '', category_id: r.category_id || null, months: {} });
     map.get(k).months[isoFirstOfMonth(r.ym)] = r.hours ?? null;
   }
   const out = Array.from(map.values());
@@ -232,9 +272,7 @@ function pivotDirect(rows) {
   const map = new Map();
   for (const r of rows) {
     const k = key(r);
-    if (!map.has(k)) {
-      map.set(k, { category: r.category || EXPENSE_CATEGORIES[0], description: r.description || '', months: {} });
-    }
+    if (!map.has(k)) map.set(k, { category: r.category || EXPENSE_CATEGORIES[0], description: r.description || '', months: {} });
     map.get(k).months[isoFirstOfMonth(r.ym)] = r.amount ?? null;
   }
   const out = Array.from(map.values());
@@ -242,8 +280,7 @@ function pivotDirect(rows) {
   return out;
 }
 
-// ───────────────────────────────────────────────────────────────────────────────
-// Rendering (from UI state)
+// ───────── rendering ─────────
 function renderMonthHeaders() {
   const makeHeader = (monthIso) => {
     const th = document.createElement('th');
@@ -303,7 +340,6 @@ function renderLabor() {
   }).join('');
   tbody.innerHTML = html;
 
-  // Bind inputs → UI state
   tbody.querySelectorAll('input[data-kind="labor"]').forEach(inp => {
     inp.addEventListener('input', (e) => {
       const i = Number(e.target.dataset.row);
@@ -378,8 +414,7 @@ function renderDirect() {
   });
 }
 
-// ───────────────────────────────────────────────────────────────────────────────
-// Add / Remove
+// ───────── add/remove ─────────
 function ensureMonthKeys(obj) { months.forEach(m => { if (!(m in obj.months)) obj.months[m] = null; }); }
 
 function addLaborRow() {
@@ -399,10 +434,10 @@ function addDirectRow() {
 window.removeLabor = (i) => { laborUI.splice(i, 1); renderLabor(); };
 window.removeDirect = (i) => { directUI.splice(i, 1); renderDirect(); };
 
-// ───────────────────────────────────────────────────────────────────────────────
-// Save (UI -> normalized rows)
+// ───────── save (UI -> normalized) ─────────
 async function saveBudget() {
   if (!currentGrant?.id) return msg('Select a grant', true);
+  if (!currentUser) { msg('Please sign in first (top of page).', true); return; }
 
   const laborInserts = [];
   for (const it of laborUI) {
@@ -411,13 +446,7 @@ async function saveBudget() {
     for (const m of months) {
       const v = it.months[m];
       if (v !== null && v !== undefined && v !== '' && !isNaN(Number(v))) {
-        laborInserts.push({
-          grant_id: currentGrant.id,
-          employee_name: it.employee_name || null,
-          category_id: it.category_id || null,
-          ym: m,
-          hours: Number(v)
-        });
+        laborInserts.push({ grant_id: currentGrant.id, employee_name: it.employee_name || null, category_id: it.category_id || null, ym: m, hours: Number(v) });
       }
     }
   }
@@ -429,13 +458,7 @@ async function saveBudget() {
     for (const m of months) {
       const v = it.months[m];
       if (v !== null && v !== undefined && v !== '' && !isNaN(Number(v))) {
-        directInserts.push({
-          grant_id: currentGrant.id,
-          category: it.category || null,
-          description: it.description || null,
-          ym: m,
-          amount: Number(v)
-        });
+        directInserts.push({ grant_id: currentGrant.id, category: it.category || null, description: it.description || null, ym: m, amount: Number(v) });
       }
     }
   }
@@ -457,18 +480,15 @@ async function saveBudget() {
     }
 
     msg('Budget saved successfully!');
-    await loadBudget(); // refresh from DB
+    await loadBudget();
   } catch (err) {
-    msg('Save failed: ' + err.message, true);
+    msg('Save failed: ' + (err.message || String(err)), true);
   }
 }
 
-// ───────────────────────────────────────────────────────────────────────────────
-// Clear
+// ───────── clear ─────────
 function clearBudget() {
-  laborUI = [];
-  directUI = [];
-  months = [];
+  laborUI = []; directUI = []; months = [];
   rootEl.querySelector('#laborBody').innerHTML = '';
   rootEl.querySelector('#directBody').innerHTML = '';
   const laborRow = rootEl.querySelector('#laborHeaderRow');
