@@ -1,220 +1,379 @@
+// js/tabs/budget.js
 import { client } from '../api/supabase.js';
-import { $, $$, h } from '../lib/dom.js';
 
-const CATS = ['Travel','Licenses','Computers','Software','Office Supplies','Training','Consultants','Marketing','Events','Insurance'];
-const SCENARIOS = ['BUDGET','F1','F2','F3','F4'];
+let rootEl = null;
+let currentGrant = null;
+let laborData = [];
+let directData = [];
+let months = [];
+let employees = [];
+
+const EXPENSE_CATEGORIES = [
+  'Travel', 'Licenses', 'Computers', 'Software', 'Office Supplies',
+  'Training', 'Consultants', 'Marketing', 'Events', 'Insurance'
+];
 
 export const template = /*html*/`
-  <article>
-    <h3>Budget Builder</h3>
-    <div class="grid">
-      <select id="grant"></select>
-      <select id="scenario"></select>
-      <button id="claim">Claim</button>
-      <button id="save">Save</button>
-      <small id="msg"></small>
+  <div class="card space-y-8">
+    <div class="flex items-center justify-between">
+      <h2 class="text-xl font-semibold text-slate-800">Budget Entry</h2>
+      <select id="grantSelect" class="input text-sm w-80"></select>
     </div>
 
-    <details open>
-      <summary>Labor</summary>
-      <button id="addLabor" class="secondary">+ Add Employee</button>
-      <div id="laborWrap" class="scroll-x"></div>
-    </details>
+    <div id="msg" class="text-sm text-slate-600"></div>
 
-    <details open>
-      <summary>Other Direct Costs</summary>
-      <button id="addODC" class="secondary">+ Add Row</button>
-      <div id="odcWrap" class="scroll-x"></div>
-    </details>
-  </article>
+    <!-- Labor -->
+    <div>
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="font-semibold text-slate-700">Labor</h3>
+        <button id="addLabor" class="btn btn-primary btn-sm">+ Add Employee</button>
+      </div>
+      <div class="overflow-x-auto rounded-lg border border-slate-200">
+        <table class="min-w-full divide-y divide-slate-200">
+          <thead class="bg-slate-50">
+            <tr id="laborHeaderRow">
+              <th class="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider sticky left-0 bg-slate-50 z-10 w-80">Employee</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider w-64">Position</th>
+              <th class="px-4 py-3 text-right text-xs font-medium text-slate-600 uppercase tracking-wider w-24">Rate ($/hr)</th>
+              <th class="px-4 py-3 w-12"></th>
+            </tr>
+          </thead>
+          <tbody id="laborBody" class="bg-white divide-y divide-slate-200"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Direct Costs -->
+    <div>
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="font-semibold text-slate-700">Direct Costs</h3>
+        <button id="addDirect" class="btn btn-primary btn-sm">+ Add Expense</button>
+      </div>
+      <div class="overflow-x-auto rounded-lg border border-slate-200">
+        <table class="min-w-full divide-y divide-slate-200">
+          <thead class="bg-slate-50">
+            <tr id="directHeaderRow">
+              <th class="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider sticky left-0 bg-slate-50 z-10 w-48">Category</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">Description</th>
+              <th class="px-4 py-3 w-12"></th>
+            </tr>
+          </thead>
+          <tbody id="directBody" class="bg-white divide-y divide-slate-200"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="flex justify-end gap-3 mt-8">
+      <button id="saveBudget" class="btn btn-success">Save Budget</button>
+    </div>
+  </div>
 `;
 
-let state = { months:[], grant:null, scenario:'BUDGET', employees:[], labor:[], odc:[] };
+export async function init(root, params = {}) {
+  rootEl = root;
+  currentGrant = null;
+  laborData = []; directData = []; months = [];
 
-export async function init(root) {
-  const msg = (t,e=false)=> { $('#msg',root).textContent=t; $('#msg',root).style.color=e?'#b00':'inherit'; };
+  await loadGrants();
+  setupEventListeners();
 
-  // dropdowns
-  const { data: grants } = await client.from('grants').select('id,name,grant_id,start_date,end_date').order('name');
-  $('#grant',root).innerHTML = '<option value="">— Select Grant —</option>' + grants.map(g=>`<option value="${g.id}">${g.name} (${g.grant_id||''})</option>`).join('');
+  if (params.grantId) {
+    const sel = rootEl.querySelector('#grantSelect');
+    sel.value = params.grantId;
+    currentGrant = { id: Number(params.grantId) };
+    await loadBudget();
+  }
+}
 
-  $('#scenario',root).innerHTML = SCENARIOS.map(s=>`<option value="${s}">${s}</option>`).join('');
+function setupEventListeners() {
+  const sel = rootEl.querySelector('#grantSelect');
+  sel.addEventListener('change', async () => {
+    const id = sel.value;
+    currentGrant = id ? { id: Number(id) } : null;
+    if (currentGrant) await loadBudget();
+    else clearBudget();
+  });
 
-  const { data: employees } = await client.from('employees').select('id,name,level,labor_category,hourly_rate,is_active').eq('is_active',true).order('name');
-  state.employees = employees || [];
+  rootEl.querySelector('#addLabor').addEventListener('click', addLaborRow);
+  rootEl.querySelector('#addDirect').addEventListener('click', addDirectRow);
+  rootEl.querySelector('#saveBudget').addEventListener('click', saveBudget);
+}
 
-  // events
-  $('#grant',root).onchange = async (e)=> {
-    state.grant = grants.find(g=>g.id===e.target.value) || null;
-    if (!state.grant) return;
-    state.months = monthsBetween(state.grant.start_date, state.grant.end_date);
-    await loadExisting(); renderLabor(root); renderODC(root);
-  };
-  $('#scenario',root).onchange = (e)=> { state.scenario = e.target.value; };
+async function loadGrants() {
+  const { data } = await client.from('grants').select('id, name, grant_id').eq('status', 'active').order('name');
+  const sel = rootEl.querySelector('#grantSelect');
+  sel.innerHTML = '<option value="">— Select Grant —</option>';
+  data.forEach(g => sel.add(new Option(`${g.name} (${g.grant_id})`, g.id)));
+}
 
-  $('#claim',root).onclick = async ()=>{
-    if (!state.grant) return msg('Pick a grant', true);
-    const { error } = await client.rpc('claim_grant', { p_grant: state.grant.id });
-    msg(error ? error.message : 'Grant claimed (or already yours).');
-  };
+async function loadBudget() {
+  if (!currentGrant?.id) return;
+  const grantId = currentGrant.id;
 
-  $('#addLabor',root).onclick = ()=> { state.labor.push(blankLabor()); renderLabor(root); };
-  $('#addODC',root).onclick   = ()=> { state.odc.push(blankODC()); renderODC(root); };
+  try {
+    // A) Grant months
+    const { data: g, error: gErr } = await client
+      .from('grants')
+      .select('start_date,end_date')
+      .eq('id', grantId)
+      .single();
+    if (gErr) throw gErr;
 
-  $('#save',root).onclick = async () => {
-    if (!state.grant) return msg('Pick a grant', true);
-    const laborRows = materializeLabor();
-    const odcRows   = materializeODC();
-    const { error } = await client.rpc('save_budget', {
-      p_grant: state.grant.id, p_scenario: state.scenario,
-      p_labor: laborRows, p_odc: odcRows
+    months = getMonthsBetween(g.start_date, g.end_date);
+
+    // B) Labor categories (employees)
+    const { data: laborCats, error: lErr } = await client
+      .from('labor_categories')
+      .select('id,name,position,hourly_rate,is_active')
+      .eq('is_active', true)
+      .order('name');
+    if (lErr) throw lErr;
+    employees = laborCats || [];
+
+    // C) Budget labor
+    const { data: laborRows, error: blErr } = await client
+      .from('budget_labor')
+      .select('employee_id,position,hourly_rate,ym,hours')
+      .eq('grant_id', grantId);
+    if (blErr) throw blErr;
+
+    // D) Budget direct
+    const { data: directRows, error: bdErr } = await client
+      .from('budget_direct')
+      .select('category,description,ym,amount')
+      .eq('grant_id', grantId);
+    if (bdErr) throw bdErr;
+
+    // Pivot labor
+    const laborMap = new Map();
+    laborRows?.forEach(r => {
+      const key = r.employee_id;
+      if (!laborMap.has(key)) {
+        laborMap.set(key, {
+          employee_id: r.employee_id,
+          position: r.position,
+          hourly_rate: r.hourly_rate,
+          hours: {}
+        });
+      }
+      laborMap.get(key).hours[r.ym] = r.hours;
     });
-    msg(error ? error.message : 'Saved.');
-  };
-}
+    laborData = Array.from(laborMap.values());
 
-function monthsBetween(s, e) {
-  const out=[]; let d=new Date(s); const end=new Date(e); d.setDate(1); end.setDate(1);
-  while(d<=end){ out.push(d.toISOString().slice(0,10)); d.setMonth(d.getMonth()+1); }
-  return out;
-}
+    // Pivot direct
+    const directMap = new Map();
+    directRows?.forEach(r => {
+      const key = `${r.category}|${r.description}`;
+      if (!directMap.has(key)) {
+        directMap.set(key, { category: r.category, description: r.description, amounts: {} });
+      }
+      directMap.get(key).amounts[r.ym] = r.amount;
+    });
+    directData = Array.from(directMap.values());
 
-function blankLabor(){
-  const emp = null;
-  const months = Object.fromEntries(state.months.map(m=>[m,null]));
-  return { employee_id:null, employee_name:'', labor_category:'', hourly_rate:null, months };
-}
-function blankODC(){
-  const months = Object.fromEntries(state.months.map(m=>[m,null]));
-  return { category:CATS[0], description:'', months };
-}
+    renderMonthHeaders();
+    renderLabor();
+    renderDirect();
 
-async function loadExisting(){
-  // pull existing and pivot back to UI model for current scenario
-  const [lab, odc] = await Promise.all([
-    client.from('budget_labor').select('employee_id,employee_name,labor_category,hourly_rate,ym,hours').eq('grant_id', state.grant.id).eq('scenario', state.scenario),
-    client.from('budget_odc').select('category,description,ym,amount').eq('grant_id', state.grant.id).eq('scenario', state.scenario)
-  ]);
-  // labor
-  const key = r => `${r.employee_id||''}|${r.employee_name||''}|${r.labor_category||''}|${r.hourly_rate||''}`;
-  const map = new Map();
-  for(const r of (lab.data||[])){
-    const k=key(r); if(!map.has(k)) map.set(k, blankLabor());
-    const row = map.get(k);
-    row.employee_id = r.employee_id || null;
-    row.employee_name = r.employee_name || '';
-    row.labor_category = r.labor_category || '';
-    row.hourly_rate = r.hourly_rate || null;
-    row.months[r.ym] = r.hours ?? null;
+  } catch (err) {
+    msg('Load failed: ' + err.message, true);
   }
-  state.labor = [...map.values()];
-  // odc
-  const m2 = new Map();
-  for(const r of (odc.data||[])){
-    const k = `${r.category}|${r.description||''}`;
-    if(!m2.has(k)) m2.set(k, blankODC());
-    const row = m2.get(k);
-    row.category = r.category; row.description = r.description||'';
-    row.months[r.ym] = r.amount ?? null;
-  }
-  state.odc = [...m2.values()];
 }
 
-function renderLabor(root){
-  const tbl = h(`<table><thead><tr>
-    <th>Employee</th><th>Category</th><th>Rate</th>${state.months.map(m=>`<th>${new Date(m).toLocaleString('en-US',{month:'short'})}</th>`).join('')}<th></th>
-  </tr></thead><tbody></tbody></table>`);
-  for (let i=0;i<state.labor.length;i++){
-    const it = state.labor[i];
-    const tr = h(`<tr></tr>`);
-    const empSel = h(`<select></select>`);
-    empSel.innerHTML = `<option value="">— Select —</option>` + state.employees.map(e=>`<option value="${e.id}" ${it.employee_id===e.id?'selected':''}>${e.name}</option>`).join('');
-    empSel.onchange = _=>{
-      const e = state.employees.find(x=>x.id===empSel.value);
-      it.employee_id = e?.id || null;
-      it.employee_name = e?.name || '';
-      it.labor_category = e?.labor_category || '';
-      it.hourly_rate = e?.hourly_rate || null;
-      rateInp.value = e?.hourly_rate ?? '';
-      catInp.value = e?.labor_category ?? '';
-    };
-
-    const catInp = h(`<input value="${it.labor_category||''}" readonly>`);
-    const rateInp = h(`<input type="number" step="0.01" value="${it.hourly_rate??''}" readonly>`);
-
-    tr.append(h(`<td></td>`)).lastChild.appendChild(empSel);
-    tr.append(h(`<td></td>`)).lastChild.appendChild(catInp);
-    tr.append(h(`<td></td>`)).lastChild.appendChild(rateInp);
-
-    for (const m of state.months){
-      const cell = h(`<td></td>`);
-      const inp  = h(`<input type="number" step="0.01" value="${it.months[m]??''}" style="width:7rem">`);
-      inp.oninput = ()=> { it.months[m] = inp.value===''?null:Number(inp.value); };
-      cell.appendChild(inp); tr.appendChild(cell);
+function getMonthsBetween(start, end) {
+  const list = [];
+  const seen = new Set();
+  let d = new Date(start);
+  const endDate = new Date(end);
+  d.setDate(1); endDate.setDate(1);
+  while (d <= endDate) {
+    const ym = d.toISOString().slice(0, 10); // '2024-03-01'
+    if (!seen.has(ym)) {
+      seen.add(ym);
+      list.push(ym);
     }
-    const rm = h(`<td><button class="contrast">×</button></td>`);
-    rm.firstChild.onclick = ()=>{ state.labor.splice(i,1); renderLabor(root); };
-    tr.appendChild(rm);
-    tbl.tBodies[0].appendChild(tr);
+    d.setMonth(d.getMonth() + 1);
   }
-  $('#laborWrap',root).innerHTML = ''; $('#laborWrap',root).appendChild(tbl);
+  return list;
 }
 
-function renderODC(root){
-  const tbl = h(`<table><thead><tr>
-    <th>Category</th><th>Description</th>${state.months.map(m=>`<th>${new Date(m).toLocaleString('en-US',{month:'short'})}</th>`).join('')}<th></th>
-  </tr></thead><tbody></tbody></table>`);
-  for (let i=0;i<state.odc.length;i++){
-    const it = state.odc[i];
-    const tr = h(`<tr></tr>`);
-    const cat = h(`<select>${CATS.map(c=>`<option ${it.category===c?'selected':''}>${c}</option>`).join('')}</select>`);
-    cat.onchange = ()=> it.category = cat.value;
-    const desc = h(`<input value="${it.description||''}" style="width:18rem">`);
-    desc.oninput = ()=> it.description = desc.value;
+function renderMonthHeaders() {
+  const laborRow = rootEl.querySelector('#laborHeaderRow');
+  const directRow = rootEl.querySelector('#directHeaderRow');
+  if (!laborRow || !directRow) return; // DOM not ready
 
-    tr.append(h(`<td></td>`)).lastChild.appendChild(cat);
-    tr.append(h(`<td></td>`)).lastChild.appendChild(desc);
+  // Clear old month headers
+  while (laborRow.children.length > 4) laborRow.removeChild(laborRow.children[3]);
+  while (directRow.children.length > 3) directRow.removeChild(directRow.children[2]);
 
-    for (const m of state.months){
-      const cell = h(`<td></td>`);
-      const inp  = h(`<input type="number" step="0.01" value="${it.months[m]??''}" style="width:7rem">`);
-      inp.oninput = ()=> { it.months[m] = inp.value===''?null:Number(inp.value); };
-      cell.appendChild(inp); tr.appendChild(cell);
-    }
-    const rm = h(`<td><button class="contrast">×</button></td>`);
-    rm.firstChild.onclick = ()=>{ state.odc.splice(i,1); renderODC(root); };
-    tr.appendChild(rm);
-    tbl.tBodies[0].appendChild(tr);
-  }
-  $('#odcWrap',root).innerHTML = ''; $('#odcWrap',root).appendChild(tbl);
+  // Add new
+  months.forEach(m => {
+    const th = document.createElement('th');
+    th.className = 'px-3 py-2 text-center text-xs font-medium text-slate-600 bg-slate-50 border-l border-slate-200 first:border-l-0 w-20';
+    th.textContent = new Date(m).toLocaleString('en-US', { month: 'short' });
+    laborRow.insertBefore(th.cloneNode(true), laborRow.lastElementChild);
+    directRow.insertBefore(th, directRow.lastElementChild);
+  });
 }
 
-// flatten UI to normalized rows
-function materializeLabor(){
-  const out=[];
-  for (const it of state.labor){
-    if (!(it.employee_id || it.employee_name)) continue;
-    for (const [ym,val] of Object.entries(it.months)){
-      if (val==null || val==='') continue;
-      out.push({
-        employee_id: it.employee_id,
-        employee_name: it.employee_name,
-        labor_category: it.labor_category,
-        hourly_rate: it.hourly_rate,
-        ym, hours: Number(val)
-      });
-    }
-  }
-  return out;
+function renderLabor() {
+  const tbody = rootEl.querySelector('#laborBody');
+  tbody.innerHTML = laborData.map((row, i) => `
+    <tr class="hover:bg-slate-50">
+      <td class="px-6 py-3 sticky left-0 bg-white border-r border-slate-200 z-10">
+        <select class="input text-sm w-full" data-index="${i}" data-field="employee_id">
+          <option value="">— Select Employee —</option>
+          ${employees.map(e => `<option value="${e.id}" ${row.employee_id === e.id ? 'selected' : ''}>${e.name}</option>`).join('')}
+        </select>
+      </td>
+      <td class="px-6 py-3 border-r border-slate-200">
+        <input type="text" class="input text-sm w-full" value="${row.position || ''}" readonly>
+      </td>
+      <td class="px-4 py-3 text-right border-r border-slate-200">
+        <input type="number" class="input text-sm w-20 text-right" value="${row.hourly_rate || ''}" readonly>
+      </td>
+      ${months.map(m => `
+        <td class="px-3 py-2 text-center border-l border-slate-200 first:border-l-0">
+          <input type="number" class="input text-sm w-16 text-center" 
+                 value="${row.hours?.[m] || ''}" 
+                 data-index="${i}" data-month="${m}">
+        </td>
+      `).join('')}
+      <td class="px-4 py-3 text-center">
+        <button class="text-red-600 hover:text-red-800 text-xl" onclick="removeLabor(${i})">x</button>
+      </td>
+    </tr>
+  `).join('');
+
+  // Auto-fill on change
+  rootEl.querySelectorAll('select[data-field="employee_id"]').forEach(sel => {
+    sel.addEventListener('change', () => {
+      const emp = employees.find(e => e.id === Number(sel.value));
+      const i = sel.dataset.index;
+      const tr = rootEl.querySelectorAll('#laborBody tr')[i];
+      if (emp) {
+        tr.cells[1].querySelector('input').value = emp.position || '';
+        tr.cells[2].querySelector('input').value = emp.hourly_rate || '';
+      }
+    });
+  });
 }
-function materializeODC(){
-  const out=[];
-  for (const it of state.odc){
-    if (!it.category && !it.description) continue;
-    for (const [ym,val] of Object.entries(it.months)){
-      if (val==null || val==='') continue;
-      out.push({ category: it.category, description: it.description, ym, amount: Number(val) });
-    }
-  }
-  return out;
+
+function renderDirect() {
+  const tbody = rootEl.querySelector('#directBody');
+  tbody.innerHTML = directData.map((row, i) => `
+    <tr class="hover:bg-slate-50">
+      <td class="px-6 py-3 sticky left-0 bg-white border-r border-slate-200 z-10">
+        <select class="input text-sm w-full" data-index="${i}" data-field="category">
+          ${EXPENSE_CATEGORIES.map(c => `<option value="${c}" ${row.category === c ? 'selected' : ''}>${c}</option>`).join('')}
+        </select>
+      </td>
+      <td class="px-6 py-3 border-r border-slate-200">
+        <input type="text" class="input text-sm w-full" placeholder="Description" value="${row.description || ''}" data-index="${i}" data-field="description">
+      </td>
+      ${months.map(m => `
+        <td class="px-3 py-2 text-center border-l border-slate-200 first:border-l-0">
+          <input type="number" class="input text-sm w-20 text-center" 
+                 value="${row.amounts?.[m] || ''}" 
+                 data-index="${i}" data-month="${m}">
+        </td>
+      `).join('')}
+      <td class="px-4 py-3 text-center">
+        <button class="text-red-600 hover:text-red-800 text-xl" onclick="removeDirect(${i})">x</button>
+      </td>
+    </tr>
+  `).join('');
 }
+
+function addLaborRow() {
+  if (!currentGrant?.id) return msg('Select a grant first');
+  laborData.push({ employee_id: null, position: '', hourly_rate: null, hours: {} });
+  renderLabor();
+}
+
+function addDirectRow() {
+  if (!currentGrant?.id) return msg('Select a grant first');
+  directData.push({ category: EXPENSE_CATEGORIES[0], description: '', amounts: {} });
+  renderDirect();
+}
+
+window.removeLabor = (i) => { laborData.splice(i, 1); renderLabor(); };
+window.removeDirect = (i) => { directData.splice(i, 1); renderDirect(); };
+
+async function saveBudget() {
+  if (!currentGrant?.id) return msg('Select a grant');
+
+  const laborInserts = [];
+  rootEl.querySelectorAll('#laborBody tr').forEach(tr => {
+    const i = tr.querySelector('select').dataset.index;
+    const row = laborData[i];
+    const employee_id = row.employee_id;
+    if (!employee_id) return;
+
+    const emp = employees.find(e => e.id === employee_id);
+    months.forEach(m => {
+      const hours = tr.querySelector(`input[data-month="${m}"]`)?.value;
+      if (hours) {
+        laborInserts.push({
+          grant_id: currentGrant.id,
+          employee_id,
+          position: emp.position,
+          hourly_rate: emp.hourly_rate,
+          ym: m,
+          hours: Number(hours)
+        });
+      }
+    });
+  });
+
+  const directInserts = [];
+  rootEl.querySelectorAll('#directBody tr').forEach(tr => {
+    const i = tr.querySelector('select').dataset.index;
+    const row = directData[i];
+    const category = row.category;
+    const description = tr.querySelector('input[data-field="description"]')?.value.trim();
+    months.forEach(m => {
+      const amount = tr.querySelector(`input[data-month="${m}"]`)?.value;
+      if (amount) {
+        directInserts.push({
+          grant_id: currentGrant.id,
+          category,
+          description,
+          ym: m,
+          amount: Number(amount)
+        });
+      }
+    });
+  });
+
+  try {
+    await client.from('budget_labor').delete().eq('grant_id', currentGrant.id);
+    await client.from('budget_direct').delete().eq('grant_id', currentGrant.id);
+
+    if (laborInserts.length) await client.from('budget_labor').insert(laborInserts);
+    if (directInserts.length) await client.from('budget_direct').insert(directInserts);
+
+    msg('Budget saved!');
+  } catch (err) {
+    msg('Save failed: ' + err.message, true);
+  }
+}
+
+function clearBudget() {
+  laborData = []; directData = []; months = [];
+  rootEl.querySelector('#laborBody').innerHTML = '';
+  rootEl.querySelector('#directBody').innerHTML = '';
+  const laborRow = rootEl.querySelector('#laborHeaderRow');
+  const directRow = rootEl.querySelector('#directHeaderRow');
+  if (laborRow) while (laborRow.children.length > 4) laborRow.removeChild(laborRow.children[3]);
+  if (directRow) while (directRow.children.length > 3) directRow.removeChild(directRow.children[2]);
+}
+
+function msg(txt, isError = false) {
+  const el = rootEl.querySelector('#msg');
+  el.textContent = txt;
+  el.className = isError ? 'text-sm text-red-600' : 'text-sm text-green-600';
+  if (txt) setTimeout(() => el.textContent = '', 4000);
+}
+
+export const budgetTab = { template, init };
