@@ -30,20 +30,16 @@ function msg(text, isErr = false) {
   if (text) setTimeout(() => { if (el.textContent === text) el.textContent = ''; }, 4000);
 }
 
-// ───────── top-level template wrapper ─────────
-// We’ll swap between the Auth Gate and the Budget UI inside this wrapper.
-export const template = /*html*/`
-  <div id="budgetRoot" class="card p-0"></div>
-`;
+// ───────── top wrapper ─────────
+export const template = /*html*/`<div id="budgetRoot" class="card p-0"></div>`;
 
-// Render either auth gate or budget UI into #budgetRoot
+// Auth gate
 function renderAuthGate() {
   const host = rootEl.querySelector('#budgetRoot');
   host.innerHTML = `
     <div class="p-6 space-y-4">
       <h2 class="text-xl font-semibold text-slate-800">Sign in to continue</h2>
-      <p class="text-sm text-slate-600">Use email + password, or send yourself a magic link.</p>
-
+      <p class="text-sm text-slate-600">Use email + password, or send a magic link.</p>
       <div class="grid gap-3 max-w-md">
         <input id="authEmail" type="email" placeholder="you@example.com" class="input text-sm" />
         <input id="authPwd" type="password" placeholder="Password (or leave empty for magic link)" class="input text-sm" />
@@ -56,7 +52,6 @@ function renderAuthGate() {
       </div>
     </div>
   `;
-
   const emailEl = host.querySelector('#authEmail');
   const pwdEl   = host.querySelector('#authPwd');
   const aMsg    = host.querySelector('#authMsg');
@@ -69,7 +64,7 @@ function renderAuthGate() {
     const { data, error } = await client.auth.signInWithPassword({ email, password: pwd });
     if (error) { aMsg.textContent = 'Sign in failed: ' + error.message; return; }
     currentUser = data.user;
-    await renderBudgetShell(); // load the budget UI now
+    await renderBudgetShell();
   });
 
   host.querySelector('#btnSignUp').addEventListener('click', async () => {
@@ -77,9 +72,8 @@ function renderAuthGate() {
     const pwd = pwdEl.value;
     if (!email || !pwd) { aMsg.textContent = 'Enter email and password to sign up.'; return; }
     aMsg.textContent = 'Creating account...';
-    const { data, error } = await client.auth.signUp({ email, password: pwd, options: { emailRedirectTo: window.location.origin } });
-    if (error) { aMsg.textContent = 'Sign up failed: ' + error.message; return; }
-    aMsg.textContent = 'Sign up ok. Check your email to confirm, then sign in.';
+    const { error } = await client.auth.signUp({ email, password: pwd, options: { emailRedirectTo: window.location.origin } });
+    aMsg.textContent = error ? ('Sign up failed: ' + error.message) : 'Sign up ok. Check your email to confirm, then sign in.';
   });
 
   host.querySelector('#btnMagic').addEventListener('click', async () => {
@@ -88,10 +82,9 @@ function renderAuthGate() {
     aMsg.textContent = 'Sending magic link...';
     const { error } = await client.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: window.location.origin } // MUST be allowed in Auth → Redirect URLs
+      options: { emailRedirectTo: window.location.origin }
     });
-    if (error) { aMsg.textContent = 'Magic link failed: ' + error.message; return; }
-    aMsg.textContent = 'Magic link sent. Open it on this device.';
+    aMsg.textContent = error ? ('Magic link failed: ' + error.message) : 'Magic link sent. Open it on this device.';
   });
 }
 
@@ -159,11 +152,9 @@ async function renderBudgetShell() {
     </div>
   `;
 
-  // show who’s signed in
   host.querySelector('#signedInBadge').textContent =
     `Signed in: ${currentUser?.email || currentUser?.id || 'unknown user'}`;
 
-  // events for budget shell
   host.querySelector('#signOut').addEventListener('click', async () => {
     await client.auth.signOut();
     currentUser = null;
@@ -174,11 +165,10 @@ async function renderBudgetShell() {
   await loadLaborCategories();
   setupEventListeners();
 
-  // Load initial grant if any remains from params (handled in init)
   if (currentGrant?.id) {
     const sel = host.querySelector('#grantSelect');
     sel.value = currentGrant.id;
-    await loadBudget();
+    await afterGrantSelected();
   }
 }
 
@@ -193,30 +183,20 @@ export async function init(root, params = {}) {
   laborCatById = new Map();
   currentUser = null;
 
-  // pick up auth from URL (magic link) and current session
-  try {
-    const [{ data: { session } }, { data: { user } }] = await Promise.all([
-      client.auth.getSession(),
-      client.auth.getUser()
-    ]);
-    currentUser = user || session?.user || null;
-  } catch (_) {
-    currentUser = null;
-  }
+  const [{ data: { session } }, { data: { user } }] = await Promise.all([
+    client.auth.getSession(),
+    client.auth.getUser()
+  ]);
+  currentUser = user || session?.user || null;
 
-  // Render gate or budget shell
   if (!currentUser) renderAuthGate();
   else await renderBudgetShell();
 
-  // keep UI synced with auth changes (e.g., after magic link)
-  client.auth.onAuthStateChange(async (_event, session) => {
-    const wasSignedIn = !!currentUser;
-    currentUser = session?.user || null;
-    if (!wasSignedIn && currentUser) {
-      await renderBudgetShell();
-    } else if (wasSignedIn && !currentUser) {
-      renderAuthGate();
-    }
+  client.auth.onAuthStateChange(async (_ev, session2) => {
+    const was = !!currentUser;
+    currentUser = session2?.user || null;
+    if (!was && currentUser) await renderBudgetShell();
+    else if (was && !currentUser) renderAuthGate();
   });
 }
 
@@ -225,13 +205,31 @@ function setupEventListeners() {
   rootEl.querySelector('#grantSelect').addEventListener('change', async (e) => {
     const id = e.target.value || null;
     currentGrant = id ? { id } : null;
-    if (currentGrant) await loadBudget();
+    if (currentGrant) await afterGrantSelected();
     else clearBudget();
   });
 
   rootEl.querySelector('#addLabor').addEventListener('click', addLaborRow);
   rootEl.querySelector('#addDirect').addEventListener('click', addDirectRow);
   rootEl.querySelector('#saveBudget').addEventListener('click', saveBudget);
+}
+
+async function afterGrantSelected() {
+  // 1) ensure the signed-in user claims/owns this grant
+  try {
+    const { error } = await client.rpc('claim_grant', { p_grant: currentGrant.id });
+    if (error) {
+      // claim is idempotent; if it's already yours it still succeeds
+      msg('Grant claim failed: ' + error.message, true);
+      return;
+    }
+  } catch (e) {
+    msg('Grant claim failed: ' + e.message, true);
+    return;
+  }
+
+  // 2) then proceed to load its months and budget rows
+  await loadBudget();
 }
 
 async function loadGrants() {
@@ -315,7 +313,6 @@ function pivotLabor(rows) {
   out.forEach(it => months.forEach(m => { if (!(m in it.months)) it.months[m] = null; }));
   return out;
 }
-
 function pivotDirect(rows) {
   const key = (r) => `${r.category || ''}||${r.description || ''}`;
   const map = new Map();
@@ -337,13 +334,10 @@ function renderMonthHeaders() {
     th.textContent = new Date(monthIso).toLocaleString('en-US', { month: 'short' });
     return th;
   };
-
   const laborRow = rootEl.querySelector('#laborHeaderRow');
   const directRow = rootEl.querySelector('#directHeaderRow');
-
   while (laborRow.children.length > 4) laborRow.removeChild(laborRow.children[3]);
   while (directRow.children.length > 3) directRow.removeChild(directRow.children[2]);
-
   months.forEach(m => {
     laborRow.insertBefore(makeHeader(m), laborRow.lastElementChild);
     directRow.insertBefore(makeHeader(m), directRow.lastElementChild);
@@ -362,7 +356,6 @@ function renderLabor() {
                data-kind="labor" data-row="${i}" data-month="${m}">
       </td>
     `).join('');
-
     return `
       <tr class="hover:bg-slate-50">
         <td class="px-6 py-3 sticky left-0 bg-white border-r border-slate-200 z-10">
@@ -423,7 +416,6 @@ function renderDirect() {
                data-kind="direct" data-row="${i}" data-month="${m}">
       </td>
     `).join('');
-
     return `
       <tr class="hover:bg-slate-50">
         <td class="px-6 py-3 sticky left-0 bg-white border-r border-slate-200 z-10">
@@ -465,73 +457,53 @@ function renderDirect() {
 
 // ───────── add/remove ─────────
 function ensureMonthKeys(obj) { months.forEach(m => { if (!(m in obj.months)) obj.months[m] = null; }); }
-function addLaborRow() {
-  if (!currentGrant?.id) return msg('Select a grant first', true);
-  const item = { employee_name: '', category_id: null, months: {} };
-  ensureMonthKeys(item);
-  laborUI.push(item);
-  renderLabor();
-}
-function addDirectRow() {
-  if (!currentGrant?.id) return msg('Select a grant first', true);
-  const item = { category: EXPENSE_CATEGORIES[0], description: '', months: {} };
-  ensureMonthKeys(item);
-  directUI.push(item);
-  renderDirect();
-}
+function addLaborRow() { if (!currentGrant?.id) return msg('Select a grant first', true);
+  const item = { employee_name: '', category_id: null, months: {} }; ensureMonthKeys(item); laborUI.push(item); renderLabor(); }
+function addDirectRow() { if (!currentGrant?.id) return msg('Select a grant first', true);
+  const item = { category: EXPENSE_CATEGORIES[0], description: '', months: {} }; ensureMonthKeys(item); directUI.push(item); renderDirect(); }
 window.removeLabor = (i) => { laborUI.splice(i, 1); renderLabor(); };
 window.removeDirect = (i) => { directUI.splice(i, 1); renderDirect(); };
 
-// ───────── save (UI -> normalized) ─────────
+// ───────── save via RPC ─────────
 async function saveBudget() {
   if (!currentGrant?.id) return msg('Select a grant', true);
-  if (!currentUser) return msg('Please sign in first.', true);
+  if (!currentUser)       return msg('Please sign in first.', true);
 
-  const laborInserts = [];
+  // normalize UI → arrays of rows
+  const labor = [];
   for (const it of laborUI) {
-    const hasHeader = (it.employee_name?.trim() || it.category_id);
-    if (!hasHeader) continue;
+    const has = (it.employee_name?.trim() || it.category_id);
+    if (!has) continue;
     for (const m of months) {
       const v = it.months[m];
       if (v !== null && v !== undefined && v !== '' && !isNaN(Number(v))) {
-        laborInserts.push({ grant_id: currentGrant.id, employee_name: it.employee_name || null, category_id: it.category_id || null, ym: m, hours: Number(v) });
+        labor.push({ employee_name: it.employee_name || null, category_id: it.category_id || null, ym: m, hours: Number(v) });
       }
     }
   }
-
-  const directInserts = [];
+  const direct = [];
   for (const it of directUI) {
-    const hasHeader = (it.category?.trim() || it.description?.trim());
-    if (!hasHeader) continue;
+    const has = (it.category?.trim() || it.description?.trim());
+    if (!has) continue;
     for (const m of months) {
       const v = it.months[m];
       if (v !== null && v !== undefined && v !== '' && !isNaN(Number(v))) {
-        directInserts.push({ grant_id: currentGrant.id, category: it.category || null, description: it.description || null, ym: m, amount: Number(v) });
+        direct.push({ category: it.category || null, description: it.description || null, ym: m, amount: Number(v) });
       }
     }
   }
 
   try {
-    // Replace this grant slice
-    const del1 = await client.from('budget_labor').delete().eq('grant_id', currentGrant.id);
-    if (del1.error) throw del1.error;
-
-    const del2 = await client.from('budget_direct').delete().eq('grant_id', currentGrant.id);
-    if (del2.error) throw del2.error;
-
-    if (laborInserts.length) {
-      const ins1 = await client.from('budget_labor').insert(laborInserts);
-      if (ins1.error) throw ins1.error;
-    }
-    if (directInserts.length) {
-      const ins2 = await client.from('budget_direct').insert(directInserts);
-      if (ins2.error) throw ins2.error;
-    }
-
+    const { error } = await client.rpc('save_budget', {
+      p_grant: currentGrant.id,
+      p_labor: labor,
+      p_direct: direct
+    });
+    if (error) throw error;
     msg('Budget saved successfully!');
     await loadBudget();
-  } catch (err) {
-    msg('Save failed: ' + (err.message || String(err)), true);
+  } catch (e) {
+    msg('Save failed: ' + (e.message || String(e)), true);
   }
 }
 
