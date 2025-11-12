@@ -1,5 +1,14 @@
 // js/tabs/budget.js
 import { client } from '../api/supabase.js';
+import { createClient } from "@supabase/supabase-js";
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const { data: session } = await supabase.auth.getSession();
+console.log("session", session); // should contain access_token
+
+const { data: user } = await supabase.auth.getUser();
+console.log("user", user?.id);   // this is auth.uid()
+
 
 let rootEl = null;
 let currentGrant = null;     // { id: string(uuid) }
