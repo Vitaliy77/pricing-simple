@@ -21,7 +21,7 @@ export const template = /*html*/`
 
     <div id="msg" class="text-sm text-slate-600"></div>
 
-    <!-- Labor Table -->
+    <!-- Labor -->
     <div>
       <div class="flex justify-between items-center mb-4">
         <h3 class="font-semibold text-slate-700">Labor</h3>
@@ -34,7 +34,6 @@ export const template = /*html*/`
               <th class="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider sticky left-0 bg-slate-50 z-10 w-80">Employee</th>
               <th class="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider w-64">Position</th>
               <th class="px-4 py-3 text-right text-xs font-medium text-slate-600 uppercase tracking-wider w-24">Rate ($/hr)</th>
-              <!-- Month headers inserted here -->
               <th class="px-4 py-3 w-12"></th>
             </tr>
           </thead>
@@ -43,7 +42,7 @@ export const template = /*html*/`
       </div>
     </div>
 
-    <!-- Direct Costs -->
+    <!-- Direct -->
     <div>
       <div class="flex justify-between items-center mb-4">
         <h3 class="font-semibold text-slate-700">Direct Costs</h3>
@@ -55,7 +54,6 @@ export const template = /*html*/`
             <tr id="directHeaderRow">
               <th class="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider sticky left-0 bg-slate-50 z-10 w-48">Category</th>
               <th class="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">Description</th>
-              <!-- Month headers -->
               <th class="px-4 py-3 w-12"></th>
             </tr>
           </thead>
@@ -73,7 +71,6 @@ export const template = /*html*/`
 export async function init(root, params = {}) {
   rootEl = root;
   currentGrant = params.grantId ? { id: params.grantId } : null;
-
   await loadGrants();
   setupEventListeners();
   if (currentGrant) {
@@ -89,7 +86,6 @@ function setupEventListeners() {
     if (currentGrant) await loadBudget();
     else clearBudget();
   });
-
   rootEl.querySelector('#addLabor').addEventListener('click', addLaborRow);
   rootEl.querySelector('#addDirect').addEventListener('click', addDirectRow);
   rootEl.querySelector('#saveBudget').addEventListener('click', saveBudget);
@@ -124,7 +120,7 @@ async function getGrantMonths() {
   const start = new Date(data.start_date);
   const end = new Date(data.end_date);
   const list = [];
-  const seen = new Set(); // Prevent duplicate months
+  const seen = new Set();
   for (let d = new Date(start); d <= end; d.setMonth(d.getMonth() + 1)) {
     const ym = d.toISOString().slice(0, 7) + '-01';
     if (!seen.has(ym)) {
@@ -147,11 +143,9 @@ function renderMonthHeaders() {
   const laborRow = rootEl.querySelector('#laborHeaderRow');
   const directRow = rootEl.querySelector('#directHeaderRow');
 
-  // Clear old month headers
   while (laborRow.children.length > 4) laborRow.removeChild(laborRow.children[3]);
   while (directRow.children.length > 3) directRow.removeChild(directRow.children[2]);
 
-  // Insert new
   months.forEach(m => {
     laborRow.insertBefore(makeHeader(m), laborRow.lastElementChild);
     directRow.insertBefore(makeHeader(m), directRow.lastElementChild);
@@ -181,7 +175,7 @@ function renderLabor() {
         </td>
       `).join('')}
       <td class="px-4 py-3 text-center">
-        <button class="text-red-600 hover:text-red-800 text-xl" onclick="removeLabor(${i})">×</button>
+        <button class="text-red-600 hover:text-red-800 text-xl" onclick="removeLabor(${i})">x</button>
       </td>
     </tr>
   `).join('');
@@ -209,7 +203,7 @@ function renderDirect() {
         </td>
       `).join('')}
       <td class="px-4 py-3 text-center">
-        <button class="text-red-600 hover:text-red-800 text-xl" onclick="removeDirect(${i})">×</button>
+        <button class="text-red-600 hover:text-red-800 text-xl" onclick="removeDirect(${i})">x</button>
       </td>
     </tr>
   `).join('');
@@ -219,9 +213,9 @@ async function loadEmployeeOptions() {
   const { data } = await client.from('labor_categories').select('id, name, position, hourly_rate').eq('is_active', true);
   const selects = rootEl.querySelectorAll('select[data-field="employee_id"]');
   selects.forEach((sel, i) => {
-    const currentEmpId = laborData[i]?.employee_id;
+    const currentId = laborData[i]?.employee_id;
     sel.innerHTML = '<option value="">— Select Employee —</option>' + 
-      data.map(emp => `<option value="${emp.id}" ${currentEmpId === emp.id ? 'selected' : ''}>${emp.name}</option>`).join('');
+      data.map(emp => `<option value="${emp.id}" ${currentId === emp.id ? 'selected' : ''}>${emp.name}</option>`).join('');
     
     sel.addEventListener('change', () => {
       const emp = data.find(e => e.id === sel.value);
@@ -251,7 +245,6 @@ async function saveBudget() {
 
   const laborInserts = [];
   rootEl.querySelectorAll('#laborBody tr').forEach(tr => {
-    const i = tr.querySelector('select').dataset.index;
     const row = { grant_id: currentGrant.id };
     tr.querySelectorAll('input, select').forEach(el => {
       if (el.dataset.field) row[el.dataset.field] = el.value || null;
@@ -270,23 +263,17 @@ async function saveBudget() {
     directInserts.push(row);
   });
 
-  // DELETE + INSERT = Full replace
   await client.from('budget_labor').delete().eq('grant_id', currentGrant.id);
   await client.from('budget_direct').delete().eq('grant_id', currentGrant.id);
 
-  if (laborInserts.length) {
-    const { error } = await client.from('budget_labor').insert(laborInserts);
-    if (error) return msg('Labor save failed: ' + error.message);
-  }
-  if (directInserts.length) {
-    const { error } = await client.from('budget_direct').insert(directInserts);
-    if (error) return msg('Direct save failed: ' + error.message);
-  }
+  if (laborInserts.length) await client.from('budget_labor').insert(laborInserts);
+  if (directInserts.length) await client.from('budget_direct').insert(directInserts);
 
-  msg('Budget saved successfully!');
-  // Optional: reload BvA
+  msg('Budget saved!');
+
+  // Auto-refresh BvA
   if (window.location.hash === '#bva') {
-    setTimeout(() => window.location.reload(), 500);
+    setTimeout(() => loadBvA(), 300);
   }
 }
 
