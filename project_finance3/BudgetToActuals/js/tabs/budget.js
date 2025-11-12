@@ -30,11 +30,11 @@ export const template = /*html*/`
       <div class="overflow-x-auto rounded-lg border border-slate-200">
         <table class="min-w-full divide-y divide-slate-200">
           <thead class="bg-slate-50">
-            <tr>
+            <tr id="laborHeaderRow">
               <th class="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider sticky left-0 bg-slate-50 z-10 w-80">Employee</th>
               <th class="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider w-64">Position</th>
               <th class="px-4 py-3 text-right text-xs font-medium text-slate-600 uppercase tracking-wider w-24">Rate ($/hr)</th>
-              <th id="laborMonths" class="bg-slate-50"></th>
+              <!-- Month headers go here -->
               <th class="px-4 py-3 w-12"></th>
             </tr>
           </thead>
@@ -52,10 +52,10 @@ export const template = /*html*/`
       <div class="overflow-x-auto rounded-lg border border-slate-200">
         <table class="min-w-full divide-y divide-slate-200">
           <thead class="bg-slate-50">
-            <tr>
+            <tr id="directHeaderRow">
               <th class="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider sticky left-0 bg-slate-50 z-10 w-48">Category</th>
               <th class="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">Description</th>
-              <th id="directMonths" class="bg-slate-50"></th>
+              <!-- Month headers go here -->
               <th class="px-4 py-3 w-12"></th>
             </tr>
           </thead>
@@ -133,13 +133,25 @@ async function getGrantMonths() {
 function renderMonthHeaders() {
   const makeHeader = (month) => {
     const short = new Date(month).toLocaleString('en-US', { month: 'short' });
-    return `<th class="px-3 py-2 text-center text-xs font-medium text-slate-600 bg-slate-50 border-l border-slate-200 first:border-l-0 w-20">${short}</th>`;
+    const th = document.createElement('th');
+    th.className = 'px-3 py-2 text-center text-xs font-medium text-slate-600 bg-slate-50 border-l border-slate-200 first:border-l-0 w-20';
+    th.textContent = short;
+    return th;
   };
 
-  const laborHeader = rootEl.querySelector('#laborMonths');
-  const directHeader = rootEl.querySelector('#directMonths');
-  laborHeader.innerHTML = months.map(makeHeader).join('');
-  directHeader.innerHTML = months.map(makeHeader).join('');
+  // Clear and rebuild
+  const laborRow = rootEl.querySelector('#laborHeaderRow');
+  const directRow = rootEl.querySelector('#directHeaderRow');
+
+  // Remove old month cells (keep first 3 + last)
+  while (laborRow.children.length > 4) laborRow.removeChild(laborRow.children[3]);
+  while (directRow.children.length > 3) directRow.removeChild(directRow.children[2]);
+
+  // Insert new month headers
+  months.forEach(m => {
+    laborRow.insertBefore(makeHeader(m), laborRow.lastElementChild);
+    directRow.insertBefore(makeHeader(m), directRow.lastElementChild);
+  });
 }
 
 function renderLabor() {
@@ -268,8 +280,10 @@ function clearBudget() {
   laborData = []; directData = []; months = [];
   rootEl.querySelector('#laborBody').innerHTML = '';
   rootEl.querySelector('#directBody').innerHTML = '';
-  rootEl.querySelector('#laborMonths').innerHTML = '';
-  rootEl.querySelector('#directMonths').innerHTML = '';
+  const laborRow = rootEl.querySelector('#laborHeaderRow');
+  const directRow = rootEl.querySelector('#directHeaderRow');
+  while (laborRow.children.length > 4) laborRow.removeChild(laborRow.children[3]);
+  while (directRow.children.length > 3) directRow.removeChild(directRow.children[2]);
 }
 
 function msg(txt) {
