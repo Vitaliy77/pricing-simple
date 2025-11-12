@@ -22,97 +22,170 @@ const isoFirstOfMonth = (d) => {
   return new Date(x).toISOString().slice(0,10);
 };
 const esc = (x) => (x ?? '').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;');
-
 function msg(text, isErr = false) {
   const el = rootEl.querySelector('#msg');
+  if (!el) return;
   el.textContent = text;
   el.className = isErr ? 'text-sm text-red-600' : 'text-sm text-green-600';
   if (text) setTimeout(() => { if (el.textContent === text) el.textContent = ''; }, 4000);
 }
 
-function setSignedInUI() {
-  const badge = rootEl.querySelector('#signedInBadge');
-  const saveBtn = rootEl.querySelector('#saveBudget');
-  if (currentUser) {
-    badge.textContent = `Signed in: ${currentUser.email || currentUser.id}`;
-    badge.className = 'text-xs text-green-700';
-    saveBtn.disabled = false;
-  } else {
-    badge.textContent = 'Not signed in — you can view data but cannot save.';
-    badge.className = 'text-xs text-red-700';
-    saveBtn.disabled = true;
-  }
+// ───────── top-level template wrapper ─────────
+// We’ll swap between the Auth Gate and the Budget UI inside this wrapper.
+export const template = /*html*/`
+  <div id="budgetRoot" class="card p-0"></div>
+`;
+
+// Render either auth gate or budget UI into #budgetRoot
+function renderAuthGate() {
+  const host = rootEl.querySelector('#budgetRoot');
+  host.innerHTML = `
+    <div class="p-6 space-y-4">
+      <h2 class="text-xl font-semibold text-slate-800">Sign in to continue</h2>
+      <p class="text-sm text-slate-600">Use email + password, or send yourself a magic link.</p>
+
+      <div class="grid gap-3 max-w-md">
+        <input id="authEmail" type="email" placeholder="you@example.com" class="input text-sm" />
+        <input id="authPwd" type="password" placeholder="Password (or leave empty for magic link)" class="input text-sm" />
+        <div class="flex gap-2">
+          <button id="btnSignIn" class="btn btn-primary btn-sm">Sign in</button>
+          <button id="btnSignUp" class="btn btn-outline btn-sm">Sign up</button>
+          <button id="btnMagic" class="btn btn-ghost btn-sm">Send magic link</button>
+        </div>
+        <div id="authMsg" class="text-xs text-slate-600"></div>
+      </div>
+    </div>
+  `;
+
+  const emailEl = host.querySelector('#authEmail');
+  const pwdEl   = host.querySelector('#authPwd');
+  const aMsg    = host.querySelector('#authMsg');
+
+  host.querySelector('#btnSignIn').addEventListener('click', async () => {
+    const email = emailEl.value.trim();
+    const pwd = pwdEl.value;
+    if (!email || !pwd) { aMsg.textContent = 'Enter email and password (or use magic link).'; return; }
+    aMsg.textContent = 'Signing in...';
+    const { data, error } = await client.auth.signInWithPassword({ email, password: pwd });
+    if (error) { aMsg.textContent = 'Sign in failed: ' + error.message; return; }
+    currentUser = data.user;
+    await renderBudgetShell(); // load the budget UI now
+  });
+
+  host.querySelector('#btnSignUp').addEventListener('click', async () => {
+    const email = emailEl.value.trim();
+    const pwd = pwdEl.value;
+    if (!email || !pwd) { aMsg.textContent = 'Enter email and password to sign up.'; return; }
+    aMsg.textContent = 'Creating account...';
+    const { data, error } = await client.auth.signUp({ email, password: pwd, options: { emailRedirectTo: window.location.origin } });
+    if (error) { aMsg.textContent = 'Sign up failed: ' + error.message; return; }
+    aMsg.textContent = 'Sign up ok. Check your email to confirm, then sign in.';
+  });
+
+  host.querySelector('#btnMagic').addEventListener('click', async () => {
+    const email = emailEl.value.trim();
+    if (!email) { aMsg.textContent = 'Enter your email for a magic link.'; return; }
+    aMsg.textContent = 'Sending magic link...';
+    const { error } = await client.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: window.location.origin } // MUST be allowed in Auth → Redirect URLs
+    });
+    if (error) { aMsg.textContent = 'Magic link failed: ' + error.message; return; }
+    aMsg.textContent = 'Magic link sent. Open it on this device.';
+  });
 }
 
-// ───────── template ─────────
-export const template = /*html*/`
-  <div class="card space-y-6">
-    <!-- Auth bar -->
-    <div class="flex items-center gap-3">
-      <span id="signedInBadge" class="text-xs text-slate-600">Checking sign-in…</span>
-      <input id="authEmail" type="email" placeholder="you@example.com" class="input text-sm w-64" />
-      <button id="sendMagic" class="btn btn-outline btn-sm">Send magic link</button>
-      <button id="signOut" class="btn btn-ghost btn-sm">Sign out</button>
-    </div>
-
-    <div class="flex items-center justify-between">
-      <h2 class="text-xl font-semibold text-slate-800">Budget Entry</h2>
-      <select id="grantSelect" class="input text-sm w-80"></select>
-    </div>
-
-    <div id="msg" class="text-sm text-slate-600"></div>
-
-    <!-- Labor -->
-    <div>
-      <div class="flex justify-between items-center mb-4">
-        <h3 class="font-semibold text-slate-700">Labor</h3>
-        <button id="addLabor" class="btn btn-primary btn-sm">+ Add Row</button>
+async function renderBudgetShell() {
+  const host = rootEl.querySelector('#budgetRoot');
+  host.innerHTML = `
+    <div class="space-y-6 p-6">
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-xl font-semibold text-slate-800">Budget Entry</h2>
+          <div id="signedInBadge" class="text-xs text-green-700"></div>
+        </div>
+        <div class="flex items-center gap-2">
+          <select id="grantSelect" class="input text-sm w-80"></select>
+          <button id="signOut" class="btn btn-ghost btn-sm">Sign out</button>
+        </div>
       </div>
-      <div class="overflow-x-auto rounded-lg border border-slate-200">
-        <table class="min-w-full divide-y divide-slate-200">
-          <thead class="bg-slate-50">
-            <tr id="laborHeaderRow">
-              <th class="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider sticky left-0 bg-slate-50 z-10 w-56">Employee Name</th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider w-56">Labor Category</th>
-              <th class="px-4 py-3 text-right text-xs font-medium text-slate-600 uppercase tracking-wider w-24">Rate ($/hr)</th>
-              <th class="px-4 py-3 w-12"></th>
-            </tr>
-          </thead>
-          <tbody id="laborBody" class="bg-white divide-y divide-slate-200"></tbody>
-        </table>
-      </div>
-    </div>
 
-    <!-- Direct -->
-    <div>
-      <div class="flex justify-between items-center mb-4">
-        <h3 class="font-semibold text-slate-700">Direct Costs</h3>
-        <button id="addDirect" class="btn btn-primary btn-sm">+ Add Row</button>
-      </div>
-      <div class="overflow-x-auto rounded-lg border border-slate-200">
-        <table class="min-w-full divide-y divide-slate-200">
-          <thead class="bg-slate-50">
-            <tr id="directHeaderRow">
-              <th class="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider sticky left-0 bg-slate-50 z-10 w-40">Category</th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider w-64">Description</th>
-              <th class="px-4 py-3 w-12"></th>
-            </tr>
-          </thead>
-          <tbody id="directBody" class="bg-white divide-y divide-slate-200"></tbody>
-        </table>
-      </div>
-    </div>
+      <div id="msg" class="text-sm text-slate-600"></div>
 
-    <div class="flex justify-end gap-3 mt-2">
-      <button id="saveBudget" class="btn btn-success">Save Budget</button>
+      <!-- Labor -->
+      <div>
+        <div class="flex justify-between items-center mb-4">
+          <h3 class="font-semibold text-slate-700">Labor</h3>
+          <button id="addLabor" class="btn btn-primary btn-sm">+ Add Row</button>
+        </div>
+        <div class="overflow-x-auto rounded-lg border border-slate-200">
+          <table class="min-w-full divide-y divide-slate-200">
+            <thead class="bg-slate-50">
+              <tr id="laborHeaderRow">
+                <th class="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider sticky left-0 bg-slate-50 z-10 w-56">Employee Name</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider w-56">Labor Category</th>
+                <th class="px-4 py-3 text-right text-xs font-medium text-slate-600 uppercase tracking-wider w-24">Rate ($/hr)</th>
+                <th class="px-4 py-3 w-12"></th>
+              </tr>
+            </thead>
+            <tbody id="laborBody" class="bg-white divide-y divide-slate-200"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Direct -->
+      <div>
+        <div class="flex justify-between items-center mb-4">
+          <h3 class="font-semibold text-slate-700">Direct Costs</h3>
+          <button id="addDirect" class="btn btn-primary btn-sm">+ Add Row</button>
+        </div>
+        <div class="overflow-x-auto rounded-lg border border-slate-200">
+          <table class="min-w-full divide-y divide-slate-200">
+            <thead class="bg-slate-50">
+              <tr id="directHeaderRow">
+                <th class="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider sticky left-0 bg-slate-50 z-10 w-40">Category</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider w-64">Description</th>
+                <th class="px-4 py-3 w-12"></th>
+              </tr>
+            </thead>
+            <tbody id="directBody" class="bg-white divide-y divide-slate-200"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-3 mt-2">
+        <button id="saveBudget" class="btn btn-success">Save Budget</button>
+      </div>
     </div>
-  </div>
-`;
+  `;
+
+  // show who’s signed in
+  host.querySelector('#signedInBadge').textContent =
+    `Signed in: ${currentUser?.email || currentUser?.id || 'unknown user'}`;
+
+  // events for budget shell
+  host.querySelector('#signOut').addEventListener('click', async () => {
+    await client.auth.signOut();
+    currentUser = null;
+    renderAuthGate();
+  });
+
+  await loadGrants();
+  await loadLaborCategories();
+  setupEventListeners();
+
+  // Load initial grant if any remains from params (handled in init)
+  if (currentGrant?.id) {
+    const sel = host.querySelector('#grantSelect');
+    sel.value = currentGrant.id;
+    await loadBudget();
+  }
+}
 
 // ───────── lifecycle ─────────
 export async function init(root, params = {}) {
   rootEl = root;
-  currentGrant = null;
+  currentGrant = params.grantId ? { id: String(params.grantId) } : null;
   months = [];
   laborUI = [];
   directUI = [];
@@ -120,55 +193,31 @@ export async function init(root, params = {}) {
   laborCatById = new Map();
   currentUser = null;
 
-  // Read current session/user and react to auth changes
+  // pick up auth from URL (magic link) and current session
   try {
     const [{ data: { session } }, { data: { user } }] = await Promise.all([
       client.auth.getSession(),
       client.auth.getUser()
     ]);
     currentUser = user || session?.user || null;
-  } catch (_) { currentUser = null; }
-  setSignedInUI();
+  } catch (_) {
+    currentUser = null;
+  }
 
-  client.auth.onAuthStateChange((_event, session) => {
+  // Render gate or budget shell
+  if (!currentUser) renderAuthGate();
+  else await renderBudgetShell();
+
+  // keep UI synced with auth changes (e.g., after magic link)
+  client.auth.onAuthStateChange(async (_event, session) => {
+    const wasSignedIn = !!currentUser;
     currentUser = session?.user || null;
-    setSignedInUI();
+    if (!wasSignedIn && currentUser) {
+      await renderBudgetShell();
+    } else if (wasSignedIn && !currentUser) {
+      renderAuthGate();
+    }
   });
-
-  // Auth UI events
-  rootEl.querySelector('#sendMagic').addEventListener('click', sendMagicLink);
-  rootEl.querySelector('#signOut').addEventListener('click', async () => {
-    await client.auth.signOut();
-    msg('Signed out.');
-  });
-
-  await loadGrants();
-  await loadLaborCategories();
-  setupEventListeners();
-
-  if (params.grantId) {
-    const sel = rootEl.querySelector('#grantSelect');
-    sel.value = String(params.grantId);
-    currentGrant = { id: String(params.grantId) };
-    await loadBudget();
-  }
-}
-
-async function sendMagicLink() {
-  const email = rootEl.querySelector('#authEmail').value?.trim();
-  if (!email) { msg('Enter your email first.', true); return; }
-  try {
-    const { error } = await client.auth.signInWithOtp({
-      email,
-      options: {
-        emailRedirectTo: window.location.origin, // make sure this origin is allowed in Auth → Redirect URLs
-      }
-    });
-    if (error) throw error;
-    msg('Magic link sent. Check your email to finish sign-in.');
-  } catch (e) {
-    msg('Failed to send magic link: ' + e.message, true);
-  }
 }
 
 // ───────── data loads ─────────
@@ -416,7 +465,6 @@ function renderDirect() {
 
 // ───────── add/remove ─────────
 function ensureMonthKeys(obj) { months.forEach(m => { if (!(m in obj.months)) obj.months[m] = null; }); }
-
 function addLaborRow() {
   if (!currentGrant?.id) return msg('Select a grant first', true);
   const item = { employee_name: '', category_id: null, months: {} };
@@ -437,7 +485,7 @@ window.removeDirect = (i) => { directUI.splice(i, 1); renderDirect(); };
 // ───────── save (UI -> normalized) ─────────
 async function saveBudget() {
   if (!currentGrant?.id) return msg('Select a grant', true);
-  if (!currentUser) { msg('Please sign in first (top of page).', true); return; }
+  if (!currentUser) return msg('Please sign in first.', true);
 
   const laborInserts = [];
   for (const it of laborUI) {
@@ -464,6 +512,7 @@ async function saveBudget() {
   }
 
   try {
+    // Replace this grant slice
     const del1 = await client.from('budget_labor').delete().eq('grant_id', currentGrant.id);
     if (del1.error) throw del1.error;
 
@@ -489,12 +538,14 @@ async function saveBudget() {
 // ───────── clear ─────────
 function clearBudget() {
   laborUI = []; directUI = []; months = [];
-  rootEl.querySelector('#laborBody').innerHTML = '';
-  rootEl.querySelector('#directBody').innerHTML = '';
+  const lb = rootEl.querySelector('#laborBody');
+  const db = rootEl.querySelector('#directBody');
+  if (lb) lb.innerHTML = '';
+  if (db) db.innerHTML = '';
   const laborRow = rootEl.querySelector('#laborHeaderRow');
   const directRow = rootEl.querySelector('#directHeaderRow');
-  while (laborRow.children.length > 4) laborRow.removeChild(laborRow.children[3]);
-  while (directRow.children.length > 3) directRow.removeChild(directRow.children[2]);
+  if (laborRow) while (laborRow.children.length > 4) laborRow.removeChild(laborRow.children[3]);
+  if (directRow) while (directRow.children.length > 3) directRow.removeChild(directRow.children[2]);
 }
 
 export const budgetTab = { template, init };
