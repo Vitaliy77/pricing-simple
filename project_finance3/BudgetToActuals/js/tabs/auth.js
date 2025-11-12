@@ -36,7 +36,7 @@ export async function init(root) {
     m.style.color = isErr ? '#b00' : 'inherit';
   };
 
-  // initial session state
+  // Initial session state
   try {
     const { data } = await client.auth.getSession();
     const who = data.session?.user?.email || null;
@@ -45,8 +45,10 @@ export async function init(root) {
     console.error("[auth] getSession error:", e);
   }
 
-  // 🔐 Delegated click handlers — work even if the DOM is re-rendered
-  document.addEventListener('click', async (ev) => {
+  // Delegated click handler (one handler covers all buttons)
+  document.addEventListener('click', onClick, { capture: true });
+
+  async function onClick(ev) {
     const id = ev.target?.id;
     if (!id) return;
     if (!root.contains(ev.target)) return; // ignore clicks outside this tab
@@ -56,21 +58,14 @@ export async function init(root) {
     const password = root.querySelector('#pwd')?.value || '';
 
     try {
-          if (id === 'signin') {
-      msg('Signing in…');
-      const { data, error } = await client.auth.signInWithPassword({ email, password });
-      if (error) {
-        console.warn("[auth] signIn error:", error);
-        return msg(error.message, true);
-      }
-      // success
-      root.querySelector('#authState').textContent = `Signed in: ${data.user.email}`;
-      msg('OK');
-      location.hash = '#grants';   // redirect to the protected tab
-    }
-      }
-
-      if (id === 'signup') {
+      if (id === 'signin') {
+        msg('Signing in…');
+        const { data, error } = await client.auth.signInWithPassword({ email, password });
+        if (error) { console.warn("[auth] signIn error:", error); return msg(error.message, true); }
+        root.querySelector('#authState').textContent = `Signed in: ${data.user.email}`;
+        msg('OK');
+        location.hash = '#grants'; // redirect to protected tab
+      } else if (id === 'signup') {
         msg('Signing up…');
         const { data, error } = await client.auth.signUp({
           email, password,
@@ -79,18 +74,16 @@ export async function init(root) {
         if (error) { console.warn("[auth] signUp error:", error); return msg(error.message, true); }
         if (data.session?.user) {
           root.querySelector('#authState').textContent = `Signed in: ${data.session.user.email}`;
-          return msg('Signed up & signed in!');
+          msg('Signed up & signed in!');
+          location.hash = '#grants';
+        } else {
+          msg('Check your email to confirm.');
         }
-        msg('Check your email to confirm.');
-      }
-
-      if (id === 'signout') {
+      } else if (id === 'signout') {
         await client.auth.signOut();
         root.querySelector('#authState').textContent = 'Not signed in';
         msg('Signed out.');
-      }
-
-      if (id === 'reset') {
+      } else if (id === 'reset') {
         if (!email) return msg('Enter your email first', true);
         const { error } = await client.auth.resetPasswordForEmail(email, {
           redirectTo: `${location.origin}/#/auth?mode=rp`
@@ -101,9 +94,9 @@ export async function init(root) {
       console.error("[auth] click handler exception:", e);
       msg(e.message || String(e), true);
     }
-  }, { capture: true });
+  }
 
-  // If arriving from a recovery link, show "set new password"
+  // Recovery flow: set new password after reset link
   const params = new URLSearchParams(location.hash.split('?')[1] || '');
   if (params.get('mode') === 'rp') {
     const wrap = document.createElement('div');
@@ -113,6 +106,7 @@ export async function init(root) {
         <button id="setpwd" type="button">Set new password</button>
       </div>`;
     root.appendChild(wrap);
+
     document.addEventListener('click', async (e) => {
       if (e.target?.id !== 'setpwd' || !root.contains(e.target)) return;
       const newPwd = root.querySelector('#newpwd')?.value || '';
