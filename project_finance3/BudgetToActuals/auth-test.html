@@ -1,0 +1,71 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Supabase Auth Test</title>
+    <link href="https://unpkg.com/@picocss/pico@2/css/pico.min.css" rel="stylesheet" />
+    <style>main{max-width:640px;margin:2rem auto}</style>
+  </head>
+  <body>
+    <main>
+      <h3>Auth Test</h3>
+      <p id="who">Loading…</p>
+      <div class="grid">
+        <input id="email" type="email" placeholder="you@example.com">
+        <input id="pwd" type="password" placeholder="Password">
+      </div>
+      <div class="grid">
+        <button id="signin">Sign in</button>
+        <button id="signup" class="secondary">Sign up</button>
+        <button id="signout" class="contrast">Sign out</button>
+      </div>
+      <pre id="log" style="background:#111;color:#0f0;padding:8px;min-height:120px"></pre>
+    </main>
+
+    <script type="module">
+      import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+      // 🔧 set these two values:
+      const SUPABASE_URL = "https://YOUR-PROJECT.supabase.co";
+      const SUPABASE_ANON_KEY = "YOUR-ANON-KEY";
+
+      const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true }});
+      const $ = (sel) => document.querySelector(sel);
+      const log = (x) => { $('#log').textContent += (typeof x === 'string' ? x : JSON.stringify(x, null, 2)) + "\n"; };
+
+      async function refresh() {
+        const { data } = await sb.auth.getSession();
+        const user = data.session?.user;
+        $('#who').textContent = user ? `Signed in as ${user.email}` : 'Not signed in';
+      }
+
+      $('#signin').onclick = async () => {
+        $('#log').textContent = '';
+        const { data, error } = await sb.auth.signInWithPassword({
+          email: $('#email').value.trim(),
+          password: $('#pwd').value
+        });
+        log({ data, error: error?.message || null });
+        await refresh();
+      };
+
+      $('#signup').onclick = async () => {
+        $('#log').textContent = '';
+        const { data, error } = await sb.auth.signUp({
+          email: $('#email').value.trim(),
+          password: $('#pwd').value
+        });
+        log({ data, error: error?.message || null });
+        await refresh();
+      };
+
+      $('#signout').onclick = async () => {
+        await sb.auth.signOut();
+        $('#log').textContent = '';
+        await refresh();
+      };
+
+      await refresh();
+    </script>
+  </body>
+</html>
