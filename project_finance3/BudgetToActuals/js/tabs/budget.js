@@ -1,20 +1,13 @@
 // js/tabs/budget.js
 import { client } from '../api/supabase.js';
-import { createClient } from "@supabase/supabase-js";
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-const { data: session } = await supabase.auth.getSession();
-console.log("session", session); // should contain access_token
-
-const { data: user } = await supabase.auth.getUser();
-console.log("user", user?.id);   // this is auth.uid()
-
-
+// ───────────────────────────────────────────────────────────────────────────────
+// Module state
 let rootEl = null;
 let currentGrant = null;     // { id: string(uuid) }
-let months = [];             // ['YYYY-MM-01', ...] first-of-month dates (ISO)
-let laborUI = [];            // [{ employee_name, category_id, months: { 'YYYY-MM-01': hours|null } }, ...]
-let directUI = [];           // [{ category, description, months: { 'YYYY-MM-01': amount|null } }, ...]
+let months = [];             // ['YYYY-MM-01', ...] first-of-month ISO dates
+let laborUI = [];            // [{ employee_name, category_id, months: { 'YYYY-MM-01': hours|null } }]
+let directUI = [];           // [{ category, description, months: { 'YYYY-MM-01': amount|null } }]
 let laborCats = [];          // labor_categories rows
 let laborCatById = new Map();
 
@@ -23,14 +16,13 @@ const EXPENSE_CATEGORIES = [
   'Training','Consultants','Marketing','Events','Insurance'
 ];
 
-/* ---------------- Utilities ---------------- */
-
+// ───────────────────────────────────────────────────────────────────────────────
+// Utilities
 const isoFirstOfMonth = (d) => {
   const x = new Date(d);
   x.setDate(1); x.setHours(0,0,0,0);
   return new Date(x).toISOString().slice(0,10); // YYYY-MM-DD
 };
-
 const esc = (x) => (x ?? '').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;');
 
 function msg(text, isErr = false) {
@@ -40,8 +32,8 @@ function msg(text, isErr = false) {
   if (text) setTimeout(() => { if (el.textContent === text) el.textContent = ''; }, 4000);
 }
 
-/* ---------------- Template ---------------- */
-
+// ───────────────────────────────────────────────────────────────────────────────
+// Template
 export const template = /*html*/`
   <div class="card space-y-8">
     <div class="flex items-center justify-between">
@@ -98,8 +90,8 @@ export const template = /*html*/`
   </div>
 `;
 
-/* ---------------- Lifecycle ---------------- */
-
+// ───────────────────────────────────────────────────────────────────────────────
+// Lifecycle
 export async function init(root, params = {}) {
   rootEl = root;
   currentGrant = null;
@@ -108,6 +100,20 @@ export async function init(root, params = {}) {
   directUI = [];
   laborCats = [];
   laborCatById = new Map();
+
+  // ✅ Use the SAME client for auth + data
+  try {
+    const { data: { session } } = await client.auth.getSession();
+    const { data: { user } } = await client.auth.getUser();
+    console.log('session', session);
+    console.log('user', user?.id);
+    // Optional UX: if not signed in, tell the user (prevents 401 confusion)
+    if (!user) {
+      msg('You are not signed in. Sign in to save budget data.', true);
+    }
+  } catch (e) {
+    console.warn('Auth check failed:', e);
+  }
 
   await loadGrants();
   await loadLaborCategories();
@@ -134,8 +140,8 @@ function setupEventListeners() {
   rootEl.querySelector('#saveBudget').addEventListener('click', saveBudget);
 }
 
-/* ---------------- Loads ---------------- */
-
+// ───────────────────────────────────────────────────────────────────────────────
+// Loads
 async function loadGrants() {
   const sel = rootEl.querySelector('#grantSelect');
   sel.innerHTML = '<option value="">— Select Grant —</option>';
@@ -182,7 +188,6 @@ async function loadBudget() {
   try {
     months = await computeMonthsForGrant(currentGrant.id);
 
-    // Load normalized rows
     const [lab, dir] = await Promise.all([
       client.from('budget_labor')
         .select('grant_id, employee_name, category_id, ym, hours')
@@ -194,7 +199,6 @@ async function loadBudget() {
     if (lab.error) throw lab.error;
     if (dir.error) throw dir.error;
 
-    // Pivot to UI state
     laborUI = pivotLabor(lab.data || []);
     directUI = pivotDirect(dir.data || []);
 
@@ -206,8 +210,8 @@ async function loadBudget() {
   }
 }
 
-/* ---------------- Pivot helpers (normalized -> UI) ---------------- */
-
+// ───────────────────────────────────────────────────────────────────────────────
+// Pivot helpers (normalized -> UI)
 function pivotLabor(rows) {
   const key = (r) => `${r.employee_name || ''}||${r.category_id || ''}`;
   const map = new Map();
@@ -218,7 +222,6 @@ function pivotLabor(rows) {
     }
     map.get(k).months[isoFirstOfMonth(r.ym)] = r.hours ?? null;
   }
-  // ensure all months exist (for clean inputs)
   const out = Array.from(map.values());
   out.forEach(it => months.forEach(m => { if (!(m in it.months)) it.months[m] = null; }));
   return out;
@@ -239,8 +242,8 @@ function pivotDirect(rows) {
   return out;
 }
 
-/* ---------------- Rendering (from UI state) ---------------- */
-
+// ───────────────────────────────────────────────────────────────────────────────
+// Rendering (from UI state)
 function renderMonthHeaders() {
   const makeHeader = (monthIso) => {
     const th = document.createElement('th');
@@ -300,7 +303,7 @@ function renderLabor() {
   }).join('');
   tbody.innerHTML = html;
 
-  // Wire inputs to UI state
+  // Bind inputs → UI state
   tbody.querySelectorAll('input[data-kind="labor"]').forEach(inp => {
     inp.addEventListener('input', (e) => {
       const i = Number(e.target.dataset.row);
@@ -315,7 +318,6 @@ function renderLabor() {
       const field = e.target.dataset.field;
       if (field === 'category_id') {
         laborUI[i][field] = e.target.value || null;
-        // update shown rate
         const tr = e.target.closest('tr');
         const cat = laborUI[i][field] ? laborCatById.get(laborUI[i][field]) : null;
         tr.cells[2].querySelector('input').value = cat?.hourly_rate ?? '';
@@ -376,11 +378,9 @@ function renderDirect() {
   });
 }
 
-/* ---------------- Add / Remove ---------------- */
-
-function ensureMonthKeys(obj) {
-  months.forEach(m => { if (!(m in obj.months)) obj.months[m] = null; });
-}
+// ───────────────────────────────────────────────────────────────────────────────
+// Add / Remove
+function ensureMonthKeys(obj) { months.forEach(m => { if (!(m in obj.months)) obj.months[m] = null; }); }
 
 function addLaborRow() {
   if (!currentGrant?.id) return msg('Select a grant first', true);
@@ -389,7 +389,6 @@ function addLaborRow() {
   laborUI.push(item);
   renderLabor();
 }
-
 function addDirectRow() {
   if (!currentGrant?.id) return msg('Select a grant first', true);
   const item = { category: EXPENSE_CATEGORIES[0], description: '', months: {} };
@@ -397,12 +396,11 @@ function addDirectRow() {
   directUI.push(item);
   renderDirect();
 }
-
 window.removeLabor = (i) => { laborUI.splice(i, 1); renderLabor(); };
 window.removeDirect = (i) => { directUI.splice(i, 1); renderDirect(); };
 
-/* ---------------- Save (UI -> normalized rows) ---------------- */
-
+// ───────────────────────────────────────────────────────────────────────────────
+// Save (UI -> normalized rows)
 async function saveBudget() {
   if (!currentGrant?.id) return msg('Select a grant', true);
 
@@ -465,8 +463,8 @@ async function saveBudget() {
   }
 }
 
-/* ---------------- Clear ---------------- */
-
+// ───────────────────────────────────────────────────────────────────────────────
+// Clear
 function clearBudget() {
   laborUI = [];
   directUI = [];
