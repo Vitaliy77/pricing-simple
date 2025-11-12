@@ -56,13 +56,18 @@ export async function init(root) {
     const password = root.querySelector('#pwd')?.value || '';
 
     try {
-      if (id === 'signin') {
-        msg('Signing in…');
-        const { data, error } = await client.auth.signInWithPassword({ email, password });
-        if (error) { console.warn("[auth] signIn error:", error); return msg(error.message, true); }
-        root.querySelector('#authState').textContent = `Signed in: ${data.user.email}`;
-        msg('OK');
-        // location.hash = '#grants'; // enable after first success
+          if (id === 'signin') {
+      msg('Signing in…');
+      const { data, error } = await client.auth.signInWithPassword({ email, password });
+      if (error) {
+        console.warn("[auth] signIn error:", error);
+        return msg(error.message, true);
+      }
+      // success
+      root.querySelector('#authState').textContent = `Signed in: ${data.user.email}`;
+      msg('OK');
+      location.hash = '#grants';   // redirect to the protected tab
+    }
       }
 
       if (id === 'signup') {
