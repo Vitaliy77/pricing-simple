@@ -1,4 +1,4 @@
-// /js/tabs/auth.js
+// js/tabs/auth.js
 import { client } from "../api/supabase.js";
 
 export const template = /*html*/`
@@ -26,7 +26,7 @@ export const template = /*html*/`
 `;
 
 export async function init(root) {
-  console.log("[auth] init() (delegated handlers)");
+  console.log("[auth] init()");
   root.innerHTML = template;
 
   const msg = (t, isErr = false) => {
@@ -40,7 +40,8 @@ export async function init(root) {
   try {
     const { data } = await client.auth.getSession();
     const who = data.session?.user?.email || null;
-    root.querySelector('#authState').textContent = who ? `Signed in: ${who}` : 'Not signed in';
+    const stateEl = root.querySelector('#authState');
+    if (stateEl) stateEl.textContent = who ? `Signed in: ${who}` : 'Not signed in';
   } catch (e) {
     console.error("[auth] getSession error:", e);
   }
@@ -61,28 +62,48 @@ export async function init(root) {
       if (id === 'signin') {
         msg('Signing in…');
         const { data, error } = await client.auth.signInWithPassword({ email, password });
-        if (error) { console.warn("[auth] signIn error:", error); return msg(error.message, true); }
-        root.querySelector('#authState').textContent = `Signed in: ${data.user.email}`;
-        msg('OK');
-        location.hash = '#grants'; // redirect to protected tab
+        if (error) {
+          console.warn("[auth] signIn error:", error);
+          return msg(error.message, true);
+        }
+
+        // --- REDIRECT FIRST ---
+        location.hash = '#grants';
+
+        // --- BEST-EFFORT DOM UPDATE (guard against unmount) ---
+        if (root.isConnected) {
+          const el = root.querySelector('#authState');
+          if (el) el.textContent = `Signed in: ${data.user.email}`;
+          msg('OK');
+        }
+
       } else if (id === 'signup') {
         msg('Signing up…');
         const { data, error } = await client.auth.signUp({
           email, password,
           options: { emailRedirectTo: `${location.origin}/#/auth` }
         });
-        if (error) { console.warn("[auth] signUp error:", error); return msg(error.message, true); }
+        if (error) {
+          console.warn("[auth] signUp error:", error);
+          return msg(error.message, true);
+        }
         if (data.session?.user) {
-          root.querySelector('#authState').textContent = `Signed in: ${data.session.user.email}`;
-          msg('Signed up & signed in!');
+          if (root.isConnected) {
+            root.querySelector('#authState').textContent = `Signed in: ${data.session.user.email}`;
+            msg('Signed up & signed in!');
+          }
           location.hash = '#grants';
         } else {
           msg('Check your email to confirm.');
         }
+
       } else if (id === 'signout') {
         await client.auth.signOut();
-        root.querySelector('#authState').textContent = 'Not signed in';
-        msg('Signed out.');
+        if (root.isConnected) {
+          root.querySelector('#authState').textContent = 'Not signed in';
+          msg('Signed out.');
+        }
+
       } else if (id === 'reset') {
         if (!email) return msg('Enter your email first', true);
         const { error } = await client.auth.resetPasswordForEmail(email, {
@@ -92,7 +113,7 @@ export async function init(root) {
       }
     } catch (e) {
       console.error("[auth] click handler exception:", e);
-      msg(e.message || String(e), true);
+      if (root.isConnected) msg(e.message || String(e), true);
     }
   }
 
@@ -111,7 +132,9 @@ export async function init(root) {
       if (e.target?.id !== 'setpwd' || !root.contains(e.target)) return;
       const newPwd = root.querySelector('#newpwd')?.value || '';
       const { error } = await client.auth.updateUser({ password: newPwd });
-      msg(error ? error.message : 'Password updated. You can sign in now.');
+      if (root.isConnected) {
+        msg(error ? error.message : 'Password updated. You can sign in now.', error);
+      }
     }, { capture: true });
   }
 }
