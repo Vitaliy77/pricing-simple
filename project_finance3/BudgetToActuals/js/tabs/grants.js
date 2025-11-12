@@ -6,12 +6,12 @@ export const template = /*html*/`
   <article>
     <h3>Create Grant</h3>
     <div class="grid">
-      <input id="g_name" placeholder="Grant Name">
-      <input id="g_id"   placeholder="Grant ID">
-      <input id="g_funder"   placeholder="Funder / Grantee">
-      <input id="g_amt"  type="number" step="0.01" placeholder="Total Award Amount">
-      <input id="g_from" type="date"  placeholder="Start">
-      <input id="g_to"   type="date"  placeholder="End">
+      <input id="g_name"   placeholder="Grant Name">
+      <input id="g_id"     placeholder="Grant ID">
+      <input id="g_funder" placeholder="Funder / Grantee">
+      <input id="g_amt"    type="number" step="0.01" placeholder="Total Award Amount">
+      <input id="g_from"   type="date"  placeholder="Start">
+      <input id="g_to"     type="date"  placeholder="End">
     </div>
     <button id="create" type="button">Create</button>
     <small id="msg"></small>
@@ -37,6 +37,8 @@ export const template = /*html*/`
 `;
 
 export async function init(root) {
+  console.log("[grants] init");
+
   const msg = (t, err = false) => {
     const m = $('#msg', root);
     if (!m) return;
@@ -46,7 +48,7 @@ export async function init(root) {
   };
 
   const esc = x => (x ?? '').toString().replace(/&/g, '&amp;').replace(/</g, '&lt;');
-  const fmtDate = d => d ? String(d).slice(0, 10) : '';
+  const fmtDate  = d => d ? String(d).slice(0, 10) : '';
   const fmtMoney = n =>
     (n ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -56,9 +58,9 @@ export async function init(root) {
       const { data: { user } } = await client.auth.getUser();
       if (!user) return msg('Please sign in first.', true);
 
-      const name = $('#g_name', root).value.trim();
-      const start_date = $('#g_from', root).value;
-      const end_date   = $('#g_to', root).value;
+      const name       = $('#g_name',   root).value.trim();
+      const start_date = $('#g_from',   root).value;
+      const end_date   = $('#g_to',     root).value;
 
       if (!name)       return msg('Grant Name is required.', true);
       if (!start_date) return msg('Start date is required.', true);
@@ -66,11 +68,11 @@ export async function init(root) {
 
       const row = {
         name,
-        grant_id:    $('#g_id', root).value.trim() || null,
-        funder:      $('#g_funder', root).value.trim() || null, // <- funder column
+        grant_id:    $('#g_id',     root).value.trim() || null,
+        funder:      $('#g_funder', root).value.trim() || null,   // matches your "funder" column
         start_date,
         end_date,
-        total_award: $('#g_amt', root).value ? Number($('#g_amt', root).value) : null, // <- total_award column
+        total_award: $('#g_amt',    root).value ? Number($('#g_amt', root).value) : null, // matches "total_award"
         pm_user_id:  user.id,
         status:      'active'
       };
@@ -96,27 +98,19 @@ export async function init(root) {
   async function loadTable() {
     msg('Loading…');
     try {
-      // match your schema: funder, total_award
-      let res = await client
+      console.log("[grants] fetching grants…");
+      const { data, error } = await client
         .from('grants')
-        .select('id, name, grant_id, funder, start_date, end_date, total_award, pm_user_id, status, created_at')
-        .order('created_at', { ascending: false });
+        .select('id, name, grant_id, funder, start_date, end_date, total_award, pm_user_id, status, created_at');
+        // no .order() while we debug the 400
 
-      // if created_at order is a problem, fall back to start_date
-      if (res.error) {
-        console.warn('order by created_at failed, falling back to start_date:', res.error);
-        res = await client
-          .from('grants')
-          .select('id, name, grant_id, funder, start_date, end_date, total_award, pm_user_id, status')
-          .order('start_date', { ascending: false });
+      console.log("[grants] result:", data, error);
+      if (error) {
+        console.error("grants load error", error);
+        return msg(error.message, true);
       }
 
-      if (res.error) {
-        console.error('grants load error', res.error);
-        return msg(res.error.message, true);
-      }
-
-      const grants = res.data || [];
+      const grants = data || [];
       const tb = $('#tbl tbody', root);
       if (!tb) return;
       tb.innerHTML = '';
