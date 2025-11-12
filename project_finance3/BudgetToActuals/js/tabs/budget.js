@@ -5,38 +5,12 @@ let rootEl = null;
 let currentGrant = null;   // { id: number }
 let laborData = [];
 let directData = [];
-let months = [];           // ['2024-03-01', ...] (first-of-month ISO strings)
+let months = [];
 
-// If your schema uses a different set, adjust here
 const EXPENSE_CATEGORIES = [
   'Travel', 'Licenses', 'Computers', 'Software', 'Office Supplies',
   'Training', 'Consultants', 'Marketing', 'Events', 'Insurance'
 ];
-
-/* -------------------------- Utilities -------------------------- */
-
-// Convert 'YYYY-MM-01' -> 'YYYY_MM' (matches typical wide-column names)
-function monthToKey(monthIsoFirstDay) {
-  // example: '2024-03-01' -> '2024_03'
-  return monthIsoFirstDay.slice(0, 7).replace('-', '_');
-}
-
-// Safe text helper
-function esc(x) {
-  return (x ?? '').toString().replace(/&/g, '&amp;').replace(/</g, '&lt;');
-}
-
-// Set message with color
-function msg(txt, isError = false) {
-  const el = rootEl.querySelector('#msg');
-  el.textContent = txt;
-  el.className = isError
-    ? 'text-sm text-red-600'
-    : 'text-sm text-green-600';
-  if (txt) setTimeout(() => { if (el.textContent === txt) el.textContent = ''; }, 4000);
-}
-
-/* -------------------------- Template -------------------------- */
 
 export const template = /*html*/`
   <div class="card space-y-8">
@@ -68,7 +42,7 @@ export const template = /*html*/`
       </div>
     </div>
 
-    <!-- Direct -->
+    <!-- Direct Costs -->
     <div>
       <div class="flex justify-between items-center mb-4">
         <h3 class="font-semibold text-slate-700">Direct Costs</h3>
@@ -94,24 +68,26 @@ export const template = /*html*/`
   </div>
 `;
 
-/* -------------------------- Lifecycle -------------------------- */
-
 export async function init(root, params = {}) {
   rootEl = root;
-  currentGrant = null;
   laborData = []; directData = []; months = [];
 
   await loadGrants();
   setupEventListeners();
 
+  // ---- SET CURRENT GRANT FROM URL OR SELECT ----
+  const sel = rootEl.querySelector('#grantSelect');
   if (params.grantId) {
-    const sel = rootEl.querySelector('#grantSelect');
-    sel.value = String(params.grantId);
+    sel.value = params.grantId;
     currentGrant = { id: Number(params.grantId) };
+    await loadBudget();
+  } else if (sel.value) {
+    currentGrant = { id: Number(sel.value) };
     await loadBudget();
   }
 }
 
+/* ---------- EVENT LISTENERS ---------- */
 function setupEventListeners() {
   const sel = rootEl.querySelector('#grantSelect');
   sel.addEventListener('change', async () => {
@@ -126,42 +102,23 @@ function setupEventListeners() {
   rootEl.querySelector('#saveBudget').addEventListener('click', saveBudget);
 }
 
-/* -------------------------- Data Loads -------------------------- */
-
+/* ---------- GRANTS ---------- */
 async function loadGrants() {
+  const { data } = await client.from('grants').select('id, name, grant_id').eq('status', 'active').order('name');
   const sel = rootEl.querySelector('#grantSelect');
   sel.innerHTML = '<option value="">— Select Grant —</option>';
-
-  const { data, error } = await client
-    .from('grants')
-    .select('id, name, grant_id')
-    .eq('status', 'active')
-    .order('name');
-
-  if (error) {
-    msg(`Failed to load grants: ${error.message}`, true);
-    return;
-  }
-
-  (data || []).forEach(g => sel.add(new Option(`${g.name} (${g.grant_id})`, g.id)));
+  data.forEach(g => sel.add(new Option(`${g.name} (${g.grant_id})`, g.id)));
 }
 
+/* ---------- BUDGET LOAD ---------- */
 async function loadBudget() {
   if (!currentGrant?.id) return;
   months = await getGrantMonths();
-  if (months.length === 0) {
-    clearBudget();
-    msg('No months found for this grant range', true);
-    return;
-  }
 
   const [laborRes, directRes] = await Promise.all([
     client.from('budget_labor').select('*').eq('grant_id', currentGrant.id),
     client.from('budget_direct').select('*').eq('grant_id', currentGrant.id)
   ]);
-
-  if (laborRes.error) msg(`Load labor failed: ${laborRes.error.message}`, true);
-  if (directRes.error) msg(`Load direct failed: ${directRes.error.message}`, true);
 
   laborData = laborRes.data || [];
   directData = directRes.data || [];
@@ -171,48 +128,27 @@ async function loadBudget() {
   renderDirect();
 }
 
+/* ---------- MONTHS ---------- */
 async function getGrantMonths() {
-  if (!currentGrant?.id) return [];
-  const { data, error } = await client
-    .from('grants')
-    .select('start_date, end_date')
-    .eq('id', currentGrant.id)
-    .single();
-
-  if (error) {
-    msg(`Failed to load grant dates: ${error.message}`, true);
-    return [];
-  }
-  if (!data?.start_date || !data?.end_date) return [];
-
+  const { data } = await client.from('grants').select('start_date, end_date').eq('id', currentGrant.id).single();
   const start = new Date(data.start_date);
   const end = new Date(data.end_date);
-
-  // Normalize to first of month, inclusive of end month
-  start.setDate(1);
-  end.setDate(1);
-
   const list = [];
   const seen = new Set();
-
-  const d = new Date(start);
-  while (d <= end) {
-    const ym = new Date(d).toISOString().slice(0, 10); // YYYY-MM-01...
-    const first = ym.slice(0, 7) + '-01';
-    if (!seen.has(first)) {
-      seen.add(first);
-      list.push(first);
+  for (let d = new Date(start); d <= end; d.setMonth(d.getMonth() + 1)) {
+    const ym = d.toISOString().slice(0, 7) + '-01';
+    if (!seen.has(ym)) {
+      seen.add(ym);
+      list.push(ym);
     }
-    d.setMonth(d.getMonth() + 1);
   }
   return list;
 }
 
-/* -------------------------- Rendering -------------------------- */
-
+/* ---------- HEADERS ---------- */
 function renderMonthHeaders() {
-  const makeHeader = (monthIso) => {
-    const short = new Date(monthIso).toLocaleString('en-US', { month: 'short' });
+  const makeHeader = (month) => {
+    const short = new Date(month).toLocaleString('en-US', { month: 'short' });
     const th = document.createElement('th');
     th.className = 'px-3 py-2 text-center text-xs font-medium text-slate-600 bg-slate-50 border-l border-slate-200 first:border-l-0 w-20';
     th.textContent = short;
@@ -222,209 +158,159 @@ function renderMonthHeaders() {
   const laborRow = rootEl.querySelector('#laborHeaderRow');
   const directRow = rootEl.querySelector('#directHeaderRow');
 
-  // Clear old dynamic month columns (keep first 3 + last action col in labor; first 2 + last in direct)
   while (laborRow.children.length > 4) laborRow.removeChild(laborRow.children[3]);
   while (directRow.children.length > 3) directRow.removeChild(directRow.children[2]);
 
-  // Insert month headers before the last (action) column
   months.forEach(m => {
     laborRow.insertBefore(makeHeader(m), laborRow.lastElementChild);
     directRow.insertBefore(makeHeader(m), directRow.lastElementChild);
   });
 }
 
+/* ---------- LABOR RENDER ---------- */
 function renderLabor() {
   const tbody = rootEl.querySelector('#laborBody');
-  const rowsHtml = (laborData.length ? laborData : []).map((row, i) => {
-    // For display, we’ll read the wide month columns using our key
-    const monthCells = months.map(m => {
-      const key = `hours_${monthToKey(m)}`;
-      const val = row[key] ?? '';
-      return `
+  tbody.innerHTML = laborData.map((row, i) => `
+    <tr class="hover:bg-slate-50">
+      <td class="px-6 py-3 sticky left-0 bg-white border-r border-slate-200 z-10">
+        <select class="input text-sm w-full" data-index="${i}" data-field="employee_id">
+          <option value="">— Select Employee —</option>
+        </select>
+      </td>
+      <td class="px-6 py-3 border-r border-slate-200">
+        <input type="text" class="input text-sm w-full" value="${row.position || ''}" readonly>
+      </td>
+      <td class="px-4 py-3 text-right border-r border-slate-200">
+        <input type="number" class="input text-sm w-20 text-right" value="${row.hourly_rate || ''}" readonly>
+      </td>
+      ${months.map(m => `
         <td class="px-3 py-2 text-center border-l border-slate-200 first:border-l-0">
           <input type="number" class="input text-sm w-16 text-center"
-                 value="${esc(val)}"
+                 value="${row[`hours_${m}`] || ''}"
                  data-index="${i}" data-month="${m}">
         </td>
-      `;
-    }).join('');
+      `).join('')}
+      <td class="px-4 py-3 text-center">
+        <button class="text-red-600 hover:text-red-800 text-xl" onclick="removeLabor(${i})">x</button>
+      </td>
+    </tr>
+  `).join('');
 
-    return `
-      <tr class="hover:bg-slate-50">
-        <td class="px-6 py-3 sticky left-0 bg-white border-r border-slate-200 z-10">
-          <select class="input text-sm w-full" data-index="${i}" data-field="employee_id">
-            <option value="">— Select Employee —</option>
-          </select>
-        </td>
-        <td class="px-6 py-3 border-r border-slate-200">
-          <input type="text" class="input text-sm w-full" value="${esc(row.position)}" readonly>
-        </td>
-        <td class="px-4 py-3 text-right border-r border-slate-200">
-          <input type="number" class="input text-sm w-20 text-right" value="${esc(row.hourly_rate)}" readonly>
-        </td>
-        ${monthCells}
-        <td class="px-4 py-3 text-center">
-          <button class="text-red-600 hover:text-red-800 text-xl" onclick="removeLabor(${i})">×</button>
-        </td>
-      </tr>
-    `;
-  }).join('');
-
-  tbody.innerHTML = rowsHtml || '';
-
-  // Populate employee selects after rows are in the DOM
-  loadEmployeeOptions().catch(e => msg(`Employees load failed: ${e.message}`, true));
+  loadEmployeeOptions();
 }
 
+/* ---------- DIRECT RENDER ---------- */
 function renderDirect() {
   const tbody = rootEl.querySelector('#directBody');
-  const rowsHtml = (directData.length ? directData : []).map((row, i) => {
-    const monthCells = months.map(m => {
-      const key = `amount_${monthToKey(m)}`;
-      const val = row[key] ?? '';
-      return `
+  tbody.innerHTML = directData.map((row, i) => `
+    <tr class="hover:bg-slate-50">
+      <td class="px-6 py-3 sticky left-0 bg-white border-r border-slate-200 z-10">
+        <select class="input text-sm w-full" data-index="${i}" data-field="category">
+          ${EXPENSE_CATEGORIES.map(c => `<option value="${c}" ${row.category === c ? 'selected' : ''}>${c}</option>`).join('')}
+        </select>
+      </td>
+      <td class="px-6 py-3 border-r border-slate-200">
+        <input type="text" class="input text-sm w-full" placeholder="Description" value="${row.description || ''}" data-index="${i}" data-field="description">
+      </td>
+      ${months.map(m => `
         <td class="px-3 py-2 text-center border-l border-slate-200 first:border-l-0">
           <input type="number" class="input text-sm w-20 text-center"
-                 value="${esc(val)}"
+                 value="${row[`amount_${m}`] || ''}"
                  data-index="${i}" data-month="${m}">
         </td>
-      `;
-    }).join('');
-
-    return `
-      <tr class="hover:bg-slate-50">
-        <td class="px-6 py-3 sticky left-0 bg-white border-r border-slate-200 z-10">
-          <select class="input text-sm w-full" data-index="${i}" data-field="category">
-            ${EXPENSE_CATEGORIES.map(c => `<option value="${esc(c)}" ${row.category === c ? 'selected' : ''}>${esc(c)}</option>`).join('')}
-          </select>
-        </td>
-        <td class="px-6 py-3 border-r border-slate-200">
-          <input type="text" class="input text-sm w-full" placeholder="Description" value="${esc(row.description)}" data-index="${i}" data-field="description">
-        </td>
-        ${monthCells}
-        <td class="px-4 py-3 text-center">
-          <button class="text-red-600 hover:text-red-800 text-xl" onclick="removeDirect(${i})">×</button>
-        </td>
-      </tr>
-    `;
-  }).join('');
-
-  tbody.innerHTML = rowsHtml || '';
+      `).join('')}
+      <td class="px-4 py-3 text-center">
+        <button class="text-red-600 hover:text-red-800 text-xl" onclick="removeDirect(${i})">x</button>
+      </td>
+    </tr>
+  `).join('');
 }
 
-/* -------------------------- Lookups & UI wiring -------------------------- */
-
+/* ---------- EMPLOYEE OPTIONS ---------- */
 async function loadEmployeeOptions() {
-  // NOTE: removed "position" from select list to avoid column-not-found errors if your table lacks it.
-  const { data, error } = await client
-    .from('labor_categories')
-    .select('id, name, hourly_rate, burden_pct, position') // keep 'position' if it exists; harmless if nulls
-    .eq('is_active', true)
-    .order('name');
-
-  if (error) throw error;
-
+  const { data } = await client.from('labor_categories').select('id, name, position, hourly_rate').eq('is_active', true);
   const selects = rootEl.querySelectorAll('select[data-field="employee_id"]');
   selects.forEach((sel, i) => {
-    const currentId = laborData[i]?.employee_id ?? null;
-    sel.innerHTML =
-      '<option value="">— Select Employee —</option>' +
-      (data || []).map(emp =>
-        `<option value="${emp.id}" ${currentId === emp.id ? 'selected' : ''}>${esc(emp.name)}</option>`
-      ).join('');
+    const currentId = laborData[i]?.employee_id;
+    sel.innerHTML = '<option value="">— Select Employee —</option>' +
+      data.map(emp => `<option value="${emp.id}" ${currentId === emp.id ? 'selected' : ''}>${emp.name}</option>`).join('');
 
     sel.addEventListener('change', () => {
-      const emp = (data || []).find(e => e.id === Number(sel.value));
+      const emp = data.find(e => e.id === Number(sel.value));
       if (!emp) return;
-      const rowEl = rootEl.querySelectorAll('#laborBody tr')[i];
-      // Display-only fields (not persisted unless you add fields/columns)
-      rowEl.cells[1].querySelector('input').value = emp.position || '';
-      rowEl.cells[2].querySelector('input').value = emp.hourly_rate ?? '';
+      const row = rootEl.querySelectorAll('#laborBody tr')[i];
+      row.cells[1].querySelector('input').value = emp.position || '';
+      row.cells[2].querySelector('input').value = emp.hourly_rate || '';
     });
   });
 }
 
-/* -------------------------- Row add/remove -------------------------- */
-
+/* ---------- ADD ROWS ---------- */
 function addLaborRow() {
-  if (!currentGrant?.id) return msg('Select a grant first', true);
-  laborData.push({ grant_id: currentGrant.id, employee_id: null });
+  const sel = rootEl.querySelector('#grantSelect');
+  const grantId = Number(sel.value);
+  if (!grantId) return msg('Please select a grant first');
+  if (!currentGrant) currentGrant = { id: grantId };
+  laborData.push({ grant_id: grantId });
   renderLabor();
 }
 
 function addDirectRow() {
-  if (!currentGrant?.id) return msg('Select a grant first', true);
-  // default the first category to smooth UX
-  directData.push({ grant_id: currentGrant.id, category: EXPENSE_CATEGORIES[0], description: '' });
+  const sel = rootEl.querySelector('#grantSelect');
+  const grantId = Number(sel.value);
+  if (!grantId) return msg('Please select a grant first');
+  if (!currentGrant) currentGrant = { id: grantId };
+  directData.push({ grant_id: grantId });
   renderDirect();
 }
 
 window.removeLabor = (i) => { laborData.splice(i, 1); renderLabor(); };
 window.removeDirect = (i) => { directData.splice(i, 1); renderDirect(); };
 
-/* -------------------------- Save -------------------------- */
-
+/* ---------- SAVE ---------- */
 async function saveBudget() {
-  if (!currentGrant?.id) return msg('Select a grant', true);
+  const sel = rootEl.querySelector('#grantSelect');
+  const grantId = Number(sel.value);
+  if (!grantId) return msg('Select a grant');
 
-  // Collect labor rows from the DOM
   const laborInserts = [];
   rootEl.querySelectorAll('#laborBody tr').forEach(tr => {
-    const row = { grant_id: currentGrant.id };
+    const row = { grant_id: grantId };
     tr.querySelectorAll('input, select').forEach(el => {
-      if (el.dataset.field) {
-        // Persist typed fields; coerce numeric ids
-        const val = el.dataset.field === 'employee_id' ? (el.value ? Number(el.value) : null) : (el.value || null);
-        row[el.dataset.field] = val;
-      }
+      if (el.dataset.field) row[el.dataset.field] = el.value || null;
       if (el.dataset.month && months.includes(el.dataset.month)) {
-        const k = `hours_${monthToKey(el.dataset.month)}`;
-        row[k] = el.value !== '' ? Number(el.value) : null;
+        row[`hours_${el.dataset.month}`] = el.value ? Number(el.value) : null;
       }
     });
     laborInserts.push(row);
   });
 
-  // Collect direct rows from the DOM
   const directInserts = [];
   rootEl.querySelectorAll('#directBody tr').forEach(tr => {
-    const row = { grant_id: currentGrant.id };
+    const row = { grant_id: grantId };
     tr.querySelectorAll('input, select').forEach(el => {
-      if (el.dataset.field) {
-        row[el.dataset.field] = el.value || null;
-      }
+      if (el.dataset.field) row[el.dataset.field] = el.value || null;
       if (el.dataset.month && months.includes(el.dataset.month)) {
-        const k = `amount_${monthToKey(el.dataset.month)}`;
-        row[k] = el.value !== '' ? Number(el.value) : null;
+        row[`amount_${el.dataset.month}`] = el.value ? Number(el.value) : null;
       }
     });
     directInserts.push(row);
   });
 
   try {
-    // Replace grant slice atomically-ish (best-effort; wrap in RPC/transaction if you have one)
-    const del1 = await client.from('budget_labor').delete().eq('grant_id', currentGrant.id);
-    if (del1.error) throw del1.error;
-    const del2 = await client.from('budget_direct').delete().eq('grant_id', currentGrant.id);
-    if (del2.error) throw del2.error;
+    await client.from('budget_labor').delete().eq('grant_id', grantId);
+    await client.from('budget_direct').delete().eq('grant_id', grantId);
 
-    if (laborInserts.length) {
-      const ins1 = await client.from('budget_labor').insert(laborInserts);
-      if (ins1.error) throw ins1.error;
-    }
-    if (directInserts.length) {
-      const ins2 = await client.from('budget_direct').insert(directInserts);
-      if (ins2.error) throw ins2.error;
-    }
+    if (laborInserts.length) await client.from('budget_labor').insert(laborInserts);
+    if (directInserts.length) await client.from('budget_direct').insert(directInserts);
 
     msg('Budget saved successfully!');
   } catch (err) {
-    msg('Save failed: ' + err.message, true);
+    msg('Save failed: ' + err.message);
   }
 }
 
-/* -------------------------- Clear -------------------------- */
-
+/* ---------- CLEAR ---------- */
 function clearBudget() {
   laborData = []; directData = []; months = [];
   rootEl.querySelector('#laborBody').innerHTML = '';
@@ -433,6 +319,14 @@ function clearBudget() {
   const directRow = rootEl.querySelector('#directHeaderRow');
   while (laborRow.children.length > 4) laborRow.removeChild(laborRow.children[3]);
   while (directRow.children.length > 3) directRow.removeChild(directRow.children[2]);
+}
+
+/* ---------- MSG ---------- */
+function msg(txt) {
+  const el = rootEl.querySelector('#msg');
+  el.textContent = txt;
+  el.className = txt.includes('failed') || txt.includes('Please') ? 'text-sm text-red-600' : 'text-sm text-green-600';
+  if (txt) setTimeout(() => el.textContent = '', 4000);
 }
 
 export const budgetTab = { template, init };
