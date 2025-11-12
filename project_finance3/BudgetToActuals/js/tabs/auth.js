@@ -1,5 +1,5 @@
-import { client } from '../api/supabase.js';
-import { $ } from '../lib/dom.js';
+import { client } from "../api/supabase.js";
+import { $ } from "../lib/dom.js";
 
 export const template = /*html*/`
   <article>
