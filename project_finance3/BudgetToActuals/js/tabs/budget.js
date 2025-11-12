@@ -16,7 +16,7 @@ export const template = /*html*/`
   <div class="card space-y-8">
     <div class="flex items-center justify-between">
       <h2 class="text-xl font-semibold text-slate-800">Budget Entry</h2>
-      <select id="grantSelect" class="input text-sm w-72"></select>
+      <select id="grantSelect" class="input text-sm w-80"></select>
     </div>
 
     <div id="msg" class="text-sm text-slate-600"></div>
@@ -31,10 +31,10 @@ export const template = /*html*/`
         <table class="min-w-full divide-y divide-slate-200">
           <thead class="bg-slate-50">
             <tr>
-              <th class="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider sticky left-0 bg-slate-50 z-10">Employee</th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider w-40">Position</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider sticky left-0 bg-slate-50 z-10 w-80">Employee</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider w-64">Position</th>
               <th class="px-4 py-3 text-right text-xs font-medium text-slate-600 uppercase tracking-wider w-24">Rate ($/hr)</th>
-              <th id="laborMonths" class="text-center"></th>
+              <th id="laborMonths" class="bg-slate-50"></th>
               <th class="px-4 py-3 w-12"></th>
             </tr>
           </thead>
@@ -53,9 +53,9 @@ export const template = /*html*/`
         <table class="min-w-full divide-y divide-slate-200">
           <thead class="bg-slate-50">
             <tr>
-              <th class="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider sticky left-0 bg-slate-50 z-10">Category</th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">Description</th>
-              <th id="directMonths" class="text-center"></th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider sticky left-0 bg-slate-50 z-10 w-48">Category</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">Description</th>
+              <th id="directMonths" class="bg-slate-50"></th>
               <th class="px-4 py-3 w-12"></th>
             </tr>
           </thead>
@@ -133,7 +133,7 @@ async function getGrantMonths() {
 function renderMonthHeaders() {
   const makeHeader = (month) => {
     const short = new Date(month).toLocaleString('en-US', { month: 'short' });
-    return `<th class="px-3 py-2 text-center text-xs font-medium text-slate-600 bg-slate-50 border-l border-slate-200 first:border-l-0">${short}</th>`;
+    return `<th class="px-3 py-2 text-center text-xs font-medium text-slate-600 bg-slate-50 border-l border-slate-200 first:border-l-0 w-20">${short}</th>`;
   };
 
   const laborHeader = rootEl.querySelector('#laborMonths');
@@ -146,12 +146,12 @@ function renderLabor() {
   const tbody = rootEl.querySelector('#laborBody');
   tbody.innerHTML = laborData.map((row, i) => `
     <tr class="hover:bg-slate-50">
-      <td class="px-4 py-3 sticky left-0 bg-white border-r border-slate-200 z-10">
+      <td class="px-6 py-3 sticky left-0 bg-white border-r border-slate-200 z-10">
         <select class="input text-sm w-full" data-index="${i}" data-field="employee_id">
           <option value="">— Select —</option>
         </select>
       </td>
-      <td class="px-4 py-3 border-r border-slate-200">
+      <td class="px-6 py-3 border-r border-slate-200">
         <input type="text" class="input text-sm w-full" value="${row.position || ''}" readonly>
       </td>
       <td class="px-4 py-3 text-right border-r border-slate-200">
@@ -177,12 +177,12 @@ function renderDirect() {
   const tbody = rootEl.querySelector('#directBody');
   tbody.innerHTML = directData.map((row, i) => `
     <tr class="hover:bg-slate-50">
-      <td class="px-4 py-3 sticky left-0 bg-white border-r border-slate-200 z-10">
+      <td class="px-6 py-3 sticky left-0 bg-white border-r border-slate-200 z-10">
         <select class="input text-sm w-full" data-index="${i}" data-field="category">
           ${EXPENSE_CATEGORIES.map(c => `<option value="${c}" ${row.category === c ? 'selected' : ''}>${c}</option>`).join('')}
         </select>
       </td>
-      <td class="px-4 py-3 border-r border-slate-200">
+      <td class="px-6 py-3 border-r border-slate-200">
         <input type="text" class="input text-sm w-full" placeholder="Description" value="${row.description || ''}" data-index="${i}" data-field="description">
       </td>
       ${months.map(m => `
