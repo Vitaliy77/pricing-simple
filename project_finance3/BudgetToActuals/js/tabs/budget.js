@@ -34,7 +34,7 @@ export const template = /*html*/`
               <th class="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider sticky left-0 bg-slate-50 z-10 w-80">Employee</th>
               <th class="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider w-64">Position</th>
               <th class="px-4 py-3 text-right text-xs font-medium text-slate-600 uppercase tracking-wider w-24">Rate ($/hr)</th>
-              <!-- Month headers go here -->
+              <!-- Month headers inserted here -->
               <th class="px-4 py-3 w-12"></th>
             </tr>
           </thead>
@@ -43,7 +43,7 @@ export const template = /*html*/`
       </div>
     </div>
 
-    <!-- Direct Costs Table -->
+    <!-- Direct Costs -->
     <div>
       <div class="flex justify-between items-center mb-4">
         <h3 class="font-semibold text-slate-700">Direct Costs</h3>
@@ -55,7 +55,7 @@ export const template = /*html*/`
             <tr id="directHeaderRow">
               <th class="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider sticky left-0 bg-slate-50 z-10 w-48">Category</th>
               <th class="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">Description</th>
-              <!-- Month headers go here -->
+              <!-- Month headers -->
               <th class="px-4 py-3 w-12"></th>
             </tr>
           </thead>
@@ -124,8 +124,13 @@ async function getGrantMonths() {
   const start = new Date(data.start_date);
   const end = new Date(data.end_date);
   const list = [];
+  const seen = new Set(); // Prevent duplicate months
   for (let d = new Date(start); d <= end; d.setMonth(d.getMonth() + 1)) {
-    list.push(d.toISOString().slice(0, 7) + '-01');
+    const ym = d.toISOString().slice(0, 7) + '-01';
+    if (!seen.has(ym)) {
+      seen.add(ym);
+      list.push(ym);
+    }
   }
   return list;
 }
@@ -139,15 +144,14 @@ function renderMonthHeaders() {
     return th;
   };
 
-  // Clear and rebuild
   const laborRow = rootEl.querySelector('#laborHeaderRow');
   const directRow = rootEl.querySelector('#directHeaderRow');
 
-  // Remove old month cells (keep first 3 + last)
+  // Clear old month headers
   while (laborRow.children.length > 4) laborRow.removeChild(laborRow.children[3]);
   while (directRow.children.length > 3) directRow.removeChild(directRow.children[2]);
 
-  // Insert new month headers
+  // Insert new
   months.forEach(m => {
     laborRow.insertBefore(makeHeader(m), laborRow.lastElementChild);
     directRow.insertBefore(makeHeader(m), directRow.lastElementChild);
@@ -160,7 +164,7 @@ function renderLabor() {
     <tr class="hover:bg-slate-50">
       <td class="px-6 py-3 sticky left-0 bg-white border-r border-slate-200 z-10">
         <select class="input text-sm w-full" data-index="${i}" data-field="employee_id">
-          <option value="">— Select —</option>
+          <option value="">— Select Employee —</option>
         </select>
       </td>
       <td class="px-6 py-3 border-r border-slate-200">
@@ -215,19 +219,18 @@ async function loadEmployeeOptions() {
   const { data } = await client.from('labor_categories').select('id, name, position, hourly_rate').eq('is_active', true);
   const selects = rootEl.querySelectorAll('select[data-field="employee_id"]');
   selects.forEach((sel, i) => {
-    sel.innerHTML = '<option value="">— Select —</option>' + data.map(emp => `
-      <option value="${emp.id}" ${laborData[i]?.employee_id === emp.id ? 'selected' : ''}>${emp.name}</option>
-    `).join('');
-    sel.addEventListener('change', () => fillEmployeeInfo(i, sel.value, data));
+    const currentEmpId = laborData[i]?.employee_id;
+    sel.innerHTML = '<option value="">— Select Employee —</option>' + 
+      data.map(emp => `<option value="${emp.id}" ${currentEmpId === emp.id ? 'selected' : ''}>${emp.name}</option>`).join('');
+    
+    sel.addEventListener('change', () => {
+      const emp = data.find(e => e.id === sel.value);
+      if (!emp) return;
+      const row = rootEl.querySelectorAll('#laborBody tr')[i];
+      row.cells[1].querySelector('input').value = emp.position || '';
+      row.cells[2].querySelector('input').value = emp.hourly_rate || '';
+    });
   });
-}
-
-function fillEmployeeInfo(index, empId, employees) {
-  const emp = employees.find(e => e.id === empId);
-  if (!emp) return;
-  const row = rootEl.querySelectorAll('#laborBody tr')[index];
-  row.cells[1].querySelector('input').value = emp.position || '';
-  row.cells[2].querySelector('input').value = emp.hourly_rate || '';
 }
 
 function addLaborRow() {
@@ -252,7 +255,7 @@ async function saveBudget() {
     const row = { grant_id: currentGrant.id };
     tr.querySelectorAll('input, select').forEach(el => {
       if (el.dataset.field) row[el.dataset.field] = el.value || null;
-      if (el.dataset.month) row[`hours_${el.dataset.month}`] = el.value || null;
+      if (el.dataset.month) row[`hours_${el.dataset.month}`] = el.value ? Number(el.value) : null;
     });
     laborInserts.push(row);
   });
@@ -262,18 +265,29 @@ async function saveBudget() {
     const row = { grant_id: currentGrant.id };
     tr.querySelectorAll('input, select').forEach(el => {
       if (el.dataset.field) row[el.dataset.field] = el.value || null;
-      if (el.dataset.month) row[`amount_${el.dataset.month}`] = el.value || null;
+      if (el.dataset.month) row[`amount_${el.dataset.month}`] = el.value ? Number(el.value) : null;
     });
     directInserts.push(row);
   });
 
+  // DELETE + INSERT = Full replace
   await client.from('budget_labor').delete().eq('grant_id', currentGrant.id);
   await client.from('budget_direct').delete().eq('grant_id', currentGrant.id);
 
-  if (laborInserts.length) await client.from('budget_labor').insert(laborInserts);
-  if (directInserts.length) await client.from('budget_direct').insert(directInserts);
+  if (laborInserts.length) {
+    const { error } = await client.from('budget_labor').insert(laborInserts);
+    if (error) return msg('Labor save failed: ' + error.message);
+  }
+  if (directInserts.length) {
+    const { error } = await client.from('budget_direct').insert(directInserts);
+    if (error) return msg('Direct save failed: ' + error.message);
+  }
 
-  msg('Budget saved!');
+  msg('Budget saved successfully!');
+  // Optional: reload BvA
+  if (window.location.hash === '#bva') {
+    setTimeout(() => window.location.reload(), 500);
+  }
 }
 
 function clearBudget() {
@@ -289,7 +303,8 @@ function clearBudget() {
 function msg(txt) {
   const el = rootEl.querySelector('#msg');
   el.textContent = txt;
-  if (txt) setTimeout(() => el.textContent = '', 3000);
+  el.className = txt.includes('failed') ? 'text-sm text-red-600' : 'text-sm text-green-600';
+  if (txt) setTimeout(() => el.textContent = '', 4000);
 }
 
 export const budgetTab = { template, init };
