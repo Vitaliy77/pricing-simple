@@ -8,12 +8,12 @@ export const template = /*html*/`
     <div class="grid">
       <input id="g_name" placeholder="Grant Name">
       <input id="g_id"   placeholder="Grant ID">
-      <input id="g_gr"   placeholder="Grantee">
+      <input id="g_gr"   placeholder="Grantee / Funder">
       <input id="g_amt"  type="number" step="0.01" placeholder="Amount">
       <input id="g_from" type="date"  placeholder="Start">
       <input id="g_to"   type="date"  placeholder="End">
     </div>
-    <button id="create">Create</button>
+    <button id="create" type="button">Create</button>
     <small id="msg"></small>
 
     <hr />
@@ -33,7 +33,7 @@ export const template = /*html*/`
           <tr>
             <th>Name</th>
             <th>Grant ID</th>
-            <th>Grantee</th>
+            <th>Grantee / Funder</th>
             <th>Start</th>
             <th>End</th>
             <th>Amount</th>
@@ -71,10 +71,12 @@ export async function init(root) {
     const row = {
       name: $('#g_name', root).value.trim(),
       grant_id: $('#g_id', root).value.trim() || null,
-      grantee: $('#g_gr', root).value.trim() || null,
+      // UI label "Grantee" → DB column "funder"
+      funder: $('#g_gr', root).value.trim() || null,
       start_date: $('#g_from', root).value || null,
       end_date: $('#g_to', root).value || null,
-      amount: Number($('#g_amt', root).value || 0),
+      // UI label "Amount" → DB column "total_award"
+      total_award: Number($('#g_amt', root).value || 0),
       pm_user_id: user.id,
       status: 'active',
     };
@@ -120,7 +122,7 @@ export async function init(root) {
   async function load() {
     const { data, error } = await client
       .from('grants')
-      .select('id,name,grant_id,grantee,start_date,end_date,amount,status,created_at')
+      .select('id,name,grant_id,funder,start_date,end_date,total_award,status,created_at')
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -134,10 +136,10 @@ export async function init(root) {
       tb.appendChild(h(`<tr data-id="${g.id}">
         <td>${g.name}</td>
         <td>${g.grant_id || ''}</td>
-        <td>${g.grantee || ''}</td>
+        <td>${g.funder || ''}</td>
         <td>${g.start_date || ''}</td>
         <td>${g.end_date || ''}</td>
-        <td>${g.amount ?? 0}</td>
+        <td>${g.total_award ?? 0}</td>
         <td>${g.status || ''}</td>
       </tr>`));
     });
