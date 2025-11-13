@@ -1,117 +1,189 @@
-// js/tabs/budget.js
-import { client } from '../api/supabase.js';
-
-let rootEl = null;
-let currentGrant = null;
-let laborData = [];
-let directData = [];
-let months = [];
-let employees = [];
-
-const EXPENSE_CATEGORIES = [
-  'Travel', 'Licenses', 'Computers', 'Software', 'Office Supplies',
-  'Training', 'Consultants', 'Marketing', 'Events', 'Insurance'
-];
+import { client } from "../api/supabase.js";
+import { $, h } from "../lib/dom.js";
 
 export const template = /*html*/`
-  <div class="card space-y-8">
-    <div class="flex items-center justify-between">
-      <h2 class="text-xl font-semibold text-slate-800">Budget Entry</h2>
-      <select id="grantSelect" class="input text-sm w-80"></select>
+  <article>
+    <h3>Budget Builder</h3>
+
+    <label>
+      Grant:
+      <select id="grantSelect">
+        <option value="">— Select a grant —</option>
+      </select>
+    </label>
+    <small id="msg"></small>
+
+    <h4 style="margin-top:1.5rem">Labor</h4>
+    <button id="addLabor" type="button">+ Add employee</button>
+    <div class="scroll-x" style="margin-top:.5rem">
+      <table>
+        <thead>
+          <tr id="laborHeaderRow">
+            <th>Employee</th>
+            <th>Labor category</th>
+            <th>Rate ($/hr)</th>
+            <th><!-- months inserted here --></th>
+            <th>Remove</th>
+          </tr>
+        </thead>
+        <tbody id="laborBody"></tbody>
+      </table>
     </div>
 
-    <div id="msg" class="text-sm text-slate-600"></div>
-
-    <!-- Labor -->
-    <div>
-      <div class="flex justify-between items-center mb-4">
-        <h3 class="font-semibold text-slate-700">Labor</h3>
-        <button id="addLabor" class="btn btn-primary btn-sm">+ Add Employee</button>
-      </div>
-      <div class="overflow-x-auto rounded-lg border border-slate-200">
-        <table class="min-w-full divide-y divide-slate-200">
-          <thead class="bg-slate-50">
-            <tr id="laborHeaderRow">
-              <th class="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider sticky left-0 bg-slate-50 z-10 w-80">Employee</th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider w-64">Position</th>
-              <th class="px-4 py-3 text-right text-xs font-medium text-slate-600 uppercase tracking-wider w-24">Rate ($/hr)</th>
-              <th class="px-4 py-3 w-12"></th>
-            </tr>
-          </thead>
-          <tbody id="laborBody" class="bg-white divide-y divide-slate-200"></tbody>
-        </table>
-      </div>
+    <h4 style="margin-top:1.5rem">Other Direct Costs</h4>
+    <button id="addDirect" type="button">+ Add cost</button>
+    <div class="scroll-x" style="margin-top:.5rem">
+      <table>
+        <thead>
+          <tr id="directHeaderRow">
+            <th>Category</th>
+            <th>Description</th>
+            <th><!-- months inserted here --></th>
+            <th>Remove</th>
+          </tr>
+        </thead>
+        <tbody id="directBody"></tbody>
+      </table>
     </div>
 
-    <!-- Direct Costs -->
-    <div>
-      <div class="flex justify-between items-center mb-4">
-        <h3 class="font-semibold text-slate-700">Direct Costs</h3>
-        <button id="addDirect" class="btn btn-primary btn-sm">+ Add Expense</button>
-      </div>
-      <div class="overflow-x-auto rounded-lg border border-slate-200">
-        <table class="min-w-full divide-y divide-slate-200">
-          <thead class="bg-slate-50">
-            <tr id="directHeaderRow">
-              <th class="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider sticky left-0 bg-slate-50 z-10 w-48">Category</th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">Description</th>
-              <th class="px-4 py-3 w-12"></th>
-            </tr>
-          </thead>
-          <tbody id="directBody" class="bg-white divide-y divide-slate-200"></tbody>
-        </table>
-      </div>
+    <div style="margin-top:1.5rem">
+      <button id="saveBudget" type="button">Save budget</button>
     </div>
-
-    <div class="flex justify-end gap-3 mt-8">
-      <button id="saveBudget" class="btn btn-success">Save Budget</button>
-    </div>
-  </div>
+  </article>
 `;
 
-export async function init(root, params = {}) {
+// ---- module state ----
+
+let rootEl;
+let currentGrantId = null;
+let months = [];          // ['YYYY-MM-01', ...]
+let laborRows = [];       // [{ employee_name, category_id, months:{ym:hours} }]
+let directRows = [];      // [{ category, description, months:{ym:amount} }]
+let laborCategories = []; // labor_categories rows
+let laborCatById = new Map();
+
+const DIRECT_CATS = [
+  'Travel',
+  'Licenses',
+  'Computers',
+  'Software',
+  'Office Supplies',
+  'Training',
+  'Consultants',
+  'Marketing',
+  'Events',
+  'Insurance',
+  'Other'
+];
+
+const esc = x => (x ?? '').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;');
+
+const fmtMonthLabel = iso => {
+  const d = new Date(iso);
+  return d.toLocaleString('en-US', { month: 'short', year: '2-digit' }); // e.g. Jan 25
+};
+
+const firstOfMonthIso = d => {
+  const x = new Date(d);
+  x.setDate(1);
+  x.setHours(0,0,0,0);
+  return x.toISOString().slice(0,10);
+};
+
+const msg = (root, text, isErr=false) => {
+  const el = $('#msg', root);
+  if (!el) return;
+  el.textContent = text || '';
+  el.style.color = isErr ? '#b00' : 'inherit';
+  if (text) setTimeout(() => {
+    if (el.textContent === text) el.textContent = '';
+  }, 4000);
+};
+
+// ---- lifecycle ----
+
+export async function init(root) {
   rootEl = root;
-  currentGrant = null;
-  laborData = []; directData = []; months = [];
+  rootEl.innerHTML = template;
 
-  await loadGrants();
-  setupEventListeners();
+  // load dropdown and labor categories up front
+  await Promise.all([
+    loadGrantOptions(),
+    loadLaborCategories()
+  ]);
 
-  if (params.grantId) {
-    const sel = rootEl.querySelector('#grantSelect');
-    sel.value = params.grantId;
-    currentGrant = { id: Number(params.grantId) };
-    await loadBudget();
-  }
-}
-
-function setupEventListeners() {
-  const sel = rootEl.querySelector('#grantSelect');
-  sel.addEventListener('change', async () => {
-    const id = sel.value;
-    currentGrant = id ? { id: Number(id) } : null;
-    if (currentGrant) await loadBudget();
-    else clearBudget();
+  // wire events
+  $('#grantSelect', rootEl).addEventListener('change', async (e) => {
+    const id = e.target.value || null;
+    currentGrantId = id;
+    if (!id) {
+      clearBudget();
+      return;
+    }
+    await loadBudgetForGrant(id);
   });
 
-  rootEl.querySelector('#addLabor').addEventListener('click', addLaborRow);
-  rootEl.querySelector('#addDirect').addEventListener('click', addDirectRow);
-  rootEl.querySelector('#saveBudget').addEventListener('click', saveBudget);
+  $('#addLabor', rootEl).addEventListener('click', () => {
+    if (!currentGrantId) return msg(rootEl, 'Select a grant first.', true);
+    const row = { employee_name: '', category_id: null, months: {} };
+    ensureMonthKeys(row.months);
+    laborRows.push(row);
+    renderLabor();
+  });
+
+  $('#addDirect', rootEl).addEventListener('click', () => {
+    if (!currentGrantId) return msg(rootEl, 'Select a grant first.', true);
+    const row = { category: DIRECT_CATS[0], description: '', months: {} };
+    ensureMonthKeys(row.months);
+    directRows.push(row);
+    renderDirect();
+  });
+
+  $('#saveBudget', rootEl).addEventListener('click', saveBudget);
 }
 
-async function loadGrants() {
-  const { data } = await client.from('grants').select('id, name, grant_id').eq('status', 'active').order('name');
-  const sel = rootEl.querySelector('#grantSelect');
-  sel.innerHTML = '<option value="">— Select Grant —</option>';
-  data.forEach(g => sel.add(new Option(`${g.name} (${g.grant_id})`, g.id)));
+// ---- data loads ----
+
+async function loadGrantOptions() {
+  const sel = $('#grantSelect', rootEl);
+  if (!sel) return;
+  sel.innerHTML = '<option value="">— Select a grant —</option>';
+
+  const { data, error } = await client
+    .from('grants')
+    .select('id,name,grant_id,status')
+    .eq('status','active');
+  if (error) {
+    console.error('loadGrantOptions error', error);
+    msg(rootEl, error.message, true);
+    return;
+  }
+  (data || []).forEach(g => {
+    const label = g.grant_id ? `${g.name} (${g.grant_id})` : g.name;
+    sel.appendChild(new Option(label, g.id));
+  });
 }
 
-async function loadBudget() {
-  if (!currentGrant?.id) return;
-  const grantId = currentGrant.id;
+async function loadLaborCategories() {
+  const { data, error } = await client
+    .from('labor_categories')
+    .select('id,name,position,hourly_rate,is_active')
+    .eq('is_active', true)
+    .order('name');
+  if (error) {
+    console.error('loadLaborCategories error', error);
+    msg(rootEl, error.message, true);
+    return;
+  }
+  laborCategories = data || [];
+  laborCatById = new Map(laborCategories.map(c => [c.id, c]));
+}
 
+async function loadBudgetForGrant(grantId) {
   try {
-    // A) Grant months
+    msg(rootEl, 'Loading budget…');
+
+    // 1) months from grant period
     const { data: g, error: gErr } = await client
       .from('grants')
       .select('start_date,end_date')
@@ -119,261 +191,371 @@ async function loadBudget() {
       .single();
     if (gErr) throw gErr;
 
-    months = getMonthsBetween(g.start_date, g.end_date);
+    months = computeMonths(g.start_date, g.end_date);
 
-    // B) Labor categories (employees)
-    const { data: laborCats, error: lErr } = await client
-      .from('labor_categories')
-      .select('id,name,position,hourly_rate,is_active')
-      .eq('is_active', true)
-      .order('name');
-    if (lErr) throw lErr;
-    employees = laborCats || [];
+    // 2) existing labor + direct rows
+    const [lab, dir] = await Promise.all([
+      client.from('budget_labor')
+        .select('employee_name,category_id,ym,hours')
+        .eq('grant_id', grantId),
+      client.from('budget_direct')
+        .select('category,description,ym,amount')
+        .eq('grant_id', grantId)
+    ]);
 
-    // C) Budget labor
-    const { data: laborRows, error: blErr } = await client
-      .from('budget_labor')
-      .select('employee_id,position,hourly_rate,ym,hours')
-      .eq('grant_id', grantId);
-    if (blErr) throw blErr;
+    if (lab.error) throw lab.error;
+    if (dir.error) throw dir.error;
 
-    // D) Budget direct
-    const { data: directRows, error: bdErr } = await client
-      .from('budget_direct')
-      .select('category,description,ym,amount')
-      .eq('grant_id', grantId);
-    if (bdErr) throw bdErr;
-
-    // Pivot labor
-    const laborMap = new Map();
-    laborRows?.forEach(r => {
-      const key = r.employee_id;
-      if (!laborMap.has(key)) {
-        laborMap.set(key, {
-          employee_id: r.employee_id,
-          position: r.position,
-          hourly_rate: r.hourly_rate,
-          hours: {}
-        });
-      }
-      laborMap.get(key).hours[r.ym] = r.hours;
-    });
-    laborData = Array.from(laborMap.values());
-
-    // Pivot direct
-    const directMap = new Map();
-    directRows?.forEach(r => {
-      const key = `${r.category}|${r.description}`;
-      if (!directMap.has(key)) {
-        directMap.set(key, { category: r.category, description: r.description, amounts: {} });
-      }
-      directMap.get(key).amounts[r.ym] = r.amount;
-    });
-    directData = Array.from(directMap.values());
+    laborRows  = pivotLabor(lab.data || []);
+    directRows = pivotDirect(dir.data || []);
 
     renderMonthHeaders();
     renderLabor();
     renderDirect();
-
-  } catch (err) {
-    msg('Load failed: ' + err.message, true);
+    msg(rootEl, '');
+  } catch (e) {
+    console.error('loadBudgetForGrant error', e);
+    msg(rootEl, e.message || String(e), true);
   }
 }
 
-function getMonthsBetween(start, end) {
-  const list = [];
-  const seen = new Set();
-  let d = new Date(start);
-  const endDate = new Date(end);
-  d.setDate(1); endDate.setDate(1);
-  while (d <= endDate) {
-    const ym = d.toISOString().slice(0, 10); // '2024-03-01'
-    if (!seen.has(ym)) {
-      seen.add(ym);
-      list.push(ym);
-    }
+function computeMonths(start, end) {
+  const out = [];
+  if (!start || !end) return out;
+  const s = new Date(start);
+  const e = new Date(end);
+  s.setDate(1); e.setDate(1);
+  const d = new Date(s);
+  while (d <= e) {
+    out.push(firstOfMonthIso(d));
     d.setMonth(d.getMonth() + 1);
   }
-  return list;
+  return out;
 }
 
+// ---- pivot helpers ----
+
+function ensureMonthKeys(obj) {
+  months.forEach(m => { if (!(m in obj)) obj[m] = null; });
+}
+
+function pivotLabor(rows) {
+  const map = new Map(); // key: employee_name||category_id
+  rows.forEach(r => {
+    const key = `${r.employee_name || ''}||${r.category_id || ''}`;
+    if (!map.has(key)) {
+      map.set(key, {
+        employee_name: r.employee_name || '',
+        category_id:   r.category_id || null,
+        months: {}
+      });
+    }
+    const ym = firstOfMonthIso(r.ym);
+    map.get(key).months[ym] = r.hours ?? null;
+  });
+
+  const arr = Array.from(map.values());
+  arr.forEach(r => ensureMonthKeys(r.months));
+  return arr;
+}
+
+function pivotDirect(rows) {
+  const map = new Map(); // key: category||description
+  rows.forEach(r => {
+    const key = `${r.category || ''}||${r.description || ''}`;
+    if (!map.has(key)) {
+      map.set(key, {
+        category:    r.category || DIRECT_CATS[0],
+        description: r.description || '',
+        months: {}
+      });
+    }
+    const ym = firstOfMonthIso(r.ym);
+    map.get(key).months[ym] = r.amount ?? null;
+  });
+
+  const arr = Array.from(map.values());
+  arr.forEach(r => ensureMonthKeys(r.months));
+  return arr;
+}
+
+// ---- rendering ----
+
 function renderMonthHeaders() {
-  const laborRow = rootEl.querySelector('#laborHeaderRow');
-  const directRow = rootEl.querySelector('#directHeaderRow');
-  if (!laborRow || !directRow) return; // DOM not ready
+  const laborRow  = $('#laborHeaderRow', rootEl);
+  const directRow = $('#directHeaderRow', rootEl);
+  if (!laborRow || !directRow) return;
 
-  // Clear old month headers
-  while (laborRow.children.length > 4) laborRow.removeChild(laborRow.children[3]);
-  while (directRow.children.length > 3) directRow.removeChild(directRow.children[2]);
+  // clear existing month columns (keep first 3 and last)
+  while (laborRow.children.length > 5) laborRow.removeChild(laborRow.children[3]);
+  while (directRow.children.length > 4) directRow.removeChild(directRow.children[2]);
 
-  // Add new
   months.forEach(m => {
-    const th = document.createElement('th');
-    th.className = 'px-3 py-2 text-center text-xs font-medium text-slate-600 bg-slate-50 border-l border-slate-200 first:border-l-0 w-20';
-    th.textContent = new Date(m).toLocaleString('en-US', { month: 'short' });
-    laborRow.insertBefore(th.cloneNode(true), laborRow.lastElementChild);
-    directRow.insertBefore(th, directRow.lastElementChild);
+    const th1 = document.createElement('th');
+    th1.textContent = fmtMonthLabel(m);
+    laborRow.insertBefore(th1, laborRow.lastElementChild);
+
+    const th2 = document.createElement('th');
+    th2.textContent = fmtMonthLabel(m);
+    directRow.insertBefore(th2, directRow.lastElementChild);
   });
 }
 
 function renderLabor() {
-  const tbody = rootEl.querySelector('#laborBody');
-  tbody.innerHTML = laborData.map((row, i) => `
-    <tr class="hover:bg-slate-50">
-      <td class="px-6 py-3 sticky left-0 bg-white border-r border-slate-200 z-10">
-        <select class="input text-sm w-full" data-index="${i}" data-field="employee_id">
-          <option value="">— Select Employee —</option>
-          ${employees.map(e => `<option value="${e.id}" ${row.employee_id === e.id ? 'selected' : ''}>${e.name}</option>`).join('')}
-        </select>
-      </td>
-      <td class="px-6 py-3 border-r border-slate-200">
-        <input type="text" class="input text-sm w-full" value="${row.position || ''}" readonly>
-      </td>
-      <td class="px-4 py-3 text-right border-r border-slate-200">
-        <input type="number" class="input text-sm w-20 text-right" value="${row.hourly_rate || ''}" readonly>
-      </td>
-      ${months.map(m => `
-        <td class="px-3 py-2 text-center border-l border-slate-200 first:border-l-0">
-          <input type="number" class="input text-sm w-16 text-center" 
-                 value="${row.hours?.[m] || ''}" 
-                 data-index="${i}" data-month="${m}">
-        </td>
-      `).join('')}
-      <td class="px-4 py-3 text-center">
-        <button class="text-red-600 hover:text-red-800 text-xl" onclick="removeLabor(${i})">x</button>
-      </td>
-    </tr>
-  `).join('');
+  const tbody = $('#laborBody', rootEl);
+  if (!tbody) return;
 
-  // Auto-fill on change
-  rootEl.querySelectorAll('select[data-field="employee_id"]').forEach(sel => {
-    sel.addEventListener('change', () => {
-      const emp = employees.find(e => e.id === Number(sel.value));
-      const i = sel.dataset.index;
-      const tr = rootEl.querySelectorAll('#laborBody tr')[i];
-      if (emp) {
-        tr.cells[1].querySelector('input').value = emp.position || '';
-        tr.cells[2].querySelector('input').value = emp.hourly_rate || '';
+  tbody.innerHTML = laborRows.map((row, i) => {
+    const cat  = row.category_id ? laborCatById.get(row.category_id) : null;
+    const rate = cat?.hourly_rate ?? '';
+
+    const monthCells = months.map(m => `
+      <td>
+        <input
+          type="number"
+          class="input"
+          style="width:5rem;text-align:right"
+          data-kind="labor-month"
+          data-row="${i}"
+          data-month="${m}"
+          value="${row.months[m] ?? ''}"
+        >
+      </td>
+    `).join('');
+
+    return `
+      <tr>
+        <td>
+          <input
+            type="text"
+            class="input"
+            placeholder="Employee name"
+            data-kind="labor-field"
+            data-field="employee_name"
+            data-row="${i}"
+            value="${esc(row.employee_name)}"
+          >
+        </td>
+        <td>
+          <select
+            class="input"
+            data-kind="labor-field"
+            data-field="category_id"
+            data-row="${i}"
+          >
+            <option value="">— Select category —</option>
+            ${laborCategories.map(c => `
+              <option value="${c.id}" ${row.category_id === c.id ? 'selected' : ''}>
+                ${esc(c.name)}${c.position ? ' ('+esc(c.position)+')' : ''}
+              </option>
+            `).join('')}
+          </select>
+        </td>
+        <td>
+          <input type="number" class="input" style="width:5rem;text-align:right" value="${rate}" readonly>
+        </td>
+        ${monthCells}
+        <td>
+          <button type="button" data-action="remove-labor" data-row="${i}">✕</button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  // wire events
+  tbody.querySelectorAll('[data-kind="labor-field"]').forEach(el => {
+    el.addEventListener('input', e => {
+      const idx   = Number(e.target.dataset.row);
+      const field = e.target.dataset.field;
+      if (!Number.isInteger(idx) || !laborRows[idx]) return;
+      if (field === 'category_id') {
+        laborRows[idx].category_id = e.target.value || null;
+        const cat  = laborRows[idx].category_id ? laborCatById.get(laborRows[idx].category_id) : null;
+        const rate = cat?.hourly_rate ?? '';
+        const tr   = e.target.closest('tr');
+        tr.querySelectorAll('td')[2].querySelector('input').value = rate;
+      } else {
+        laborRows[idx][field] = e.target.value || '';
       }
     });
   });
+
+  tbody.querySelectorAll('[data-kind="labor-month"]').forEach(el => {
+    el.addEventListener('input', e => {
+      const idx = Number(e.target.dataset.row);
+      const ym  = e.target.dataset.month;
+      if (!Number.isInteger(idx) || !laborRows[idx] || !ym) return;
+      const v = e.target.value === '' ? null : Number(e.target.value);
+      laborRows[idx].months[ym] = isNaN(v) ? null : v;
+    });
+  });
+
+  tbody.addEventListener('click', e => {
+    if (e.target?.dataset.action === 'remove-labor') {
+      const idx = Number(e.target.dataset.row);
+      if (Number.isInteger(idx)) {
+        laborRows.splice(idx, 1);
+        renderLabor();
+      }
+    }
+  }, { once: true });
 }
 
 function renderDirect() {
-  const tbody = rootEl.querySelector('#directBody');
-  tbody.innerHTML = directData.map((row, i) => `
-    <tr class="hover:bg-slate-50">
-      <td class="px-6 py-3 sticky left-0 bg-white border-r border-slate-200 z-10">
-        <select class="input text-sm w-full" data-index="${i}" data-field="category">
-          ${EXPENSE_CATEGORIES.map(c => `<option value="${c}" ${row.category === c ? 'selected' : ''}>${c}</option>`).join('')}
-        </select>
+  const tbody = $('#directBody', rootEl);
+  if (!tbody) return;
+
+  tbody.innerHTML = directRows.map((row, i) => {
+    const monthCells = months.map(m => `
+      <td>
+        <input
+          type="number"
+          class="input"
+          style="width:5rem;text-align:right"
+          data-kind="direct-month"
+          data-row="${i}"
+          data-month="${m}"
+          value="${row.months[m] ?? ''}"
+        >
       </td>
-      <td class="px-6 py-3 border-r border-slate-200">
-        <input type="text" class="input text-sm w-full" placeholder="Description" value="${row.description || ''}" data-index="${i}" data-field="description">
-      </td>
-      ${months.map(m => `
-        <td class="px-3 py-2 text-center border-l border-slate-200 first:border-l-0">
-          <input type="number" class="input text-sm w-20 text-center" 
-                 value="${row.amounts?.[m] || ''}" 
-                 data-index="${i}" data-month="${m}">
+    `).join('');
+
+    return `
+      <tr>
+        <td>
+          <select
+            class="input"
+            data-kind="direct-field"
+            data-field="category"
+            data-row="${i}"
+          >
+            ${DIRECT_CATS.map(c => `
+              <option value="${esc(c)}" ${row.category === c ? 'selected' : ''}>${esc(c)}</option>
+            `).join('')}
+          </select>
         </td>
-      `).join('')}
-      <td class="px-4 py-3 text-center">
-        <button class="text-red-600 hover:text-red-800 text-xl" onclick="removeDirect(${i})">x</button>
-      </td>
-    </tr>
-  `).join('');
+        <td>
+          <input
+            type="text"
+            class="input"
+            placeholder="Description"
+            data-kind="direct-field"
+            data-field="description"
+            data-row="${i}"
+            value="${esc(row.description)}"
+          >
+        </td>
+        ${monthCells}
+        <td>
+          <button type="button" data-action="remove-direct" data-row="${i}">✕</button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  tbody.querySelectorAll('[data-kind="direct-field"]').forEach(el => {
+    el.addEventListener('input', e => {
+      const idx   = Number(e.target.dataset.row);
+      const field = e.target.dataset.field;
+      if (!Number.isInteger(idx) || !directRows[idx]) return;
+      directRows[idx][field] = e.target.value || '';
+    });
+  });
+
+  tbody.querySelectorAll('[data-kind="direct-month"]').forEach(el => {
+    el.addEventListener('input', e => {
+      const idx = Number(e.target.dataset.row);
+      const ym  = e.target.dataset.month;
+      if (!Number.isInteger(idx) || !directRows[idx] || !ym) return;
+      const v = e.target.value === '' ? null : Number(e.target.value);
+      directRows[idx].months[ym] = isNaN(v) ? null : v;
+    });
+  });
+
+  tbody.addEventListener('click', e => {
+    if (e.target?.dataset.action === 'remove-direct') {
+      const idx = Number(e.target.dataset.row);
+      if (Number.isInteger(idx)) {
+        directRows.splice(idx, 1);
+        renderDirect();
+      }
+    }
+  }, { once: true });
 }
 
-function addLaborRow() {
-  if (!currentGrant?.id) return msg('Select a grant first');
-  laborData.push({ employee_id: null, position: '', hourly_rate: null, hours: {} });
-  renderLabor();
-}
-
-function addDirectRow() {
-  if (!currentGrant?.id) return msg('Select a grant first');
-  directData.push({ category: EXPENSE_CATEGORIES[0], description: '', amounts: {} });
-  renderDirect();
-}
-
-window.removeLabor = (i) => { laborData.splice(i, 1); renderLabor(); };
-window.removeDirect = (i) => { directData.splice(i, 1); renderDirect(); };
+// ---- save ----
 
 async function saveBudget() {
-  if (!currentGrant?.id) return msg('Select a grant');
+  if (!currentGrantId) return msg(rootEl, 'Select a grant first.', true);
 
   const laborInserts = [];
-  rootEl.querySelectorAll('#laborBody tr').forEach(tr => {
-    const i = tr.querySelector('select').dataset.index;
-    const row = laborData[i];
-    const employee_id = row.employee_id;
-    if (!employee_id) return;
-
-    const emp = employees.find(e => e.id === employee_id);
+  laborRows.forEach(r => {
+    const hasHeader = (r.employee_name?.trim() || r.category_id);
+    if (!hasHeader) return;
     months.forEach(m => {
-      const hours = tr.querySelector(`input[data-month="${m}"]`)?.value;
-      if (hours) {
+      const v = r.months[m];
+      if (v !== null && v !== undefined && v !== '' && !isNaN(Number(v))) {
         laborInserts.push({
-          grant_id: currentGrant.id,
-          employee_id,
-          position: emp.position,
-          hourly_rate: emp.hourly_rate,
-          ym: m,
-          hours: Number(hours)
+          grant_id:      currentGrantId,
+          employee_name: r.employee_name || null,
+          category_id:   r.category_id || null,
+          ym:            m,
+          hours:         Number(v)
         });
       }
     });
   });
 
   const directInserts = [];
-  rootEl.querySelectorAll('#directBody tr').forEach(tr => {
-    const i = tr.querySelector('select').dataset.index;
-    const row = directData[i];
-    const category = row.category;
-    const description = tr.querySelector('input[data-field="description"]')?.value.trim();
+  directRows.forEach(r => {
+    const hasHeader = (r.category?.trim() || r.description?.trim());
+    if (!hasHeader) return;
     months.forEach(m => {
-      const amount = tr.querySelector(`input[data-month="${m}"]`)?.value;
-      if (amount) {
+      const v = r.months[m];
+      if (v !== null && v !== undefined && v !== '' && !isNaN(Number(v))) {
         directInserts.push({
-          grant_id: currentGrant.id,
-          category,
-          description,
-          ym: m,
-          amount: Number(amount)
+          grant_id:    currentGrantId,
+          category:    r.category || null,
+          description: r.description || null,
+          ym:          m,
+          amount:      Number(v)
         });
       }
     });
   });
 
   try {
-    await client.from('budget_labor').delete().eq('grant_id', currentGrant.id);
-    await client.from('budget_direct').delete().eq('grant_id', currentGrant.id);
+    msg(rootEl, 'Saving…');
 
-    if (laborInserts.length) await client.from('budget_labor').insert(laborInserts);
-    if (directInserts.length) await client.from('budget_direct').insert(directInserts);
+    const delLab = await client.from('budget_labor').delete().eq('grant_id', currentGrantId);
+    if (delLab.error) throw delLab.error;
+    const delDir = await client.from('budget_direct').delete().eq('grant_id', currentGrantId);
+    if (delDir.error) throw delDir.error;
 
-    msg('Budget saved!');
-  } catch (err) {
-    msg('Save failed: ' + err.message, true);
+    if (laborInserts.length) {
+      const insLab = await client.from('budget_labor').insert(laborInserts);
+      if (insLab.error) throw insLab.error;
+    }
+    if (directInserts.length) {
+      const insDir = await client.from('budget_direct').insert(directInserts);
+      if (insDir.error) throw insDir.error;
+    }
+
+    msg(rootEl, 'Budget saved.');
+  } catch (e) {
+    console.error('saveBudget error', e);
+    msg(rootEl, e.message || String(e), true);
   }
 }
 
+// ---- clear ----
+
 function clearBudget() {
-  laborData = []; directData = []; months = [];
-  rootEl.querySelector('#laborBody').innerHTML = '';
-  rootEl.querySelector('#directBody').innerHTML = '';
-  const laborRow = rootEl.querySelector('#laborHeaderRow');
-  const directRow = rootEl.querySelector('#directHeaderRow');
-  if (laborRow) while (laborRow.children.length > 4) laborRow.removeChild(laborRow.children[3]);
-  if (directRow) while (directRow.children.length > 3) directRow.removeChild(directRow.children[2]);
+  months = [];
+  laborRows = [];
+  directRows = [];
+  const lb = $('#laborBody', rootEl);
+  const db = $('#directBody', rootEl);
+  if (lb) lb.innerHTML = '';
+  if (db) db.innerHTML = '';
 }
-
-function msg(txt, isError = false) {
-  const el = rootEl.querySelector('#msg');
-  el.textContent = txt;
-  el.className = isError ? 'text-sm text-red-600' : 'text-sm text-green-600';
-  if (txt) setTimeout(() => el.textContent = '', 4000);
-}
-
-export const budgetTab = { template, init };
