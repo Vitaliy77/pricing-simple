@@ -1,71 +1,199 @@
-import { client } from '../api/supabase.js';
-import { $, h } from '../lib/dom.js';
+// /js/tabs/compare.js
+import { client } from "../api/supabase.js";
+import { $, h } from "../lib/dom.js";
 
 export const template = /*html*/`
   <article>
     <h3>Budget vs Actual</h3>
-    <div class="grid">
-      <select id="grant"></select>
-      <select id="scenario">
-        <option>BUDGET</option><option>F1</option><option>F2</option><option>F3</option><option>F4</option>
+
+    <label>
+      Grant:
+      <select id="cmpGrant">
+        <option value="">— Select a grant —</option>
       </select>
-      <button id="run">Run</button>
-    </div>
-    <div id="out" class="scroll-x"></div>
+    </label>
+    <small id="cmpMsg"></small>
+
+    <section id="cmpSummary" style="margin-top:1.5rem"></section>
   </article>
 `;
 
-export async function init(root){
-  const { data: grants } = await client.from('grants').select('id,name,grant_id,start_date,end_date');
-  $('#grant',root).innerHTML = '<option value="">— Select Grant —</option>' + grants.map(g=>`<option value="${g.id}">${g.name} (${g.grant_id||''})</option>`).join('');
+let rootEl = null;
 
-  $('#run',root).onclick = async ()=>{
-    const gid = $('#grant',root).value; const scen = $('#scenario',root).value;
-    if (!gid) return;
-    const { data: g } = await client.from('grants').select('start_date,end_date').eq('id',gid).single();
+const esc = x =>
+  (x ?? "")
+    .toString()
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;");
 
-    // Budget labor $ = sum(hours*rate); ODC $ = sum(amount)
-    const [bl, bo, act] = await Promise.all([
-      client.from('budget_labor').select('ym,hours,hourly_rate').eq('grant_id',gid).eq('scenario',scen),
-      client.from('budget_odc').select('ym,amount').eq('grant_id',gid).eq('scenario',scen),
-      client.from('actuals_net').select('date,amount_net,grant_code,grant_id').or(`grant_id.eq.${gid},and(grant_id.is.null)`)
-    ]);
+const fmtMoney = n =>
+  (n ?? 0).toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 
-    const months = monthsBetween(g.start_date, g.end_date);
-    const byMonth = Object.fromEntries(months.map(m=>[m,{budget:0,actual:0}]));
+const msg = (text, isErr = false) => {
+  if (!rootEl) return;
+  const el = $("#cmpMsg", rootEl);
+  if (!el) return;
+  el.textContent = text || "";
+  el.style.color = isErr ? "#b00" : "inherit";
+  if (text) {
+    setTimeout(() => {
+      if (el.textContent === text) el.textContent = "";
+    }, 4000);
+  }
+};
 
-    for (const r of (bl.data||[])) byMonth[r.ym].budget += Number(r.hours||0)*Number(r.hourly_rate||0);
-    for (const r of (bo.data||[])) byMonth[r.ym].budget += Number(r.amount||0);
-    for (const a of (act.data||[])) {
-      const ym = firstOfMonth(a.date);
-      if (byMonth[ym]) byMonth[ym].actual += Number(a.amount_net||0);
+export async function init(root) {
+  rootEl = root;
+  rootEl.innerHTML = template;
+
+  await loadGrantOptions();
+
+  $("#cmpGrant", rootEl).addEventListener("change", async (e) => {
+    const id = e.target.value || null;
+    if (!id) {
+      $("#cmpSummary", rootEl).innerHTML = "";
+      return;
     }
-
-    // build MTD/YTD/ITD for current month
-    const now = new Date(), curYM = firstOfMonth(now.toISOString().slice(0,10));
-    let mtdB=0,mtdA=0,ytdB=0,ytdA=0,itdB=0,itdA=0;
-    for (const m of months){
-      const v = byMonth[m]; if (!v) continue;
-      itdB += v.budget; itdA += v.actual;
-      if (m.slice(0,4) === String(now.getFullYear())) { ytdB += v.budget; ytdA += v.actual; }
-      if (m === curYM) { mtdB += v.budget; mtdA += v.actual; }
-    }
-
-    const tbl = h(`<table><thead><tr><th>Metric</th><th>Budget</th><th>Actual</th><th>Variance</th></tr></thead><tbody></tbody></table>`);
-    const rows = [
-      ['MTD', mtdB, mtdA],
-      ['YTD', ytdB, ytdA],
-      ['ITD', itdB, itdA],
-    ];
-    for (const [k,b,a] of rows){
-      const tr = h(`<tr><td>${k}</td><td>${fmt(b)}</td><td>${fmt(a)}</td><td>${fmt(b-a)}</td></tr>`);
-      tbl.tBodies[0].appendChild(tr);
-    }
-    $('#out',root).innerHTML=''; $('#out',root).appendChild(tbl);
-  };
+    await loadCompareForGrant(id);
+  });
 }
 
-const fmt = n => (Number(n)||0).toLocaleString(undefined,{style:'currency',currency:'USD'});
-const firstOfMonth = (d)=> { const x=new Date(d); x.setDate(1); return x.toISOString().slice(0,10); };
-function monthsBetween(s, e){ const out=[]; let d=new Date(s); const end=new Date(e); d.setDate(1); end.setDate(1);
-  while(d<=end){ out.push(d.toISOString().slice(0,10)); d.setMonth(d.getMonth()+1); } return out; }
+async function loadGrantOptions() {
+  const sel = $("#cmpGrant", rootEl);
+  if (!sel) return;
+  sel.innerHTML = '<option value="">— Select a grant —</option>';
+
+  const { data, error } = await client
+    .from("grants")
+    .select("id,name,grant_id,status")
+    .eq("status", "active")
+    .order("name", { ascending: true });
+
+  if (error) {
+    console.error("[compare] loadGrantOptions error", error);
+    msg(error.message, true);
+    return;
+  }
+
+  (data || []).forEach((g) => {
+    const label = g.grant_id ? `${g.name} (${g.grant_id})` : g.name;
+    sel.appendChild(new Option(label, g.id));
+  });
+}
+
+async function loadCompareForGrant(grantId) {
+  msg("Loading…");
+
+  try {
+    // 1) Get all budget labor rows for this grant
+    const [labRes, dirRes, catsRes] = await Promise.all([
+      client
+        .from("budget_labor")
+        .select("category_id,hours")
+        .eq("grant_id", grantId),
+      client
+        .from("budget_direct")
+        .select("amount")
+        .eq("grant_id", grantId),
+      client
+        .from("labor_categories")
+        .select("id,hourly_rate")
+        .eq("is_active", true),
+    ]);
+
+    if (labRes.error) throw labRes.error;
+    if (dirRes.error) throw dirRes.error;
+    if (catsRes.error) throw catsRes.error;
+
+    const laborRows = labRes.data || [];
+    const directRows = dirRes.data || [];
+    const cats = catsRes.data || [];
+    const rateById = Object.fromEntries(
+      cats.map((c) => [c.id, Number(c.hourly_rate ?? 0)])
+    );
+
+    // 2) Compute Budget Labor = sum(hours * rate)
+    let budgetLabor = 0;
+    laborRows.forEach((r) => {
+      const hrs = Number(r.hours ?? 0);
+      const rate = rateById[r.category_id] ?? 0;
+      budgetLabor += hrs * rate;
+    });
+
+    // 3) Compute Budget Direct = sum(amount)
+    let budgetDirect = 0;
+    directRows.forEach((r) => {
+      budgetDirect += Number(r.amount ?? 0);
+    });
+
+    const budgetTotal = budgetLabor + budgetDirect;
+
+    // 4) For now, Actuals = 0 (until actuals table/view is wired)
+    const actualLabor = 0;
+    const actualDirect = 0;
+    const actualTotal = 0;
+
+    const varLabor = budgetLabor - actualLabor;
+    const varDirect = budgetDirect - actualDirect;
+    const varTotal = budgetTotal - actualTotal;
+
+    renderSummary({
+      budgetLabor,
+      budgetDirect,
+      budgetTotal,
+      actualLabor,
+      actualDirect,
+      actualTotal,
+      varLabor,
+      varDirect,
+      varTotal,
+    });
+
+    msg("");
+  } catch (e) {
+    console.error("[compare] loadCompareForGrant error", e);
+    msg(e.message || String(e), true);
+  }
+}
+
+function renderSummary(m) {
+  const box = $("#cmpSummary", rootEl);
+  if (!box) return;
+
+  box.innerHTML = `
+    <h4>Summary (Inception to Date)</h4>
+    <table>
+      <thead>
+        <tr>
+          <th>Category</th>
+          <th style="text-align:right;">Budget</th>
+          <th style="text-align:right;">Actual</th>
+          <th style="text-align:right;">Variance (Budget - Actual)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Labor</td>
+          <td style="text-align:right;">${fmtMoney(m.budgetLabor)}</td>
+          <td style="text-align:right;">${fmtMoney(m.actualLabor)}</td>
+          <td style="text-align:right;">${fmtMoney(m.varLabor)}</td>
+        </tr>
+        <tr>
+          <td>Other Direct Costs</td>
+          <td style="text-align:right;">${fmtMoney(m.budgetDirect)}</td>
+          <td style="text-align:right;">${fmtMoney(m.actualDirect)}</td>
+          <td style="text-align:right;">${fmtMoney(m.varDirect)}</td>
+        </tr>
+        <tr>
+          <td><strong>Total</strong></td>
+          <td style="text-align:right;"><strong>${fmtMoney(m.budgetTotal)}</strong></td>
+          <td style="text-align:right;"><strong>${fmtMoney(m.actualTotal)}</strong></td>
+          <td style="text-align:right;"><strong>${fmtMoney(m.varTotal)}</strong></td>
+        </tr>
+      </tbody>
+    </table>
+  `;
+}
