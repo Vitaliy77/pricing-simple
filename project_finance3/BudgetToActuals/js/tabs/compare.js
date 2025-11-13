@@ -51,6 +51,18 @@ export async function init(root) {
 
   await loadGrantOptions();
 
+  // 🔹 auto-select grant from Grants tab, if set
+  const storedId = localStorage.getItem('selectedGrantId') || '';
+  if (storedId) {
+    const sel = $("#cmpGrant", rootEl);
+    if (sel) {
+      sel.value = storedId;
+      if (sel.value === storedId) {
+        await loadCompareForGrant(storedId);
+      }
+    }
+  }
+
   $("#cmpGrant", rootEl).addEventListener("change", async (e) => {
     const id = e.target.value || null;
     if (!id) {
@@ -60,6 +72,7 @@ export async function init(root) {
     await loadCompareForGrant(id);
   });
 }
+
 
 async function loadGrantOptions() {
   const sel = $("#cmpGrant", rootEl);
