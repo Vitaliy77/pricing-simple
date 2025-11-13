@@ -349,16 +349,17 @@ function renderLabor() {
             ${laborCategories
               .map(
                 (c) => `
-              <option value="${c.id}" ${
-                  row.employee_id === c.id || row.category_id === c.id
-                    ? "selected"
-                    : ""
-                }>
-                ${esc(c.name)}${c.position ? " – " + esc(c.position) : ""}
-              </option>
-            `
+                  <option value="${c.id}" ${
+                    row.employee_id === c.id || row.category_id === c.id
+                      ? "selected"
+                      : ""
+                  }>
+                    ${esc(c.name)}
+                  </option>
+                `
               )
               .join("")}
+
           </select>
         </td>
         <td>
