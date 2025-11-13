@@ -108,10 +108,25 @@ export async function init(root) {
   rootEl = root;
   rootEl.innerHTML = template;
 
-  // header row based on fixed months
+  // build static headers once
   renderMonthHeaders();
 
-  await Promise.all([loadGrantOptions(), loadLaborCategories()]);
+  // load reference data
+  await loadLaborCategories();
+  await loadGrantOptions();
+
+  // 🔹 auto-select grant from Grants tab, if set
+  const storedId = localStorage.getItem('selectedGrantId') || '';
+  if (storedId) {
+    const sel = $("#grantSelect", rootEl);
+    if (sel) {
+      sel.value = storedId;
+      if (sel.value === storedId) {
+        currentGrantId = storedId;
+        await loadBudgetForGrant(storedId);
+      }
+    }
+  }
 
   $("#grantSelect", rootEl).addEventListener("change", async (e) => {
     const id = e.target.value || null;
@@ -141,6 +156,7 @@ export async function init(root) {
 
   $("#saveBudget", rootEl).addEventListener("click", saveBudget);
 }
+
 
 // ---- helpers ----
 function ensureMonthKeys(obj) {
