@@ -1,4 +1,29 @@
-/* === UNIFIED INPUT HEIGHT: 2.0rem for EVERYTHING === */
+/* -------------------------------------------------
+   FULL-WIDTH LAYOUT
+   ------------------------------------------------- */
+html, body, #app, .app-root {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+main.wrap {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0 1rem;          /* tiny breathing room on mobile */
+  box-sizing: border-box;
+}
+
+.scroll-x {
+  overflow-x: auto;
+  width: 100%;              /* table-scroll containers are full-width */
+}
+
+/* -------------------------------------------------
+   UNIFIED INPUT HEIGHT: 2.0rem for EVERYTHING
+   ------------------------------------------------- */
 .grant-select,
 .budget-select,
 .budget-text,
@@ -6,7 +31,7 @@
 .budget-cell {
   font-size: 0.85rem;
   padding: 0.35rem 0.5rem;
-  height: 2.0rem !important;     /* Force 2.0rem */
+  height: 2.0rem !important;   /* Force 2.0rem */
   line-height: 1;
   box-sizing: border-box;
   width: 100%;
@@ -23,30 +48,34 @@
 
 /* Remove spin buttons */
 .no-spin::-webkit-outer-spin-button,
-.no-spin::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.no-spin::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
 .no-spin { -moz-appearance: textfield; }
 
 /* Sticky columns */
-.sticky-col-1 { 
-  position: sticky; 
-  left: 0; 
-  background: white; 
-  z-index: 10; 
-  min-width: 25ch; 
+.sticky-col-1 {
+  position: sticky;
+  left: 0;
+  background: white;
+  z-index: 10;
+  min-width: 25ch;
   box-shadow: 2px 0 2px rgba(0,0,0,0.05);
 }
-.sticky-col-2 { 
-  position: sticky; 
-  left: calc(25ch + 1.5rem); /* 25ch + padding */
-  background: white; 
-  z-index: 10; 
-  min-width: 25ch; 
+.sticky-col-2 {
+  position: sticky;
+  left: calc(25ch + 1.5rem);   /* 25ch + cell padding */
+  background: white;
+  z-index: 10;
+  min-width: 25ch;
   box-shadow: 2px 0 2px rgba(0,0,0,0.05);
 }
 
 /* Table cells */
-#laborBody td, #directBody td { 
-  vertical-align: middle; 
+#laborBody td,
+#directBody td {
+  vertical-align: middle;
   padding: 0.35rem 0.5rem;
 }
 
@@ -55,5 +84,5 @@
 #directBody input,
 #laborBody select,
 #directBody select {
-  padding: 0 !important; /* Let .budget-* handle padding */
+  padding: 0 !important;   /* .budget-* rules handle padding */
 }
