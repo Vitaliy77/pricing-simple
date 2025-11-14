@@ -5,7 +5,6 @@ import { $ } from "../lib/dom.js";
 export const template = /*html*/`
   <article>
     <h3>Budget Builder</h3>
-
     <div class="grid" style="max-width:520px;margin-bottom:0.5rem;">
       <label>
         Grant
@@ -19,7 +18,6 @@ export const template = /*html*/`
       </label>
     </div>
     <small id="msg"></small>
-
     <section style="margin-top:1rem">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.25rem;">
         <div style="display:flex;align-items:center;gap:0.5rem;">
@@ -32,7 +30,6 @@ export const template = /*html*/`
           Save Budget
         </button>
       </div>
-
       <div class="scroll-x">
         <table>
           <thead>
@@ -42,7 +39,6 @@ export const template = /*html*/`
         </table>
       </div>
     </section>
-
     <section style="margin-top:1rem">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.25rem;">
         <div style="display:flex;align-items:center;gap:0.5rem;">
@@ -52,7 +48,6 @@ export const template = /*html*/`
           </button>
         </div>
       </div>
-
       <div class="scroll-x">
         <table>
           <thead>
@@ -62,45 +57,42 @@ export const template = /*html*/`
         </table>
       </div>
     </section>
+
+    <!-- Global Styles -->
+    <style>
+      .sticky-col-1 { position: sticky; left: 0; background: white; z-index: 10; min-width: 180px; }
+      .sticky-col-2 { position: sticky; left: 180px; background: white; z-index: 10; min-width: 160px; }
+      .col-employee, .col-position { font-size: 0.85rem; }
+      .budget-select { width: 100%; padding: 0.2rem 0.35rem; font-size: 0.85rem; }
+      .budget-text { width: 100%; padding: 0.2rem 0.35rem; font-size: 0.85rem; }
+      .budget-rate { max-width: 5.5rem; padding: 0.2rem 0.35rem; font-size: 0.85rem; text-align: right; }
+      .budget-cell { max-width: 6.5rem; padding: 0.2rem 0.35rem; font-size: 0.85rem; text-align: right; }
+      .no-spin::-webkit-inner-spin-button,
+      .no-spin::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+      .no-spin { -moz-appearance: textfield; }
+      .labor-total, .direct-total { font-weight: 600; }
+    </style>
   </article>
 `;
 
 /* --------- State --------- */
-
 let rootEl = null;
 let currentGrantId = null;
 let currentStartYear = 2025;
-
-// 26 buckets: 1 "Before", 24 months, 1 "After"
-let buckets = []; // [{ label, ym }]
-
-let laborRows = [];  // [{ employee_name, category_id, months: {ym: number|null} }]
-let directRows = []; // [{ category, description, months: {ym: number|null} }]
-
-let laborCategories = []; // from labor_categories
+let buckets = [];
+let laborRows = [];
+let directRows = [];
+let laborCategories = [];
 let laborCatById = new Map();
 
 const DIRECT_CATS = [
-  "Travel",
-  "Licenses",
-  "Computers",
-  "Software",
-  "Office Supplies",
-  "Training",
-  "Consultants",
-  "Marketing",
-  "Events",
-  "Insurance",
-  "Other",
+  "Travel", "Licenses", "Computers", "Software", "Office Supplies",
+  "Training", "Consultants", "Marketing", "Events", "Insurance", "Other",
 ];
 
 /* --------- Helpers --------- */
-
 const esc = (x) =>
-  (x ?? "")
-    .toString()
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;");
+  (x ?? "").toString().replace(/&/g, "&amp;").replace(/</g, "&lt;");
 
 const fmtNum = (n) =>
   (n ?? 0).toLocaleString(undefined, {
@@ -124,29 +116,16 @@ function msg(text, isErr = false) {
 function buildBuckets(startYear) {
   const arr = [];
   const y = Number(startYear) || new Date().getFullYear();
-
-  // Before bucket
-  arr.push({
-    label: "Before",
-    ym: `${y - 1}-12-01`, // arbitrary date to store in DB
-  });
-
-  // 24 month buckets: year y and y+1
+  arr.push({ label: "Before", ym: `${y - 1}-12-01` });
   for (let i = 0; i < 24; i++) {
     const year = y + Math.floor(i / 12);
-    const month = i % 12; // 0–11
+    const month = i % 12;
     const d = new Date(Date.UTC(year, month, 1));
     const ym = d.toISOString().slice(0, 10);
     const label = d.toLocaleString("en-US", { month: "short", year: "numeric" });
     arr.push({ label, ym });
   }
-
-  // After bucket
-  arr.push({
-    label: "After",
-    ym: `${y + 2}-01-01`,
-  });
-
+  arr.push({ label: "After", ym: `${y + 2}-01-01` });
   return arr;
 }
 
@@ -165,18 +144,15 @@ function rowTotal(row) {
 }
 
 /* --------- Init --------- */
-
 export async function init(root) {
   rootEl = root;
   rootEl.innerHTML = template;
 
-  // initial year & buckets
   currentStartYear = 2025;
   buckets = buildBuckets(currentStartYear);
 
   await loadLaborCategories();
   await loadGrantOptions();
-
   renderHeaders();
   renderLabor();
   renderDirect();
@@ -214,8 +190,6 @@ export async function init(root) {
     }
     currentStartYear = y;
     buckets = buildBuckets(currentStartYear);
-
-    // re-key month maps to new buckets (drop unmatched)
     laborRows.forEach((r) => {
       const newMonths = {};
       buckets.forEach((b) => {
@@ -230,7 +204,6 @@ export async function init(root) {
       });
       r.months = newMonths;
     });
-
     renderHeaders();
     renderLabor();
     renderDirect();
@@ -238,11 +211,7 @@ export async function init(root) {
 
   $("#addLabor", rootEl).addEventListener("click", () => {
     if (!currentGrantId) return msg("Select a grant first.", true);
-    const row = {
-      employee_name: "",
-      category_id: null,
-      months: {},
-    };
+    const row = { employee_name: "", category_id: null, months: {} };
     ensureMonthKeys(row.months);
     laborRows.push(row);
     renderLabor();
@@ -250,11 +219,7 @@ export async function init(root) {
 
   $("#addDirect", rootEl).addEventListener("click", () => {
     if (!currentGrantId) return msg("Select a grant first.", true);
-    const row = {
-      category: DIRECT_CATS[0],
-      description: "",
-      months: {},
-    };
+    const row = { category: DIRECT_CATS[0], description: "", months: {} };
     ensureMonthKeys(row.months);
     directRows.push(row);
     renderDirect();
@@ -264,20 +229,17 @@ export async function init(root) {
 }
 
 /* --------- Loads --------- */
-
 async function loadLaborCategories() {
   const { data, error } = await client
     .from("labor_categories")
     .select("id,name,position,hourly_rate,is_active")
     .eq("is_active", true)
     .order("name", { ascending: true });
-
   if (error) {
     console.error("[budget] labor_categories error", error);
     msg(error.message, true);
     return;
   }
-
   laborCategories = data || [];
   laborCatById = new Map(laborCategories.map((c) => [c.id, c]));
 }
@@ -286,19 +248,16 @@ async function loadGrantOptions() {
   const sel = $("#grantSelect", rootEl);
   if (!sel) return;
   sel.innerHTML = '<option value="">— Select a grant —</option>';
-
   const { data, error } = await client
     .from("grants")
     .select("id,name,grant_id,status")
     .eq("status", "active")
     .order("name", { ascending: true });
-
   if (error) {
     console.error("[budget] loadGrantOptions error", error);
     msg(error.message, true);
     return;
   }
-
   (data || []).forEach((g) => {
     const label = g.grant_id ? `${g.name} (${g.grant_id})` : g.name;
     sel.appendChild(new Option(label, g.id));
@@ -307,7 +266,6 @@ async function loadGrantOptions() {
 
 async function loadBudgetForGrant(grantId) {
   msg("Loading…");
-
   try {
     const [labRes, dirRes] = await Promise.all([
       client
@@ -319,16 +277,13 @@ async function loadBudgetForGrant(grantId) {
         .select("category,description,ym,amount")
         .eq("grant_id", grantId),
     ]);
-
     if (labRes.error) throw labRes.error;
     if (dirRes.error) throw dirRes.error;
 
     const labRaw = labRes.data || [];
     const dirRaw = dirRes.data || [];
-
     const bucketSet = new Set(buckets.map((b) => b.ym));
 
-    // build laborRows
     const lmap = new Map();
     for (const r of labRaw) {
       const key = `${r.employee_name || ""}||${r.category_id || ""}`;
@@ -340,14 +295,12 @@ async function loadBudgetForGrant(grantId) {
         });
       }
       if (bucketSet.has(r.ym)) {
-        const row = lmap.get(key);
-        row.months[r.ym] = Number(r.hours ?? 0);
+        lmap.get(key).months[r.ym] = Number(r.hours ?? 0);
       }
     }
     laborRows = Array.from(lmap.values());
     laborRows.forEach((r) => ensureMonthKeys(r.months));
 
-    // build directRows
     const dmap = new Map();
     for (const r of dirRaw) {
       const key = `${r.category || ""}||${r.description || ""}`;
@@ -359,8 +312,7 @@ async function loadBudgetForGrant(grantId) {
         });
       }
       if (bucketSet.has(r.ym)) {
-        const row = dmap.get(key);
-        row.months[r.ym] = Number(r.amount ?? 0);
+        dmap.get(key).months[r.ym] = Number(r.amount ?? 0);
       }
     }
     directRows = Array.from(dmap.values());
@@ -377,7 +329,6 @@ async function loadBudgetForGrant(grantId) {
 }
 
 /* --------- Rendering --------- */
-
 function renderHeaders() {
   const laborHead = $("#laborHeaderRow", rootEl);
   const directHead = $("#directHeaderRow", rootEl);
@@ -399,6 +350,7 @@ function renderHeaders() {
   `;
 }
 
+/* Updated renderLabor() — No full re-render on input */
 function renderLabor() {
   const tbody = $("#laborBody", rootEl);
   if (!tbody) return;
@@ -415,11 +367,11 @@ function renderLabor() {
         <td style="text-align:center;">
           <input
             type="number"
-            step="0.01"
+            step="="0.01"
+            class="no-spin budget-cell"
             data-kind="labor"
             data-row="${idx}"
             data-ym="${b.ym}"
-            style="max-width:4.5rem;padding:0.2rem 0.35rem;font-size:0.85rem;text-align:right;"
             value="${esc(row.months[b.ym] ?? "")}"
           >
         </td>
@@ -430,12 +382,12 @@ function renderLabor() {
       const total = rowTotal(row);
 
       return `
-        <tr>
-          <td class="sticky-col-1">
+        <tr data-row-index="${idx}">
+          <td class="sticky-col-1 col-employee">
             <select
               data-kind="labor-emp"
               data-row="${idx}"
-              style="width:100%;padding:0.2rem 0.35rem;font-size:0.85rem;"
+              class="budget-select"
             >
               <option value="">— Select employee —</option>
               ${laborCategories
@@ -450,11 +402,11 @@ function renderLabor() {
                 .join("")}
             </select>
           </td>
-          <td class="sticky-col-2">
+          <td class="sticky-col-2 col-position">
             <input
               type="text"
               readonly
-              style="width:100%;padding:0.2rem 0.35rem;font-size:0.85rem;"
+              class="budget-text"
               value="${esc(position)}"
             >
           </td>
@@ -462,12 +414,12 @@ function renderLabor() {
             <input
               type="number"
               readonly
-              style="max-width:5rem;padding:0.2rem 0.35rem;font-size:0.85rem;text-align:right;"
+              class="no-spin budget-rate"
               value="${esc(rate)}"
             >
           </td>
           ${cells}
-          <td style="text-align:right;font-weight:600;">
+          <td class="labor-total" data-row="${idx}" style="text-align:right;font-weight:600;">
             ${fmtNum(total)}
           </td>
         </tr>
@@ -477,7 +429,7 @@ function renderLabor() {
 
   tbody.innerHTML = rowsHtml;
 
-  // events for hours
+  // Hours inputs: update state + total ONLY
   tbody.querySelectorAll('input[data-kind="labor"]').forEach((inp) => {
     inp.addEventListener("input", (e) => {
       const i = Number(e.target.dataset.row);
@@ -486,24 +438,36 @@ function renderLabor() {
       const v = e.target.value;
       const n = v === "" ? null : Number(v);
       laborRows[i].months[ym] = n == null || isNaN(n) ? null : n;
-      renderLabor(); // re-render to update totals
+
+      const totalCell = tbody.querySelector(`td.labor-total[data-row="${i}"]`);
+      if (totalCell) {
+        totalCell.textContent = fmtNum(rowTotal(laborRows[i]));
+      }
     });
   });
 
-  // events for employee selection
+  // Employee selection
   tbody.querySelectorAll('select[data-kind="labor-emp"]').forEach((sel) => {
     sel.addEventListener("change", (e) => {
       const i = Number(e.target.dataset.row);
       const id = e.target.value || null;
       if (!laborRows[i]) return;
       laborRows[i].category_id = id;
-      const cat = id ? laborCatById.get(id) : null;
-      laborRows[i].employee_name = cat?.name || "";
-      renderLabor(); // refresh position + rate display
+      const cat2 = id ? laborCatById.get(id) : null;
+      laborRows[i].employee_name = cat2?.name || "";
+
+      const tr = tbody.querySelector(`tr[data-row-index="${i}"]`);
+      if (tr) {
+        const posInput = tr.querySelector(".col-position input.budget-text");
+        const rateInput = tr.querySelector("input.budget-rate");
+        if (posInput) posInput.value = cat2?.position || "";
+        if (rateInput) rateInput.value = cat2?.hourly_rate ?? "";
+      }
     });
   });
 }
 
+/* Updated renderDirect() — No full re-render on input */
 function renderDirect() {
   const tbody = $("#directBody", rootEl);
   if (!tbody) return;
@@ -517,10 +481,10 @@ function renderDirect() {
           <input
             type="number"
             step="0.01"
+            class="no-spin budget-cell"
             data-kind="direct"
             data-row="${idx}"
             data-ym="${b.ym}"
-            style="max-width:4.5rem;padding:0.2rem 0.35rem;font-size:0.85rem;text-align:right;"
             value="${esc(row.months[b.ym] ?? "")}"
           >
         </td>
@@ -531,12 +495,12 @@ function renderDirect() {
       const total = rowTotal(row);
 
       return `
-        <tr>
-          <td class="sticky-col-1">
+        <tr data-row-index="${idx}">
+          <td class="sticky-col-1 col-employee">
             <select
               data-kind="direct-cat"
               data-row="${idx}"
-              style="width:100%;padding:0.2rem 0.35rem;font-size:0.85rem;"
+              class="budget-select"
             >
               ${DIRECT_CATS.map(
                 (c) => `
@@ -546,18 +510,18 @@ function renderDirect() {
               ).join("")}
             </select>
           </td>
-          <td class="sticky-col-2">
+          <td class="sticky-col-2 col-position">
             <input
               type="text"
               data-kind="direct-desc"
               data-row="${idx}"
-              style="width:100%;padding:0.2rem 0.35rem;font-size:0.85rem;"
+              class="budget-text"
               placeholder="Description"
               value="${esc(row.description)}"
             >
           </td>
           ${cells}
-          <td style="text-align:right;font-weight:600;">
+          <td class="direct-total" data-row="${idx}" style="text-align:right;font-weight:600;">
             ${fmtNum(total)}
           </td>
         </tr>
@@ -567,6 +531,7 @@ function renderDirect() {
 
   tbody.innerHTML = rowsHtml;
 
+  // Amount inputs: update state + total only
   tbody.querySelectorAll('input[data-kind="direct"]').forEach((inp) => {
     inp.addEventListener("input", (e) => {
       const i = Number(e.target.dataset.row);
@@ -575,7 +540,11 @@ function renderDirect() {
       const v = e.target.value;
       const n = v === "" ? null : Number(v);
       directRows[i].months[ym] = n == null || isNaN(n) ? null : n;
-      renderDirect(); // update totals
+
+      const totalCell = tbody.querySelector(`td.direct-total[data-row="${i}"]`);
+      if (totalCell) {
+        totalCell.textContent = fmtNum(rowTotal(directRows[i]));
+      }
     });
   });
 
@@ -597,7 +566,6 @@ function renderDirect() {
 }
 
 /* --------- Save --------- */
-
 async function saveBudget() {
   if (!currentGrantId) return msg("Select a grant first.", true);
 
@@ -640,21 +608,11 @@ async function saveBudget() {
   });
 
   try {
-    // wipe old budget for this grant
-    const del1 = await client.from("budget_labor").delete().eq("grant_id", currentGrantId);
-    if (del1.error) throw del1.error;
+    await client.from("budget_labor").delete().eq("grant_id", currentGrantId);
+    await client.from("budget_direct").delete().eq("grant_id", currentGrantId);
 
-    const del2 = await client.from("budget_direct").delete().eq("grant_id", currentGrantId);
-    if (del2.error) throw del2.error;
-
-    if (laborInserts.length) {
-      const ins1 = await client.from("budget_labor").insert(laborInserts);
-      if (ins1.error) throw ins1.error;
-    }
-    if (directInserts.length) {
-      const ins2 = await client.from("budget_direct").insert(directInserts);
-      if (ins2.error) throw ins2.error;
-    }
+    if (laborInserts.length) await client.from("budget_labor").insert(laborInserts);
+    if (directInserts.length) await client.from("budget_direct").insert(directInserts);
 
     msg("Budget saved.");
     if (currentGrantId) await loadBudgetForGrant(currentGrantId);
