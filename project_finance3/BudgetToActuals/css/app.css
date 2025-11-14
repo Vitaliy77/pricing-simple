@@ -68,6 +68,27 @@ article table td:last-child {
   margin-top: 0.35rem;
 }
 
+/* Freeze first two columns in scrollable tables */
+.sticky-col-1 {
+  position: sticky;
+  left: 0;
+  background: #fff;
+  z-index: 3;
+}
+
+.sticky-col-2 {
+  position: sticky;
+  left: 180px; /* adjust if needed based on your column width */
+  background: #fff;
+  z-index: 3;
+}
+
+/* Slight shadow so frozen columns feel “on top” */
+.sticky-col-1,
+.sticky-col-2 {
+  box-shadow: 2px 0 2px rgba(0,0,0,0.05);
+}
+
 /* Budget tab: tighter spacing between inputs */
 #laborBody input,
 #directBody input,
