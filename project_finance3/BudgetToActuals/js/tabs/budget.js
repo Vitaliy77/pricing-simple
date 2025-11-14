@@ -367,7 +367,7 @@ function renderLabor() {
         <td style="text-align:center;">
           <input
             type="number"
-            step="="0.01"
+            step="0.01"
             class="no-spin budget-cell"
             data-kind="labor"
             data-row="${idx}"
