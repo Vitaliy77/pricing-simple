@@ -78,6 +78,65 @@ article table td:last-child {
 
 .sticky-col-2 {
   position: sticky;
+  left: 220px; /* tweak if needed */
+  background: #fff;
+  z-index: 3;
+}
+
+.sticky-col-1,
+.sticky-col-2 {
+  box-shadow: 2px 0 2px rgba(0,0,0,0.05);
+}
+
+/* Column widths to fit names / positions */
+.col-employee {
+  min-width: 220px; /* fits "Community Health Clinic" employee names style */
+}
+
+.col-position {
+  min-width: 260px; /* fits longest position titles */
+}
+
+/* Shared input styles in the grid */
+.budget-select,
+.budget-text,
+.budget-rate,
+.budget-cell {
+  font-size: 0.85rem;
+  padding: 0.3rem 0.45rem;
+  height: 2.0rem;
+  box-sizing: border-box;
+}
+
+/* Numeric cells width: enough for 6 digits + decimal */
+.budget-cell,
+.budget-rate {
+  min-width: 5.5rem; /* fits e.g. 170.50 or 100000 nicely */
+  text-align: right;
+}
+
+/* Remove up/down arrows on number inputs */
+.no-spin::-webkit-outer-spin-button,
+.no-spin::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.no-spin[type="number"] {
+  -moz-appearance: textfield;
+}
+
+
+/* Freeze first two columns in scrollable tables */
+.sticky-col-1 {
+  position: sticky;
+  left: 0;
+  background: #fff;
+  z-index: 3;
+}
+
+.sticky-col-2 {
+  position: sticky;
   left: 180px; /* adjust if needed based on your column width */
   background: #fff;
   z-index: 3;
