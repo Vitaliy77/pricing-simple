@@ -1,234 +1,59 @@
-/* Layout: full-width main area, but with some breathing room */
-body {
-  background: #f5f7fb;
-}
-
-main.wrap {
-  max-width: 100%;
-  margin: 1rem auto;
-  padding: 0 1rem;
-}
-
-/* Headings & section spacing */
-article > h3 {
-  margin-bottom: 0.5rem;
-}
-
-/* Grant select at top of Budget tab */
-.grant-select {
-  width: 50ch;        /* about 50 characters */
-  max-width: 100%;
-  font-size: 0.95rem;
-  padding: 0.35rem 0.5rem;
-  height: 2.2rem;     /* matches row inputs */
-  box-sizing: border-box;
-}
-
-article > h4 {
-  margin-top: 1.25rem;
-  margin-bottom: 0.25rem;
-}
-
-/* Forms: tighter vertical spacing */
-article .grid {
-  gap: 0.35rem;
-}
-
-/* Labels and inputs – reduce extra space */
-article label {
-  margin-bottom: 0.25rem;
-}
-
-/* Reduce bottom margin between sections inside a tab */
-article section {
-  margin-bottom: 1.25rem;
-}
-
-/* Tables: full width, consistent look */
-article table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.9rem;
-}
-
-article table thead {
-  background: #eef2ff;
-}
-
-article table th,
-article table td {
-  padding: 0.35rem 0.5rem;
-  border-bottom: 1px solid #e0e4f0;
-  white-space: nowrap;
-}
-
-article table th:first-child,
-article table td:first-child {
-  padding-left: 0.75rem;
-}
-
-article table th:last-child,
-article table td:last-child {
-  padding-right: 0.75rem;
-}
-
-/* Scroll containers: remove extra padding & show full width table */
-.scroll-x {
-  overflow-x: auto;
-  margin-top: 0.35rem;
-}
-
-/* Freeze first two columns in scrollable tables (Budget tab) */
-.sticky-col-1 {
-  position: sticky;
-  left: 0;
-  background: #fff;
-  z-index: 3;
-}
-
-.sticky-col-2 {
-  position: sticky;
-  left: 26ch;          /* ≈ width of first column + padding */
-  background: #fff;
-  z-index: 3;
-}
-
-.sticky-col-1,
-.sticky-col-2 {
-  box-shadow: 2px 0 2px rgba(0,0,0,0.05);
-}
-
-/* First text columns: ~25 characters each */
-.col-employee {
-  min-width: 25ch;
-  max-width: 25ch;
-}
-
-.col-position {
-  min-width: 25ch;
-  max-width: 25ch;
-}
-
-/* Shared cell controls in the Budget grid */
+/* === UNIFIED INPUT HEIGHT: 2.0rem for EVERYTHING === */
+.grant-select,
 .budget-select,
 .budget-text,
 .budget-rate,
 .budget-cell {
   font-size: 0.85rem;
   padding: 0.35rem 0.5rem;
-  height: 2.2rem;       /* <— this is the key: uniform height */
+  height: 2.0rem !important;     /* Force 2.0rem */
+  line-height: 1;
   box-sizing: border-box;
-}
-
-/* Numeric cells: enough room for 6 digits + decimal */
-.budget-cell,
-.budget-rate {
-  min-width: 6ch;       /* base width in characters */
-  max-width: 8ch;
-  text-align: right;
-}
-
-/* Make table cells align nicely */
-#laborBody td,
-#directBody td {
+  width: 100%;
   vertical-align: middle;
 }
 
-
-/* Shared input styles in the grid */
-.budget-select,
-.budget-text,
-.budget-rate,
-.budget-cell {
-  font-size: 0.85rem;
-  padding: 0.3rem 0.45rem;
-  height: 2.0rem;
-  box-sizing: border-box;
-}
-
-/* Numeric cells width: enough for 6 digits + decimal */
+/* Number cells: width + alignment */
 .budget-cell,
 .budget-rate {
-  min-width: 5.5rem; /* fits e.g. 170.50 or 100000 nicely */
+  min-width: 5.5rem;
+  max-width: 6.5rem;
   text-align: right;
 }
 
-/* Remove up/down arrows on number inputs */
+/* Remove spin buttons */
 .no-spin::-webkit-outer-spin-button,
-.no-spin::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
+.no-spin::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.no-spin { -moz-appearance: textfield; }
+
+/* Sticky columns */
+.sticky-col-1 { 
+  position: sticky; 
+  left: 0; 
+  background: white; 
+  z-index: 10; 
+  min-width: 25ch; 
+  box-shadow: 2px 0 2px rgba(0,0,0,0.05);
 }
-
-.no-spin[type="number"] {
-  -moz-appearance: textfield;
-}
-
-
-/* Freeze first two columns in scrollable tables */
-.sticky-col-1 {
-  position: sticky;
-  left: 0;
-  background: #fff;
-  z-index: 3;
-}
-
-.sticky-col-2 {
-  position: sticky;
-  left: 180px; /* adjust if needed based on your column width */
-  background: #fff;
-  z-index: 3;
-}
-
-/* Slight shadow so frozen columns feel “on top” */
-.sticky-col-1,
-.sticky-col-2 {
+.sticky-col-2 { 
+  position: sticky; 
+  left: calc(25ch + 1.5rem); /* 25ch + padding */
+  background: white; 
+  z-index: 10; 
+  min-width: 25ch; 
   box-shadow: 2px 0 2px rgba(0,0,0,0.05);
 }
 
-/* Budget tab: tighter spacing between inputs */
+/* Table cells */
+#laborBody td, #directBody td { 
+  vertical-align: middle; 
+  padding: 0.35rem 0.5rem;
+}
+
+/* Remove any conflicting padding overrides */
 #laborBody input,
 #directBody input,
 #laborBody select,
 #directBody select {
-  padding: 0.2rem 0.35rem;
-  font-size: 0.85rem;
-}
-
-/* Reduce horizontal gap between month columns */
-#laborBody input[type="number"],
-#directBody input[type="number"] {
-  max-width: 4.5rem;
-}
-
-/* Make select + text fields take full width of their cell */
-#laborBody select,
-#laborBody input[type="text"],
-#directBody select,
-#directBody input[type="text"] {
-  width: 100%;
-  box-sizing: border-box;
-}
-
-/* Buttons: smaller & consistent */
-article button {
-  font-size: 0.85rem;
-  padding: 0.25rem 0.6rem;
-}
-
-/* Top nav: stretch full width, tighten spacing */
-nav {
-  margin-bottom: 0.75rem;
-}
-
-nav ul {
-  gap: 0.5rem;
-}
-
-/* Message text */
-#msg,
-#cmpMsg {
-  display: inline-block;
-  margin-left: 0.5rem;
-  font-size: 0.8rem;
+  padding: 0 !important; /* Let .budget-* handle padding */
 }
