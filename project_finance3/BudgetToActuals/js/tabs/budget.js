@@ -5,18 +5,18 @@ import { $ } from "../lib/dom.js";
 export const template = /*html*/`
   <article>
     <h3>Budget Builder</h3>
-    <div class="grid" style="max-width:520px;margin-bottom:0.5rem;">
-      <label>
-        Grant
-        <select id="grantSelect">
-          <option value="">— Select a grant —</option>
-        </select>
-      </label>
-      <label>
-        Start Year
-        <input id="startYear" type="number" min="2000" max="2100" value="2025">
-      </label>
-    </div>
+      <div class="grid" style="max-width:800px;margin-bottom:0.5rem;">
+        <label>
+          Grant
+          <select id="grantSelect" class="grant-select">
+            <option value="">— Select a grant —</option>
+          </select>
+        </label>
+        <label>
+          Start Year
+          <input id="startYear" type="number" min="2000" max="2100" value="2025">
+        </label>
+      </div>
     <small id="msg"></small>
     <section style="margin-top:1rem">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.25rem;">
