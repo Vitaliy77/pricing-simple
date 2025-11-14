@@ -25,7 +25,19 @@ export async function init(root){
     const ws  = wb.Sheets[wb.SheetNames[0]];
     const rows = XLSX.utils.sheet_to_json(ws, { raw:false }); // array of objects
     preview(rows);
-    const { error, data } = await client.rpc('load_actuals_csv', { p_rows: rows });
+    // rows should be an array of objects parsed from CSV/XLSX
+const payload = JSON.stringify(rows);  // convert to JSON text
+
+const { data, error } = await client.rpc('load_actuals_csv', {
+  p_rows: payload
+});
+
+if (error) {
+  console.error("[actuals] RPC error:", error);
+  msg("Upload failed: " + error.message, true);
+} else {
+  msg("Upload complete.");
+}
     msg(error ? error.message : `Loaded ${data} rows.`);
   };
 
