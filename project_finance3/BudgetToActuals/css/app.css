@@ -14,6 +14,16 @@ article > h3 {
   margin-bottom: 0.5rem;
 }
 
+/* Grant select at top of Budget tab */
+.grant-select {
+  width: 50ch;        /* about 50 characters */
+  max-width: 100%;
+  font-size: 0.95rem;
+  padding: 0.35rem 0.5rem;
+  height: 2.2rem;     /* matches row inputs */
+  box-sizing: border-box;
+}
+
 article > h4 {
   margin-top: 1.25rem;
   margin-bottom: 0.25rem;
@@ -68,7 +78,7 @@ article table td:last-child {
   margin-top: 0.35rem;
 }
 
-/* Freeze first two columns in scrollable tables */
+/* Freeze first two columns in scrollable tables (Budget tab) */
 .sticky-col-1 {
   position: sticky;
   left: 0;
@@ -78,7 +88,7 @@ article table td:last-child {
 
 .sticky-col-2 {
   position: sticky;
-  left: 220px; /* tweak if needed */
+  left: 26ch;          /* ≈ width of first column + padding */
   background: #fff;
   z-index: 3;
 }
@@ -88,14 +98,42 @@ article table td:last-child {
   box-shadow: 2px 0 2px rgba(0,0,0,0.05);
 }
 
-/* Column widths to fit names / positions */
+/* First text columns: ~25 characters each */
 .col-employee {
-  min-width: 220px; /* fits "Community Health Clinic" employee names style */
+  min-width: 25ch;
+  max-width: 25ch;
 }
 
 .col-position {
-  min-width: 260px; /* fits longest position titles */
+  min-width: 25ch;
+  max-width: 25ch;
 }
+
+/* Shared cell controls in the Budget grid */
+.budget-select,
+.budget-text,
+.budget-rate,
+.budget-cell {
+  font-size: 0.85rem;
+  padding: 0.35rem 0.5rem;
+  height: 2.2rem;       /* <— this is the key: uniform height */
+  box-sizing: border-box;
+}
+
+/* Numeric cells: enough room for 6 digits + decimal */
+.budget-cell,
+.budget-rate {
+  min-width: 6ch;       /* base width in characters */
+  max-width: 8ch;
+  text-align: right;
+}
+
+/* Make table cells align nicely */
+#laborBody td,
+#directBody td {
+  vertical-align: middle;
+}
+
 
 /* Shared input styles in the grid */
 .budget-select,
