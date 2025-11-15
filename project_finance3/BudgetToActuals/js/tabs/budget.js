@@ -1,6 +1,7 @@
 // /js/tabs/budget.js
 import { client } from "../api/supabase.js";
 import { $ } from "../lib/dom.js";
+import { getSelectedGrantId } from '../lib/grantContext.js';
 
 export const template = /*html*/`
   <article>
