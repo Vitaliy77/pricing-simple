@@ -1,25 +1,53 @@
 // js/lib/grantContext.js
+// Central place to store the "currently selected grant" for the whole app
 
-const KEY = 'selectedGrantId';
+const STORAGE_KEY = 'gbapp_selected_grant_id';
 
-// Read current grant (in-memory first, then localStorage)
-export function getSelectedGrantId() {
-  if (window.__currentGrantId) return window.__currentGrantId;
-  try {
-    const v = localStorage.getItem(KEY);
-    return v || null;
-  } catch {
-    return null;
-  }
+let currentGrantId = null;
+const listeners = new Set();
+
+// Initialize from localStorage on first load
+try {
+  const saved = window.localStorage.getItem(STORAGE_KEY);
+  if (saved) currentGrantId = saved;
+} catch (e) {
+  console.warn('[grantContext] localStorage unavailable', e);
 }
 
-// Set current grant (store both in-memory + localStorage)
+/**
+ * Get currently selected grant id (string uuid or null)
+ */
+export function getSelectedGrantId() {
+  return currentGrantId;
+}
+
+/**
+ * Set the currently selected grant id.
+ * - Persists to localStorage
+ * - Notifies subscribers
+ */
 export function setSelectedGrantId(id) {
-  window.__currentGrantId = id || null;
+  const val = id || null;
+  currentGrantId = val;
+
   try {
-    if (id) localStorage.setItem(KEY, id);
-    else localStorage.removeItem(KEY);
-  } catch {
-    // ignore storage errors
+    if (val) window.localStorage.setItem(STORAGE_KEY, val);
+    else window.localStorage.removeItem(STORAGE_KEY);
+  } catch (e) {
+    console.warn('[grantContext] localStorage write failed', e);
   }
+
+  // notify listeners
+  listeners.forEach(fn => {
+    try { fn(currentGrantId); } catch (e) { console.error(e); }
+  });
+}
+
+/**
+ * Subscribe to grant changes.
+ * Returns an unsubscribe function.
+ */
+export function onGrantChange(fn) {
+  if (typeof fn === 'function') listeners.add(fn);
+  return () => listeners.delete(fn);
 }
