@@ -1,6 +1,7 @@
 // js/tabs/compare.js
 import { client } from '../api/supabase.js';
 import { $, h } from '../lib/dom.js';
+import { getSelectedGrantId } from '../lib/grantContext.js';
 
 export const template = /*html*/`
   <article>
