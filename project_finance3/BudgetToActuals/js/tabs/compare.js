@@ -99,59 +99,77 @@ async function loadGrantOptions() {
 
 async function loadCompareForGrant(grantId) {
   msg("Loading…");
-
   try {
-    // 1) Get all budget labor rows for this grant
-    const [labRes, dirRes, catsRes] = await Promise.all([
+    // 1) Budget: Labor + Direct + categories
+    const [labRes, dirRes, catsRes, actRes] = await Promise.all([
       client
         .from("budget_labor")
         .select("category_id,hours")
         .eq("grant_id", grantId),
+
       client
         .from("budget_direct")
         .select("amount")
         .eq("grant_id", grantId),
+
       client
         .from("labor_categories")
         .select("id,hourly_rate")
         .eq("is_active", true),
+
+      // NOTE: actuals_net has: date, amount_net, grant_code, grant_id
+      client
+        .from("actuals_net")
+        .select("amount_net,grant_id")
+        .eq("grant_id", grantId)
     ]);
 
     if (labRes.error) throw labRes.error;
     if (dirRes.error) throw dirRes.error;
     if (catsRes.error) throw catsRes.error;
+    if (actRes.error) throw actRes.error;
 
     const laborRows = labRes.data || [];
     const directRows = dirRes.data || [];
-    const cats = catsRes.data || [];
+    const cats      = catsRes.data || [];
+    const actuals   = actRes.data || [];
+
+    // Map of labor_category_id → hourly rate
     const rateById = Object.fromEntries(
-      cats.map((c) => [c.id, Number(c.hourly_rate ?? 0)])
+      cats.map(c => [c.id, Number(c.hourly_rate ?? 0)])
     );
 
-    // 2) Compute Budget Labor = sum(hours * rate)
+    // ---------- Budget totals ----------
     let budgetLabor = 0;
-    laborRows.forEach((r) => {
-      const hrs = Number(r.hours ?? 0);
+    laborRows.forEach(r => {
+      const hrs  = Number(r.hours ?? 0);
       const rate = rateById[r.category_id] ?? 0;
       budgetLabor += hrs * rate;
     });
 
-    // 3) Compute Budget Direct = sum(amount)
-    let budgetDirect = 0;
-    directRows.forEach((r) => {
-      budgetDirect += Number(r.amount ?? 0);
-    });
+    const budgetDirect = directRows.reduce(
+      (sum, r) => sum + Number(r.amount ?? 0),
+      0
+    );
 
     const budgetTotal = budgetLabor + budgetDirect;
 
-    // 4) For now, Actuals = 0 (until actuals table/view is wired)
-    const actualLabor = 0;
-    const actualDirect = 0;
-    const actualTotal = 0;
+    // ---------- Actual totals ----------
+    // For now we only have total actuals in actuals_net (no labor/odc split)
+    const actualTotal = actuals.reduce(
+      (sum, a) => sum + Number(a.amount_net ?? 0),
+      0
+    );
 
-    const varLabor = budgetLabor - actualLabor;
+    // If you still want to show “labor vs direct” columns in the UI,
+    // we can just treat all actuals as "direct" or "total" for now:
+    const actualLabor  = 0;
+    const actualDirect = actualTotal;
+
+    // ---------- Variances ----------
+    const varLabor  = budgetLabor  - actualLabor;
     const varDirect = budgetDirect - actualDirect;
-    const varTotal = budgetTotal - actualTotal;
+    const varTotal  = budgetTotal  - actualTotal;
 
     renderSummary({
       budgetLabor,
@@ -171,6 +189,7 @@ async function loadCompareForGrant(grantId) {
     msg(e.message || String(e), true);
   }
 }
+
 
 function renderSummary(m) {
   const box = $("#cmpSummary", rootEl);
