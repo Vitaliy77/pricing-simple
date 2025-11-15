@@ -61,7 +61,7 @@ export async function init(root) {
     });
 
     // If we have a "current grant" selected on Grants tab, use it
-    const current = window.__currentGrantId || '';
+    const current = getSelectedGrantId();
     if (current && data?.some(g => g.id === current)) {
       sel.value = current;
       loadCompareForGrant(current);
