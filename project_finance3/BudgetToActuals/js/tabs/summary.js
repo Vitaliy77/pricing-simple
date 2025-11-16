@@ -29,7 +29,7 @@ export const template = /*html*/ `
           <h5 style="margin-top:0;margin-bottom:0.3rem;font-size:0.9rem;">
             Total Award vs Budgeted
           </h5>
-          <canvas id="chartAwardVsBudget" style="max-height:380px;"></canvas>
+          <canvas id="chartAwardVsBudget" style="max-height:440px;"></canvas>
         </div>
 
         <!-- Combo: Monthly Budget vs Actuals -->
@@ -37,7 +37,7 @@ export const template = /*html*/ `
           <h5 style="margin-top:0;margin-bottom:0.3rem;font-size:0.9rem;">
             Monthly Budget vs Actuals
           </h5>
-          <canvas id="chartMonthlyBudgetActual" style="max-height:330px;"></canvas>
+          <canvas id="chartMonthlyBudgetActual" style="max-height:360px;"></canvas>
         </div>
       </div>
     </section>
