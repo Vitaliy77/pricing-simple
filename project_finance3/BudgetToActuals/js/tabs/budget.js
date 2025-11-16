@@ -10,13 +10,13 @@ export const template = /*html*/`
     <div class="grid" style="max-width:800px;margin-bottom:0.5rem;">
       <label style="min-width:260px;">
         Grant
-        <select id="grantSelect" class="budget-select">
+        <select id="grantSelect" class="app-select">
           <option value="">— Select a grant —</option>
         </select>
       </label>
       <label style="max-width:140px;">
         Start Year
-        <input id="startYear" type="number" min="2000" max="2100" value="2025">
+        <input id="startYear" type="number" min="2000" max="2100" value="2025" class="app-number">
       </label>
     </div>
 
@@ -36,7 +36,7 @@ export const template = /*html*/`
         </button>
       </div>
       <div class="scroll-x">
-        <table class="budget-table">
+        <table class="app-table">
           <thead>
             <tr id="laborHeaderRow"></tr>
           </thead>
@@ -56,7 +56,7 @@ export const template = /*html*/`
         </div>
       </div>
       <div class="scroll-x">
-        <table class="budget-table">
+        <table class="app-table">
           <thead>
             <tr id="directHeaderRow"></tr>
           </thead>
@@ -65,79 +65,57 @@ export const template = /*html*/`
       </div>
     </section>
 
-    <!-- === COMPACT & STICKY STYLES === -->
+    <!-- === APP-STYLE COMPACT & STICKY === -->
     <style>
-      /* Sticky first two columns for Labor & ODC */
       .sticky-col-1 {
         position: sticky;
         left: 0;
         background: #fff;
         z-index: 10;
-        min-width: 12rem; /* ~ Employee name width */
+        min-width: 12rem;
       }
       .sticky-col-2 {
         position: sticky;
         left: 12rem;
         background: #fff;
         z-index: 10;
-        min-width: 12rem; /* ~ Position / Description width */
+        min-width: 12rem;
       }
 
-      /* Compact table layout */
-      .budget-table {
+      .app-table {
         border-collapse: collapse;
         width: 100%;
+        font-size: 0.85rem;
       }
 
-      .budget-table thead th,
-      .budget-table tbody td {
-        padding: 0.15rem 0.35rem;   /* smaller vertical padding (~2mm) */
-        line-height: 1.1;           /* tighter line height */
-        font-size: 0.85rem;
+      .app-table thead th,
+      .app-table tbody td {
+        padding: 0.15rem 0.35rem;
+        line-height: 1.1;
         white-space: nowrap;
       }
 
-      /* Inputs inside budget grid */
-      .budget-table input,
-      .budget-table select {
-        height: 1.7rem;             /* was taller – now more compact */
+      .app-select,
+      .app-input,
+      .app-number {
+        height: 1.7rem;
         padding: 0 0.35rem;
         font-size: 0.85rem;
-        margin: 0;                  /* remove extra vertical margin */
+        margin: 0;
         box-sizing: border-box;
-      }
-
-      /* Specific column types */
-      .col-employee,
-      .col-position {
-        font-size: 0.85rem;
-      }
-
-      .budget-select {
         width: 100%;
       }
 
-      .budget-text {
-        width: 100%;
-      }
-
-      .budget-rate {
-        max-width: 5.5rem;
+      .app-number {
         text-align: right;
       }
 
-      .budget-cell {
-        max-width: 6.5rem;          /* enough for 000000.00 */
-        text-align: right;
-      }
-
-      /* Remove spinner arrows on number fields */
-      .no-spin::-webkit-inner-spin-button,
-      .no-spin::-webkit-outer-spin-button {
+      .app-number::-webkit-inner-spin-button,
+      .app-number::-webkit-outer-spin-button {
         -webkit-appearance: none;
         margin: 0;
       }
-      .no-spin {
+      .app-number {
         -moz-appearance: textfield;
       }
 
@@ -453,11 +431,11 @@ function renderLabor() {
     const position = cat?.position || "";
     const rate = cat?.hourly_rate ?? "";
     const cells = buckets.map((b) => `
-      <td style="text-align:center;">
+      <td>
         <input
           type="number"
           step="0.01"
-          class="no-spin budget-cell"
+          class="app-number"
           data-kind="labor"
           data-row="${idx}"
           data-ym="${b.ym}"
@@ -470,7 +448,7 @@ function renderLabor() {
     return `
       <tr data-row-index="${idx}">
         <td class="sticky-col-1 col-employee">
-          <select data-kind="labor-emp" data-row="${idx}" class="budget-select">
+          <select data-kind="labor-emp" data-row="${idx}" class="app-select">
             <option value="">— Select employee —</option>
             ${laborCategories.map(c => `
               <option value="${c.id}" ${row.category_id === c.id ? "selected" : ""}>
@@ -479,10 +457,10 @@ function renderLabor() {
           </select>
         </td>
         <td class="sticky-col-2 col-position">
-          <input type="text" readonly class="budget-text" value="${esc(position)}">
+          <input type="text" readonly class="app-input" value="${esc(position)}">
         </td>
         <td style="text-align:right;">
-          <input type="number" readonly class="no-spin budget-rate" value="${esc(rate)}">
+          <input type="number" readonly class="app-number" value="${esc(rate)}">
         </td>
         ${cells}
         <td class="labor-total" data-row="${idx}" style="text-align:right;font-weight:600;">
@@ -517,8 +495,8 @@ function renderLabor() {
       laborRows[i].employee_name = cat2?.name || "";
       const tr = tbody.querySelector(`tr[data-row-index="${i}"]`);
       if (tr) {
-        const posInput = tr.querySelector(".col-position input.budget-text");
-        const rateInput = tr.querySelector("input.budget-rate");
+        const519 posInput = tr.querySelector(".col-position input.app-input");
+        const rateInput = tr.querySelector("input.app-number[readonly]");
         if (posInput) posInput.value = cat2?.position || "";
         if (rateInput) rateInput.value = cat2?.hourly_rate ?? "";
       }
@@ -532,11 +510,11 @@ function renderDirect() {
 
   const rowsHtml = directRows.map((row, idx) => {
     const cells = buckets.map((b) => `
-      <td style="text-align:center;">
+      <td>
         <input
           type="number"
           step="0.01"
-          class="no-spin budget-cell"
+          class="app-number"
           data-kind="direct"
           data-row="${idx}"
           data-ym="${b.ym}"
@@ -549,7 +527,7 @@ function renderDirect() {
     return `
       <tr data-row-index="${idx}">
         <td class="sticky-col-1">
-          <select data-kind="direct-cat" data-row="${idx}" class="budget-select">
+          <select class="app-select" data-kind="direct-cat" data-row="${idx}">
             ${DIRECT_CATS.map(c => `
               <option value="${esc(c)}" ${row.category === c ? "selected" : ""}>
                 ${esc(c)}
@@ -559,7 +537,7 @@ function renderDirect() {
         <td class="sticky-col-2">
           <input
             type="text"
-            class="budget-text"
+            class="app-input"
             data-kind="direct-desc"
             data-row="${idx}"
             value="${esc(row.description)}"
@@ -619,7 +597,7 @@ async function saveBudget() {
         const v = r.months[b.ym];
         const n = Number(v ?? 0);
         if (!isNaN(n) && n !== 0) {
-          laborInserts.push({
+          laborInserts-push({
             grant_id: currentGrantId,
             employee_name: r.employee_name || null,
             category_id: r.category_id || null,
