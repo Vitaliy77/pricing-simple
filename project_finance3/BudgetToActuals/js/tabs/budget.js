@@ -36,7 +36,7 @@ export const template = /*html*/`
         </button>
       </div>
       <div class="scroll-x">
-        <table>
+        <table class="budget-table">
           <thead>
             <tr id="laborHeaderRow"></tr>
           </thead>
@@ -56,7 +56,7 @@ export const template = /*html*/`
         </div>
       </div>
       <div class="scroll-x">
-        <table>
+        <table class="budget-table">
           <thead>
             <tr id="directHeaderRow"></tr>
           </thead>
@@ -65,22 +65,49 @@ export const template = /*html*/`
       </div>
     </section>
 
-    <!-- Local styles for layout/inputs -->
+    <!-- === COMPACT & STICKY STYLES === -->
     <style>
+      /* Sticky first two columns for Labor & ODC */
       .sticky-col-1 {
         position: sticky;
         left: 0;
-        background: white;
+        background: #fff;
         z-index: 10;
-        min-width: 220px;   /* fits ~25 chars */
+        min-width: 12rem; /* ~ Employee name width */
       }
       .sticky-col-2 {
         position: sticky;
-        left: 220px;
-        background: white;
+        left: 12rem;
+        background: #fff;
         z-index: 10;
-        min-width: 220px;   /* fits ~25 chars */
+        min-width: 12rem; /* ~ Position / Description width */
       }
+
+      /* Compact table layout */
+      .budget-table {
+        border-collapse: collapse;
+        width: 100%;
+      }
+
+      .budget-table thead th,
+      .budget-table tbody td {
+        padding: 0.15rem 0.35rem;   /* smaller vertical padding (~2mm) */
+        line-height: 1.1;           /* tighter line height */
+        font-size: 0.85rem;
+        white-space: nowrap;
+      }
+
+      /* Inputs inside budget grid */
+      .budget-table input,
+      .budget-table select {
+        height: 1.7rem;             /* was taller – now more compact */
+        padding: 0 0.35rem;
+        font-size: 0.85rem;
+        margin: 0;                  /* remove extra vertical margin */
+        box-sizing: border-box;
+      }
+
+      /* Specific column types */
       .col-employee,
       .col-position {
         font-size: 0.85rem;
@@ -88,30 +115,23 @@ export const template = /*html*/`
 
       .budget-select {
         width: 100%;
-        padding: 0.2rem 0.35rem;
-        font-size: 0.85rem;
-        height: 2.0rem;
       }
+
       .budget-text {
         width: 100%;
-        padding: 0.2rem 0.35rem;
-        font-size: 0.85rem;
-        height: 2.0rem;
       }
+
       .budget-rate {
         max-width: 5.5rem;
-        padding: 0.2rem 0.35rem;
-        font-size: 0.85rem;
         text-align: right;
-        height: 2.0rem;
       }
+
       .budget-cell {
-        max-width: 6.5rem;
-        padding: 0.2rem 0.35rem;
-        font-size: 0.85rem;
+        max-width: 6.5rem;          /* enough for 000000.00 */
         text-align: right;
-        height: 2.0rem;
       }
+
+      /* Remove spinner arrows on number fields */
       .no-spin::-webkit-inner-spin-button,
       .no-spin::-webkit-outer-spin-button {
         -webkit-appearance: none;
@@ -120,16 +140,10 @@ export const template = /*html*/`
       .no-spin {
         -moz-appearance: textfield;
       }
+
       .labor-total,
       .direct-total {
         font-weight: 600;
-      }
-      #laborHeaderRow th,
-      #directHeaderRow th {
-        height: 2.0rem;
-        padding: 0.2rem 0.35rem;
-        font-size: 0.8rem;
-        white-space: nowrap;
       }
     </style>
   </article>
@@ -139,9 +153,9 @@ export const template = /*html*/`
 let rootEl = null;
 let currentGrantId = null;
 let currentStartYear = 2025;
-let buckets = [];          // [{ label, ym }]
-let laborRows = [];        // [{ employee_name, category_id, months: { ym: number|null } }]
-let directRows = [];       // [{ category, description, months: { ym: number|null } }]
+let buckets = [];          
+let laborRows = [];        
+let directRows = [];       
 let laborCategories = [];
 let laborCatById = new Map();
 
@@ -173,33 +187,19 @@ function msg(text, isErr = false) {
   }
 }
 
-/**
- * Build 26 buckets:
- *   1 "Before", 24 monthly (2 years), 1 "After"
- */
 function buildBuckets(startYear) {
   const arr = [];
   const y = Number(startYear) || new Date().getFullYear();
-
-  // Before
   arr.push({ label: "Before", ym: `${y - 1}-12-01` });
-
-  // 24 months
   for (let i = 0; i < 24; i++) {
     const year = y + Math.floor(i / 12);
-    const month = i % 12; // 0..11
+    const month = i % 12;
     const d = new Date(Date.UTC(year, month, 1));
-    const ym = d.toISOString().slice(0, 10); // YYYY-MM-DD
-    const label = d.toLocaleString("en-US", {
-      month: "short",
-      year: "numeric",
-    });
+    const ym = d.toISOString().slice(0, 10);
+    const label = d.toLocaleString("en-US", { month: "short", year: "numeric" });
     arr.push({ label, ym });
   }
-
-  // After
   arr.push({ label: "After", ym: `${y + 2}-01-01` });
-
   return arr;
 }
 
@@ -233,7 +233,6 @@ export async function init(root, params = {}) {
   renderLabor();
   renderDirect();
 
-  // Priority: 1) URL params 2) global context 3) none
   const fromParams = params.grantId || params.grant_id;
   const fromGlobal = getSelectedGrantId();
   const sel = $("#grantSelect", rootEl);
@@ -264,7 +263,7 @@ function setupEventListeners() {
   $("#grantSelect", rootEl).addEventListener("change", async (e) => {
     const id = e.target.value || null;
     currentGrantId = id;
-    setSelectedGrantId(id);          // 🔑 keep global in sync
+    setSelectedGrantId(id);
 
     laborRows = [];
     directRows = [];
@@ -285,7 +284,6 @@ function setupEventListeners() {
     currentStartYear = y;
     buckets = buildBuckets(currentStartYear);
 
-    // Re-map months for labor & direct
     laborRows.forEach((r) => {
       const newMonths = {};
       buckets.forEach((b) => {
@@ -369,14 +367,8 @@ async function loadBudgetForGrant(grantId) {
   msg("Loading…");
   try {
     const [labRes, dirRes] = await Promise.all([
-      client
-        .from("budget_labor")
-        .select("employee_name,category_id,ym,hours")
-        .eq("grant_id", grantId),
-      client
-        .from("budget_direct")
-        .select("category,description,ym,amount")
-        .eq("grant_id", grantId),
+      client.from("budget_labor").select("employee_name,category_id,ym,hours").eq("grant_id", grantId),
+      client.from("budget_direct").select("category,description,ym,amount").eq("grant_id", grantId),
     ]);
 
     if (labRes.error) throw labRes.error;
@@ -386,7 +378,6 @@ async function loadBudgetForGrant(grantId) {
     const dirRaw = dirRes.data || [];
     const bucketSet = new Set(buckets.map((b) => b.ym));
 
-    // Pivot labor
     const lmap = new Map();
     for (const r of labRaw) {
       const key = `${r.employee_name || ""}||${r.category_id || ""}`;
@@ -404,7 +395,6 @@ async function loadBudgetForGrant(grantId) {
     laborRows = Array.from(lmap.values());
     laborRows.forEach(ensureMonthKeys);
 
-    // Pivot direct
     const dmap = new Map();
     for (const r of dirRaw) {
       const key = `${r.category || ""}||${r.description || ""}`;
@@ -433,13 +423,11 @@ async function loadBudgetForGrant(grantId) {
 }
 
 /* --------- Rendering --------- */
-
 function renderHeaders() {
   const laborHead = $("#laborHeaderRow", rootEl);
   const directHead = $("#directHeaderRow", rootEl);
   if (!laborHead || !directHead) return;
 
-  // Labor header
   laborHead.innerHTML = `
     <th class="sticky-col-1">Employee Name</th>
     <th class="sticky-col-2">Position</th>
@@ -448,7 +436,6 @@ function renderHeaders() {
     <th>Total</th>
   `;
 
-  // Direct header
   directHead.innerHTML = `
     <th class="sticky-col-1">Category</th>
     <th class="sticky-col-2">Description</th>
@@ -507,7 +494,6 @@ function renderLabor() {
 
   tbody.innerHTML = rowsHtml;
 
-  // Cell input handlers
   tbody.querySelectorAll('input[data-kind="labor"]').forEach((inp) => {
     inp.addEventListener("input", (e) => {
       const i = Number(e.target.dataset.row);
@@ -521,7 +507,6 @@ function renderLabor() {
     });
   });
 
-  // Employee select handler
   tbody.querySelectorAll('select[data-kind="labor-emp"]').forEach((sel) => {
     sel.addEventListener("change", (e) => {
       const i = Number(e.target.dataset.row);
@@ -591,7 +576,6 @@ function renderDirect() {
 
   tbody.innerHTML = rowsHtml;
 
-  // Numeric cells
   tbody.querySelectorAll('input[data-kind="direct"]').forEach((inp) => {
     inp.addEventListener("input", (e) => {
       const i = Number(e.target.dataset.row);
@@ -605,7 +589,6 @@ function renderDirect() {
     });
   });
 
-  // Category select
   tbody.querySelectorAll('select[data-kind="direct-cat"]').forEach((sel) => {
     sel.addEventListener("change", (e) => {
       const i = Number(e.target.dataset.row);
@@ -614,7 +597,6 @@ function renderDirect() {
     });
   });
 
-  // Description input
   tbody.querySelectorAll('input[data-kind="direct-desc"]').forEach((inp) => {
     inp.addEventListener("input", (e) => {
       const i = Number(e.target.dataset.row);
@@ -631,7 +613,6 @@ async function saveBudget() {
   try {
     msg("Saving…");
 
-    // Build normalized inserts
     const laborInserts = [];
     laborRows.forEach((r) => {
       buckets.forEach((b) => {
@@ -666,32 +647,11 @@ async function saveBudget() {
       });
     });
 
-    // Delete & insert
-    const delLab = await client
-      .from("budget_labor")
-      .delete()
-      .eq("grant_id", currentGrantId);
-    if (delLab.error) throw delLab.error;
+    await client.from("budget_labor").delete().eq("grant_id", currentGrantId);
+    await client.from("budget_direct").delete().eq("grant_id", currentGrantId);
 
-    const delDir = await client
-      .from("budget_direct")
-      .delete()
-      .eq("grant_id", currentGrantId);
-    if (delDir.error) throw delDir.error;
-
-    if (laborInserts.length) {
-      const insLab = await client
-        .from("budget_labor")
-        .insert(laborInserts);
-      if (insLab.error) throw insLab.error;
-    }
-
-    if (directInserts.length) {
-      const insDir = await client
-        .from("budget_direct")
-        .insert(directInserts);
-      if (insDir.error) throw insDir.error;
-    }
+    if (laborInserts.length) await client.from("budget_labor").insert(laborInserts);
+    if (directInserts.length) await client.from("budget_direct").insert(directInserts);
 
     msg("Budget saved successfully.");
   } catch (e) {
