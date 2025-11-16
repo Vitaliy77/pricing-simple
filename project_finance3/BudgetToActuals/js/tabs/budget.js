@@ -1,42 +1,44 @@
-// /js/tabs/budget.js
+// js/tabs/budget.js
 import { client } from "../api/supabase.js";
 import { $ } from "../lib/dom.js";
 import { getSelectedGrantId, setSelectedGrantId } from "../lib/grantContext.js";
 
-export const template = /*html*/`
+export const template = /*html*/ `
   <article>
     <h3>Budget Builder</h3>
 
-    <div class="grid" style="max-width:800px;margin-bottom:0.5rem;">
-      <label style="min-width:260px;">
-        Grant
-        <select id="grantSelect" class="app-select">
-          <option value="">— Select a grant —</option>
-        </select>
-      </label>
-      <label style="max-width:140px;">
-        Start Year
-        <input id="startYear" type="number" min="2000" max="2100" value="2025" class="app-number">
-      </label>
-    </div>
+    <!-- Grant + Start Year -->
+    <section style="max-width:820px;margin-bottom:0.5rem;">
+      <div class="grid" style="gap:0.35rem;">
+        <label>
+          Grant
+          <select id="grantSelect" class="grant-select" style="min-width:320px;">
+            <option value="">— Select a grant —</option>
+          </select>
+        </label>
+        <label style="max-width:120px;">
+          Start Year
+          <input id="startYear" type="number" min="2000" max="2100" value="2025">
+        </label>
+      </div>
+      <small id="msg"></small>
+    </section>
 
-    <small id="msg"></small>
-
-    <!-- LABOR -->
-    <section style="margin-top:1rem">
+    <!-- Labor Section -->
+    <section style="margin-top:0.5rem;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.25rem;">
         <div style="display:flex;align-items:center;gap:0.5rem;">
           <h4 style="margin:0;">Labor</h4>
-          <button id="addLabor" type="button" style="font-size:0.8rem;padding:0.15rem 0.5rem;">
+          <button id="addLabor" type="button" class="btn-sm">
             + Add Employees
           </button>
         </div>
-        <button id="saveBudget" type="button" style="font-size:0.8rem;padding:0.15rem 0.5rem;">
+        <button id="saveBudget" type="button" class="btn-sm">
           Save Budget
         </button>
       </div>
       <div class="scroll-x">
-        <table class="app-table">
+        <table class="data-grid">
           <thead>
             <tr id="laborHeaderRow"></tr>
           </thead>
@@ -45,18 +47,18 @@ export const template = /*html*/`
       </div>
     </section>
 
-    <!-- OTHER DIRECT COSTS -->
-    <section style="margin-top:1rem">
+    <!-- ODC Section -->
+    <section style="margin-top:0.75rem;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.25rem;">
         <div style="display:flex;align-items:center;gap:0.5rem;">
           <h4 style="margin:0;">Other Direct Costs</h4>
-          <button id="addDirect" type="button" style="font-size:0.8rem;padding:0.15rem 0.5rem;">
+          <button id="addDirect" type="button" class="btn-sm">
             + Other Direct Costs
           </button>
         </div>
       </div>
       <div class="scroll-x">
-        <table class="app-table">
+        <table class="data-grid">
           <thead>
             <tr id="directHeaderRow"></tr>
           </thead>
@@ -65,57 +67,64 @@ export const template = /*html*/`
       </div>
     </section>
 
-    <!-- === APP-STYLE COMPACT & STICKY === -->
+    <!-- Local styles for this tab (layout only; sizes handled globally) -->
     <style>
+      .data-grid {
+        border-collapse: collapse;
+        width: 100%;
+      }
+      .data-grid th,
+      .data-grid td {
+        border: 1px solid #ddd;
+        padding: 0; /* height from global input/select styles */
+        white-space: nowrap;
+      }
+
+      /* Sticky first two columns */
       .sticky-col-1 {
         position: sticky;
         left: 0;
         background: #fff;
         z-index: 10;
-        min-width: 12rem;
+        min-width: 220px; /* ~25 chars */
       }
       .sticky-col-2 {
         position: sticky;
-        left: 12rem;
+        left: 220px;
         background: #fff;
-        z-index: 10;
-        min-width: 12rem;
+        z-index: 9;
+        min-width: 260px; /* ~25 chars */
       }
 
-      .app-table {
-        border-collapse: collapse;
-        width: 100%;
+      .col-employee,
+      .col-position {
         font-size: 0.85rem;
       }
 
-      .app-table thead th,
-      .app-table tbody td {
-        padding: 0.15rem 0.35rem;
-        line-height: 1.1;
-        white-space: nowrap;
-      }
-
-      .app-select,
-      .app-input,
-      .app-number {
-        height: 1.7rem;
-        padding: 0 0.35rem;
-        font-size: 0.85rem;
-        margin: 0;
-        box-sizing: border-box;
+      .grant-select {
         width: 100%;
       }
 
-      .app-number {
+      .budget-text {
+        width: 100%;
+      }
+
+      .budget-rate {
+        width: 6.5rem;
         text-align: right;
       }
 
-      .app-number::-webkit-inner-spin-button,
-      .app-number::-webkit-outer-spin-button {
+      .budget-cell {
+        width: 6.5rem;
+        text-align: right;
+      }
+
+      .no-spin::-webkit-inner-spin-button,
+      .no-spin::-webkit-outer-spin-button {
         -webkit-appearance: none;
         margin: 0;
       }
-      .app-number {
+      .no-spin {
         -moz-appearance: textfield;
       }
 
@@ -127,27 +136,40 @@ export const template = /*html*/`
   </article>
 `;
 
-/* --------- State --------- */
+/* ---------- State ---------- */
+
 let rootEl = null;
 let currentGrantId = null;
 let currentStartYear = 2025;
-let buckets = [];          
-let laborRows = [];        
-let directRows = [];       
+
+let buckets = [];      // [{label, ym}]
+let laborRows = [];    // [{ employee_name, category_id, months: {ym: hours} }]
+let directRows = [];   // [{ category, description, months: {ym: amount} }]
+
 let laborCategories = [];
 let laborCatById = new Map();
 
 const DIRECT_CATS = [
-  "Travel", "Licenses", "Computers", "Software", "Office Supplies",
-  "Training", "Consultants", "Marketing", "Events", "Insurance", "Other",
+  "Travel",
+  "Licenses",
+  "Computers",
+  "Software",
+  "Office Supplies",
+  "Training",
+  "Consultants",
+  "Marketing",
+  "Events",
+  "Insurance",
+  "Other",
 ];
 
-/* --------- Helpers --------- */
+/* ---------- Helpers ---------- */
+
 const esc = (x) =>
   (x ?? "").toString().replace(/&/g, "&amp;").replace(/</g, "&lt;");
 
-const fmtNum = (n) =>
-  (n ?? 0).toLocaleString(undefined, {
+const fmt2 = (n) =>
+  Number(n || 0).toLocaleString(undefined, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
@@ -168,16 +190,23 @@ function msg(text, isErr = false) {
 function buildBuckets(startYear) {
   const arr = [];
   const y = Number(startYear) || new Date().getFullYear();
+
+  // 0: Before
   arr.push({ label: "Before", ym: `${y - 1}-12-01` });
+
+  // 1–24: 24 monthly buckets
   for (let i = 0; i < 24; i++) {
     const year = y + Math.floor(i / 12);
     const month = i % 12;
     const d = new Date(Date.UTC(year, month, 1));
-    const ym = d.toISOString().slice(0, 10);
+    const ym = d.toISOString().slice(0, 10); // YYYY-MM-DD
     const label = d.toLocaleString("en-US", { month: "short", year: "numeric" });
     arr.push({ label, ym });
   }
+
+  // 25: After
   arr.push({ label: "After", ym: `${y + 2}-01-01` });
+
   return arr;
 }
 
@@ -195,34 +224,38 @@ function rowTotal(row) {
   }, 0);
 }
 
-/* --------- Init --------- */
+/* ---------- Init ---------- */
+
 export async function init(root, params = {}) {
   rootEl = root;
   rootEl.innerHTML = template;
 
+  // initial buckets
   currentStartYear = 2025;
   buckets = buildBuckets(currentStartYear);
-  laborRows = [];
-  directRows = [];
 
+  // load employees + grants
   await loadLaborCategories();
   await loadGrantOptions();
+
+  // header & empty grids
   renderHeaders();
   renderLabor();
   renderDirect();
 
+  // decide selected grant:
+  const sel = $("#grantSelect", rootEl);
   const fromParams = params.grantId || params.grant_id;
   const fromGlobal = getSelectedGrantId();
-  const sel = $("#grantSelect", rootEl);
-
   let selectedId = null;
 
   if (fromParams && sel.querySelector(`option[value="${fromParams}"]`)) {
-    sel.value = fromParams;
     selectedId = fromParams;
+    sel.value = fromParams;
+    setSelectedGrantId(fromParams);
   } else if (fromGlobal && sel.querySelector(`option[value="${fromGlobal}"]`)) {
-    sel.value = fromGlobal;
     selectedId = fromGlobal;
+    sel.value = fromGlobal;
   }
 
   currentGrantId = selectedId;
@@ -236,32 +269,39 @@ export async function init(root, params = {}) {
   setupEventListeners();
 }
 
-/* --------- Event Listeners --------- */
+/* ---------- Event Listeners ---------- */
+
 function setupEventListeners() {
+  // Grant dropdown
   $("#grantSelect", rootEl).addEventListener("change", async (e) => {
     const id = e.target.value || null;
     currentGrantId = id;
-    setSelectedGrantId(id);
-
+    setSelectedGrantId(id || null);
     laborRows = [];
     directRows = [];
+
     if (!id) {
       renderLabor();
       renderDirect();
+      msg("Select a grant to start budgeting.");
       return;
     }
+
     await loadBudgetForGrant(id);
   });
 
+  // Start year
   $("#startYear", rootEl).addEventListener("change", (e) => {
     const y = Number(e.target.value || 0);
     if (!y || y < 2000 || y > 2100) {
       e.target.value = String(currentStartYear);
       return;
     }
+
     currentStartYear = y;
     buckets = buildBuckets(currentStartYear);
 
+    // re-project existing month data into new buckets
     laborRows.forEach((r) => {
       const newMonths = {};
       buckets.forEach((b) => {
@@ -269,6 +309,7 @@ function setupEventListeners() {
       });
       r.months = newMonths;
     });
+
     directRows.forEach((r) => {
       const newMonths = {};
       buckets.forEach((b) => {
@@ -282,6 +323,7 @@ function setupEventListeners() {
     renderDirect();
   });
 
+  // Add labor row
   $("#addLabor", rootEl).addEventListener("click", () => {
     if (!currentGrantId) return msg("Select a grant first.", true);
     const row = { employee_name: "", category_id: null, months: {} };
@@ -290,6 +332,7 @@ function setupEventListeners() {
     renderLabor();
   });
 
+  // Add ODC row
   $("#addDirect", rootEl).addEventListener("click", () => {
     if (!currentGrantId) return msg("Select a grant first.", true);
     const row = { category: DIRECT_CATS[0], description: "", months: {} };
@@ -298,10 +341,12 @@ function setupEventListeners() {
     renderDirect();
   });
 
+  // Save
   $("#saveBudget", rootEl).addEventListener("click", saveBudget);
 }
 
-/* --------- Loads --------- */
+/* ---------- Loads ---------- */
+
 async function loadLaborCategories() {
   const { data, error } = await client
     .from("labor_categories")
@@ -314,6 +359,7 @@ async function loadLaborCategories() {
     msg(error.message, true);
     return;
   }
+
   laborCategories = data || [];
   laborCatById = new Map(laborCategories.map((c) => [c.id, c]));
 }
@@ -345,8 +391,14 @@ async function loadBudgetForGrant(grantId) {
   msg("Loading…");
   try {
     const [labRes, dirRes] = await Promise.all([
-      client.from("budget_labor").select("employee_name,category_id,ym,hours").eq("grant_id", grantId),
-      client.from("budget_direct").select("category,description,ym,amount").eq("grant_id", grantId),
+      client
+        .from("budget_labor")
+        .select("employee_name,category_id,ym,hours")
+        .eq("grant_id", grantId),
+      client
+        .from("budget_direct")
+        .select("category,description,ym,amount")
+        .eq("grant_id", grantId),
     ]);
 
     if (labRes.error) throw labRes.error;
@@ -356,6 +408,7 @@ async function loadBudgetForGrant(grantId) {
     const dirRaw = dirRes.data || [];
     const bucketSet = new Set(buckets.map((b) => b.ym));
 
+    // group labor rows by (employee_name, category_id)
     const lmap = new Map();
     for (const r of labRaw) {
       const key = `${r.employee_name || ""}||${r.category_id || ""}`;
@@ -373,6 +426,7 @@ async function loadBudgetForGrant(grantId) {
     laborRows = Array.from(lmap.values());
     laborRows.forEach(ensureMonthKeys);
 
+    // group direct rows by (category, description)
     const dmap = new Map();
     for (const r of dirRaw) {
       const key = `${r.category || ""}||${r.description || ""}`;
@@ -400,25 +454,40 @@ async function loadBudgetForGrant(grantId) {
   }
 }
 
-/* --------- Rendering --------- */
-function renderHeaders() {
-  const laborHead = $("#laborHeaderRow", rootEl);
-  const directHead = $("#directHeaderRow", rootEl);
-  if (!laborHead || !directHead) return;
+/* ---------- Rendering ---------- */
 
-  laborHead.innerHTML = `
-    <th class="sticky-col-1">Employee Name</th>
-    <th class="sticky-col-2">Position</th>
-    <th>Rate</th>
-    ${buckets.map(b => `<th>${esc(b.label)}</th>`).join("")}
-    <th>Total</th>
+function renderHeaders() {
+  const laborHeaderRow = $("#laborHeaderRow", rootEl);
+  const directHeaderRow = $("#directHeaderRow", rootEl);
+  if (!laborHeaderRow || !directHeaderRow) return;
+
+  laborHeaderRow.innerHTML = `
+    <th class="sticky-col-1 col-employee">Employee Name</th>
+    <th class="sticky-col-2 col-position">Position</th>
+    <th style="min-width:6.5rem;text-align:right;">Rate</th>
+    ${buckets
+      .map(
+        (b) =>
+          `<th style="min-width:6.5rem;text-align:right;">${esc(
+            b.label
+          )}</th>`
+      )
+      .join("")}
+    <th style="min-width:7rem;text-align:right;">Total Hours</th>
   `;
 
-  directHead.innerHTML = `
-    <th class="sticky-col-1">Category</th>
-    <th class="sticky-col-2">Description</th>
-    ${buckets.map(b => `<th>${esc(b.label)}</th>`).join("")}
-    <th>Total</th>
+  directHeaderRow.innerHTML = `
+    <th class="sticky-col-1 col-employee">Category</th>
+    <th class="sticky-col-2 col-position">Description</th>
+    ${buckets
+      .map(
+        (b) =>
+          `<th style="min-width:6.5rem;text-align:right;">${esc(
+            b.label
+          )}</th>`
+      )
+      .join("")}
+    <th style="min-width:7rem;text-align:right;">Total Amount</th>
   `;
 }
 
@@ -426,52 +495,77 @@ function renderLabor() {
   const tbody = $("#laborBody", rootEl);
   if (!tbody) return;
 
-  const rowsHtml = laborRows.map((row, idx) => {
-    const cat = row.category_id ? laborCatById.get(row.category_id) : null;
-    const position = cat?.position || "";
-    const rate = cat?.hourly_rate ?? "";
-    const cells = buckets.map((b) => `
-      <td>
-        <input
-          type="number"
-          step="0.01"
-          class="app-number"
-          data-kind="labor"
-          data-row="${idx}"
-          data-ym="${b.ym}"
-          value="${esc(row.months[b.ym] ?? "")}"
-        >
-      </td>
-    `).join("");
-    const total = rowTotal(row);
+  const rowsHtml = laborRows
+    .map((row, idx) => {
+      const cat = row.category_id ? laborCatById.get(row.category_id) : null;
+      const position = cat?.position || "";
+      const rate = cat?.hourly_rate ?? "";
 
-    return `
+      const cells = buckets
+        .map(
+          (b) => `
+        <td style="text-align:right;">
+          <input
+            type="number"
+            step="0.01"
+            class="no-spin budget-cell"
+            data-kind="labor"
+            data-row="${idx}"
+            data-ym="${b.ym}"
+            value="${esc(row.months[b.ym] ?? "")}"
+          >
+        </td>
+      `
+        )
+        .join("");
+
+      const total = rowTotal(row);
+
+      return `
       <tr data-row-index="${idx}">
         <td class="sticky-col-1 col-employee">
-          <select data-kind="labor-emp" data-row="${idx}" class="app-select">
+          <select data-kind="labor-emp" data-row="${idx}" class="budget-select">
             <option value="">— Select employee —</option>
-            ${laborCategories.map(c => `
-              <option value="${c.id}" ${row.category_id === c.id ? "selected" : ""}>
+            ${laborCategories
+              .map(
+                (c) => `
+              <option value="${c.id}" ${
+                  row.category_id === c.id ? "selected" : ""
+                }>
                 ${esc(c.name)}
-              </option>`).join("")}
+              </option>`
+              )
+              .join("")}
           </select>
         </td>
         <td class="sticky-col-2 col-position">
-          <input type="text" readonly class="app-input" value="${esc(position)}">
+          <input
+            type="text"
+            readonly
+            class="budget-text"
+            value="${esc(position)}"
+          >
         </td>
         <td style="text-align:right;">
-          <input type="number" readonly class="app-number" value="${esc(rate)}">
+          <input
+            type="number"
+            readonly
+            class="no-spin budget-rate"
+            value="${esc(rate)}"
+          >
         </td>
         ${cells}
-        <td class="labor-total" data-row="${idx}" style="text-align:right;font-weight:600;">
-          ${fmtNum(total)}
+        <td class="labor-total" data-row="${idx}" style="text-align:right;">
+          ${fmt2(total)}
         </td>
       </tr>
     `;
-  }).join("");
+    })
+    .join("");
 
   tbody.innerHTML = rowsHtml;
 
+  // Handle hours input
   tbody.querySelectorAll('input[data-kind="labor"]').forEach((inp) => {
     inp.addEventListener("input", (e) => {
       const i = Number(e.target.dataset.row);
@@ -480,23 +574,29 @@ function renderLabor() {
       const v = e.target.value;
       const n = v === "" ? null : Number(v);
       laborRows[i].months[ym] = n == null || isNaN(n) ? null : n;
-      const totalCell = tbody.querySelector(`td.labor-total[data-row="${i}"]`);
-      if (totalCell) totalCell.textContent = fmtNum(rowTotal(laborRows[i]));
+
+      const totalCell = tbody.querySelector(
+        `td.labor-total[data-row="${i}"]`
+      );
+      if (totalCell) totalCell.textContent = fmt2(rowTotal(laborRows[i]));
     });
   });
 
+  // Handle employee selection
   tbody.querySelectorAll('select[data-kind="labor-emp"]').forEach((sel) => {
     sel.addEventListener("change", (e) => {
       const i = Number(e.target.dataset.row);
       const id = e.target.value || null;
       if (!laborRows[i]) return;
       laborRows[i].category_id = id;
+
       const cat2 = id ? laborCatById.get(id) : null;
       laborRows[i].employee_name = cat2?.name || "";
+
       const tr = tbody.querySelector(`tr[data-row-index="${i}"]`);
       if (tr) {
-        const519 posInput = tr.querySelector(".col-position input.app-input");
-        const rateInput = tr.querySelector("input.app-number[readonly]");
+        const posInput = tr.querySelector(".col-position input");
+        const rateInput = tr.querySelector(".budget-rate");
         if (posInput) posInput.value = cat2?.position || "";
         if (rateInput) rateInput.value = cat2?.hourly_rate ?? "";
       }
@@ -508,52 +608,61 @@ function renderDirect() {
   const tbody = $("#directBody", rootEl);
   if (!tbody) return;
 
-  const rowsHtml = directRows.map((row, idx) => {
-    const cells = buckets.map((b) => `
-      <td>
-        <input
-          type="number"
-          step="0.01"
-          class="app-number"
-          data-kind="direct"
-          data-row="${idx}"
-          data-ym="${b.ym}"
-          value="${esc(row.months[b.ym] ?? "")}"
-        >
-      </td>
-    `).join("");
-    const total = rowTotal(row);
+  const rowsHtml = directRows
+    .map((row, idx) => {
+      const cells = buckets
+        .map(
+          (b) => `
+        <td style="text-align:right;">
+          <input
+            type="number"
+            step="0.01"
+            class="no-spin budget-cell"
+            data-kind="direct"
+            data-row="${idx}"
+            data-ym="${b.ym}"
+            value="${esc(row.months[b.ym] ?? "")}"
+          >
+        </td>
+      `
+        )
+        .join("");
 
-    return `
+      const total = rowTotal(row);
+
+      return `
       <tr data-row-index="${idx}">
-        <td class="sticky-col-1">
-          <select class="app-select" data-kind="direct-cat" data-row="${idx}">
-            ${DIRECT_CATS.map(c => `
-              <option value="${esc(c)}" ${row.category === c ? "selected" : ""}>
-                ${esc(c)}
-              </option>`).join("")}
+        <td class="sticky-col-1 col-employee">
+          <select data-kind="direct-cat" data-row="${idx}" class="budget-select">
+            ${DIRECT_CATS.map(
+              (c) => `
+              <option value="${esc(c)}" ${
+                row.category === c ? "selected" : ""
+              }>${esc(c)}</option>`
+            ).join("")}
           </select>
         </td>
-        <td class="sticky-col-2">
+        <td class="sticky-col-2 col-position">
           <input
             type="text"
-            class="app-input"
+            class="budget-text"
             data-kind="direct-desc"
             data-row="${idx}"
             value="${esc(row.description)}"
-            placeholder="Description"
           >
         </td>
         ${cells}
-        <td class="direct-total" data-row="${idx}" style="text-align:right;font-weight:600;">
-          ${fmtNum(total)}
+        <td class="direct-total" data-row="${idx}" style="text-align:right;">
+          ${fmt2(total)}
         </td>
       </tr>
     `;
-  }).join("");
+    })
+    .join("");
 
   tbody.innerHTML = rowsHtml;
 
+  // Amount inputs
   tbody.querySelectorAll('input[data-kind="direct"]').forEach((inp) => {
     inp.addEventListener("input", (e) => {
       const i = Number(e.target.dataset.row);
@@ -562,11 +671,15 @@ function renderDirect() {
       const v = e.target.value;
       const n = v === "" ? null : Number(v);
       directRows[i].months[ym] = n == null || isNaN(n) ? null : n;
-      const totalCell = tbody.querySelector(`td.direct-total[data-row="${i}"]`);
-      if (totalCell) totalCell.textContent = fmtNum(rowTotal(directRows[i]));
+
+      const totalCell = tbody.querySelector(
+        `td.direct-total[data-row="${i}"]`
+      );
+      if (totalCell) totalCell.textContent = fmt2(rowTotal(directRows[i]));
     });
   });
 
+  // Category select
   tbody.querySelectorAll('select[data-kind="direct-cat"]').forEach((sel) => {
     sel.addEventListener("change", (e) => {
       const i = Number(e.target.dataset.row);
@@ -575,6 +688,7 @@ function renderDirect() {
     });
   });
 
+  // Description
   tbody.querySelectorAll('input[data-kind="direct-desc"]').forEach((inp) => {
     inp.addEventListener("input", (e) => {
       const i = Number(e.target.dataset.row);
@@ -584,56 +698,77 @@ function renderDirect() {
   });
 }
 
-/* --------- Save --------- */
+/* ---------- Save ---------- */
+
 async function saveBudget() {
   if (!currentGrantId) return msg("Select a grant first.", true);
 
+  const labInserts = [];
+  for (const it of laborRows) {
+    const hasHeader = (it.employee_name && it.employee_name.trim()) || it.category_id;
+    if (!hasHeader) continue;
+    for (const b of buckets) {
+      const v = it.months[b.ym];
+      if (v !== null && v !== undefined && v !== "" && !isNaN(Number(v))) {
+        labInserts.push({
+          grant_id: currentGrantId,
+          employee_name: it.employee_name || null,
+          category_id: it.category_id || null,
+          ym: b.ym,
+          hours: Number(v),
+        });
+      }
+    }
+  }
+
+  const dirInserts = [];
+  for (const it of directRows) {
+    const hasHeader =
+      (it.category && it.category.trim()) || (it.description && it.description.trim());
+    if (!hasHeader) continue;
+    for (const b of buckets) {
+      const v = it.months[b.ym];
+      if (v !== null && v !== undefined && v !== "" && !isNaN(Number(v))) {
+        dirInserts.push({
+          grant_id: currentGrantId,
+          category: it.category || null,
+          description: it.description || null,
+          ym: b.ym,
+          amount: Number(v),
+        });
+      }
+    }
+  }
+
   try {
-    msg("Saving…");
+    // Clear existing for this grant
+    const del1 = await client
+      .from("budget_labor")
+      .delete()
+      .eq("grant_id", currentGrantId);
+    if (del1.error) throw del1.error;
 
-    const laborInserts = [];
-    laborRows.forEach((r) => {
-      buckets.forEach((b) => {
-        const v = r.months[b.ym];
-        const n = Number(v ?? 0);
-        if (!isNaN(n) && n !== 0) {
-          laborInserts-push({
-            grant_id: currentGrantId,
-            employee_name: r.employee_name || null,
-            category_id: r.category_id || null,
-            ym: b.ym,
-            hours: n,
-          });
-        }
-      });
-    });
+    const del2 = await client
+      .from("budget_direct")
+      .delete()
+      .eq("grant_id", currentGrantId);
+    if (del2.error) throw del2.error;
 
-    const directInserts = [];
-    directRows.forEach((r) => {
-      buckets.forEach((b) => {
-        const v = r.months[b.ym];
-        const n = Number(v ?? 0);
-        if (!isNaN(n) && n !== 0) {
-          directInserts.push({
-            grant_id: currentGrantId,
-            category: r.category || null,
-            description: r.description || null,
-            ym: b.ym,
-            amount: n,
-          });
-        }
-      });
-    });
-
-    await client.from("budget_labor").delete().eq("grant_id", currentGrantId);
-    await client.from("budget_direct").delete().eq("grant_id", currentGrantId);
-
-    if (laborInserts.length) await client.from("budget_labor").insert(laborInserts);
-    if (directInserts.length) await client.from("budget_direct").insert(directInserts);
+    // Insert new
+    if (labInserts.length) {
+      const ins1 = await client.from("budget_labor").insert(labInserts);
+      if (ins1.error) throw ins1.error;
+    }
+    if (dirInserts.length) {
+      const ins2 = await client.from("budget_direct").insert(dirInserts);
+      if (ins2.error) throw ins2.error;
+    }
 
     msg("Budget saved successfully.");
   } catch (e) {
     console.error("[budget] saveBudget error", e);
-    msg(e.message || String(e), true);
+    msg("Save failed: " + (e.message || String(e)), true);
   }
 }
+
+export const budgetTab = { template, init };
