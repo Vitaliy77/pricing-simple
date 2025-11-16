@@ -64,7 +64,7 @@
 
     input, select, textarea {
       height: 2rem;
-      font-size: 11px;
+      font-size: 0.9rem;   /* Larger, readable — matches labels */
       padding: 0 0.35rem;
       box-sizing: border-box;
     }
@@ -146,6 +146,12 @@
       margin-bottom: 0.25rem;
     }
 
+    /* === TOP NAVIGATION: Match tab header size === */
+    nav ul li a {
+      font-size: 1.1rem;
+      font-weight: 500;
+    }
+
     /* Legacy fallback (in case old classes still used) */
     .wrap { max-width: 1200px; margin: 2rem auto; }
   </style>
@@ -169,7 +175,6 @@
         <li><a href="#editData">Edit Data</a></li>
       </ul>
     </nav>
-
     <div id="app"></div>
   </main>
 
