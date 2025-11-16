@@ -1,149 +1,122 @@
 // js/tabs/grantSelect.js
-import { client } from '../api/supabase.js';
-import { $ } from '../lib/dom.js';
-import { getSelectedGrantId, setSelectedGrantId } from '../lib/grantContext.js';
+import { client } from "../api/supabase.js";
+import { $, h } from "../lib/dom.js";
+import { getSelectedGrantId, setSelectedGrantId } from "../lib/grantContext.js";
 
-export const template = /*html*/`
+export const template = /*html*/ `
   <article>
     <h3>Grant Selection</h3>
-    <small id="msg"></small>
-
-    <section style="margin-top:0.75rem;max-width:700px;">
-      <label style="display:block;margin-bottom:0.5rem;">
-        <span style="display:block;margin-bottom:0.25rem;">Select active grant</span>
-        <select id="grantSelectMain" style="width:100%;padding:0.35rem;font-size:0.9rem;">
-          <option value="">— Choose a grant —</option>
-        </select>
-      </label>
-      <button id="setCurrent" type="button" style="font-size:0.85rem;padding:0.25rem 0.75rem;">
-        Set as current grant
-      </button>
+    <section style="max-width:600px;margin-bottom:1rem;">
+      <div class="grid" style="row-gap:0.35rem;">
+        <label>
+          Grant
+          <select id="grantSelectMain">
+            <option value="">— Select a grant —</option>
+          </select>
+        </label>
+      </div>
+      <div style="margin-top:0.5rem;display:flex;gap:0.5rem;align-items:center;">
+        <button id="grantSetCurrent" type="button">Set as current grant</button>
+        <small id="msg"></small>
+      </div>
     </section>
 
-    <section id="grantInfo" style="margin-top:1.5rem;max-width:700px;">
-      <!-- filled by JS -->
+    <section>
+      <h4 style="margin-bottom:0.35rem;">Current Grant</h4>
+      <div id="grantCurrentInfo"></div>
     </section>
   </article>
 `;
 
-let rootEl = null;
-let grantsCache = [];
-
-/* ---------- helpers ---------- */
-
-function msg(text, isErr = false) {
-  if (!rootEl) return;
-  const el = $('#msg', rootEl);
-  if (!el) return;
-  el.textContent = text || '';
-  el.style.color = isErr ? '#b00' : 'inherit';
-  if (text) {
-    setTimeout(() => {
-      if (el.textContent === text) el.textContent = '';
-    }, 3500);
-  }
-}
-
-function esc(x) {
-  return (x ?? '').toString().replace(/&/g, '&amp;').replace(/</g, '&lt;');
-}
-
-function renderGrantInfo(grant) {
-  const box = $('#grantInfo', rootEl);
-  if (!box) return;
-
-  if (!grant) {
-    box.innerHTML = `<p style="color:#666;">No grant selected.</p>`;
-    return;
-  }
-
-  const pop = `${grant.start_date || '—'} → ${grant.end_date || '—'}`;
-  const amt = grant.amount != null
-    ? Number(grant.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-    : '—';
-
-  box.innerHTML = `
-    <div style="
-      border:1px solid #ddd;
-      border-radius:0.4rem;
-      padding:0.75rem 0.9rem;
-      background:#fafafa;
-    ">
-      <h4 style="margin:0 0 0.4rem 0;">${esc(grant.name)}</h4>
-      <p style="margin:0.1rem 0;font-size:0.9rem;">
-        <strong>Grant ID:</strong> ${esc(grant.grant_id || '—')}
-      </p>
-      <p style="margin:0.1rem 0;font-size:0.9rem;">
-        <strong>Period of performance:</strong> ${esc(pop)}
-      </p>
-      <p style="margin:0.1rem 0;font-size:0.9rem;">
-        <strong>Total award:</strong> $${amt}
-      </p>
-      <p style="margin:0.1rem 0;font-size:0.9rem;color:#666;">
-        <strong>Status:</strong> ${esc(grant.status || 'active')}
-      </p>
-    </div>
-  `;
-}
-
-/* ---------- main ---------- */
-
 export async function init(root) {
-  rootEl = root;
-  rootEl.innerHTML = template;
-  msg('');
-
-  const sel = $('#grantSelectMain', rootEl);
+  root.innerHTML = template;
+  const msg = (t, e = false) => {
+    const m = $("#msg", root);
+    if (!m) return;
+    m.textContent = t || "";
+    m.style.color = e ? "#b00" : "inherit";
+    if (t) {
+      setTimeout(() => {
+        if (m.textContent === t) m.textContent = "";
+      }, 4000);
+    }
+  };
 
   // Load active grants
-  try {
+  async function load() {
+    const sel = $("#grantSelectMain", root);
+    sel.innerHTML = '<option value="">— Select a grant —</option>';
+
     const { data, error } = await client
-      .from('grants')
-      .select('id,name,grant_id,start_date,end_date,amount,status')
-      .eq('status', 'active')
-      .order('name', { ascending: true });
+      .from("grants")
+      .select("id,name,grant_id,start_date,end_date,total_award,status")
+      .eq("status", "active")
+      .order("name", { ascending: true });
 
-    if (error) throw error;
+    if (error) {
+      console.error("[grantSelect] load error", error);
+      msg(error.message, true);
+      return;
+    }
 
-    grantsCache = data || [];
-    sel.innerHTML = '<option value="">— Choose a grant —</option>';
-
-    grantsCache.forEach(g => {
-      const label = g.grant_id
-        ? `${g.name} (${g.grant_id})`
-        : g.name;
+    (data || []).forEach((g) => {
+      const label = g.grant_id ? `${g.name} (${g.grant_id})` : g.name;
       sel.appendChild(new Option(label, g.id));
     });
 
-    // Try to auto-select previously chosen grant
-    const savedId = getSelectedGrantId();
-    if (savedId && sel.querySelector(`option[value="${savedId}"]`)) {
-      sel.value = savedId;
-      const g = grantsCache.find(x => x.id === savedId);
-      renderGrantInfo(g || null);
+    // Try to preselect from global context
+    const current = getSelectedGrantId();
+    if (current && sel.querySelector(`option[value="${current}"]`)) {
+      sel.value = current;
+      await showCurrent(current);
     } else {
-      renderGrantInfo(null);
+      await showCurrent(null);
     }
-  } catch (e) {
-    console.error('[grantSelect] load error', e);
-    msg(e.message || String(e), true);
   }
 
-  // When dropdown changes -> update info, but DO NOT overwrite global until user clicks button
-  sel.addEventListener('change', e => {
-    const id = e.target.value || null;
-    const grant = grantsCache.find(g => g.id === id) || null;
-    renderGrantInfo(grant);
-  });
+  async function showCurrent(grantId) {
+    const box = $("#grantCurrentInfo", root);
+    box.innerHTML = "";
 
-  // Button: set as current grant (global)
-  $('#setCurrent', rootEl).addEventListener('click', () => {
+    if (!grantId) {
+      box.textContent = "No grant selected.";
+      return;
+    }
+
+    const { data, error } = await client
+      .from("grants")
+      .select("id,name,grant_id,start_date,end_date,total_award,status,funder")
+      .eq("id", grantId)
+      .maybeSingle();
+
+    if (error) {
+      console.error("[grantSelect] showCurrent error", error);
+      box.textContent = error.message;
+      return;
+    }
+    if (!data) {
+      box.textContent = "Grant not found.";
+      return;
+    }
+
+    const div = h(`<div style="border:1px solid #ddd;border-radius:4px;padding:0.75rem;font-size:0.9rem;">
+      <div><strong>${data.name}</strong> ${data.grant_id ? `(${data.grant_id})` : ""}</div>
+      <div>Funder: ${data.funder || "—"}</div>
+      <div>Period: ${data.start_date || ""} → ${data.end_date || ""}</div>
+      <div>Total Award: ${data.total_award != null ? Number(data.total_award).toLocaleString() : "—"}</div>
+      <div>Status: ${data.status || "—"}</div>
+    </div>`);
+    box.appendChild(div);
+  }
+
+  $("#grantSetCurrent", root).onclick = async () => {
+    const sel = $("#grantSelectMain", root);
     const id = sel.value || null;
-    if (!id) return msg('Select a grant first.', true);
-
+    if (!id) return msg("Select a grant first.", true);
     setSelectedGrantId(id);
-    const g = grantsCache.find(x => x.id === id) || null;
-    renderGrantInfo(g);
-    msg('Current grant set. Other tabs will now use this grant.');
-  });
+    await showCurrent(id);
+    msg("Current grant saved.");
+  };
+
+  await load();
 }
