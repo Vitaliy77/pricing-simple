@@ -11,15 +11,15 @@ export const template = /*html*/ `
     </p>
 
     <!-- === EMPLOYEES === -->
-    <details open>
+    <details open class="data-section">
       <summary><strong>Employees</strong></summary>
       <div class="ref-wrapper">
         <div style="margin-bottom:0.5rem;">
-          <button id="empAdd" type="button" style="font-size:0.8rem;margin-right:0.5rem;">+ Add Employee</button>
-          <button id="empSave" type="button" style="font-size:0.8rem;">Save Employees</button>
+          <button id="empAdd" type="button" class="btn btn-sm" style="margin-right:0.5rem;">+ Add Employee</button>
+          <button id="empSave" type="button" class="btn btn-sm">Save Employees</button>
         </div>
         <div class="scroll-x">
-          <table id="empTable">
+          <table id="empTable" class="app-table">
             <thead>
               <tr>
                 <th>Name</th>
@@ -36,15 +36,15 @@ export const template = /*html*/ `
     </details>
 
     <!-- === SUBCONTRACTORS === -->
-    <details style="margin-top:0.75rem;">
+    <details class="data-section" style="margin-top:0.75rem;">
       <summary><strong>Subcontractors</strong></summary>
       <div class="ref-wrapper">
         <div style="margin-bottom:0.5rem;">
-          <button id="subsAdd" type="button" style="font-size:0.8rem;margin-right:0.5rem;">+ Add Sub</button>
-          <button id="subsSave" type="button" style="font-size:0.8rem;">Save Subs</button>
+          <button id="subsAdd" type="button" class="btn btn-sm" style="margin-right:0.5rem;">+ Add Sub</button>
+          <button id="subsSave" type="button" class="btn btn-sm">Save Subs</button>
         </div>
         <div class="scroll-x">
-          <table id="subsTable">
+          <table id="subsTable" class="app-table">
             <thead>
               <tr>
                 <th>Name</th>
@@ -59,15 +59,15 @@ export const template = /*html*/ `
     </details>
 
     <!-- === MATERIALS === -->
-    <details style="margin-top:0.75rem;">
+    <details class="data-section" style="margin-top:0.75rem;">
       <summary><strong>Materials</strong></summary>
       <div class="ref-wrapper">
         <div style="margin-bottom:0.5rem;">
-          <button id="matAdd" type="button" style="font-size:0.8rem;margin-right:0.5rem;">+ Add Material</button>
-          <button id="matSave" type="button" style="font-size:0.8rem;">Save Materials</button>
+          <button id="matAdd" type="button" class="btn btn-sm" style="margin-right:0.5rem;">+ Add Material</button>
+          <button id="matSave" type="button" class="btn btn-sm">Save Materials</button>
         </div>
         <div class="scroll-x">
-          <table id="matTable">
+          <table id="matTable" class="app-table">
             <thead>
               <tr>
                 <th>Name</th>
@@ -82,15 +82,15 @@ export const template = /*html*/ `
     </details>
 
     <!-- === EQUIPMENT === -->
-    <details style="margin-top:0.75rem;">
+    <details class="data-section" style="margin-top:0.75rem;">
       <summary><strong>Equipment</strong></summary>
       <div class="ref-wrapper">
         <div style="margin-bottom:0.5rem;">
-          <button id="eqAdd" type="button" style="font-size:0.8rem;margin-right:0.5rem;">+ Add Equipment</button>
-          <button id="eqSave" type="button" style="font-size:0.8rem;">Save Equipment</button>
+          <button id="eqAdd" type="button" class="btn btn-sm" style="margin-right:0.5rem;">+ Add Equipment</button>
+          <button id="eqSave" type="button" class="btn btn-sm">Save Equipment</button>
         </div>
         <div class="scroll-x">
-          <table id="eqTable">
+          <table id="eqTable" class="app-table">
             <thead>
               <tr>
                 <th>Name</th>
@@ -105,15 +105,15 @@ export const template = /*html*/ `
     </details>
 
     <!-- === ODC CATEGORIES === -->
-    <details style="margin-top:0.75rem;">
+    <details class="data-section" style="margin-top:0.75rem;">
       <summary><strong>ODC Categories</strong></summary>
       <div class="ref-wrapper">
         <div style="margin-bottom:0.5rem;">
-          <button id="odcAdd" type="button" style="font-size:0.8rem;margin-right:0.5rem;">+ Add ODC Category</button>
-          <button id="odcSave" type="button" style="font-size:0.8rem;">Save ODC</button>
+          <button id="odcAdd" type="button" class="btn btn-sm" style="margin-right:0.5rem;">+ Add ODC Category</button>
+          <button id="odcSave" type="button" class="btn btn-sm">Save ODC</button>
         </div>
         <div class="scroll-x">
-          <table id="odcTable">
+          <table id="odcTable" class="app-table">
             <thead>
               <tr>
                 <th>Name</th>
@@ -129,30 +129,41 @@ export const template = /*html*/ `
 
     <small id="msg" style="display:block;margin-top:0.75rem;"></small>
 
-    <!-- === STICKY HEADER CSS === -->
+    <!-- === APP-STYLE COMPACT & STICKY === -->
     <style>
-      .ref-wrapper {
+      .data-section {
         border: 1px solid #ddd;
         border-radius: 6px;
+        margin-bottom: 0.5rem;
+        overflow: hidden;
+      }
+
+      .ref-wrapper {
         padding: 0.5rem;
         background: #fafafa;
       }
+
       .scroll-x {
         overflow-x: auto;
         max-height: 60vh;
         overflow-y: auto;
       }
-      table {
+
+      .app-table {
         width: 100%;
         border-collapse: collapse;
         font-size: 0.85rem;
       }
-      th, td {
-        padding: 0.35rem 0.5rem;
+
+      .app-table thead th,
+      .app-table tbody td {
+        padding: 0.15rem 0.35rem;
+        line-height: 1.1;
         border-bottom: 1px solid #eee;
         text-align: left;
       }
-      thead th {
+
+      .app-table thead th {
         position: sticky;
         top: 0;
         background: #eef2ff;
@@ -160,15 +171,39 @@ export const template = /*html*/ `
         font-weight: 600;
         box-shadow: 0 2px 2px -1px rgba(0,0,0,0.1);
       }
-      input[type="text"],
-      input[type="number"] {
+
+      .app-input,
+      .app-number {
         width: 100%;
-        padding: 0.2rem 0.35rem;
+        height: 1.7rem;
+        padding: 0 0.35rem;
         font-size: 0.85rem;
         box-sizing: border-box;
+        margin: 0;
       }
+
+      .app-number {
+        text-align: right;
+      }
+
+      .app-number::-webkit-inner-spin-button,
+      .app-number::-webkit-outer-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+      }
+      .app-number {
+        -moz-appearance: textfield;
+      }
+
       input[type="checkbox"] {
         transform: scale(1.1);
+        margin: 0 auto;
+        display: block;
+      }
+
+      .btn.btn-sm {
+        font-size: 0.8rem;
+        padding: 0.15rem 0.5rem;
       }
     </style>
   </article>
@@ -305,10 +340,10 @@ function renderEmployees() {
   employees.forEach((e, idx) => {
     const tr = h(`<tr data-row="${idx}"></tr>`);
     tr.innerHTML = `
-      <td><input type="text" data-kind="emp" data-field="name" data-index="${idx}" value="${esc(e.name || "")}"></td>
-      <td><input type="text" data-kind="emp" data-field="position" data-index="${idx}" value="${esc(e.position || "")}"></td>
-      <td><input type="number" step="0.01" data-kind="emp" data-field="hourly_rate" data-index="${idx}" value="${esc(e.hourly_rate ?? "")}"></td>
-      <td><input type="number" step="0.1" data-kind="emp" data-field="burden_pct" data-index="${idx}" value="${esc(e.burden_pct ?? "")}"></td>
+      <td><input type="text" class="app-input" data-kind="emp" data-field="name" data-index="${idx}" value="${esc(e.name || "")}"></td>
+      <td><input type="text" class="app-input" data-kind="emp" data-field="position" data-index="${idx}" value="${esc(e.position || "")}"></td>
+      <td><input type="number" step="0.01" class="app-number" data-kind="emp" data-field="hourly_rate" data-index="${idx}" value="${esc(e.hourly_rate ?? "")}"></td>
+      <td><input type="number" step="0.1" class="app-number" data-kind="emp" data-field="burden_pct" data-index="${idx}" value="${esc(e.burden_pct ?? "")}"></td>
       <td style="text-align:center;"><input type="checkbox" data-kind="emp" data-field="is_active" data-index="${idx}" ${e.is_active ? "checked" : ""}></td>
     `;
     tb.appendChild(tr);
@@ -326,8 +361,8 @@ function renderSubs() {
   subs.forEach((s, idx) => {
     const tr = h(`<tr data-row="${idx}"></tr>`);
     tr.innerHTML = `
-      <td><input type="text" data-kind="subs" data-field="name" data-index="${idx}" value="${esc(s.name || "")}"></td>
-      <td><input type="text" data-kind="subs" data-field="description" data-index="${idx}" value="${esc(s.description || "")}"></td>
+      <td><input type="text" class="app-input" data-kind="subs" data-field="name" data-index="${idx}" value="${esc(s.name || "")}"></td>
+      <td><input type="text" class="app-input" data-kind="subs" data-field="description" data-index="${idx}" value="${esc(s.description || "")}"></td>
       <td style="text-align:center;"><input type="checkbox" data-kind="subs" data-field="is_active" data-index="${idx}" ${s.is_active ? "checked" : ""}></td>
     `;
     tb.appendChild(tr);
@@ -345,8 +380,8 @@ function renderMaterials() {
   materials.forEach((m, idx) => {
     const tr = h(`<tr data-row="${idx}"></tr>`);
     tr.innerHTML = `
-      <td><input type="text" data-kind="mat" data-field="name" data-index="${idx}" value="${esc(m.name || "")}"></td>
-      <td><input type="text" data-kind="mat" data-field="description" data-index="${idx}" value="${esc(m.description || "")}"></td>
+      <td><input type="text" class="app-input" data-kind="mat" data-field="name" data-index="${idx}" value="${esc(m.name || "")}"></td>
+      <td><input type="text" class="app-input" data-kind="mat" data-field="description" data-index="${idx}" value="${esc(m.description || "")}"></td>
       <td style="text-align:center;"><input type="checkbox" data-kind="mat" data-field="is_active" data-index="${idx}" ${m.is_active ? "checked" : ""}></td>
     `;
     tb.appendChild(tr);
@@ -364,8 +399,8 @@ function renderEquipment() {
   equipment.forEach((e, idx) => {
     const tr = h(`<tr data-row="${idx}"></tr>`);
     tr.innerHTML = `
-      <td><input type="text" data-kind="eq" data-field="name" data-index="${idx}" value="${esc(e.name || "")}"></td>
-      <td><input type="text" data-kind="eq" data-field="description" data-index="${idx}" value="${esc(e.description || "")}"></td>
+      <td><input type="text" class="app-input" data-kind="eq" data-field="name" data-index="${idx}" value="${esc(e.name || "")}"></td>
+      <td><input type="text" class="app-input" data-kind="eq" data-field="description" data-index="${idx}" value="${esc(e.description || "")}"></td>
       <td style="text-align:center;"><input type="checkbox" data-kind="eq" data-field="is_active" data-index="${idx}" ${e.is_active ? "checked" : ""}></td>
     `;
     tb.appendChild(tr);
@@ -383,8 +418,8 @@ function renderOdc() {
   odc.forEach((o, idx) => {
     const tr = h(`<tr data-row="${idx}"></tr>`);
     tr.innerHTML = `
-      <td><input type="text" data-kind="odc" data-field="name" data-index="${idx}" value="${esc(o.name || "")}"></td>
-      <td><input type="text" data-kind="odc" data-field="description" data-index="${idx}" value="${esc(o.description || "")}"></td>
+      <td><input type="text" class="app-input" data-kind="odc" data-field="name" data-index="${idx}" value="${esc(o.name || "")}"></td>
+      <td><input type="text" class="app-input" data-kind="odc" data-field="description" data-index="${idx}" value="${esc(o.description || "")}"></td>
       <td style="text-align:center;"><input type="checkbox" data-kind="odc" data-field="is_active" data-index="${idx}" ${o.is_active ? "checked" : ""}></td>
     `;
     tb.appendChild(tr);
