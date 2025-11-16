@@ -222,14 +222,86 @@ export async function init(root) {
 }
 
 /* ---------------- LOADERS ---------------- */
-// ... (loadEmployees, loadSubs, etc. — unchanged)
+async function loadEmployees() {
+  const { data, error } = await client
+    .from("labor_categories")
+    .select("id, name, position, hourly_rate, burden_pct, is_active")
+    .order("name", { ascending: true });
+
+  if (error) {
+    console.error("[editData] loadEmployees error", error);
+    msg(error.message, true);
+    employees = [];
+    return;
+  }
+  employees = data || [];
+}
+
+async function loadSubs() {
+  const { data, error } = await client
+    .from("subs")
+    .select("id, name, description, is_active")
+    .order("name", { ascending: true });
+
+  if (error) {
+    console.error("[editData] loadSubs error", error);
+    msg(error.message, true);
+    subs = [];
+    return;
+  }
+  subs = data || [];
+}
+
+async function loadMaterials() {
+  const { data, error } = await client
+    .from("materials")
+    .select("id, name, description, is_active")
+    .order("name", { ascending: true });
+
+  if (error) {
+    console.error("[editData] loadMaterials error", error);
+    msg(error.message, true);
+    materials = [];
+    return;
+  }
+  materials = data || [];
+}
+
+async function loadEquipment() {
+  const { data, error } = await client
+    .from("equipment")
+    .select("id, name, description, is_active")
+    .order("name", { ascending: true });
+
+  if (error) {
+    console.error("[editData] loadEquipment error", error);
+    msg(error.message, true);
+    equipment = [];
+    return;
+  }
+  equipment = data || [];
+}
+
+async function loadOdc() {
+  const { data, error } = await client
+    .from("odc_categories")
+    .select("id, name, description, is_active")
+    .order("name", { ascending: true });
+
+  if (error) {
+    console.error("[editData] loadOdc error", error);
+    msg(error.message, true);
+    odc = [];
+    return;
+  }
+  odc = data || [];
+}
 
 /* ---------------- RENDERERS ---------------- */
 function renderEmployees() {
   const tb = $("#empBody", rootEl);
   if (!tb) return;
   tb.innerHTML = "";
-
   employees.forEach((e, idx) => {
     const tr = h(`<tr data-row="${idx}"></tr>`);
     tr.innerHTML = `
@@ -241,15 +313,11 @@ function renderEmployees() {
     `;
     tb.appendChild(tr);
   });
-
   tb.querySelectorAll("input[data-kind='emp']").forEach(inp => {
     inp.addEventListener("input", onEmpChange);
     if (inp.type === "checkbox") inp.addEventListener("change", onEmpChange);
   });
 }
-
-// Repeat pattern for renderSubs, renderMaterials, renderEquipment, renderOdc
-// (Only change: use innerHTML for simplicity — same logic)
 
 function renderSubs() {
   const tb = $("#subsBody", rootEl);
@@ -270,29 +338,156 @@ function renderSubs() {
   });
 }
 
-// ... repeat for materials, equipment, odc (same pattern)
+function renderMaterials() {
+  const tb = $("#matBody", rootEl);
+  if (!tb) return;
+  tb.innerHTML = "";
+  materials.forEach((m, idx) => {
+    const tr = h(`<tr data-row="${idx}"></tr>`);
+    tr.innerHTML = `
+      <td><input type="text" data-kind="mat" data-field="name" data-index="${idx}" value="${esc(m.name || "")}"></td>
+      <td><input type="text" data-kind="mat" data-field="description" data-index="${idx}" value="${esc(m.description || "")}"></td>
+      <td style="text-align:center;"><input type="checkbox" data-kind="mat" data-field="is_active" data-index="${idx}" ${m.is_active ? "checked" : ""}></td>
+    `;
+    tb.appendChild(tr);
+  });
+  tb.querySelectorAll("input[data-kind='mat']").forEach(inp => {
+    inp.addEventListener("input", onMatChange);
+    if (inp.type === "checkbox") inp.addEventListener("change", onMatChange);
+  });
+}
+
+function renderEquipment() {
+  const tb = $("#eqBody", rootEl);
+  if (!tb) return;
+  tb.innerHTML = "";
+  equipment.forEach((e, idx) => {
+    const tr = h(`<tr data-row="${idx}"></tr>`);
+    tr.innerHTML = `
+      <td><input type="text" data-kind="eq" data-field="name" data-index="${idx}" value="${esc(e.name || "")}"></td>
+      <td><input type="text" data-kind="eq" data-field="description" data-index="${idx}" value="${esc(e.description || "")}"></td>
+      <td style="text-align:center;"><input type="checkbox" data-kind="eq" data-field="is_active" data-index="${idx}" ${e.is_active ? "checked" : ""}></td>
+    `;
+    tb.appendChild(tr);
+  });
+  tb.querySelectorAll("input[data-kind='eq']").forEach(inp => {
+    inp.addEventListener("input", onEqChange);
+    if (inp.type === "checkbox") inp.addEventListener("change", onEqChange);
+  });
+}
+
+function renderOdc() {
+  const tb = $("#odcBody", rootEl);
+  if (!tb) return;
+  tb.innerHTML = "";
+  odc.forEach((o, idx) => {
+    const tr = h(`<tr data-row="${idx}"></tr>`);
+    tr.innerHTML = `
+      <td><input type="text" data-kind="odc" data-field="name" data-index="${idx}" value="${esc(o.name || "")}"></td>
+      <td><input type="text" data-kind="odc" data-field="description" data-index="${idx}" value="${esc(o.description || "")}"></td>
+      <td style="text-align:center;"><input type="checkbox" data-kind="odc" data-field="is_active" data-index="${idx}" ${o.is_active ? "checked" : ""}></td>
+    `;
+    tb.appendChild(tr);
+  });
+  tb.querySelectorAll("input[data-kind='odc']").forEach(inp => {
+    inp.addEventListener("input", onOdcChange);
+    if (inp.type === "checkbox") inp.addEventListener("change", onOdcChange);
+  });
+}
 
 /* ---------------- CHANGE HANDLERS ---------------- */
-// ... (onEmpChange, onSubsChange, etc. — unchanged)
+function onEmpChange(e) {
+  const idx = Number(e.target.dataset.index);
+  const field = e.target.dataset.field;
+  if (employees[idx] == null) return;
+
+  if (field === "is_active") {
+    employees[idx].is_active = e.target.checked;
+  } else if (field === "hourly_rate" || field === "burden_pct") {
+    const v = e.target.value;
+    employees[idx][field] = v === "" ? null : Number(v);
+  } else {
+    employees[idx][field] = e.target.value;
+  }
+}
+
+function onSubsChange(e) {
+  const idx = Number(e.target.dataset.index);
+  const field = e.target.dataset.field;
+  if (subs[idx] == null) return;
+
+  if (field === "is_active") {
+    subs[idx].is_active = e.target.checked;
+  } else {
+    subs[idx][field] = e.target.value;
+  }
+}
+
+function onMatChange(e) {
+  const idx = Number(e.target.dataset.index);
+  const field = e.target.dataset.field;
+  if (materials[idx] == null) return;
+
+  if (field === "is_active") {
+    materials[idx].is_active = e.target.checked;
+  } else {
+    materials[idx][field] = e.target.value;
+  }
+}
+
+function onEqChange(e) {
+  const idx = Number(e.target.dataset.index);
+  const field = e.target.dataset.field;
+  if (equipment[idx] == null) return;
+
+  if (field === "is_active") {
+    equipment[idx].is_active = e.target.checked;
+  } else {
+    equipment[idx][field] = e.target.value;
+  }
+}
+
+function onOdcChange(e) {
+  const idx = Number(e.target.dataset.index);
+  const field = e.target.dataset.field;
+  if (odc[idx] == null) return;
+
+  if (field === "is_active") {
+    odc[idx].is_active = e.target.checked;
+  } else {
+    odc[idx][field] = e.target.value;
+  }
+}
 
 /* ---------------- ACTIONS / SAVE ---------------- */
 function wireActions() {
   $("#empAdd", rootEl).onclick = () => {
-    employees.push({ id: null, name: "", position: "", hourly_rate: null, burden_pct: 155, is_active: true });
+    employees.push({
+      id: null,
+      name: "",
+      position: "",
+      hourly_rate: null,
+      burden_pct: 155,
+      is_active: true,
+    });
     renderEmployees();
   };
+
   $("#subsAdd", rootEl).onclick = () => {
     subs.push({ id: null, name: "", description: "", is_active: true });
     renderSubs();
   };
+
   $("#matAdd", rootEl).onclick = () => {
     materials.push({ id: null, name: "", description: "", is_active: true });
     renderMaterials();
   };
+
   $("#eqAdd", rootEl).onclick = () => {
     equipment.push({ id: null, name: "", description: "", is_active: true });
     renderEquipment();
   };
+
   $("#odcAdd", rootEl).onclick = () => {
     odc.push({ id: null, name: "", description: "", is_active: true });
     renderOdc();
@@ -306,4 +501,88 @@ function wireActions() {
 }
 
 /* ---------------- SAVE FUNCTIONS ---------------- */
-// ... (saveEmployees, genericSave, saveSubs, etc. — unchanged)
+async function saveEmployees() {
+  msg("Saving employees…");
+  try {
+    const cleaned = employees.filter((e) => (e.name || "").trim() !== "");
+    const existing = cleaned.filter((e) => e.id);
+    const toInsert = cleaned.filter((e) => !e.id);
+
+    if (existing.length) {
+      const { error } = await client
+        .from("labor_categories")
+        .upsert(existing, { onConflict: "id" });
+      if (error) throw error;
+    }
+    if (toInsert.length) {
+      const insertRows = toInsert.map(({ id, created_at, ...rest }) => rest);
+      const { error } = await client
+        .from("labor_categories")
+        .insert(insertRows);
+      if (error) throw error;
+    }
+
+    await loadEmployees();
+    renderEmployees();
+    msg("Employees saved.");
+  } catch (e) {
+    console.error("[editData] saveEmployees error", e);
+    msg(e.message || String(e), true);
+  }
+}
+
+async function genericSave(table, state, label) {
+  msg(`Saving ${label}…`);
+  try {
+    const cleaned = state.filter((r) => (r.name || "").trim() !== "");
+    const existing = cleaned.filter((r) => r.id);
+    const toInsert = cleaned.filter((r) => !r.id);
+
+    if (existing.length) {
+      const { error } = await client
+        .from(table)
+        .upsert(existing, { onConflict: "id" });
+      if (error) throw error;
+    }
+    if (toInsert.length) {
+      const insertRows = toInsert.map(({ id, created_at, ...rest }) => rest);
+      const { error } = await client.from(table).insert(insertRows);
+      if (error) throw error;
+    }
+
+    msg(`${label} saved.`);
+    return true;
+  } catch (e) {
+    console.error(`[editData] save ${label} error`, e);
+    msg(e.message || String(e), true);
+    return false;
+  }
+}
+
+async function saveSubs() {
+  if (await genericSave("subs", subs, "Subcontractors")) {
+    await loadSubs();
+    renderSubs();
+  }
+}
+
+async function saveMaterials() {
+  if (await genericSave("materials", materials, "Materials")) {
+    await loadMaterials();
+    renderMaterials();
+  }
+}
+
+async function saveEquipment() {
+  if (await genericSave("equipment", equipment, "Equipment")) {
+    await loadEquipment();
+    renderEquipment();
+  }
+}
+
+async function saveOdc() {
+  if (await genericSave("odc_categories", odc, "ODC categories")) {
+    await loadOdc();
+    renderOdc();
+  }
+}
