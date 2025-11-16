@@ -5,46 +5,40 @@ import { getSelectedGrantId, setSelectedGrantId } from "../lib/grantContext.js";
 
 export const template = /*html*/ `
   <article>
-    <h3 style="margin-bottom:0.75rem;">Grant Summary</h3>
+    <h3>Grant Summary</h3>
 
-    <section style="max-width:720px;margin-bottom:0.75rem;">
-      <label style="display:flex;flex-direction:column;gap:0.2rem;">
-        <span>Grant</span>
-        <select id="summaryGrantSelect" style="min-width:360px;padding:0.25rem 0.5rem;font-size:0.9rem;">
+    <section style="max-width:700px;margin-bottom:0.75rem;">
+      <label>
+        Grant
+        <select id="summaryGrantSelect" style="min-width:320px;">
           <option value="">— Select a grant —</option>
         </select>
       </label>
-      <small id="msg" style="display:block;margin-top:0.25rem;"></small>
+      <small id="msg"></small>
     </section>
 
-    <section id="summaryContent" style="margin-bottom:1rem;">
+    <section id="summaryContent">
       <p>No grant selected.</p>
     </section>
 
-    <section id="summaryCharts" style="margin-top:0.5rem;display:none;">
-      <h4 style="margin:0 0 0.5rem 0;">Dashboard</h4>
-
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:0.75rem;margin-bottom:0.75rem;">
-        <div style="border:1px solid #ddd;border-radius:6px;padding:0.6rem;background:#fafafa;">
-          <h5 style="margin:0 0 0.3rem 0;font-size:0.9rem;">
+    <section id="summaryCharts" style="margin-top:0.75rem;display:none;">
+      <h4>Dashboard</h4>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1rem;">
+        <!-- Doughnut: Total Award vs Budgeted -->
+        <div style="border:1px solid #ddd;border-radius:4px;padding:0.5rem;">
+          <h5 style="margin-top:0;margin-bottom:0.3rem;font-size:0.9rem;">
             Total Award vs Budgeted
           </h5>
-          <canvas id="chartAwardVsBudget" height="180"></canvas>
+          <canvas id="chartAwardVsBudget" style="max-height:220px;"></canvas>
         </div>
 
-        <div style="border:1px solid #ddd;border-radius:6px;padding:0.6rem;background:#fafafa;">
-          <h5 style="margin:0 0 0.3rem 0;font-size:0.9rem;">
-            Total Budget vs Actuals
+        <!-- Combo: Monthly Budget vs Actuals -->
+        <div style="border:1px solid #ddd;border-radius:4px;padding:0.5rem;">
+          <h5 style="margin-top:0;margin-bottom:0.3rem;font-size:0.9rem;">
+            Monthly Budget vs Actuals
           </h5>
-          <canvas id="chartBudgetVsActualTotal" height="180"></canvas>
+          <canvas id="chartMonthlyBudgetActual" style="max-height:180px;"></canvas>
         </div>
-      </div>
-
-      <div style="border:1px solid #ddd;border-radius:6px;padding:0.6rem;background:#fafafa;">
-        <h5 style="margin:0 0 0.3rem 0;font-size:0.9rem;">
-          Monthly Budget vs Actuals
-        </h5>
-        <canvas id="chartMonthlyBudgetVsActual" height="220"></canvas>
       </div>
     </section>
   </article>
@@ -52,8 +46,15 @@ export const template = /*html*/ `
 
 let rootEl = null;
 let chartAwardVsBudget = null;
-let chartBudgetVsActualTotal = null;
-let chartMonthlyBudgetVsActual = null;
+let chartMonthly = null;
+
+// ensure datalabels registered only once (if plugin present)
+if (typeof window !== "undefined" && window.Chart && window.ChartDataLabels) {
+  if (!window.__chartDatalabelsRegistered) {
+    window.Chart.register(window.ChartDataLabels);
+    window.__chartDatalabelsRegistered = true;
+  }
+}
 
 function msg(text, isErr = false) {
   if (!rootEl) return;
@@ -158,7 +159,7 @@ async function loadSummary(grantId) {
       return;
     }
 
-    // 2) Budget + actuals (with ym for monthly charts)
+    // 2) Budget + actuals (include ym & date for monthly chart)
     const [labRes, dirRes, catsRes, actRes] = await Promise.all([
       client
         .from("budget_labor")
@@ -192,25 +193,12 @@ async function loadSummary(grantId) {
       cats.map((c) => [c.id, Number(c.hourly_rate ?? 0)])
     );
 
-    // --- Budget totals and monthly budget ---
+    // --- Budget totals (overall) ---
     let budgetLabor = 0;
-    const budgetByMonth = {}; // ym -> amount
-
     laborRows.forEach((r) => {
       const hrs = Number(r.hours ?? 0);
       const rate = rateById[r.category_id] ?? 0;
-      const amt = hrs * rate;
-      if (!r.ym) return;
-      const ym = r.ym;
-      budgetLabor += amt;
-      budgetByMonth[ym] = (budgetByMonth[ym] || 0) + amt;
-    });
-
-    directRows.forEach((r) => {
-      const amt = Number(r.amount ?? 0);
-      if (!r.ym) return;
-      const ym = r.ym;
-      budgetByMonth[ym] = (budgetByMonth[ym] || 0) + amt;
+      budgetLabor += hrs * rate;
     });
 
     const budgetDirect = directRows.reduce(
@@ -219,15 +207,7 @@ async function loadSummary(grantId) {
     );
     const budgetTotal = budgetLabor + budgetDirect;
 
-    // --- Actual totals and monthly actuals ---
-    const actualByMonth = {}; // ym -> sum
-    actuals.forEach((a) => {
-      const amt = Number(a.amount_net ?? 0);
-      if (!a.date) return;
-      const ym = String(a.date).slice(0, 7) + "-01"; // normalize to first-of-month
-      actualByMonth[ym] = (actualByMonth[ym] || 0) + amt;
-    });
-
+    // --- Actual total (overall) ---
     const actualTotal = actuals.reduce(
       (sum, a) => sum + Number(a.amount_net ?? 0),
       0
@@ -235,6 +215,46 @@ async function loadSummary(grantId) {
 
     const varianceTotal = budgetTotal - actualTotal;
 
+    // --- Monthly breakdown for combo chart ---
+
+    // Budget per month (labor+direct)
+    const monthlyBudget = {}; // ym -> amount
+    laborRows.forEach((r) => {
+      const ym = r.ym;
+      if (!ym) return;
+      const hrs = Number(r.hours ?? 0);
+      const rate = rateById[r.category_id] ?? 0;
+      const amt = hrs * rate;
+      monthlyBudget[ym] = (monthlyBudget[ym] ?? 0) + amt;
+    });
+    directRows.forEach((r) => {
+      const ym = r.ym;
+      if (!ym) return;
+      const amt = Number(r.amount ?? 0);
+      monthlyBudget[ym] = (monthlyBudget[ym] ?? 0) + amt;
+    });
+
+    // Actual per month
+    const monthlyActual = {}; // ym -> amount
+    actuals.forEach((a) => {
+      if (!a.date) return;
+      const ym = String(a.date).slice(0, 7) + "-01";
+      const amt = Number(a.amount_net ?? 0);
+      monthlyActual[ym] = (monthlyActual[ym] ?? 0) + amt;
+    });
+
+    const monthKeys = Array.from(
+      new Set([...Object.keys(monthlyBudget), ...Object.keys(monthlyActual)])
+    ).sort();
+
+    const monthLabels = monthKeys.map((ym) => {
+      const d = new Date(ym);
+      return d.toLocaleString("en-US", { month: "short", year: "2-digit" });
+    });
+    const monthBudgetSeries = monthKeys.map((ym) => monthlyBudget[ym] ?? 0);
+    const monthActualSeries = monthKeys.map((ym) => monthlyActual[ym] ?? 0);
+
+    // Render
     renderSummary(grant, {
       budgetLabor,
       budgetDirect,
@@ -246,8 +266,9 @@ async function loadSummary(grantId) {
     renderCharts(grant, {
       budgetTotal,
       actualTotal,
-      budgetByMonth,
-      actualByMonth,
+      monthLabels,
+      monthBudgetSeries,
+      monthActualSeries,
     });
 
     msg("");
@@ -273,36 +294,34 @@ function renderSummary(grant, totals) {
   } = totals;
 
   const html = `
-    <section style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:0.6rem;">
-      <div style="border:1px solid #ddd;border-radius:6px;padding:0.6rem;font-size:0.9rem;background:#fafafa;">
-        <h4 style="margin-top:0;margin-bottom:0.4rem;font-size:1rem;">Grant</h4>
+    <section style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0.5rem;">
+      <div style="border:1px solid #ddd;border-radius:4px;padding:0.6rem;font-size:0.9rem;">
+        <h4 style="margin-top:0;margin-bottom:0.3rem;">Grant</h4>
         <div><strong>${grant.name}</strong> ${
     grant.grant_id ? `(${grant.grant_id})` : ""
   }</div>
         <div>Funder: ${grant.funder || "—"}</div>
-        <div>Period: ${grant.start_date || ""} → ${
-    grant.end_date || ""
-  }</div>
+        <div>Period: ${grant.start_date || ""} → ${grant.end_date || ""}</div>
         <div>Total Award: ${
           grant.total_award != null ? fmt2(grant.total_award) : "—"
         }</div>
         <div>Status: ${grant.status || "—"}</div>
       </div>
 
-      <div style="border:1px solid #ddd;border-radius:6px;padding:0.6rem;font-size:0.9rem;background:#fafafa;">
-        <h4 style="margin-top:0;margin-bottom:0.4rem;font-size:1rem;">Budget</h4>
+      <div style="border:1px solid #ddd;border-radius:4px;padding:0.6rem;font-size:0.9rem;">
+        <h4 style="margin-top:0;margin-bottom:0.3rem;">Budget</h4>
         <div>Labor: ${fmt2(budgetLabor)}</div>
         <div>Other Direct: ${fmt2(budgetDirect)}</div>
         <div><strong>Total Budget: ${fmt2(budgetTotal)}</strong></div>
       </div>
 
-      <div style="border:1px solid #ddd;border-radius:6px;padding:0.6rem;font-size:0.9rem;background:#fafafa;">
-        <h4 style="margin-top:0;margin-bottom:0.4rem;font-size:1rem;">Actuals</h4>
+      <div style="border:1px solid #ddd;border-radius:4px;padding:0.6rem;font-size:0.9rem;">
+        <h4 style="margin-top:0;margin-bottom:0.3rem;">Actuals</h4>
         <div><strong>Total Actuals: ${fmt2(actualTotal)}</strong></div>
       </div>
 
-      <div style="border:1px solid #ddd;border-radius:6px;padding:0.6rem;font-size:0.9rem;background:#fafafa;">
-        <h4 style="margin-top:0;margin-bottom:0.4rem;font-size:1rem;">Variance</h4>
+      <div style="border:1px solid #ddd;border-radius:4px;padding:0.6rem;font-size:0.9rem;">
+        <h4 style="margin-top:0;margin-bottom:0.3rem;">Variance</h4>
         <div>Total Variance (Budget – Actual): ${
           varianceTotal >= 0 ? "" : "-"
         }${fmt2(Math.abs(varianceTotal))}</div>
@@ -313,13 +332,15 @@ function renderSummary(grant, totals) {
   box.innerHTML = html;
 }
 
-/* ---------- Charts ---------- */
+/* ---------- Charts (doughnut + combo) ---------- */
 
-function renderCharts(grant, { budgetTotal, actualTotal, budgetByMonth, actualByMonth }) {
+function renderCharts(
+  grant,
+  { budgetTotal, actualTotal, monthLabels, monthBudgetSeries, monthActualSeries }
+) {
   const section = $("#summaryCharts", rootEl);
   if (!section) return;
 
-  // If Chart.js is not loaded, just hide charts
   if (typeof window.Chart === "undefined") {
     console.warn("[summary] Chart.js not available; skipping charts");
     section.style.display = "none";
@@ -332,25 +353,30 @@ function renderCharts(grant, { budgetTotal, actualTotal, budgetByMonth, actualBy
   const safeAward = totalAward > 0 ? totalAward : 0;
   const safeBudget = budgetTotal > 0 ? budgetTotal : 0;
   const safeActual = actualTotal > 0 ? actualTotal : 0;
-
-  // Shared color palette (no red)
-  const colorBlue = "#2b6cb0";
-  const colorYellow = "#ecc94b";
-  const colorTeal = "#38b2ac";
-
-  /* --- Chart 1: Total Award vs Budgeted (Pie) --- */
   const remaining = Math.max(safeAward - safeBudget, 0);
+
+  // Colors (semi-transparent, modern)
+  const colorBlue = "rgba(54, 162, 235, 0.6)"; // budget
+  const colorBlueBorder = "rgba(54, 162, 235, 1)";
+  const colorGrey = "rgba(201, 203, 207, 0.6)";
+  const colorGreyBorder = "rgba(201, 203, 207, 1)";
+  const colorYellow = "rgba(255, 205, 86, 0.6)";
+  const colorYellowBorder = "rgba(255, 205, 86, 1)";
+
+  // --- Doughnut: Total Award vs Budgeted ---
   const ctx1 = $("#chartAwardVsBudget", rootEl)?.getContext("2d");
   if (ctx1) {
     if (chartAwardVsBudget) chartAwardVsBudget.destroy();
     chartAwardVsBudget = new window.Chart(ctx1, {
-      type: "pie",
+      type: "doughnut",
       data: {
         labels: ["Budgeted", "Unallocated Award"],
         datasets: [
           {
             data: [safeBudget, remaining],
-            backgroundColor: [colorBlue, colorYellow],
+            backgroundColor: [colorBlue, colorGrey],
+            borderColor: [colorBlueBorder, colorGreyBorder],
+            borderWidth: 1,
           },
         ],
       },
@@ -363,115 +389,86 @@ function renderCharts(grant, { budgetTotal, actualTotal, budgetByMonth, actualBy
               label: (ctx) => `${ctx.label}: ${fmt2(ctx.parsed)}`,
             },
           },
+          datalabels: {
+            color: "#333",
+            font: { size: 10 },
+            formatter: (value, ctx) => {
+              if (!value) return "";
+              return fmt2(value);
+            },
+          },
         },
       },
     });
   }
 
-  /* --- Chart 2: Total Budget vs Actuals (Bar) --- */
-  const ctx2 = $("#chartBudgetVsActualTotal", rootEl)?.getContext("2d");
+  // --- Combo: Monthly Budget vs Actuals (line + bars) ---
+  const ctx2 = $("#chartMonthlyBudgetActual", rootEl)?.getContext("2d");
   if (ctx2) {
-    if (chartBudgetVsActualTotal) chartBudgetVsActualTotal.destroy();
-    chartBudgetVsActualTotal = new window.Chart(ctx2, {
+    if (chartMonthly) chartMonthly.destroy();
+    chartMonthly = new window.Chart(ctx2, {
       type: "bar",
       data: {
-        labels: ["Budget", "Actuals"],
+        labels: monthLabels,
         datasets: [
-          {
-            label: "Amount",
-            data: [safeBudget, safeActual],
-            backgroundColor: [colorBlue, colorYellow],
-            borderRadius: 6,
-          },
-        ],
-      },
-      options: {
-        responsive: true,
-        plugins: {
-          legend: { display: false },
-          tooltip: {
-            callbacks: {
-              label: (ctx) => `${ctx.label}: ${fmt2(ctx.parsed.y)}`,
-            },
-          },
-        },
-        scales: {
-          x: { grid: { display: false } },
-          y: {
-            beginAtZero: true,
-            ticks: {
-              callback: (v) => fmt2(v),
-            },
-          },
-        },
-      },
-    });
-  }
-
-  /* --- Chart 3: Monthly Budget vs Actuals (Combo: bar + line) --- */
-  const ctx3 = $("#chartMonthlyBudgetVsActual", rootEl)?.getContext("2d");
-  if (ctx3) {
-    if (chartMonthlyBudgetVsActual) chartMonthlyBudgetVsActual.destroy();
-
-    // Build unified sorted month axis
-    const monthSet = new Set([
-      ...Object.keys(budgetByMonth || {}),
-      ...Object.keys(actualByMonth || {}),
-    ]);
-
-    const months = Array.from(monthSet)
-      .filter(Boolean)
-      .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
-
-    const labels = months.map((ym) => ym.slice(0, 7)); // YYYY-MM
-    const budgetSeries = months.map((ym) => Number(budgetByMonth[ym] || 0));
-    const actualSeries = months.map((ym) => Number(actualByMonth[ym] || 0));
-
-    chartMonthlyBudgetVsActual = new window.Chart(ctx3, {
-      data: {
-        labels,
-        datasets: [
-          {
-            type: "bar",
-            label: "Actuals",
-            data: actualSeries,
-            backgroundColor: colorYellow,
-            borderRadius: 4,
-            yAxisID: "y",
-          },
           {
             type: "line",
             label: "Budget",
-            data: budgetSeries,
-            borderColor: colorBlue,
+            data: monthBudgetSeries,
+            borderColor: colorBlueBorder,
             backgroundColor: colorBlue,
-            tension: 0.2,
-            fill: false,
+            borderWidth: 2,
+            tension: 0.25,
             yAxisID: "y",
+            order: 0,
+            pointRadius: 2,
+            pointHoverRadius: 3,
+          },
+          {
+            type: "bar",
+            label: "Actuals",
+            data: monthActualSeries,
+            backgroundColor: colorYellow,
+            borderColor: colorYellowBorder,
+            borderWidth: 1,
+            yAxisID: "y",
+            order: 1,
           },
         ],
       },
       options: {
         responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: {
+              callback: (val) => fmt2(val),
+              font: { size: 9 },
+            },
+          },
+          x: {
+            ticks: { font: { size: 9 } },
+          },
+        },
         plugins: {
           legend: { position: "bottom" },
           tooltip: {
-            mode: "index",
-            intersect: false,
             callbacks: {
               label: (ctx) => `${ctx.dataset.label}: ${fmt2(ctx.parsed.y)}`,
             },
           },
-        },
-        interaction: { mode: "index", intersect: false },
-        scales: {
-          x: {
-            grid: { display: false },
-          },
-          y: {
-            beginAtZero: true,
-            ticks: {
-              callback: (v) => fmt2(v),
+          datalabels: {
+            anchor: "end",
+            align: "end",
+            color: "#333",
+            font: { size: 9 },
+            clamp: true,
+            formatter: (value, ctx) => {
+              // show labels only for bars (Actuals) to avoid clutter
+              if (ctx.dataset.type === "line") return "";
+              if (!value) return "";
+              return fmt2(value);
             },
           },
         },
