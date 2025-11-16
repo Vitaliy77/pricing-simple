@@ -1,47 +1,71 @@
 // js/tabs/grants.js
-import { client } from '../api/supabase.js';
-import { $, h } from '../lib/dom.js';
-import { getSelectedGrantId, setSelectedGrantId } from '../lib/grantContext.js';
+import { client } from "../api/supabase.js";
+import { $, h } from "../lib/dom.js";
+import { setSelectedGrantId } from "../lib/grantContext.js";
 
-export const template = /*html*/`
+export const template = /*html*/ `
   <article>
-    <h3>Grant Setup & Selection</h3>
+    <h3>Grant Setup</h3>
 
-    <section class="form-row" style="margin-bottom:0.75rem">
-      <div class="grid">
-        <input id="g_name" placeholder="Grant Name">
-        <input id="g_id"   placeholder="Grant ID">
-        <input id="g_gr"   placeholder="Grantee / Funder">
-        <input id="g_amt"  type="number" step="0.01" placeholder="Amount">
-        <input id="g_from" type="date"  placeholder="Start">
-        <input id="g_to"   type="date"  placeholder="End">
+    <section style="margin-bottom:1rem;">
+      <h4 style="margin-bottom:0.5rem;">Create Grant</h4>
+      <div class="grid" style="max-width:900px; row-gap:0.35rem;">
+        <label>
+          Grant Name
+          <input id="g_name" placeholder="Community Health Clinic" />
+        </label>
+        <label>
+          Grant ID
+          <input id="g_id" placeholder="G-2025-001" />
+        </label>
+        <label>
+          Funder
+          <input id="g_funder" placeholder="Gates Foundation" />
+        </label>
+        <label>
+          Total Award
+          <input id="g_amt" type="number" step="0.01" placeholder="250000.00" />
+        </label>
+        <label>
+          Start Date
+          <input id="g_from" type="date" />
+        </label>
+        <label>
+          End Date
+          <input id="g_to" type="date" />
+        </label>
       </div>
-      <div style="margin-top:0.5rem">
-        <button id="create">Create</button>
-        <small id="msg" style="margin-left:0.5rem"></small>
+      <div style="margin-top:0.5rem; display:flex; gap:0.5rem;">
+        <button id="create" type="button">Create</button>
+        <small id="msg"></small>
       </div>
     </section>
 
-    <h4 style="margin-top:1.5rem">All Grants</h4>
-    <p id="currentGrantLabel" style="font-size:0.8rem;color:#555;margin-bottom:0.25rem"></p>
-
-    <div class="scroll-x">
-      <table id="tbl">
-        <thead>
-          <tr>
-            <th></th>
-            <th>Name</th>
-            <th>Grant ID</th>
-            <th>Grantee</th>
-            <th>Start</th>
-            <th>End</th>
-            <th>Amount</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </div>
+    <section>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.25rem;">
+        <h4 style="margin:0;">All Grants</h4>
+        <button id="refreshGrants" type="button" class="secondary" style="font-size:0.8rem;padding:0.15rem 0.5rem;">
+          Refresh
+        </button>
+      </div>
+      <div class="scroll-x">
+        <table id="tbl" style="min-width:100%;">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Grant ID</th>
+              <th>Funder</th>
+              <th>Start</th>
+              <th>End</th>
+              <th>Total Award</th>
+              <th>Status</th>
+              <th>Set Current</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
   </article>
 `;
 
@@ -49,96 +73,109 @@ export async function init(root) {
   root.innerHTML = template;
 
   const msg = (t, e = false) => {
-    $('#msg', root).textContent = t;
-    $('#msg', root).style.color = e ? '#b00' : 'inherit';
-  };
-
-  const currentLabel = $('#currentGrantLabel', root);
-  const updateCurrentLabel = (grants = []) => {
-    const id = getSelectedGrantId();
-    if (!id) {
-      currentLabel.textContent = 'No grant selected.';
-      return;
-    }
-    const g = grants.find(x => x.id === id);
-    if (g) {
-      currentLabel.textContent = `Current grant: ${g.name} (${g.grant_id || 'no code'})`;
-    } else {
-      currentLabel.textContent = 'Current grant: (not found in list)';
+    const m = $("#msg", root);
+    if (!m) return;
+    m.textContent = t || "";
+    m.style.color = e ? "#b00" : "inherit";
+    if (t) {
+      setTimeout(() => {
+        if (m.textContent === t) m.textContent = "";
+      }, 4000);
     }
   };
 
-  $('#create', root).onclick = async () => {
-    const { data: { user } } = await client.auth.getUser();
-    if (!user) return msg('Sign in first', true);
+  // Create grant
+  $("#create", root).onclick = async () => {
+    const { data: userRes } = await client.auth.getUser();
+    const user = userRes?.user || null;
+    if (!user) return msg("Sign in first", true);
+
+    const name = $("#g_name", root).value.trim();
+    const grant_id = $("#g_id", root).value.trim() || null;
+    const funder = $("#g_funder", root).value.trim() || null;
+    const total_award = Number($("#g_amt", root).value || 0);
+    const start_date = $("#g_from", root).value || null;
+    const end_date = $("#g_to", root).value || null;
+
+    if (!name || !start_date || !end_date) {
+      return msg("Name, start date, and end date are required.", true);
+    }
 
     const row = {
-      name:       $('#g_name', root).value.trim(),
-      grant_id:   $('#g_id',   root).value.trim() || null,
-      grantee:    $('#g_gr',   root).value.trim() || null,
-      start_date: $('#g_from', root).value,
-      end_date:   $('#g_to',   root).value,
-      amount:     Number($('#g_amt', root).value || 0),
-      status:     'active',
+      name,
+      grant_id,
+      funder,
+      total_award,
+      start_date,
+      end_date,
+      status: "active",
+      pm_user_id: user.id,
     };
 
-    if (!row.name || !row.start_date || !row.end_date) {
-      return msg('Name, start, and end dates are required.', true);
+    const { error } = await client.from("grants").insert(row);
+    if (error) {
+      console.error("[grants] insert error", error);
+      return msg(error.message, true);
     }
-
-    const { error } = await client.from('grants').insert(row);
-    if (error) return msg(error.message, true);
-
-    msg('Grant created.');
+    msg("Grant created.");
+    // quick clear
+    $("#g_name", root).value = "";
+    $("#g_id", root).value = "";
+    $("#g_funder", root).value = "";
+    $("#g_amt", root).value = "";
+    $("#g_from", root).value = "";
+    $("#g_to", root).value = "";
     await load();
   };
 
+  $("#refreshGrants", root).onclick = () => load();
+
   async function load() {
+    msg("Loading…");
     const { data, error } = await client
-      .from('grants')
-      .select('id,name,grant_id,grantee,start_date,end_date,amount,status,created_at')
-      .order('created_at', { ascending: false });
+      .from("grants")
+      .select("id,name,grant_id,funder,start_date,end_date,total_award,status,created_at")
+      .order("created_at", { ascending: false });
 
     if (error) {
-      console.error('[grants] load error', error);
+      console.error("[grants] load error", error);
       msg(error.message, true);
       return;
     }
 
-    const grants = data || [];
-    const tb = $('#tbl tbody', root);
-    tb.innerHTML = '';
+    const tb = $("#tbl tbody", root);
+    tb.innerHTML = "";
 
-    const currentId = getSelectedGrantId();
-
-    for (const g of grants) {
-      const isCurrent = currentId && g.id === currentId;
-      const tr = h(`<tr${isCurrent ? ' style="background:#e6f2ff"' : ''}></tr>`);
-
-      const btnCell = h('<td></td>');
-      const btn = document.createElement('button');
-      btn.textContent = isCurrent ? 'Current' : 'Use';
-      btn.type = 'button';
-      btn.className = isCurrent ? 'secondary' : 'outline';
-      btn.onclick = () => {
-        setSelectedGrantId(g.id);
-        load();                  // re-render highlight & button labels
-      };
-      btnCell.appendChild(btn);
-      tr.appendChild(btnCell);
-
-      tr.appendChild(h(`<td>${g.name}</td>`));
-      tr.appendChild(h(`<td>${g.grant_id || ''}</td>`));
-      tr.appendChild(h(`<td>${g.grantee || ''}</td>`));
-      tr.appendChild(h(`<td>${g.start_date}</td>`));
-      tr.appendChild(h(`<td>${g.end_date}</td>`));
-      tr.appendChild(h(`<td>${g.amount || 0}</td>`));
-      tr.appendChild(h(`<td>${g.status || ''}</td>`));
-
+    (data || []).forEach((g) => {
+      const tr = h("<tr></tr>");
+      tr.innerHTML = `
+        <td>${g.name}</td>
+        <td>${g.grant_id || ""}</td>
+        <td>${g.funder || ""}</td>
+        <td>${g.start_date || ""}</td>
+        <td>${g.end_date || ""}</td>
+        <td>${g.total_award != null ? Number(g.total_award).toLocaleString() : ""}</td>
+        <td>${g.status || ""}</td>
+        <td>
+          <button type="button" data-grant="${g.id}" class="secondary" style="font-size:0.75rem;padding:0.1rem 0.4rem;">
+            Use
+          </button>
+        </td>
+      `;
       tb.appendChild(tr);
-    }
+    });
 
-    updateCurrentLabel(grants);
+    // wire "Use" buttons to global grant context
+    tb.querySelectorAll("button[data-grant]").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        const id = e.currentTarget.getAttribute("data-grant");
+        if (!id) return;
+        setSelectedGrantId(id);
+        msg("Current grant set. Other tabs will use it.");
+      });
+    });
+
+    msg("");
   }
 
   await load();
