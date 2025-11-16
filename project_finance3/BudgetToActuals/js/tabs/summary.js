@@ -10,7 +10,7 @@ export const template = /*html*/ `
     <section style="max-width:700px;margin-bottom:1rem;">
       <label>
         Grant
-        <select id="summaryGrantSelect">
+        <select id="summaryGrantSelect" style="min-width:320px;">
           <option value="">— Select a grant —</option>
         </select>
       </label>
@@ -20,10 +20,30 @@ export const template = /*html*/ `
     <section id="summaryContent">
       <p>No grant selected.</p>
     </section>
+
+    <section id="summaryCharts" style="margin-top:1rem;display:none;">
+      <h4>Dashboard</h4>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1rem;">
+        <div style="border:1px solid #ddd;border-radius:4px;padding:0.5rem;">
+          <h5 style="margin-top:0;margin-bottom:0.3rem;font-size:0.9rem;">
+            Total Award vs Budgeted
+          </h5>
+          <canvas id="chartAwardVsBudget"></canvas>
+        </div>
+        <div style="border:1px solid #ddd;border-radius:4px;padding:0.5rem;">
+          <h5 style="margin-top:0;margin-bottom:0.3rem;font-size:0.9rem;">
+            Budget vs Actual Spend
+          </h5>
+          <canvas id="chartBudgetVsActual"></canvas>
+        </div>
+      </div>
+    </section>
   </article>
 `;
 
 let rootEl = null;
+let chartAwardVsBudget = null;
+let chartBudgetVsActual = null;
 
 function msg(text, isErr = false) {
   if (!rootEl) return;
@@ -69,6 +89,8 @@ export async function init(root, params = {}) {
     await loadSummary(chosen);
   } else {
     $("#summaryContent", rootEl).innerHTML = "<p>No grant selected.</p>";
+    const chSection = $("#summaryCharts", rootEl);
+    if (chSection) chSection.style.display = "none";
   }
 
   sel.addEventListener("change", async (e) => {
@@ -76,6 +98,8 @@ export async function init(root, params = {}) {
     setSelectedGrantId(id || null);
     if (!id) {
       $("#summaryContent", rootEl).innerHTML = "<p>No grant selected.</p>";
+      const chSection = $("#summaryCharts", rootEl);
+      if (chSection) chSection.style.display = "none";
       return;
     }
     await loadSummary(id);
@@ -120,6 +144,8 @@ async function loadSummary(grantId) {
     if (!grant) {
       $("#summaryContent", rootEl).innerHTML = "<p>Grant not found.</p>";
       msg("");
+      const chSection = $("#summaryCharts", rootEl);
+      if (chSection) chSection.style.display = "none";
       return;
     }
 
@@ -171,7 +197,7 @@ async function loadSummary(grantId) {
     );
     const budgetTotal = budgetLabor + budgetDirect;
 
-    // --- Actual totals (no split by type in view) ---
+    // --- Actual totals ---
     const actualTotal = actuals.reduce(
       (sum, a) => sum + Number(a.amount_net ?? 0),
       0
@@ -186,11 +212,18 @@ async function loadSummary(grantId) {
       actualTotal,
       varianceTotal,
     });
+    renderCharts(grant, {
+      budgetTotal,
+      actualTotal,
+    });
+
     msg("");
   } catch (e) {
     console.error("[summary] loadSummary error", e);
     msg(e.message || String(e), true);
     $("#summaryContent", rootEl).innerHTML = "<p>Failed to load summary.</p>";
+    const chSection = $("#summaryCharts", rootEl);
+    if (chSection) chSection.style.display = "none";
   }
 }
 
@@ -245,4 +278,83 @@ function renderSummary(grant, totals) {
   `;
 
   box.innerHTML = html;
+}
+
+/* ---------- Charts ---------- */
+
+function renderCharts(grant, { budgetTotal, actualTotal }) {
+  const section = $("#summaryCharts", rootEl);
+  if (!section) return;
+
+  // If Chart.js is not loaded, just hide charts
+  if (typeof window.Chart === "undefined") {
+    console.warn("[summary] Chart.js not available; skipping charts");
+    section.style.display = "none";
+    return;
+  }
+
+  section.style.display = "block";
+
+  const totalAward = Number(grant.total_award ?? 0);
+  const safeAward = totalAward > 0 ? totalAward : 0;
+  const safeBudget = budgetTotal > 0 ? budgetTotal : 0;
+  const safeActual = actualTotal > 0 ? actualTotal : 0;
+
+  // --- Pie 1: Total Award vs Budgeted ---
+  const remaining = Math.max(safeAward - safeBudget, 0);
+
+  const ctx1 = $("#chartAwardVsBudget", rootEl)?.getContext("2d");
+  if (ctx1) {
+    if (chartAwardVsBudget) chartAwardVsBudget.destroy();
+    chartAwardVsBudget = new window.Chart(ctx1, {
+      type: "pie",
+      data: {
+        labels: ["Budgeted", "Unallocated Award"],
+        datasets: [
+          {
+            data: [safeBudget, remaining],
+          },
+        ],
+      },
+      options: {
+        plugins: {
+          legend: { position: "bottom" },
+          tooltip: {
+            callbacks: {
+              label: (ctx) =>
+                `${ctx.label}: ${fmt2(ctx.parsed)}`,
+            },
+          },
+        },
+      },
+    });
+  }
+
+  // --- Pie 2: Budget vs Actual ---
+  const ctx2 = $("#chartBudgetVsActual", rootEl)?.getContext("2d");
+  if (ctx2) {
+    if (chartBudgetVsActual) chartBudgetVsActual.destroy();
+    chartBudgetVsActual = new window.Chart(ctx2, {
+      type: "pie",
+      data: {
+        labels: ["Budget", "Actuals"],
+        datasets: [
+          {
+            data: [safeBudget, safeActual],
+          },
+        ],
+      },
+      options: {
+        plugins: {
+          legend: { position: "bottom" },
+          tooltip: {
+            callbacks: {
+              label: (ctx) =>
+                `${ctx.label}: ${fmt2(ctx.parsed)}`,
+            },
+          },
+        },
+      },
+    });
+  }
 }
