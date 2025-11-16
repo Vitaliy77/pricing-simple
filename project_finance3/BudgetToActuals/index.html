@@ -5,98 +5,105 @@
   <title>Grants Budget App</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link href="https://unpkg.com/@picocss/pico@2/css/pico.min.css" rel="stylesheet">
-    <style>
+
+  <style>
     /* Layout: full-width app, minimal outer margins */
     body {
       margin: 0;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-        sans-serif;
-      font-size: 14px;              /* ~11pt body text */
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 14px;
       line-height: 1.3;
     }
-  
+
     main.wrap {
-      max-width: none;              /* full width */
+      max-width: none;
       width: 100%;
       margin: 0;
-      padding: 0.5rem 1rem 1.5rem;  /* small consistent padding */
+      padding: 0.5rem 1rem 1.5rem;
     }
-  
+
     nav {
       margin-bottom: 0.5rem;
     }
-  
+
     /* Headings: consistent across ALL tabs */
     h1, h2, h3, h4, h5 {
       font-weight: 600;
       letter-spacing: 0.01em;
     }
-  
+
     h1 { font-size: 1.4rem; }
     h2 { font-size: 1.25rem; }
-    h3 { font-size: 1.1rem; }   /* main section titles ("Budget Builder", "Grant Summary") */
-    h4 { font-size: 1.0rem; }   /* sub-section headers ("Labor", "Other Direct Costs") */
+    h3 { font-size: 1.1rem; }
+    h4 { font-size: 1.0rem; }
     h5 { font-size: 0.9rem; }
-  
+
     p, label, small, td, th, input, select, button, textarea {
-      font-size: 0.9rem;        /* ~11pt */
+      font-size: 0.9rem;
     }
-  
+
     /* Horizontal scrolling helpers */
     .scroll-x {
       overflow-x: auto;
     }
-  
-    /* Tables: consistent look everywhere */
+
+    /* === GLOBAL TABLE + INPUT SIZING (COMPACT EVERYWHERE) === */
     table {
-      border-collapse: collapse;
+      font-size: 11px;
+      border-collapse: separate;
+      border-spacing: 0;
       width: 100%;
     }
-  
-    .data-grid th,
-    .data-grid td {
-      border: 1px solid #ddd;
-      padding: 0 0.25rem;
+
+    th, td {
+      padding-top: 0.1rem;
+      padding-bottom: 0.1rem;
+      line-height: 1.15;
       white-space: nowrap;
-      line-height: 1.1;         /* tight vertical spacing (~1mm between rows visually) */
     }
-  
-    /* Inputs & selects inside tables and forms */
-    input,
-    select,
-    textarea {
-      height: 2rem;             /* same height everywhere */
+
+    input, select, textarea {
+      height: 2rem;
+      font-size: 11px;
       padding: 0 0.35rem;
       box-sizing: border-box;
     }
-  
+
+    /* Extra compact variant (for dense grids like Budget, Edit Data) */
+    table.compact-grid th,
+    table.compact-grid td {
+      padding-top: 0.08rem;
+      padding-bottom: 0.08rem;
+    }
+
     /* Number inputs – remove up/down arrows */
-    input[type="number"].no-spin::-webkit-inner-spin-button,
-    input[type="number"].no-spin::-webkit-outer-spin-button {
+    input[type="number"]::-webkit-inner-spin-button,
+    input[type="number"]::-webkit-outer-spin-button {
       -webkit-appearance: none;
       margin: 0;
     }
-    input[type="number"].no-spin {
+    input[type="number"] {
       -moz-appearance: textfield;
     }
-  
-    /* Small, consistent buttons (used across tabs) */
+
+    /* Buttons: small + centered text */
     .btn-sm {
+      font-size: 0.8rem;
+      padding: 0.15rem 0.6rem;
+      line-height: 1.2;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      padding: 0.15rem 0.6rem;
       min-height: 1.8rem;
-      font-size: 0.85rem;
       border-radius: 4px;
-    }
-  
-    /* Make Pico buttons & our small ones play nicely */
-    button,
-    .btn-sm {
       cursor: pointer;
     }
-  
+
+    /* Make Pico buttons & our small ones play nicely */
+    button {
+      cursor: pointer;
+    }
+
     /* Slightly reduce vertical gaps between “rows” of controls */
     .form-row {
       margin-bottom: 0.1rem;
@@ -104,44 +111,46 @@
     tr {
       margin-bottom: 0.1rem;
     }
-  </style>
 
+    /* === DATA GRID STYLES (for tables with borders) === */
+    .data-grid th,
+    .data-grid td {
+      border: 1px solid #ddd;
+      padding: 0 0.25rem;
+      line-height: 1.1;
+    }
 
-
-  <link href="./css/app.css" rel="stylesheet">
-  <style>
-    .wrap { max-width: 1200px; margin: 2rem auto; }
-    .scroll-x { overflow-x:auto; }
-    th, td { white-space:nowrap; }
-  </style>
-  
-  <style>
+    /* === REF DATA SECTION STYLES === */
     .ref-wrapper {
-      max-height: 320px;      /* adjust as you like */
+      max-height: 320px;
       overflow-y: auto;
       border: 1px solid #e5e7eb;
       border-radius: 4px;
+      background: #fafafa;
     }
-  
+
     .ref-wrapper table thead th {
       position: sticky;
       top: 0;
       background: #f8fafc;
       z-index: 2;
     }
-  
+
     details {
       margin-bottom: 0.75rem;
     }
-  
+
     details > summary {
       cursor: pointer;
       font-weight: 600;
       margin-bottom: 0.25rem;
     }
+
+    /* Legacy fallback (in case old classes still used) */
+    .wrap { max-width: 1200px; margin: 2rem auto; }
   </style>
 
-  
+  <link href="./css/app.css" rel="stylesheet">
 </head>
 <body>
   <main class="wrap">
@@ -167,14 +176,11 @@
   <!-- Load SheetJS so XLSX is available globally -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
-    <!-- Chart.js for Summary dashboard -->
+  <!-- Chart.js for Summary dashboard -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
 
-  <script type="module" src="./js/main.js"></script>
-
-  
-  <!-- Then load your ES module app -->
+  <!-- Load your ES module app -->
   <script type="module" src="./js/main.js"></script>
 </body>
 </html>
