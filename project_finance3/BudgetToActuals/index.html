@@ -118,6 +118,34 @@
     .scroll-x { overflow-x:auto; }
     th, td { white-space:nowrap; }
   </style>
+  
+  <style>
+    .ref-wrapper {
+      max-height: 320px;      /* adjust as you like */
+      overflow-y: auto;
+      border: 1px solid #e5e7eb;
+      border-radius: 4px;
+    }
+  
+    .ref-wrapper table thead th {
+      position: sticky;
+      top: 0;
+      background: #f8fafc;
+      z-index: 2;
+    }
+  
+    details {
+      margin-bottom: 0.75rem;
+    }
+  
+    details > summary {
+      cursor: pointer;
+      font-weight: 600;
+      margin-bottom: 0.25rem;
+    }
+  </style>
+
+  
 </head>
 <body>
   <main class="wrap">
