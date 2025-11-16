@@ -47,6 +47,66 @@ export const template = /*html*/ `
       </div>
     </section>
 
+    <!-- Subs Section -->
+    <section style="margin-top:0.75rem;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.25rem;">
+        <div style="display:flex;align-items:center;gap:0.5rem;">
+          <h4 style="margin:0;">Subs</h4>
+          <button id="addSubs" type="button" class="btn-sm">
+            + Subs
+          </button>
+        </div>
+      </div>
+      <div class="scroll-x">
+        <table class="data-grid">
+          <thead>
+            <tr id="subsHeaderRow"></tr>
+          </thead>
+          <tbody id="subsBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Materials Section -->
+    <section style="margin-top:0.75rem;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.25rem;">
+        <div style="display:flex;align-items:center;gap:0.5rem;">
+          <h4 style="margin:0;">Materials</h4>
+          <button id="addMaterials" type="button" class="btn-sm">
+            + Materials
+          </button>
+        </div>
+      </div>
+      <div class="scroll-x">
+        <table class="data-grid">
+          <thead>
+            <tr id="materialsHeaderRow"></tr>
+          </thead>
+          <tbody id="materialsBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Equipment Section -->
+    <section style="margin-top:0.75rem;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.25rem;">
+        <div style="display:flex;align-items:center;gap:0.5rem;">
+          <h4 style="margin:0;">Equipment</h4>
+          <button id="addEquipment" type="button" class="btn-sm">
+            + Equipment
+          </button>
+        </div>
+      </div>
+      <div class="scroll-x">
+        <table class="data-grid">
+          <thead>
+            <tr id="equipmentHeaderRow"></tr>
+          </thead>
+          <tbody id="equipmentBody"></tbody>
+        </table>
+      </div>
+    </section>
+
     <!-- ODC Section -->
     <section style="margin-top:0.75rem;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.25rem;">
@@ -78,6 +138,7 @@ export const template = /*html*/ `
         border: 1px solid #ddd;
         padding: 0; /* height from global input/select styles */
         white-space: nowrap;
+        line-height: 1.1;
       }
 
       /* Sticky first two columns */
@@ -142,12 +203,27 @@ let rootEl = null;
 let currentGrantId = null;
 let currentStartYear = 2025;
 
-let buckets = [];      // [{label, ym}]
-let laborRows = [];    // [{ employee_name, category_id, months: {ym: hours} }]
-let directRows = [];   // [{ category, description, months: {ym: amount} }]
+let buckets = []; // [{label, ym}]
 
+// rows in memory
+let laborRows = [];      // [{ employee_name, category_id, months: {ym: hours} }]
+let subsRows = [];       // [{ sub_id, name, description, months }]
+let materialsRows = [];  // [{ material_id, name, description, months }]
+let equipmentRows = [];  // [{ equipment_id, name, description, months }]
+let directRows = [];     // [{ category, description, months }]
+
+// reference lists
 let laborCategories = [];
 let laborCatById = new Map();
+
+let subsList = [];
+let subsById = new Map();
+
+let materialsList = [];
+let materialsById = new Map();
+
+let equipmentList = [];
+let equipmentById = new Map();
 
 const DIRECT_CATS = [
   "Travel",
@@ -234,13 +310,19 @@ export async function init(root, params = {}) {
   currentStartYear = 2025;
   buckets = buildBuckets(currentStartYear);
 
-  // load employees + grants
+  // load reference data
   await loadLaborCategories();
+  await loadSubsList();
+  await loadMaterialsList();
+  await loadEquipmentList();
   await loadGrantOptions();
 
   // header & empty grids
   renderHeaders();
   renderLabor();
+  renderSubs();
+  renderMaterials();
+  renderEquipment();
   renderDirect();
 
   // decide selected grant:
@@ -277,11 +359,18 @@ function setupEventListeners() {
     const id = e.target.value || null;
     currentGrantId = id;
     setSelectedGrantId(id || null);
+
     laborRows = [];
+    subsRows = [];
+    materialsRows = [];
+    equipmentRows = [];
     directRows = [];
 
     if (!id) {
       renderLabor();
+      renderSubs();
+      renderMaterials();
+      renderEquipment();
       renderDirect();
       msg("Select a grant to start budgeting.");
       return;
@@ -302,24 +391,23 @@ function setupEventListeners() {
     buckets = buildBuckets(currentStartYear);
 
     // re-project existing month data into new buckets
-    laborRows.forEach((r) => {
-      const newMonths = {};
-      buckets.forEach((b) => {
-        newMonths[b.ym] = r.months[b.ym] ?? null;
-      });
-      r.months = newMonths;
-    });
-
-    directRows.forEach((r) => {
-      const newMonths = {};
-      buckets.forEach((b) => {
-        newMonths[b.ym] = r.months[b.ym] ?? null;
-      });
-      r.months = newMonths;
-    });
+    [laborRows, subsRows, materialsRows, equipmentRows, directRows].forEach(
+      (rows) => {
+        rows.forEach((r) => {
+          const newMonths = {};
+          buckets.forEach((b) => {
+            newMonths[b.ym] = r.months[b.ym] ?? null;
+          });
+          r.months = newMonths;
+        });
+      }
+    );
 
     renderHeaders();
     renderLabor();
+    renderSubs();
+    renderMaterials();
+    renderEquipment();
     renderDirect();
   });
 
@@ -330,6 +418,33 @@ function setupEventListeners() {
     ensureMonthKeys(row.months);
     laborRows.push(row);
     renderLabor();
+  });
+
+  // Add subs row
+  $("#addSubs", rootEl).addEventListener("click", () => {
+    if (!currentGrantId) return msg("Select a grant first.", true);
+    const row = { sub_id: null, name: "", description: "", months: {} };
+    ensureMonthKeys(row.months);
+    subsRows.push(row);
+    renderSubs();
+  });
+
+  // Add materials row
+  $("#addMaterials", rootEl).addEventListener("click", () => {
+    if (!currentGrantId) return msg("Select a grant first.", true);
+    const row = { material_id: null, name: "", description: "", months: {} };
+    ensureMonthKeys(row.months);
+    materialsRows.push(row);
+    renderMaterials();
+  });
+
+  // Add equipment row
+  $("#addEquipment", rootEl).addEventListener("click", () => {
+    if (!currentGrantId) return msg("Select a grant first.", true);
+    const row = { equipment_id: null, name: "", description: "", months: {} };
+    ensureMonthKeys(row.months);
+    equipmentRows.push(row);
+    renderEquipment();
   });
 
   // Add ODC row
@@ -345,7 +460,7 @@ function setupEventListeners() {
   $("#saveBudget", rootEl).addEventListener("click", saveBudget);
 }
 
-/* ---------- Loads ---------- */
+/* ---------- Loads (reference data) ---------- */
 
 async function loadLaborCategories() {
   const { data, error } = await client
@@ -362,6 +477,54 @@ async function loadLaborCategories() {
 
   laborCategories = data || [];
   laborCatById = new Map(laborCategories.map((c) => [c.id, c]));
+}
+
+async function loadSubsList() {
+  const { data, error } = await client
+    .from("subs")
+    .select("id,name,is_active")
+    .eq("is_active", true)
+    .order("name", { ascending: true });
+
+  if (error) {
+    console.error("[budget] loadSubsList error", error);
+    msg(error.message, true);
+    return;
+  }
+  subsList = data || [];
+  subsById = new Map(subsList.map((s) => [s.id, s]));
+}
+
+async function loadMaterialsList() {
+  const { data, error } = await client
+    .from("materials")
+    .select("id,name,is_active")
+    .eq("is_active", true)
+    .order("name", { ascending: true });
+
+  if (error) {
+    console.error("[budget] loadMaterialsList error", error);
+    msg(error.message, true);
+    return;
+  }
+  materialsList = data || [];
+  materialsById = new Map(materialsList.map((m) => [m.id, m]));
+}
+
+async function loadEquipmentList() {
+  const { data, error } = await client
+    .from("equipment")
+    .select("id,name,is_active")
+    .eq("is_active", true)
+    .order("name", { ascending: true });
+
+  if (error) {
+    console.error("[budget] loadEquipmentList error", error);
+    msg(error.message, true);
+    return;
+  }
+  equipmentList = data || [];
+  equipmentById = new Map(equipmentList.map((e) => [e.id, e]));
 }
 
 async function loadGrantOptions() {
@@ -386,6 +549,8 @@ async function loadGrantOptions() {
     sel.appendChild(new Option(label, g.id));
   });
 }
+
+/* ---------- Load budget for a grant ---------- */
 
 async function loadBudgetForGrant(grantId) {
   msg("Loading…");
@@ -426,9 +591,77 @@ async function loadBudgetForGrant(grantId) {
     laborRows = Array.from(lmap.values());
     laborRows.forEach(ensureMonthKeys);
 
-    // group direct rows by (category, description)
+    // split direct into 4 groups
+    const subsRaw = dirRaw.filter((r) => r.category === "Subcontracts");
+    const matsRaw = dirRaw.filter((r) => r.category === "Materials");
+    const eqpRaw = dirRaw.filter((r) => r.category === "Equipment");
+    const odcRaw = dirRaw.filter(
+      (r) =>
+        r.category !== "Subcontracts" &&
+        r.category !== "Materials" &&
+        r.category !== "Equipment"
+    );
+
+    // Subs
+    const smap = new Map();
+    for (const r of subsRaw) {
+      const key = `${r.description || ""}`;
+      if (!smap.has(key)) {
+        smap.set(key, {
+          sub_id: null,
+          name: r.description || "",
+          description: "",
+          months: {},
+        });
+      }
+      if (bucketSet.has(r.ym)) {
+        smap.get(key).months[r.ym] = Number(r.amount ?? 0);
+      }
+    }
+    subsRows = Array.from(smap.values());
+    subsRows.forEach(ensureMonthKeys);
+
+    // Materials
+    const mmap = new Map();
+    for (const r of matsRaw) {
+      const key = `${r.description || ""}`;
+      if (!mmap.has(key)) {
+        mmap.set(key, {
+          material_id: null,
+          name: r.description || "",
+          description: "",
+          months: {},
+        });
+      }
+      if (bucketSet.has(r.ym)) {
+        mmap.get(key).months[r.ym] = Number(r.amount ?? 0);
+      }
+    }
+    materialsRows = Array.from(mmap.values());
+    materialsRows.forEach(ensureMonthKeys);
+
+    // Equipment
+    const emap = new Map();
+    for (const r of eqpRaw) {
+      const key = `${r.description || ""}`;
+      if (!emap.has(key)) {
+        emap.set(key, {
+          equipment_id: null,
+          name: r.description || "",
+          description: "",
+          months: {},
+        });
+      }
+      if (bucketSet.has(r.ym)) {
+        emap.get(key).months[r.ym] = Number(r.amount ?? 0);
+      }
+    }
+    equipmentRows = Array.from(emap.values());
+    equipmentRows.forEach(ensureMonthKeys);
+
+    // ODC
     const dmap = new Map();
-    for (const r of dirRaw) {
+    for (const r of odcRaw) {
       const key = `${r.category || ""}||${r.description || ""}`;
       if (!dmap.has(key)) {
         dmap.set(key, {
@@ -446,6 +679,9 @@ async function loadBudgetForGrant(grantId) {
 
     renderHeaders();
     renderLabor();
+    renderSubs();
+    renderMaterials();
+    renderEquipment();
     renderDirect();
     msg("");
   } catch (e) {
@@ -458,37 +694,61 @@ async function loadBudgetForGrant(grantId) {
 
 function renderHeaders() {
   const laborHeaderRow = $("#laborHeaderRow", rootEl);
+  const subsHeaderRow = $("#subsHeaderRow", rootEl);
+  const materialsHeaderRow = $("#materialsHeaderRow", rootEl);
+  const equipmentHeaderRow = $("#equipmentHeaderRow", rootEl);
   const directHeaderRow = $("#directHeaderRow", rootEl);
-  if (!laborHeaderRow || !directHeaderRow) return;
+  if (
+    !laborHeaderRow ||
+    !subsHeaderRow ||
+    !materialsHeaderRow ||
+    !equipmentHeaderRow ||
+    !directHeaderRow
+  )
+    return;
+
+  const monthThs = buckets
+    .map(
+      (b) =>
+        `<th style="min-width:6.5rem;text-align:right;">${esc(b.label)}</th>`
+    )
+    .join("");
 
   laborHeaderRow.innerHTML = `
     <th class="sticky-col-1 col-employee">Employee Name</th>
     <th class="sticky-col-2 col-position">Position</th>
     <th style="min-width:6.5rem;text-align:right;">Rate</th>
-    ${buckets
-      .map(
-        (b) =>
-          `<th style="min-width:6.5rem;text-align:right;">${esc(
-            b.label
-          )}</th>`
-      )
-      .join("")}
+    ${monthThs}
     <th style="min-width:7rem;text-align:right;">Total Hours</th>
   `;
 
-  directHeaderRow.innerHTML = `
-    <th class="sticky-col-1 col-employee">Category</th>
-    <th class="sticky-col-2 col-position">Description</th>
-    ${buckets
-      .map(
-        (b) =>
-          `<th style="min-width:6.5rem;text-align:right;">${esc(
-            b.label
-          )}</th>`
-      )
-      .join("")}
-    <th style="min-width:7rem;text-align:right;">Total Amount</th>
+  const genericHeader = (nameLabel, descLabel, totalLabel) => `
+    <th class="sticky-col-1 col-employee">${nameLabel}</th>
+    <th class="sticky-col-2 col-position">${descLabel}</th>
+    ${monthThs}
+    <th style="min-width:7rem;text-align:right;">${totalLabel}</th>
   `;
+
+  subsHeaderRow.innerHTML = genericHeader(
+    "Subcontractor",
+    "Description",
+    "Total Amount"
+  );
+  materialsHeaderRow.innerHTML = genericHeader(
+    "Material",
+    "Description",
+    "Total Amount"
+  );
+  equipmentHeaderRow.innerHTML = genericHeader(
+    "Equipment",
+    "Description",
+    "Total Amount"
+  );
+  directHeaderRow.innerHTML = genericHeader(
+    "Category",
+    "Description",
+    "Total Amount"
+  );
 }
 
 function renderLabor() {
@@ -514,8 +774,7 @@ function renderLabor() {
             data-ym="${b.ym}"
             value="${esc(row.months[b.ym] ?? "")}"
           >
-        </td>
-      `
+        </td>`
         )
         .join("");
 
@@ -531,9 +790,7 @@ function renderLabor() {
                 (c) => `
               <option value="${c.id}" ${
                   row.category_id === c.id ? "selected" : ""
-                }>
-                ${esc(c.name)}
-              </option>`
+                }>${esc(c.name)}</option>`
               )
               .join("")}
           </select>
@@ -558,8 +815,7 @@ function renderLabor() {
         <td class="labor-total" data-row="${idx}" style="text-align:right;">
           ${fmt2(total)}
         </td>
-      </tr>
-    `;
+      </tr>`;
     })
     .join("");
 
@@ -604,6 +860,289 @@ function renderLabor() {
   });
 }
 
+function renderSubs() {
+  const tbody = $("#subsBody", rootEl);
+  if (!tbody) return;
+
+  const rowsHtml = subsRows
+    .map((row, idx) => {
+      const cells = buckets
+        .map(
+          (b) => `
+        <td style="text-align:right;">
+          <input
+            type="number"
+            step="0.01"
+            class="no-spin budget-cell"
+            data-kind="subs"
+            data-row="${idx}"
+            data-ym="${b.ym}"
+            value="${esc(row.months[b.ym] ?? "")}"
+          >
+        </td>`
+        )
+        .join("");
+      const total = rowTotal(row);
+
+      return `
+        <tr data-row-index="${idx}">
+          <td class="sticky-col-1 col-employee">
+            <select data-kind="subs-name" data-row="${idx}" class="budget-select">
+              <option value="">— Select sub —</option>
+              ${subsList
+                .map(
+                  (s) => `
+                <option value="${s.id}" ${
+                    row.sub_id === s.id ? "selected" : ""
+                  }>${esc(s.name)}</option>`
+                )
+                .join("")}
+            </select>
+          </td>
+          <td class="sticky-col-2 col-position">
+            <input type="text" class="budget-text"
+                   data-kind="subs-desc" data-row="${idx}"
+                   value="${esc(row.description || "")}">
+          </td>
+          ${cells}
+          <td class="direct-total" data-row="${idx}" style="text-align:right;">
+            ${fmt2(total)}
+          </td>
+        </tr>`;
+    })
+    .join("");
+
+  tbody.innerHTML = rowsHtml;
+
+  // amounts
+  tbody.querySelectorAll('input[data-kind="subs"]').forEach((inp) => {
+    inp.addEventListener("input", (e) => {
+      const i = Number(e.target.dataset.row);
+      const ym = e.target.dataset.ym;
+      if (!subsRows[i] || !ym) return;
+      const v = e.target.value;
+      const n = v === "" ? null : Number(v);
+      subsRows[i].months[ym] = n == null || isNaN(n) ? null : n;
+
+      const totalCell = tbody.querySelector(
+        `td.direct-total[data-row="${i}"]`
+      );
+      if (totalCell) totalCell.textContent = fmt2(rowTotal(subsRows[i]));
+    });
+  });
+
+  // dropdown
+  tbody.querySelectorAll('select[data-kind="subs-name"]').forEach((sel) => {
+    sel.addEventListener("change", (e) => {
+      const i = Number(e.target.dataset.row);
+      const id = e.target.value || null;
+      if (!subsRows[i]) return;
+      subsRows[i].sub_id = id;
+      const s = id ? subsById.get(id) : null;
+      subsRows[i].name = s?.name || "";
+    });
+  });
+
+  // description
+  tbody.querySelectorAll('input[data-kind="subs-desc"]').forEach((inp) => {
+    inp.addEventListener("input", (e) => {
+      const i = Number(e.target.dataset.row);
+      if (!subsRows[i]) return;
+      subsRows[i].description = e.target.value || "";
+    });
+  });
+}
+
+function renderMaterials() {
+  const tbody = $("#materialsBody", rootEl);
+  if (!tbody) return;
+
+  const rowsHtml = materialsRows
+    .map((row, idx) => {
+      const cells = buckets
+        .map(
+          (b) => `
+        <td style="text-align:right;">
+          <input
+            type="number"
+            step="0.01"
+            class="no-spin budget-cell"
+            data-kind="materials"
+            data-row="${idx}"
+            data-ym="${b.ym}"
+            value="${esc(row.months[b.ym] ?? "")}"
+          >
+        </td>`
+        )
+        .join("");
+      const total = rowTotal(row);
+
+      return `
+        <tr data-row-index="${idx}">
+          <td class="sticky-col-1 col-employee">
+            <select data-kind="materials-name" data-row="${idx}" class="budget-select">
+              <option value="">— Select material —</option>
+              ${materialsList
+                .map(
+                  (m) => `
+                <option value="${m.id}" ${
+                    row.material_id === m.id ? "selected" : ""
+                  }>${esc(m.name)}</option>`
+                )
+                .join("")}
+            </select>
+          </td>
+          <td class="sticky-col-2 col-position">
+            <input type="text" class="budget-text"
+                   data-kind="materials-desc" data-row="${idx}"
+                   value="${esc(row.description || "")}">
+          </td>
+          ${cells}
+          <td class="direct-total" data-row="${idx}" style="text-align:right;">
+            ${fmt2(total)}
+          </td>
+        </tr>`;
+    })
+    .join("");
+
+  tbody.innerHTML = rowsHtml;
+
+  tbody.querySelectorAll('input[data-kind="materials"]').forEach((inp) => {
+    inp.addEventListener("input", (e) => {
+      const i = Number(e.target.dataset.row);
+      const ym = e.target.dataset.ym;
+      if (!materialsRows[i] || !ym) return;
+      const v = e.target.value;
+      const n = v === "" ? null : Number(v);
+      materialsRows[i].months[ym] = n == null || isNaN(n) ? null : n;
+
+      const totalCell = tbody.querySelector(
+        `td.direct-total[data-row="${i}"]`
+      );
+      if (totalCell)
+        totalCell.textContent = fmt2(rowTotal(materialsRows[i]));
+    });
+  });
+
+  tbody
+    .querySelectorAll('select[data-kind="materials-name"]')
+    .forEach((sel) => {
+      sel.addEventListener("change", (e) => {
+        const i = Number(e.target.dataset.row);
+        const id = e.target.value || null;
+        if (!materialsRows[i]) return;
+        materialsRows[i].material_id = id;
+        const m = id ? materialsById.get(id) : null;
+        materialsRows[i].name = m?.name || "";
+      });
+    });
+
+  tbody
+    .querySelectorAll('input[data-kind="materials-desc"]')
+    .forEach((inp) => {
+      inp.addEventListener("input", (e) => {
+        const i = Number(e.target.dataset.row);
+        if (!materialsRows[i]) return;
+        materialsRows[i].description = e.target.value || "";
+      });
+    });
+}
+
+function renderEquipment() {
+  const tbody = $("#equipmentBody", rootEl);
+  if (!tbody) return;
+
+  const rowsHtml = equipmentRows
+    .map((row, idx) => {
+      const cells = buckets
+        .map(
+          (b) => `
+        <td style="text-align:right;">
+          <input
+            type="number"
+            step="0.01"
+            class="no-spin budget-cell"
+            data-kind="equipment"
+            data-row="${idx}"
+            data-ym="${b.ym}"
+            value="${esc(row.months[b.ym] ?? "")}"
+          >
+        </td>`
+        )
+        .join("");
+      const total = rowTotal(row);
+
+      return `
+        <tr data-row-index="${idx}">
+          <td class="sticky-col-1 col-employee">
+            <select data-kind="equipment-name" data-row="${idx}" class="budget-select">
+              <option value="">— Select equipment —</option>
+              ${equipmentList
+                .map(
+                  (e) => `
+                <option value="${e.id}" ${
+                    row.equipment_id === e.id ? "selected" : ""
+                  }>${esc(e.name)}</option>`
+                )
+                .join("")}
+            </select>
+          </td>
+          <td class="sticky-col-2 col-position">
+            <input type="text" class="budget-text"
+                   data-kind="equipment-desc" data-row="${idx}"
+                   value="${esc(row.description || "")}">
+          </td>
+          ${cells}
+          <td class="direct-total" data-row="${idx}" style="text-align:right;">
+            ${fmt2(total)}
+          </td>
+        </tr>`;
+    })
+    .join("");
+
+  tbody.innerHTML = rowsHtml;
+
+  tbody.querySelectorAll('input[data-kind="equipment"]').forEach((inp) => {
+    inp.addEventListener("input", (e) => {
+      const i = Number(e.target.dataset.row);
+      const ym = e.target.dataset.ym;
+      if (!equipmentRows[i] || !ym) return;
+      const v = e.target.value;
+      const n = v === "" ? null : Number(v);
+      equipmentRows[i].months[ym] = n == null || isNaN(n) ? null : n;
+
+      const totalCell = tbody.querySelector(
+        `td.direct-total[data-row="${i}"]`
+      );
+      if (totalCell)
+        totalCell.textContent = fmt2(rowTotal(equipmentRows[i]));
+    });
+  });
+
+  tbody
+    .querySelectorAll('select[data-kind="equipment-name"]')
+    .forEach((sel) => {
+      sel.addEventListener("change", (e) => {
+        const i = Number(e.target.dataset.row);
+        const id = e.target.value || null;
+        if (!equipmentRows[i]) return;
+        equipmentRows[i].equipment_id = id;
+        const eq = id ? equipmentById.get(id) : null;
+        equipmentRows[i].name = eq?.name || "";
+      });
+    });
+
+  tbody
+    .querySelectorAll('input[data-kind="equipment-desc"]')
+    .forEach((inp) => {
+      inp.addEventListener("input", (e) => {
+        const i = Number(e.target.dataset.row);
+        if (!equipmentRows[i]) return;
+        equipmentRows[i].description = e.target.value || "";
+      });
+    });
+}
+
 function renderDirect() {
   const tbody = $("#directBody", rootEl);
   if (!tbody) return;
@@ -623,8 +1162,7 @@ function renderDirect() {
             data-ym="${b.ym}"
             value="${esc(row.months[b.ym] ?? "")}"
           >
-        </td>
-      `
+        </td>`
         )
         .join("");
 
@@ -655,8 +1193,7 @@ function renderDirect() {
         <td class="direct-total" data-row="${idx}" style="text-align:right;">
           ${fmt2(total)}
         </td>
-      </tr>
-    `;
+      </tr>`;
     })
     .join("");
 
@@ -703,14 +1240,21 @@ function renderDirect() {
 async function saveBudget() {
   if (!currentGrantId) return msg("Select a grant first.", true);
 
-  const labInserts = [];
+  // --- Labor to budget_labor ---
+  const laborInserts = [];
   for (const it of laborRows) {
-    const hasHeader = (it.employee_name && it.employee_name.trim()) || it.category_id;
+    const hasHeader =
+      (it.employee_name && it.employee_name.trim()) || it.category_id;
     if (!hasHeader) continue;
     for (const b of buckets) {
       const v = it.months[b.ym];
-      if (v !== null && v !== undefined && v !== "" && !isNaN(Number(v))) {
-        labInserts.push({
+      if (
+        v !== null &&
+        v !== undefined &&
+        v !== "" &&
+        !isNaN(Number(v))
+      ) {
+        laborInserts.push({
           grant_id: currentGrantId,
           employee_name: it.employee_name || null,
           category_id: it.category_id || null,
@@ -721,24 +1265,49 @@ async function saveBudget() {
     }
   }
 
-  const dirInserts = [];
-  for (const it of directRows) {
-    const hasHeader =
-      (it.category && it.category.trim()) || (it.description && it.description.trim());
-    if (!hasHeader) continue;
-    for (const b of buckets) {
-      const v = it.months[b.ym];
-      if (v !== null && v !== undefined && v !== "" && !isNaN(Number(v))) {
-        dirInserts.push({
-          grant_id: currentGrantId,
-          category: it.category || null,
-          description: it.description || null,
-          ym: b.ym,
-          amount: Number(v),
-        });
+  // --- Subs / Materials / Equipment / ODC into budget_direct ---
+  const directInserts = [];
+
+  function pushRows(rows, categoryOverride) {
+    for (const it of rows) {
+      const hasHeader =
+        (it.category && it.category.trim && it.category.trim()) ||
+        (it.name && it.name.trim && it.name.trim()) ||
+        (it.description && it.description.trim && it.description.trim());
+      if (!hasHeader) continue;
+
+      for (const b of buckets) {
+        const v = it.months[b.ym];
+        if (
+          v !== null &&
+          v !== undefined &&
+          v !== "" &&
+          !isNaN(Number(v))
+        ) {
+          directInserts.push({
+            grant_id: currentGrantId,
+            category:
+              categoryOverride ||
+              it.category ||
+              null,
+            description:
+              it.description ||
+              it.name ||
+              null,
+            ym: b.ym,
+            amount: Number(v),
+          });
+        }
       }
     }
   }
+
+  // Subs / Materials / Equipment use fixed categories
+  pushRows(subsRows, "Subcontracts");
+  pushRows(materialsRows, "Materials");
+  pushRows(equipmentRows, "Equipment");
+  // ODC keeps its own category (Travel, Licenses, etc.)
+  pushRows(directRows, null);
 
   try {
     // Clear existing for this grant
@@ -754,17 +1323,20 @@ async function saveBudget() {
       .eq("grant_id", currentGrantId);
     if (del2.error) throw del2.error;
 
-    // Insert new
-    if (labInserts.length) {
-      const ins1 = await client.from("budget_labor").insert(labInserts);
+    // Insert labor
+    if (laborInserts.length) {
+      const ins1 = await client.from("budget_labor").insert(laborInserts);
       if (ins1.error) throw ins1.error;
     }
-    if (dirInserts.length) {
-      const ins2 = await client.from("budget_direct").insert(dirInserts);
+
+    // Insert direct (subs/materials/equipment/odc)
+    if (directInserts.length) {
+      const ins2 = await client.from("budget_direct").insert(directInserts);
       if (ins2.error) throw ins2.error;
     }
 
     msg("Budget saved successfully.");
+    await loadBudgetForGrant(currentGrantId);
   } catch (e) {
     console.error("[budget] saveBudget error", e);
     msg("Save failed: " + (e.message || String(e)), true);
