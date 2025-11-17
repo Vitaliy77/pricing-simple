@@ -400,10 +400,10 @@ function renderCharts(grant, chartData) {
     chartsRegistered = true;
   }
 
-  // Use global default font size if set; otherwise fallback to 14
+  // Use global default font size if set; otherwise fallback to 18
   const baseFontSize =
     (window.Chart && window.Chart.defaults && window.Chart.defaults.font && window.Chart.defaults.font.size) ||
-    14;
+    18;
 
   section.style.display = "block";
 
