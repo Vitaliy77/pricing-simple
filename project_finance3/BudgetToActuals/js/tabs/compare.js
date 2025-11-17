@@ -1,223 +1,333 @@
 // js/tabs/compare.js
-import { client } from '../api/supabase.js';
-import { $, h } from '../lib/dom.js';
-import { getSelectedGrantId } from '../lib/grantContext.js';
+import { client } from "../api/supabase.js";
+import { $, h } from "../lib/dom.js";
+import { getSelectedGrantId, setSelectedGrantId } from "../lib/grantContext.js";
 
-export const template = /*html*/`
+export const template = /*html*/ `
   <article>
     <h3>Budget vs Actual</h3>
 
-    <div class="grid" style="max-width:420px;margin-bottom:0.75rem">
+    <section style="max-width:700px;margin-bottom:0.5rem;">
       <label>
         Grant
-        <select id="grantSelect"></select>
+        <select id="cmpGrantSelect" style="min-width:320px;">
+          <option value="">— Select a grant —</option>
+        </select>
       </label>
-    </div>
+      <small id="cmpMsg"></small>
+    </section>
 
-    <small id="msg"></small>
-
-    <div id="summary" style="margin-top:1rem"></div>
+    <section id="cmpBodySection">
+      <p>No grant selected.</p>
+    </section>
   </article>
 `;
 
-export async function init(root) {
-  root.innerHTML = template;
+/* ---------- State / helpers ---------- */
 
-  const msg = (t, isErr = false) => {
-    const el = $('#msg', root);
-    if (!el) return;
-    el.textContent = t;
-    el.style.color = isErr ? '#b00' : 'inherit';
-  };
+let rootEl = null;
 
-  // Load grants into dropdown
-  async function loadGrants() {
-    msg('Loading grants…');
-    const { data, error } = await client
-      .from('grants')
-      .select('id,name,grant_id,status')
-      .eq('status', 'active')
-      .order('name', { ascending: true });
+const fmt2 = (n) =>
+  Number(n || 0).toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 
-    if (error) {
-      console.error('[compare] loadGrants error', error);
-      msg(error.message, true);
+function msg(text, isErr = false) {
+  if (!rootEl) return;
+  const el = $("#cmpMsg", rootEl);
+  if (!el) return;
+  el.textContent = text || "";
+  el.style.color = isErr ? "#b00" : "inherit";
+  if (text) {
+    setTimeout(() => {
+      if (el.textContent === text) el.textContent = "";
+    }, 4000);
+  }
+}
+
+/**
+ * Classify a budget_direct row into one of:
+ * "subs" | "materials" | "equipment" | "odc"
+ * based on the category text.
+ */
+function classifyBudgetCategory(catRaw) {
+  const c = (catRaw || "").toString().toLowerCase();
+
+  if (!c) return "odc";
+
+  if (c.startsWith("sub")) return "subs";          // "Subcontractor", "Subs", etc.
+  if (c.startsWith("mat")) return "materials";     // "Materials"
+  if (c.startsWith("equip")) return "equipment";   // "Equipment"
+
+  // everything else is ODC (travel, licenses, etc.)
+  return "odc";
+}
+
+/**
+ * Classify an actuals_net row based on its category column.
+ * Expected values: "labor", "subs", "materials", "equipment", "odc"
+ * Everything else goes to "odc".
+ */
+function classifyActualCategory(catRaw) {
+  const c = (catRaw || "").toString().toLowerCase();
+
+  if (c === "labor") return "labor";
+  if (c === "subs" || c === "subcontractor" || c === "subcontractors") return "subs";
+  if (c === "materials" || c === "material") return "materials";
+  if (c === "equipment") return "equipment";
+  if (c === "odc" || c === "other") return "odc";
+
+  return "odc";
+}
+
+/* ---------- Init ---------- */
+
+export async function init(root, params = {}) {
+  rootEl = root;
+  rootEl.innerHTML = template;
+
+  await loadGrantOptions();
+
+  const sel = $("#cmpGrantSelect", rootEl);
+  const fromParams = params.grantId || params.grant_id;
+  const fromGlobal = getSelectedGrantId();
+  let chosen = null;
+
+  if (fromParams && sel.querySelector(`option[value="${fromParams}"]`)) {
+    chosen = fromParams;
+    sel.value = fromParams;
+    setSelectedGrantId(fromParams);
+  } else if (fromGlobal && sel.querySelector(`option[value="${fromGlobal}"]`)) {
+    chosen = fromGlobal;
+    sel.value = fromGlobal;
+  }
+
+  if (chosen) {
+    await loadCompareForGrant(chosen);
+  } else {
+    $("#cmpBodySection", rootEl).innerHTML = "<p>No grant selected.</p>";
+  }
+
+  sel.addEventListener("change", async (e) => {
+    const id = e.target.value || null;
+    setSelectedGrantId(id || null);
+    if (!id) {
+      $("#cmpBodySection", rootEl).innerHTML = "<p>No grant selected.</p>";
       return;
     }
+    await loadCompareForGrant(id);
+  });
+}
 
-    const sel = $('#grantSelect', root);
-    sel.innerHTML = '';
+/* ---------- Load grants for dropdown ---------- */
 
-    const opt0 = document.createElement('option');
-    opt0.value = '';
-    opt0.textContent = '— Select grant —';
-    sel.appendChild(opt0);
+async function loadGrantOptions() {
+  const sel = $("#cmpGrantSelect", rootEl);
+  sel.innerHTML = '<option value="">— Select a grant —</option>';
 
-    (data || []).forEach(g => {
-      const opt = document.createElement('option');
-      opt.value = g.id;
-      opt.textContent = `${g.name} (${g.grant_id || 'no code'})`;
-      sel.appendChild(opt);
+  const { data, error } = await client
+    .from("grants")
+    .select("id,name,grant_id,status")
+    .eq("status", "active")
+    .order("name", { ascending: true });
+
+  if (error) {
+    console.error("[compare] loadGrantOptions error", error);
+    msg(error.message, true);
+    return;
+  }
+
+  (data || []).forEach((g) => {
+    const label = g.grant_id ? `${g.name} (${g.grant_id})` : g.name;
+    sel.appendChild(new Option(label, g.id));
+  });
+}
+
+/* ---------- Load + compute Budget vs Actual ---------- */
+
+async function loadCompareForGrant(grantId) {
+  msg("Loading…");
+
+  try {
+    const [labRes, dirRes, catsRes, actRes] = await Promise.all([
+      client
+        .from("budget_labor")
+        .select("category_id,hours")
+        .eq("grant_id", grantId),
+      client
+        .from("budget_direct")
+        .select("category,amount")
+        .eq("grant_id", grantId),
+      client
+        .from("labor_categories")
+        .select("id,hourly_rate")
+        .eq("is_active", true),
+      client
+        .from("actuals_net")
+        .select("amount_net,category,grant_id")
+        .eq("grant_id", grantId),
+    ]);
+
+    if (labRes.error) throw labRes.error;
+    if (dirRes.error) throw dirRes.error;
+    if (catsRes.error) throw catsRes.error;
+    if (actRes.error) throw actRes.error;
+
+    const laborRows = labRes.data || [];
+    const directRows = dirRes.data || [];
+    const cats = catsRes.data || [];
+    const actuals = actRes.data || [];
+
+    const rateById = Object.fromEntries(
+      cats.map((c) => [c.id, Number(c.hourly_rate ?? 0)])
+    );
+
+    // ---------- Budget totals ----------
+    let budgetLabor = 0;
+    let budgetSubs = 0;
+    let budgetMaterials = 0;
+    let budgetEquipment = 0;
+    let budgetODC = 0;
+
+    // Labor (hours * rate)
+    laborRows.forEach((r) => {
+      const hrs = Number(r.hours ?? 0);
+      const rate = rateById[r.category_id] ?? 0;
+      budgetLabor += hrs * rate;
     });
 
-    // If we have a "current grant" selected on Grants tab, use it
-    const current = getSelectedGrantId();
-    if (current && data?.some(g => g.id === current)) {
-      sel.value = current;
-      loadCompareForGrant(current);
-    } else {
-      msg('Select a grant to see Budget vs Actual.');
-    }
+    // Direct (Subs / Materials / Equipment / ODC)
+    directRows.forEach((r) => {
+      const amt = Number(r.amount ?? 0);
+      if (!amt) return;
+      const bucket = classifyBudgetCategory(r.category);
+      if (bucket === "subs") budgetSubs += amt;
+      else if (bucket === "materials") budgetMaterials += amt;
+      else if (bucket === "equipment") budgetEquipment += amt;
+      else budgetODC += amt;
+    });
 
-    // Change handler
-    sel.onchange = () => {
-      const gid = sel.value || null;
-      if (!gid) {
-        $('#summary', root).innerHTML = '';
-        msg('Select a grant to see Budget vs Actual.');
-        return;
-      }
-      loadCompareForGrant(gid);
+    const budgetTotal =
+      budgetLabor + budgetSubs + budgetMaterials + budgetEquipment + budgetODC;
+
+    // ---------- Actual totals ----------
+    let actualLabor = 0;
+    let actualSubs = 0;
+    let actualMaterials = 0;
+    let actualEquipment = 0;
+    let actualODC = 0;
+
+    actuals.forEach((a) => {
+      const amt = Number(a.amount_net ?? 0);
+      if (!amt) return;
+      const bucket = classifyActualCategory(a.category);
+      if (bucket === "labor") actualLabor += amt;
+      else if (bucket === "subs") actualSubs += amt;
+      else if (bucket === "materials") actualMaterials += amt;
+      else if (bucket === "equipment") actualEquipment += amt;
+      else actualODC += amt;
+    });
+
+    const actualTotal =
+      actualLabor + actualSubs + actualMaterials + actualEquipment + actualODC;
+
+    // ---------- Variances ----------
+    const rows = [
+      {
+        label: "Labor",
+        budget: budgetLabor,
+        actual: actualLabor,
+      },
+      {
+        label: "Subs",
+        budget: budgetSubs,
+        actual: actualSubs,
+      },
+      {
+        label: "Materials",
+        budget: budgetMaterials,
+        actual: actualMaterials,
+      },
+      {
+        label: "Equipment",
+        budget: budgetEquipment,
+        actual: actualEquipment,
+      },
+      {
+        label: "Other Direct Costs",
+        budget: budgetODC,
+        actual: actualODC,
+      },
+    ].map((r) => ({
+      ...r,
+      variance: r.budget - r.actual,
+    }));
+
+    const totalsRow = {
+      label: "Total",
+      budget: budgetTotal,
+      actual: actualTotal,
+      variance: budgetTotal - actualTotal,
     };
+
+    renderCompareTable(rows, totalsRow);
+    msg("");
+  } catch (e) {
+    console.error("[compare] loadCompareForGrant error", e);
+    msg(e.message || String(e), true);
+    $("#cmpBodySection", rootEl).innerHTML =
+      "<p>Failed to load Budget vs Actual.</p>";
   }
-
-  async function loadCompareForGrant(grantId) {
-    msg('Loading…');
-
-    try {
-      const [labRes, dirRes, catsRes, actRes] = await Promise.all([
-        // Budget labor: hours per labor category
-        client
-          .from('budget_labor')
-          .select('category_id,hours')
-          .eq('grant_id', grantId),
-
-        // Budget other direct: amounts
-        client
-          .from('budget_direct')
-          .select('amount')
-          .eq('grant_id', grantId),
-
-        // Labor categories: rates
-        client
-          .from('labor_categories')
-          .select('id,hourly_rate')
-          .eq('is_active', true),
-
-        // Actuals: aggregated net amount per grant (from view)
-        client
-          .from('actuals_net')
-          .select('amount_net,grant_id')
-          .eq('grant_id', grantId)
-      ]);
-
-      if (labRes.error) throw labRes.error;
-      if (dirRes.error) throw dirRes.error;
-      if (catsRes.error) throw catsRes.error;
-      if (actRes.error) throw actRes.error;
-
-      const laborRows = labRes.data || [];
-      const directRows = dirRes.data || [];
-      const cats      = catsRes.data || [];
-      const actuals   = actRes.data || [];
-
-      // Map labor_category_id -> hourly rate
-      const rateById = Object.fromEntries(
-        cats.map(c => [c.id, Number(c.hourly_rate ?? 0)])
-      );
-
-      // ----- Budget totals -----
-      let budgetLabor = 0;
-      laborRows.forEach(r => {
-        const hrs  = Number(r.hours ?? 0);
-        const rate = rateById[r.category_id] ?? 0;
-        budgetLabor += hrs * rate;
-      });
-
-      const budgetDirect = directRows.reduce(
-        (sum, r) => sum + Number(r.amount ?? 0),
-        0
-      );
-
-      const budgetTotal = budgetLabor + budgetDirect;
-
-      // ----- Actual totals (from actuals_net) -----
-      const actualTotal = actuals.reduce(
-        (sum, a) => sum + Number(a.amount_net ?? 0),
-        0
-      );
-
-      // For now, treat all actuals as "direct" to keep UI structure
-      const actualLabor  = 0;
-      const actualDirect = actualTotal;
-
-      // ----- Variances -----
-      const varLabor  = budgetLabor  - actualLabor;
-      const varDirect = budgetDirect - actualDirect;
-      const varTotal  = budgetTotal  - actualTotal;
-
-      renderSummary(root, {
-        budgetLabor,
-        budgetDirect,
-        budgetTotal,
-        actualLabor,
-        actualDirect,
-        actualTotal,
-        varLabor,
-        varDirect,
-        varTotal,
-      });
-
-      msg(actuals.length
-        ? `Loaded Budget vs Actual for ${actuals.length} actual rows.`
-        : 'No actuals found for this grant yet.'
-      );
-    } catch (e) {
-      console.error('[compare] loadCompareForGrant error', e);
-      msg(e.message || String(e), true);
-    }
-  }
-
-  function renderSummary(root, s) {
-    const format = (v) =>
-      (Number.isFinite(v) ? v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00');
-
-    const html = `
-      <table>
-        <thead>
-          <tr>
-            <th></th>
-            <th>Budget</th>
-            <th>Actual</th>
-            <th>Variance</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <th>Labor</th>
-            <td>${format(s.budgetLabor)}</td>
-            <td>${format(s.actualLabor)}</td>
-            <td>${format(s.varLabor)}</td>
-          </tr>
-          <tr>
-            <th>Other Direct</th>
-            <td>${format(s.budgetDirect)}</td>
-            <td>${format(s.actualDirect)}</td>
-            <td>${format(s.varDirect)}</td>
-          </tr>
-          <tr>
-            <th>Total</th>
-            <td><strong>${format(s.budgetTotal)}</strong></td>
-            <td><strong>${format(s.actualTotal)}</strong></td>
-            <td><strong>${format(s.varTotal)}</strong></td>
-          </tr>
-        </tbody>
-      </table>
-    `;
-
-    $('#summary', root).innerHTML = html;
-  }
-
-  // Kick things off
-  await loadGrants();
 }
+
+/* ---------- Render table ---------- */
+
+function renderCompareTable(rows, totals) {
+  const container = $("#cmpBodySection", rootEl);
+  if (!container) return;
+
+  const tbl = h(`
+    <table class="data-grid compact-grid">
+      <thead>
+        <tr>
+          <th style="min-width:140px;">Category</th>
+          <th style="min-width:110px;text-align:right;">Budget</th>
+          <th style="min-width:110px;text-align:right;">Actual</th>
+          <th style="min-width:110px;text-align:right;">Variance</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+      <tfoot>
+        <tr>
+          <th> ${totals.label} </th>
+          <th style="text-align:right;">${fmt2(totals.budget)}</th>
+          <th style="text-align:right;">${fmt2(totals.actual)}</th>
+          <th style="text-align:right;">${fmt2(totals.variance)}</th>
+        </tr>
+      </tfoot>
+    </table>
+  `);
+
+  const tbody = tbl.querySelector("tbody");
+
+  rows.forEach((r) => {
+    const tr = h("<tr></tr>");
+    tr.appendChild(h(`<td>${r.label}</td>`));
+    tr.appendChild(h(`<td style="text-align:right;">${fmt2(r.budget)}</td>`));
+    tr.appendChild(h(`<td style="text-align:right;">${fmt2(r.actual)}</td>`));
+    tr.appendChild(
+      h(
+        `<td style="text-align:right;">${
+          r.variance >= 0 ? "" : "-"
+        }${fmt2(Math.abs(r.variance))}</td>`
+      )
+    );
+    tbody.appendChild(tr);
+  });
+
+  container.innerHTML = "";
+  container.appendChild(tbl);
+}
+
+export const compareTab = { template, init };
