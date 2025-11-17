@@ -3,39 +3,92 @@ import { client } from "../api/supabase.js";
 import { $, h } from "../lib/dom.js";
 import { setSelectedGrantId } from "../lib/grantContext.js";
 
+// Helper: format number with no decimals
+const fmt0 = (n) =>
+  Number(n || 0).toLocaleString(undefined, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  });
+
 export const template = /*html*/ `
   <article>
     <h3>Grant Setup</h3>
 
     <section style="margin-bottom:1rem;">
       <h4 style="margin-bottom:0.5rem;">Create Grant</h4>
-      <div class="grid" style="max-width:900px; row-gap:0.35rem;">
+
+      <!-- Grant form row with explicit widths -->
+      <div
+        class="grid"
+        style="
+          max-width: 1200px;
+          grid-template-columns: 2.5fr 1.5fr 2.5fr 1.25fr 1.5fr 1.5fr;
+          gap: 0.4rem;
+          margin-bottom: 0.4rem;
+        "
+      >
         <label>
-          Grant Name
-          <input id="g_name" placeholder="Community Health Clinic" />
+          Grant name
+          <input
+            id="g_name"
+            type="text"
+            placeholder="Grant Name"
+            style="width:100%;"
+          >
         </label>
+
         <label>
           Grant ID
-          <input id="g_id" placeholder="G-2025-001" />
+          <input
+            id="g_id"
+            type="text"
+            placeholder="Grant ID"
+            style="width:100%;"
+          >
         </label>
+
         <label>
           Funder
-          <input id="g_funder" placeholder="Gates Foundation" />
+          <input
+            id="g_funder"
+            type="text"
+            placeholder="Funder"
+            style="width:100%;"
+          >
         </label>
+
         <label>
-          Total Award
-          <input id="g_amt" type="number" step="0.01" placeholder="250000.00" />
+          Total award
+          <input
+            id="g_total"
+            type="number"
+            step="1"
+            min="0"
+            placeholder="Total Award"
+            style="width:100%;text-align:right;"
+          >
         </label>
+
         <label>
-          Start Date
-          <input id="g_from" type="date" />
+          Start
+          <input
+            id="g_from"
+            type="date"
+            style="width:100%;"
+          >
         </label>
+
         <label>
-          End Date
-          <input id="g_to" type="date" />
+          End
+          <input
+            id="g_to"
+            type="date"
+            style="width:100%;"
+          >
         </label>
       </div>
-      <div style="margin-top:0.5rem; display:flex; gap:0.5rem;">
+
+      <div style="margin-top:0.5rem; display:flex; gap:0.5rem; align-items:center;">
         <button id="create" type="button">Create</button>
         <small id="msg"></small>
       </div>
@@ -93,7 +146,7 @@ export async function init(root) {
     const name = $("#g_name", root).value.trim();
     const grant_id = $("#g_id", root).value.trim() || null;
     const funder = $("#g_funder", root).value.trim() || null;
-    const total_award = Number($("#g_amt", root).value || 0);
+    const total_award = Math.round(Number($("#g_total", root).value || 0)); // ← Whole dollars
     const start_date = $("#g_from", root).value || null;
     const end_date = $("#g_to", root).value || null;
 
@@ -117,14 +170,16 @@ export async function init(root) {
       console.error("[grants] insert error", error);
       return msg(error.message, true);
     }
+
     msg("Grant created.");
-    // quick clear
+    // Clear form
     $("#g_name", root).value = "";
     $("#g_id", root).value = "";
     $("#g_funder", root).value = "";
-    $("#g_amt", root).value = "";
+    $("#g_total", root).value = "";
     $("#g_from", root).value = "";
     $("#g_to", root).value = "";
+
     await load();
   };
 
@@ -154,7 +209,7 @@ export async function init(root) {
         <td>${g.funder || ""}</td>
         <td>${g.start_date || ""}</td>
         <td>${g.end_date || ""}</td>
-        <td>${g.total_award != null ? Number(g.total_award).toLocaleString() : ""}</td>
+        <td>${fmt0(g.total_award)}</td>
         <td>${g.status || ""}</td>
         <td>
           <button type="button" data-grant="${g.id}" class="secondary" style="font-size:0.75rem;padding:0.1rem 0.4rem;">
@@ -165,7 +220,7 @@ export async function init(root) {
       tb.appendChild(tr);
     });
 
-    // wire "Use" buttons to global grant context
+    // Wire "Use" buttons
     tb.querySelectorAll("button[data-grant]").forEach((btn) => {
       btn.addEventListener("click", (e) => {
         const id = e.currentTarget.getAttribute("data-grant");
