@@ -205,7 +205,7 @@ async function loadSummary(grantId) {
 
     // --- Budget totals ---
     let budgetLabor = 0;
-    const budgetLaborByMonth = {}; // ym -> $
+    const budgetLaborByMonth = {}; // ym (Y-M-D) -> $
     laborRows.forEach((r) => {
       const hrs = Number(r.hours ?? 0);
       const rate = rateById[r.category_id] ?? 0;
@@ -248,12 +248,6 @@ async function loadSummary(grantId) {
 
     // Build monthly budget & actual arrays aligned to PoP
     const monthlyBudget = ymList.map((ym) => {
-      // budget tables store ym as YYYY-MM-DD – we match on prefix
-      const asYMD = Object.keys(budgetLaborByMonth)
-        .concat(Object.keys(budgetDirectByMonth))
-        .filter(Boolean);
-      // To keep it simple, we expect ym in YMD keys as prefix:
-      // If keys are already YYYY-MM-DD, we map by prefix:
       const laborSum = Object.entries(budgetLaborByMonth).reduce(
         (acc, [k, v]) => (k.startsWith(ym) ? acc + v : acc),
         0
@@ -406,6 +400,11 @@ function renderCharts(grant, chartData) {
     chartsRegistered = true;
   }
 
+  // Use global default font size if set; otherwise fallback to 14
+  const baseFontSize =
+    (window.Chart && window.Chart.defaults && window.Chart.defaults.font && window.Chart.defaults.font.size) ||
+    14;
+
   section.style.display = "block";
 
   const {
@@ -456,7 +455,7 @@ function renderCharts(grant, chartData) {
         plugins: {
           legend: {
             position: "bottom",
-            labels: { font: { size: 12 } },
+            labels: { font: { size: baseFontSize } },
           },
           tooltip: {
             callbacks: {
@@ -469,7 +468,7 @@ function renderCharts(grant, chartData) {
           },
           datalabels: {
             color: "#111",
-            font: { size: 12, weight: "500" },
+            font: { size: baseFontSize, weight: "500" },
             formatter: (val) => {
               const pct = ((val / total) * 100) || 0;
               return `${pct.toFixed(1)}%`;
@@ -496,7 +495,7 @@ function renderCharts(grant, chartData) {
             data: dataArr,
             backgroundColor: [
               "rgba(37, 99, 235, 0.75)",   // blue
-              "rgba(250, 204, 21, 0.75)",  // yellow (no red)
+              "rgba(250, 204, 21, 0.75)",  // yellow
             ],
             borderColor: [
               "rgba(37, 99, 235, 1)",
@@ -511,7 +510,7 @@ function renderCharts(grant, chartData) {
         plugins: {
           legend: {
             position: "bottom",
-            labels: { font: { size: 12 } },
+            labels: { font: { size: baseFontSize } },
           },
           tooltip: {
             callbacks: {
@@ -524,7 +523,7 @@ function renderCharts(grant, chartData) {
           },
           datalabels: {
             color: "#111",
-            font: { size: 12, weight: "500" },
+            font: { size: baseFontSize, weight: "500" },
             formatter: (val) => {
               const pct = ((val / total) * 100) || 0;
               return `${pct.toFixed(1)}%`;
@@ -572,7 +571,7 @@ function renderCharts(grant, chartData) {
         plugins: {
           legend: {
             position: "top",
-            labels: { font: { size: 12 } },
+            labels: { font: { size: baseFontSize } },
           },
           tooltip: {
             callbacks: {
@@ -588,11 +587,11 @@ function renderCharts(grant, chartData) {
         },
         scales: {
           x: {
-            ticks: { font: { size: 12 } },
+            ticks: { font: { size: baseFontSize } },
           },
           y: {
             ticks: {
-              font: { size: 12 },
+              font: { size: baseFontSize },
               callback: (v) => fmt2(v),
             },
           },
