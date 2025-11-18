@@ -176,7 +176,10 @@ export async function init(root) {
 
   // Create / Update grant
   $createBtn.onclick = async () => {
-    const { data: userRes } = await client.auth.getUser();
+    const { data: userRes, error: authErr } = await client.auth.getUser();
+    if (authErr) {
+      console.error("[grants] auth error", authErr);
+    }
     const user = userRes?.user || null;
     if (!user) return msg("Sign in first", true);
 
@@ -191,23 +194,22 @@ export async function init(root) {
       return msg("Name, start date, and end date are required.", true);
     }
 
-    const row = {
+    // Only the editable fields (don't always touch status / pm_user_id)
+    const rowBase = {
       name,
       grant_id,
       funder,
       total_award,
       start_date,
       end_date,
-      status: "active",
-      pm_user_id: user.id,
     };
 
     try {
       if (editingGrantId) {
-        // UPDATE existing grant
+        // UPDATE existing grant: only editable fields
         const { error } = await client
           .from("grants")
-          .update(row)
+          .update(rowBase)
           .eq("id", editingGrantId);
 
         if (error) {
@@ -217,8 +219,14 @@ export async function init(root) {
 
         msg("Grant updated.");
       } else {
-        // CREATE new grant
-        const { error } = await client.from("grants").insert(row);
+        // CREATE new grant: also set status + pm_user_id
+        const insertRow = {
+          ...rowBase,
+          status: "active",
+          pm_user_id: user.id,
+        };
+
+        const { error } = await client.from("grants").insert(insertRow);
         if (error) {
           console.error("[grants] insert error", error);
           return msg(error.message, true);
