@@ -207,14 +207,23 @@ export async function init(root) {
     try {
       if (editingGrantId) {
         // UPDATE existing grant: only editable fields
-        const { error } = await client
+        const { data, error } = await client
           .from("grants")
           .update(rowBase)
-          .eq("id", editingGrantId);
+          .eq("id", editingGrantId)
+          .select("id"); // returns updated rows if RLS allows
 
         if (error) {
           console.error("[grants] update error", error);
           return msg(error.message, true);
+        }
+
+        if (!data || data.length === 0) {
+          // This usually means RLS blocked the update or id mismatch
+          return msg(
+            "Update did not affect any rows. Check RLS / permissions for the grants table.",
+            true
+          );
         }
 
         msg("Grant updated.");
@@ -226,7 +235,11 @@ export async function init(root) {
           pm_user_id: user.id,
         };
 
-        const { error } = await client.from("grants").insert(insertRow);
+        const { error } = await client
+          .from("grants")
+          .insert(insertRow)
+          .select("id");
+
         if (error) {
           console.error("[grants] insert error", error);
           return msg(error.message, true);
