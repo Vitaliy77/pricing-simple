@@ -24,105 +24,21 @@ export const template = /*html*/ `
       <small id="msg"></small>
     </section>
 
-    <!-- Labor Section -->
+    <!-- Unified Budget Table Section -->
     <section style="margin-top:0.5rem;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.25rem;">
-        <div style="display:flex;align-items:center;gap:0.5rem;">
-          <h4 style="margin:0;">Labor</h4>
-          <button id="addLabor" type="button" class="btn-sm">
-            + Add Employees
-          </button>
-        </div>
+        <h4 style="margin:0;">Budget Lines</h4>
         <button id="saveBudget" type="button" class="btn-sm">
           Save Budget
         </button>
       </div>
-      <div class="scroll-x">
-        <table class="data-grid">
-          <thead>
-            <tr id="laborHeaderRow"></tr>
-          </thead>
-          <tbody id="laborBody"></tbody>
-        </table>
-      </div>
-    </section>
 
-    <!-- Subs Section -->
-    <section style="margin-top:0.75rem;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.25rem;">
-        <div style="display:flex;align-items:center;gap:0.5rem;">
-          <h4 style="margin:0;">Subs</h4>
-          <button id="addSubs" type="button" class="btn-sm">
-            + Subs
-          </button>
-        </div>
-      </div>
       <div class="scroll-x">
         <table class="data-grid">
           <thead>
-            <tr id="subsHeaderRow"></tr>
+            <tr id="budgetHeaderRow"></tr>
           </thead>
-          <tbody id="subsBody"></tbody>
-        </table>
-      </div>
-    </section>
-
-    <!-- Materials Section -->
-    <section style="margin-top:0.75rem;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.25rem;">
-        <div style="display:flex;align-items:center;gap:0.5rem;">
-          <h4 style="margin:0;">Materials</h4>
-          <button id="addMaterials" type="button" class="btn-sm">
-            + Materials
-          </button>
-        </div>
-      </div>
-      <div class="scroll-x">
-        <table class="data-grid">
-          <thead>
-            <tr id="materialsHeaderRow"></tr>
-          </thead>
-          <tbody id="materialsBody"></tbody>
-        </table>
-      </div>
-    </section>
-
-    <!-- Equipment Section -->
-    <section style="margin-top:0.75rem;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.25rem;">
-        <div style="display:flex;align-items:center;gap:0.5rem;">
-          <h4 style="margin:0;">Equipment</h4>
-          <button id="addEquipment" type="button" class="btn-sm">
-            + Equipment
-          </button>
-        </div>
-      </div>
-      <div class="scroll-x">
-        <table class="data-grid">
-          <thead>
-            <tr id="equipmentHeaderRow"></tr>
-          </thead>
-          <tbody id="equipmentBody"></tbody>
-        </table>
-      </div>
-    </section>
-
-    <!-- ODC Section -->
-    <section style="margin-top:0.75rem;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.25rem;">
-        <div style="display:flex;align-items:center;gap:0.5rem;">
-          <h4 style="margin:0;">Other Direct Costs</h4>
-          <button id="addDirect" type="button" class="btn-sm">
-            + Other Direct Costs
-          </button>
-        </div>
-      </div>
-      <div class="scroll-x">
-        <table class="data-grid">
-          <thead>
-            <tr id="directHeaderRow"></tr>
-          </thead>
-          <tbody id="directBody"></tbody>
+          <tbody id="budgetBody"></tbody>
         </table>
       </div>
     </section>
@@ -180,7 +96,7 @@ export const template = /*html*/ `
         text-align: right;
       }
 
-      .no-spin::-webkit-inner-spin-button,
+      .no-spin::-webkit-inner-spin_button,
       .no-spin::-webkit-outer-spin-button {
         -webkit-appearance: none;
         margin: 0;
@@ -192,6 +108,15 @@ export const template = /*html*/ `
       .labor-total,
       .direct-total {
         font-weight: 600;
+      }
+
+      .section-header-row td {
+        background: #f9fafb;
+        font-weight: 600;
+      }
+
+      .section-header-row button.section-add {
+        margin-right: 0.5rem;
       }
     </style>
   </article>
@@ -317,13 +242,9 @@ export async function init(root, params = {}) {
   await loadEquipmentList();
   await loadGrantOptions();
 
-  // header & empty grids
+  // header & empty grid
   renderHeaders();
-  renderLabor();
-  renderSubs();
-  renderMaterials();
-  renderEquipment();
-  renderDirect();
+  renderBudgetRows();
 
   // decide selected grant:
   const sel = $("#grantSelect", rootEl);
@@ -367,11 +288,7 @@ function setupEventListeners() {
     directRows = [];
 
     if (!id) {
-      renderLabor();
-      renderSubs();
-      renderMaterials();
-      renderEquipment();
-      renderDirect();
+      renderBudgetRows();
       msg("Select a grant to start budgeting.");
       return;
     }
@@ -404,56 +321,43 @@ function setupEventListeners() {
     );
 
     renderHeaders();
-    renderLabor();
-    renderSubs();
-    renderMaterials();
-    renderEquipment();
-    renderDirect();
+    renderBudgetRows();
   });
 
-  // Add labor row
-  $("#addLabor", rootEl).addEventListener("click", () => {
-    if (!currentGrantId) return msg("Select a grant first.", true);
-    const row = { employee_name: "", category_id: null, months: {} };
-    ensureMonthKeys(row.months);
-    laborRows.push(row);
-    renderLabor();
-  });
+  // Section add buttons inside the unified table
+  rootEl.addEventListener("click", (e) => {
+    const btn = e.target.closest(".section-add");
+    if (!btn) return;
 
-  // Add subs row
-  $("#addSubs", rootEl).addEventListener("click", () => {
-    if (!currentGrantId) return msg("Select a grant first.", true);
-    const row = { sub_id: null, name: "", description: "", months: {} };
-    ensureMonthKeys(row.months);
-    subsRows.push(row);
-    renderSubs();
-  });
+    if (!currentGrantId) {
+      msg("Select a grant first.", true);
+      return;
+    }
 
-  // Add materials row
-  $("#addMaterials", rootEl).addEventListener("click", () => {
-    if (!currentGrantId) return msg("Select a grant first.", true);
-    const row = { material_id: null, name: "", description: "", months: {} };
-    ensureMonthKeys(row.months);
-    materialsRows.push(row);
-    renderMaterials();
-  });
+    const section = btn.dataset.section;
+    if (section === "labor") {
+      const row = { employee_name: "", category_id: null, months: {} };
+      ensureMonthKeys(row.months);
+      laborRows.push(row);
+    } else if (section === "subs") {
+      const row = { sub_id: null, name: "", description: "", months: {} };
+      ensureMonthKeys(row.months);
+      subsRows.push(row);
+    } else if (section === "materials") {
+      const row = { material_id: null, name: "", description: "", months: {} };
+      ensureMonthKeys(row.months);
+      materialsRows.push(row);
+    } else if (section === "equipment") {
+      const row = { equipment_id: null, name: "", description: "", months: {} };
+      ensureMonthKeys(row.months);
+      equipmentRows.push(row);
+    } else if (section === "direct") {
+      const row = { category: DIRECT_CATS[0], description: "", months: {} };
+      ensureMonthKeys(row.months);
+      directRows.push(row);
+    }
 
-  // Add equipment row
-  $("#addEquipment", rootEl).addEventListener("click", () => {
-    if (!currentGrantId) return msg("Select a grant first.", true);
-    const row = { equipment_id: null, name: "", description: "", months: {} };
-    ensureMonthKeys(row.months);
-    equipmentRows.push(row);
-    renderEquipment();
-  });
-
-  // Add ODC row
-  $("#addDirect", rootEl).addEventListener("click", () => {
-    if (!currentGrantId) return msg("Select a grant first.", true);
-    const row = { category: DIRECT_CATS[0], description: "", months: {} };
-    ensureMonthKeys(row.months);
-    directRows.push(row);
-    renderDirect();
+    renderBudgetRows();
   });
 
   // Save
@@ -678,11 +582,7 @@ async function loadBudgetForGrant(grantId) {
     directRows.forEach(ensureMonthKeys);
 
     renderHeaders();
-    renderLabor();
-    renderSubs();
-    renderMaterials();
-    renderEquipment();
-    renderDirect();
+    renderBudgetRows();
     msg("");
   } catch (e) {
     console.error("[budget] loadBudgetForGrant error", e);
@@ -693,19 +593,8 @@ async function loadBudgetForGrant(grantId) {
 /* ---------- Rendering ---------- */
 
 function renderHeaders() {
-  const laborHeaderRow = $("#laborHeaderRow", rootEl);
-  const subsHeaderRow = $("#subsHeaderRow", rootEl);
-  const materialsHeaderRow = $("#materialsHeaderRow", rootEl);
-  const equipmentHeaderRow = $("#equipmentHeaderRow", rootEl);
-  const directHeaderRow = $("#directHeaderRow", rootEl);
-  if (
-    !laborHeaderRow ||
-    !subsHeaderRow ||
-    !materialsHeaderRow ||
-    !equipmentHeaderRow ||
-    !directHeaderRow
-  )
-    return;
+  const headerRow = $("#budgetHeaderRow", rootEl);
+  if (!headerRow) return;
 
   const monthThs = buckets
     .map(
@@ -714,83 +603,73 @@ function renderHeaders() {
     )
     .join("");
 
-  laborHeaderRow.innerHTML = `
-    <th class="sticky-col-1 col-employee">Employee Name</th>
-    <th class="sticky-col-2 col-position">Position</th>
-    <th style="min-width:6.5rem;text-align:right;">Rate</th>
+  headerRow.innerHTML = `
+    <th class="sticky-col-1 col-employee">Name / Category</th>
+    <th class="sticky-col-2 col-position">Position / Description</th>
+    <th style="min-width:6.5rem;text-align:right;">Rate / —</th>
     ${monthThs}
-    <th style="min-width:7rem;text-align:right;">Total Hours</th>
+    <th style="min-width:7rem;text-align:right;">Total</th>
   `;
-
-  const genericHeader = (nameLabel, descLabel, totalLabel) => `
-    <th class="sticky-col-1 col-employee">${nameLabel}</th>
-    <th class="sticky-col-2 col-position">${descLabel}</th>
-    ${monthThs}
-    <th style="min-width:7rem;text-align:right;">${totalLabel}</th>
-  `;
-
-  subsHeaderRow.innerHTML = genericHeader(
-    "Subcontractor",
-    "Description",
-    "Total Amount"
-  );
-  materialsHeaderRow.innerHTML = genericHeader(
-    "Material",
-    "Description",
-    "Total Amount"
-  );
-  equipmentHeaderRow.innerHTML = genericHeader(
-    "Equipment",
-    "Description",
-    "Total Amount"
-  );
-  directHeaderRow.innerHTML = genericHeader(
-    "Category",
-    "Description",
-    "Total Amount"
-  );
 }
 
-function renderLabor() {
-  const tbody = $("#laborBody", rootEl);
+function sectionHeaderRow(label, sectionKey, colSpan) {
+  return `
+    <tr class="section-header-row" data-section="${sectionKey}">
+      <td colspan="${colSpan}">
+        <button type="button" class="btn-sm section-add" data-section="${sectionKey}">
+          [+] ${label}
+        </button>
+        <span>${label}</span>
+      </td>
+    </tr>
+  `;
+}
+
+function renderBudgetRows() {
+  const tbody = $("#budgetBody", rootEl);
   if (!tbody) return;
 
-  const rowsHtml = laborRows
-    .map((row, idx) => {
-      const cat = row.category_id ? laborCatById.get(row.category_id) : null;
-      const position = cat?.position || "";
-      const rate = cat?.hourly_rate ?? "";
+  const colSpan = 3 + buckets.length + 1; // name, desc, rate, months..., total
 
-      const cells = buckets
-        .map(
-          (b) => `
-        <td style="text-align:right;">
-          <input
-            type="number"
-            step="0.01"
-            class="no-spin budget-cell"
-            data-kind="labor"
-            data-row="${idx}"
-            data-ym="${b.ym}"
-            value="${esc(row.months[b.ym] ?? "")}"
-          >
-        </td>`
-        )
-        .join("");
+  const monthCells = (row, kind, idx) =>
+    buckets
+      .map(
+        (b) => `
+      <td style="text-align:right;">
+        <input
+          type="number"
+          step="0.01"
+          class="no-spin budget-cell"
+          data-kind="${kind}"
+          data-row="${idx}"
+          data-ym="${b.ym}"
+          value="${esc(row.months[b.ym] ?? "")}"
+        >
+      </td>`
+      )
+      .join("");
 
-      const total = rowTotal(row);
+  let html = "";
 
-      return `
-      <tr data-row-index="${idx}">
+  /* --- Employees section --- */
+  html += sectionHeaderRow("Employees", "labor", colSpan);
+  laborRows.forEach((row, idx) => {
+    const cat = row.category_id ? laborCatById.get(row.category_id) : null;
+    const position = cat?.position || "";
+    const rate = cat?.hourly_rate ?? "";
+    const total = rowTotal(row);
+
+    html += `
+      <tr data-kind-row="labor" data-row-index="${idx}">
         <td class="sticky-col-1 col-employee">
           <select data-kind="labor-emp" data-row="${idx}" class="budget-select">
             <option value="">— Select employee —</option>
             ${laborCategories
               .map(
                 (c) => `
-              <option value="${c.id}" ${
-                  row.category_id === c.id ? "selected" : ""
-                }>${esc(c.name)}</option>`
+                  <option value="${c.id}" ${
+                    row.category_id === c.id ? "selected" : ""
+                  }>${esc(c.name)}</option>`
               )
               .join("")}
           </select>
@@ -811,17 +690,152 @@ function renderLabor() {
             value="${esc(rate)}"
           >
         </td>
-        ${cells}
+        ${monthCells(row, "labor", idx)}
         <td class="labor-total" data-row="${idx}" style="text-align:right;">
           ${fmt2(total)}
         </td>
-      </tr>`;
-    })
-    .join("");
+      </tr>
+    `;
+  });
 
-  tbody.innerHTML = rowsHtml;
+  /* --- Subcontractors section --- */
+  html += sectionHeaderRow("Subcontractors", "subs", colSpan);
+  subsRows.forEach((row, idx) => {
+    const total = rowTotal(row);
+    html += `
+      <tr data-kind-row="subs" data-row-index="${idx}">
+        <td class="sticky-col-1 col-employee">
+          <select data-kind="subs-name" data-row="${idx}" class="budget-select">
+            <option value="">— Select sub —</option>
+            ${subsList
+              .map(
+                (s) => `
+                  <option value="${s.id}" ${
+                    row.sub_id === s.id ? "selected" : ""
+                  }>${esc(s.name)}</option>`
+              )
+              .join("")}
+          </select>
+        </td>
+        <td class="sticky-col-2 col-position">
+          <input type="text" class="budget-text"
+                 data-kind="subs-desc" data-row="${idx}"
+                 value="${esc(row.description || "")}">
+        </td>
+        <td></td>
+        ${monthCells(row, "subs", idx)}
+        <td class="direct-total" data-row="${idx}" style="text-align:right;">
+          ${fmt2(total)}
+        </td>
+      </tr>
+    `;
+  });
 
-  // Handle hours input
+  /* --- Materials section --- */
+  html += sectionHeaderRow("Materials", "materials", colSpan);
+  materialsRows.forEach((row, idx) => {
+    const total = rowTotal(row);
+    html += `
+      <tr data-kind-row="materials" data-row-index="${idx}">
+        <td class="sticky-col-1 col-employee">
+          <select data-kind="materials-name" data-row="${idx}" class="budget-select">
+            <option value="">— Select material —</option>
+            ${materialsList
+              .map(
+                (m) => `
+                  <option value="${m.id}" ${
+                    row.material_id === m.id ? "selected" : ""
+                  }>${esc(m.name)}</option>`
+              )
+              .join("")}
+          </select>
+        </td>
+        <td class="sticky-col-2 col-position">
+          <input type="text" class="budget-text"
+                 data-kind="materials-desc" data-row="${idx}"
+                 value="${esc(row.description || "")}">
+        </td>
+        <td></td>
+        ${monthCells(row, "materials", idx)}
+        <td class="direct-total" data-row="${idx}" style="text-align:right;">
+          ${fmt2(total)}
+        </td>
+      </tr>
+    `;
+  });
+
+  /* --- Equipment section --- */
+  html += sectionHeaderRow("Equipment", "equipment", colSpan);
+  equipmentRows.forEach((row, idx) => {
+    const total = rowTotal(row);
+    html += `
+      <tr data-kind-row="equipment" data-row-index="${idx}">
+        <td class="sticky-col-1 col-employee">
+          <select data-kind="equipment-name" data-row="${idx}" class="budget-select">
+            <option value="">— Select equipment —</option>
+            ${equipmentList
+              .map(
+                (e) => `
+                  <option value="${e.id}" ${
+                    row.equipment_id === e.id ? "selected" : ""
+                  }>${esc(e.name)}</option>`
+              )
+              .join("")}
+          </select>
+        </td>
+        <td class="sticky-col-2 col-position">
+          <input type="text" class="budget-text"
+                 data-kind="equipment-desc" data-row="${idx}"
+                 value="${esc(row.description || "")}">
+        </td>
+        <td></td>
+        ${monthCells(row, "equipment", idx)}
+        <td class="direct-total" data-row="${idx}" style="text-align:right;">
+          ${fmt2(total)}
+        </td>
+      </tr>
+    `;
+  });
+
+  /* --- Other Direct Costs section --- */
+  html += sectionHeaderRow("Other Direct Costs", "direct", colSpan);
+  directRows.forEach((row, idx) => {
+    const total = rowTotal(row);
+    html += `
+      <tr data-kind-row="direct" data-row-index="${idx}">
+        <td class="sticky-col-1 col-employee">
+          <select data-kind="direct-cat" data-row="${idx}" class="budget-select">
+            ${DIRECT_CATS.map(
+              (c) => `
+                <option value="${esc(c)}" ${
+                  row.category === c ? "selected" : ""
+                }>${esc(c)}</option>`
+            ).join("")}
+          </select>
+        </td>
+        <td class="sticky-col-2 col-position">
+          <input
+            type="text"
+            class="budget-text"
+            data-kind="direct-desc"
+            data-row="${idx}"
+            value="${esc(row.description || "")}"
+          >
+        </td>
+        <td></td>
+        ${monthCells(row, "direct", idx)}
+        <td class="direct-total" data-row="${idx}" style="text-align:right;">
+          ${fmt2(total)}
+        </td>
+      </tr>
+    `;
+  });
+
+  tbody.innerHTML = html;
+
+  // --- Wire up all inputs / selects ---
+
+  // Labor monthly amounts
   tbody.querySelectorAll('input[data-kind="labor"]').forEach((inp) => {
     inp.addEventListener("input", (e) => {
       const i = Number(e.target.dataset.row);
@@ -838,7 +852,7 @@ function renderLabor() {
     });
   });
 
-  // Handle employee selection
+  // Labor employee selection
   tbody.querySelectorAll('select[data-kind="labor-emp"]').forEach((sel) => {
     sel.addEventListener("change", (e) => {
       const i = Number(e.target.dataset.row);
@@ -849,7 +863,7 @@ function renderLabor() {
       const cat2 = id ? laborCatById.get(id) : null;
       laborRows[i].employee_name = cat2?.name || "";
 
-      const tr = tbody.querySelector(`tr[data-row-index="${i}"]`);
+      const tr = tbody.querySelector(`tr[data-kind-row="labor"][data-row-index="${i}"]`);
       if (tr) {
         const posInput = tr.querySelector(".col-position input");
         const rateInput = tr.querySelector(".budget-rate");
@@ -858,63 +872,8 @@ function renderLabor() {
       }
     });
   });
-}
 
-function renderSubs() {
-  const tbody = $("#subsBody", rootEl);
-  if (!tbody) return;
-
-  const rowsHtml = subsRows
-    .map((row, idx) => {
-      const cells = buckets
-        .map(
-          (b) => `
-        <td style="text-align:right;">
-          <input
-            type="number"
-            step="0.01"
-            class="no-spin budget-cell"
-            data-kind="subs"
-            data-row="${idx}"
-            data-ym="${b.ym}"
-            value="${esc(row.months[b.ym] ?? "")}"
-          >
-        </td>`
-        )
-        .join("");
-      const total = rowTotal(row);
-
-      return `
-        <tr data-row-index="${idx}">
-          <td class="sticky-col-1 col-employee">
-            <select data-kind="subs-name" data-row="${idx}" class="budget-select">
-              <option value="">— Select sub —</option>
-              ${subsList
-                .map(
-                  (s) => `
-                <option value="${s.id}" ${
-                    row.sub_id === s.id ? "selected" : ""
-                  }>${esc(s.name)}</option>`
-                )
-                .join("")}
-            </select>
-          </td>
-          <td class="sticky-col-2 col-position">
-            <input type="text" class="budget-text"
-                   data-kind="subs-desc" data-row="${idx}"
-                   value="${esc(row.description || "")}">
-          </td>
-          ${cells}
-          <td class="direct-total" data-row="${idx}" style="text-align:right;">
-            ${fmt2(total)}
-          </td>
-        </tr>`;
-    })
-    .join("");
-
-  tbody.innerHTML = rowsHtml;
-
-  // amounts
+  // Subs
   tbody.querySelectorAll('input[data-kind="subs"]').forEach((inp) => {
     inp.addEventListener("input", (e) => {
       const i = Number(e.target.dataset.row);
@@ -931,7 +890,6 @@ function renderSubs() {
     });
   });
 
-  // dropdown
   tbody.querySelectorAll('select[data-kind="subs-name"]').forEach((sel) => {
     sel.addEventListener("change", (e) => {
       const i = Number(e.target.dataset.row);
@@ -943,7 +901,6 @@ function renderSubs() {
     });
   });
 
-  // description
   tbody.querySelectorAll('input[data-kind="subs-desc"]').forEach((inp) => {
     inp.addEventListener("input", (e) => {
       const i = Number(e.target.dataset.row);
@@ -951,62 +908,8 @@ function renderSubs() {
       subsRows[i].description = e.target.value || "";
     });
   });
-}
 
-function renderMaterials() {
-  const tbody = $("#materialsBody", rootEl);
-  if (!tbody) return;
-
-  const rowsHtml = materialsRows
-    .map((row, idx) => {
-      const cells = buckets
-        .map(
-          (b) => `
-        <td style="text-align:right;">
-          <input
-            type="number"
-            step="0.01"
-            class="no-spin budget-cell"
-            data-kind="materials"
-            data-row="${idx}"
-            data-ym="${b.ym}"
-            value="${esc(row.months[b.ym] ?? "")}"
-          >
-        </td>`
-        )
-        .join("");
-      const total = rowTotal(row);
-
-      return `
-        <tr data-row-index="${idx}">
-          <td class="sticky-col-1 col-employee">
-            <select data-kind="materials-name" data-row="${idx}" class="budget-select">
-              <option value="">— Select material —</option>
-              ${materialsList
-                .map(
-                  (m) => `
-                <option value="${m.id}" ${
-                    row.material_id === m.id ? "selected" : ""
-                  }>${esc(m.name)}</option>`
-                )
-                .join("")}
-            </select>
-          </td>
-          <td class="sticky-col-2 col-position">
-            <input type="text" class="budget-text"
-                   data-kind="materials-desc" data-row="${idx}"
-                   value="${esc(row.description || "")}">
-          </td>
-          ${cells}
-          <td class="direct-total" data-row="${idx}" style="text-align:right;">
-            ${fmt2(total)}
-          </td>
-        </tr>`;
-    })
-    .join("");
-
-  tbody.innerHTML = rowsHtml;
-
+  // Materials
   tbody.querySelectorAll('input[data-kind="materials"]').forEach((inp) => {
     inp.addEventListener("input", (e) => {
       const i = Number(e.target.dataset.row);
@@ -1019,89 +922,30 @@ function renderMaterials() {
       const totalCell = tbody.querySelector(
         `td.direct-total[data-row="${i}"]`
       );
-      if (totalCell)
-        totalCell.textContent = fmt2(rowTotal(materialsRows[i]));
+      if (totalCell) totalCell.textContent = fmt2(rowTotal(materialsRows[i]));
     });
   });
 
-  tbody
-    .querySelectorAll('select[data-kind="materials-name"]')
-    .forEach((sel) => {
-      sel.addEventListener("change", (e) => {
-        const i = Number(e.target.dataset.row);
-        const id = e.target.value || null;
-        if (!materialsRows[i]) return;
-        materialsRows[i].material_id = id;
-        const m = id ? materialsById.get(id) : null;
-        materialsRows[i].name = m?.name || "";
-      });
+  tbody.querySelectorAll('select[data-kind="materials-name"]').forEach((sel) => {
+    sel.addEventListener("change", (e) => {
+      const i = Number(e.target.dataset.row);
+      const id = e.target.value || null;
+      if (!materialsRows[i]) return;
+      materialsRows[i].material_id = id;
+      const m = id ? materialsById.get(id) : null;
+      materialsRows[i].name = m?.name || "";
     });
+  });
 
-  tbody
-    .querySelectorAll('input[data-kind="materials-desc"]')
-    .forEach((inp) => {
-      inp.addEventListener("input", (e) => {
-        const i = Number(e.target.dataset.row);
-        if (!materialsRows[i]) return;
-        materialsRows[i].description = e.target.value || "";
-      });
+  tbody.querySelectorAll('input[data-kind="materials-desc"]').forEach((inp) => {
+    inp.addEventListener("input", (e) => {
+      const i = Number(e.target.dataset.row);
+      if (!materialsRows[i]) return;
+      materialsRows[i].description = e.target.value || "";
     });
-}
+  });
 
-function renderEquipment() {
-  const tbody = $("#equipmentBody", rootEl);
-  if (!tbody) return;
-
-  const rowsHtml = equipmentRows
-    .map((row, idx) => {
-      const cells = buckets
-        .map(
-          (b) => `
-        <td style="text-align:right;">
-          <input
-            type="number"
-            step="0.01"
-            class="no-spin budget-cell"
-            data-kind="equipment"
-            data-row="${idx}"
-            data-ym="${b.ym}"
-            value="${esc(row.months[b.ym] ?? "")}"
-          >
-        </td>`
-        )
-        .join("");
-      const total = rowTotal(row);
-
-      return `
-        <tr data-row-index="${idx}">
-          <td class="sticky-col-1 col-employee">
-            <select data-kind="equipment-name" data-row="${idx}" class="budget-select">
-              <option value="">— Select equipment —</option>
-              ${equipmentList
-                .map(
-                  (e) => `
-                <option value="${e.id}" ${
-                    row.equipment_id === e.id ? "selected" : ""
-                  }>${esc(e.name)}</option>`
-                )
-                .join("")}
-            </select>
-          </td>
-          <td class="sticky-col-2 col-position">
-            <input type="text" class="budget-text"
-                   data-kind="equipment-desc" data-row="${idx}"
-                   value="${esc(row.description || "")}">
-          </td>
-          ${cells}
-          <td class="direct-total" data-row="${idx}" style="text-align:right;">
-            ${fmt2(total)}
-          </td>
-        </tr>`;
-    })
-    .join("");
-
-  tbody.innerHTML = rowsHtml;
-
+  // Equipment
   tbody.querySelectorAll('input[data-kind="equipment"]').forEach((inp) => {
     inp.addEventListener("input", (e) => {
       const i = Number(e.target.dataset.row);
@@ -1114,92 +958,30 @@ function renderEquipment() {
       const totalCell = tbody.querySelector(
         `td.direct-total[data-row="${i}"]`
       );
-      if (totalCell)
-        totalCell.textContent = fmt2(rowTotal(equipmentRows[i]));
+      if (totalCell) totalCell.textContent = fmt2(rowTotal(equipmentRows[i]));
     });
   });
 
-  tbody
-    .querySelectorAll('select[data-kind="equipment-name"]')
-    .forEach((sel) => {
-      sel.addEventListener("change", (e) => {
-        const i = Number(e.target.dataset.row);
-        const id = e.target.value || null;
-        if (!equipmentRows[i]) return;
-        equipmentRows[i].equipment_id = id;
-        const eq = id ? equipmentById.get(id) : null;
-        equipmentRows[i].name = eq?.name || "";
-      });
+  tbody.querySelectorAll('select[data-kind="equipment-name"]').forEach((sel) => {
+    sel.addEventListener("change", (e) => {
+      const i = Number(e.target.dataset.row);
+      const id = e.target.value || null;
+      if (!equipmentRows[i]) return;
+      equipmentRows[i].equipment_id = id;
+      const eq = id ? equipmentById.get(id) : null;
+      equipmentRows[i].name = eq?.name || "";
     });
+  });
 
-  tbody
-    .querySelectorAll('input[data-kind="equipment-desc"]')
-    .forEach((inp) => {
-      inp.addEventListener("input", (e) => {
-        const i = Number(e.target.dataset.row);
-        if (!equipmentRows[i]) return;
-        equipmentRows[i].description = e.target.value || "";
-      });
+  tbody.querySelectorAll('input[data-kind="equipment-desc"]').forEach((inp) => {
+    inp.addEventListener("input", (e) => {
+      const i = Number(e.target.dataset.row);
+      if (!equipmentRows[i]) return;
+      equipmentRows[i].description = e.target.value || "";
     });
-}
+  });
 
-function renderDirect() {
-  const tbody = $("#directBody", rootEl);
-  if (!tbody) return;
-
-  const rowsHtml = directRows
-    .map((row, idx) => {
-      const cells = buckets
-        .map(
-          (b) => `
-        <td style="text-align:right;">
-          <input
-            type="number"
-            step="0.01"
-            class="no-spin budget-cell"
-            data-kind="direct"
-            data-row="${idx}"
-            data-ym="${b.ym}"
-            value="${esc(row.months[b.ym] ?? "")}"
-          >
-        </td>`
-        )
-        .join("");
-
-      const total = rowTotal(row);
-
-      return `
-      <tr data-row-index="${idx}">
-        <td class="sticky-col-1 col-employee">
-          <select data-kind="direct-cat" data-row="${idx}" class="budget-select">
-            ${DIRECT_CATS.map(
-              (c) => `
-              <option value="${esc(c)}" ${
-                row.category === c ? "selected" : ""
-              }>${esc(c)}</option>`
-            ).join("")}
-          </select>
-        </td>
-        <td class="sticky-col-2 col-position">
-          <input
-            type="text"
-            class="budget-text"
-            data-kind="direct-desc"
-            data-row="${idx}"
-            value="${esc(row.description)}"
-          >
-        </td>
-        ${cells}
-        <td class="direct-total" data-row="${idx}" style="text-align:right;">
-          ${fmt2(total)}
-        </td>
-      </tr>`;
-    })
-    .join("");
-
-  tbody.innerHTML = rowsHtml;
-
-  // Amount inputs
+  // Direct / ODC
   tbody.querySelectorAll('input[data-kind="direct"]').forEach((inp) => {
     inp.addEventListener("input", (e) => {
       const i = Number(e.target.dataset.row);
@@ -1216,7 +998,6 @@ function renderDirect() {
     });
   });
 
-  // Category select
   tbody.querySelectorAll('select[data-kind="direct-cat"]').forEach((sel) => {
     sel.addEventListener("change", (e) => {
       const i = Number(e.target.dataset.row);
@@ -1225,7 +1006,6 @@ function renderDirect() {
     });
   });
 
-  // Description
   tbody.querySelectorAll('input[data-kind="direct-desc"]').forEach((inp) => {
     inp.addEventListener("input", (e) => {
       const i = Number(e.target.dataset.row);
