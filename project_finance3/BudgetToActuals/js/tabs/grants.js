@@ -15,7 +15,7 @@ export const template = /*html*/ `
     <h3>Grant Setup</h3>
 
     <section style="margin-bottom:1rem;">
-      <h4 style="margin-bottom:0.5rem;">Create Grant</h4>
+      <h4 style="margin-bottom:0.5rem;">Create / Edit Grant</h4>
 
       <!-- Grant form row with explicit widths -->
       <div
@@ -90,6 +90,9 @@ export const template = /*html*/ `
 
       <div style="margin-top:0.5rem; display:flex; gap:0.5rem; align-items:center;">
         <button id="create" type="button">Create</button>
+        <button id="cancelEdit" type="button" class="secondary" style="display:none;">
+          Cancel edit
+        </button>
         <small id="msg"></small>
       </div>
     </section>
@@ -112,7 +115,7 @@ export const template = /*html*/ `
               <th>End</th>
               <th>Total Award</th>
               <th>Status</th>
-              <th>Set Current</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody></tbody>
@@ -124,6 +127,8 @@ export const template = /*html*/ `
 
 export async function init(root) {
   root.innerHTML = template;
+
+  let editingGrantId = null;
 
   const msg = (t, e = false) => {
     const m = $("#msg", root);
@@ -137,8 +142,40 @@ export async function init(root) {
     }
   };
 
-  // Create grant
-  $("#create", root).onclick = async () => {
+  const $createBtn = $("#create", root);
+  const $cancelEdit = $("#cancelEdit", root);
+
+  function clearForm() {
+    $("#g_name", root).value = "";
+    $("#g_id", root).value = "";
+    $("#g_funder", root).value = "";
+    $("#g_total", root).value = "";
+    $("#g_from", root).value = "";
+    $("#g_to", root).value = "";
+  }
+
+  function setCreateMode() {
+    editingGrantId = null;
+    $createBtn.textContent = "Create";
+    $cancelEdit.style.display = "none";
+  }
+
+  function setEditMode(grant) {
+    editingGrantId = grant.id;
+    $("#g_name", root).value = grant.name || "";
+    $("#g_id", root).value = grant.grant_id || "";
+    $("#g_funder", root).value = grant.funder || "";
+    $("#g_total", root).value =
+      grant.total_award != null ? String(grant.total_award) : "";
+    $("#g_from", root).value = grant.start_date || "";
+    $("#g_to", root).value = grant.end_date || "";
+    $createBtn.textContent = "Update";
+    $cancelEdit.style.display = "inline-block";
+    msg(`Editing grant: ${grant.name}`);
+  }
+
+  // Create / Update grant
+  $createBtn.onclick = async () => {
     const { data: userRes } = await client.auth.getUser();
     const user = userRes?.user || null;
     if (!user) return msg("Sign in first", true);
@@ -146,7 +183,7 @@ export async function init(root) {
     const name = $("#g_name", root).value.trim();
     const grant_id = $("#g_id", root).value.trim() || null;
     const funder = $("#g_funder", root).value.trim() || null;
-    const total_award = Math.round(Number($("#g_total", root).value || 0)); // ← Whole dollars
+    const total_award = Math.round(Number($("#g_total", root).value || 0)); // whole dollars
     const start_date = $("#g_from", root).value || null;
     const end_date = $("#g_to", root).value || null;
 
@@ -165,22 +202,45 @@ export async function init(root) {
       pm_user_id: user.id,
     };
 
-    const { error } = await client.from("grants").insert(row);
-    if (error) {
-      console.error("[grants] insert error", error);
-      return msg(error.message, true);
+    try {
+      if (editingGrantId) {
+        // UPDATE existing grant
+        const { error } = await client
+          .from("grants")
+          .update(row)
+          .eq("id", editingGrantId);
+
+        if (error) {
+          console.error("[grants] update error", error);
+          return msg(error.message, true);
+        }
+
+        msg("Grant updated.");
+      } else {
+        // CREATE new grant
+        const { error } = await client.from("grants").insert(row);
+        if (error) {
+          console.error("[grants] insert error", error);
+          return msg(error.message, true);
+        }
+
+        msg("Grant created.");
+      }
+
+      clearForm();
+      setCreateMode();
+      await load();
+    } catch (err) {
+      console.error("[grants] create/update exception", err);
+      msg(String(err?.message || err), true);
     }
+  };
 
-    msg("Grant created.");
-    // Clear form
-    $("#g_name", root).value = "";
-    $("#g_id", root).value = "";
-    $("#g_funder", root).value = "";
-    $("#g_total", root).value = "";
-    $("#g_from", root).value = "";
-    $("#g_to", root).value = "";
-
-    await load();
+  // Cancel edit
+  $cancelEdit.onclick = () => {
+    clearForm();
+    setCreateMode();
+    msg("Edit cancelled.");
   };
 
   $("#refreshGrants", root).onclick = () => load();
@@ -189,7 +249,9 @@ export async function init(root) {
     msg("Loading…");
     const { data, error } = await client
       .from("grants")
-      .select("id,name,grant_id,funder,start_date,end_date,total_award,status,created_at")
+      .select(
+        "id,name,grant_id,funder,start_date,end_date,total_award,status,created_at"
+      )
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -212,8 +274,21 @@ export async function init(root) {
         <td>${fmt0(g.total_award)}</td>
         <td>${g.status || ""}</td>
         <td>
-          <button type="button" data-grant="${g.id}" class="secondary" style="font-size:0.75rem;padding:0.1rem 0.4rem;">
+          <button
+            type="button"
+            data-grant="${g.id}"
+            class="secondary"
+            style="font-size:0.75rem;padding:0.1rem 0.4rem;margin-right:0.25rem;"
+          >
             Use
+          </button>
+          <button
+            type="button"
+            data-edit-grant="${g.id}"
+            class="secondary"
+            style="font-size:0.75rem;padding:0.1rem 0.4rem;"
+          >
+            Edit
           </button>
         </td>
       `;
@@ -227,6 +302,17 @@ export async function init(root) {
         if (!id) return;
         setSelectedGrantId(id);
         msg("Current grant set. Other tabs will use it.");
+      });
+    });
+
+    // Wire "Edit" buttons
+    tb.querySelectorAll("button[data-edit-grant]").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        const id = e.currentTarget.getAttribute("data-edit-grant");
+        if (!id) return;
+        const grant = (data || []).find((g) => String(g.id) === String(id));
+        if (!grant) return;
+        setEditMode(grant);
       });
     });
 
