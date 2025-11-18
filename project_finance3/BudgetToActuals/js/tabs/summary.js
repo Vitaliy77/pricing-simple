@@ -30,7 +30,8 @@ export const template = /*html*/ `
           <h5 style="margin-top:0;margin-bottom:0.3rem;font-size:0.95rem;">
             Total Award vs Budgeted
           </h5>
-          <div style="height:260px;">
+          <!-- height doubled from 260px to 520px -->
+          <div style="height:520px;">
             <canvas id="chartAwardVsBudget"></canvas>
           </div>
         </div>
@@ -39,13 +40,14 @@ export const template = /*html*/ `
           <h5 style="margin-top:0;margin-bottom:0.3rem;font-size:0.95rem;">
             Total Budget vs Estimated Total Spend
           </h5>
-          <div style="height:260px;">
+          <!-- height doubled from 260px to 520px -->
+          <div style="height:520px;">
             <canvas id="chartBudgetVsEstTotal"></canvas>
           </div>
         </div>
       </div>
 
-      <!-- Full-width monthly chart -->
+      <!-- Full-width monthly chart stays the same -->
       <div style="border:1px solid #ddd;border-radius:4px;padding:0.5rem;">
         <h5 style="margin-top:0;margin-bottom:0.3rem;font-size:0.95rem;">
           Monthly Budget vs Actuals
@@ -57,6 +59,7 @@ export const template = /*html*/ `
     </section>
   </article>
 `;
+
 
 let rootEl = null;
 
