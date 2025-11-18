@@ -194,7 +194,7 @@ export async function init(root) {
       return msg("Name, start date, and end date are required.", true);
     }
 
-    // Only the editable fields (don't always touch status / pm_user_id)
+    // Fields user can edit
     const rowBase = {
       name,
       grant_id,
@@ -206,12 +206,19 @@ export async function init(root) {
 
     try {
       if (editingGrantId) {
-        // UPDATE existing grant: only editable fields
+        // UPDATE existing grant, also keep pm_user_id = current user
+        const updateRow = {
+          ...rowBase,
+          pm_user_id: user.id,
+        };
+
         const { data, error } = await client
           .from("grants")
-          .update(rowBase)
+          .update(updateRow)
           .eq("id", editingGrantId)
-          .select("id"); // returns updated rows if RLS allows
+          .select("id"); // we want to know if any rows actually updated
+
+        console.log("[grants] update result", { data, error });
 
         if (error) {
           console.error("[grants] update error", error);
@@ -219,7 +226,6 @@ export async function init(root) {
         }
 
         if (!data || data.length === 0) {
-          // This usually means RLS blocked the update or id mismatch
           return msg(
             "Update did not affect any rows. Check RLS / permissions for the grants table.",
             true
@@ -228,17 +234,19 @@ export async function init(root) {
 
         msg("Grant updated.");
       } else {
-        // CREATE new grant: also set status + pm_user_id
+        // CREATE new grant: set status + pm_user_id
         const insertRow = {
           ...rowBase,
           status: "active",
           pm_user_id: user.id,
         };
 
-        const { error } = await client
+        const { data, error } = await client
           .from("grants")
           .insert(insertRow)
           .select("id");
+
+        console.log("[grants] insert result", { data, error });
 
         if (error) {
           console.error("[grants] insert error", error);
