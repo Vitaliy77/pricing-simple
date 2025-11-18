@@ -189,23 +189,23 @@
   <script>
     if (window.Chart) {
       // Base font for all charts
-      Chart.defaults.font.size = 14;
+      Chart.defaults.font.size = 16;
 
       // Legend text
       if (Chart.defaults.plugins && Chart.defaults.plugins.legend) {
         Chart.defaults.plugins.legend.labels = Chart.defaults.plugins.legend.labels || {};
-        Chart.defaults.plugins.legend.labels.font = { size: 14 };
+        Chart.defaults.plugins.legend.labels.font = { size: 16 };
       }
 
       // Tooltips
       if (Chart.defaults.plugins && Chart.defaults.plugins.tooltip) {
-        Chart.defaults.plugins.tooltip.bodyFont = { size: 12 };
-        Chart.defaults.plugins.tooltip.titleFont = { size: 12 };
+        Chart.defaults.plugins.tooltip.bodyFont = { size: 16 };
+        Chart.defaults.plugins.tooltip.titleFont = { size: 16 };
       }
 
       // Data labels (for the charts using chartjs-plugin-datalabels)
       if (Chart.defaults.plugins && Chart.defaults.plugins.datalabels) {
-        Chart.defaults.plugins.datalabels.font = { size: 12 };
+        Chart.defaults.plugins.datalabels.font = { size: 16 };
       }
     }
   </script>
