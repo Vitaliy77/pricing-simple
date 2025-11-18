@@ -3,6 +3,8 @@ import { client } from "../api/supabase.js";
 import { $ } from "../lib/dom.js";
 import { getSelectedGrantId, setSelectedGrantId } from "../lib/grantContext.js";
 
+console.log("[budget] unified-table version loaded");
+
 export const template = /*html*/ `
   <article>
     <h3>Budget Builder</h3>
@@ -96,7 +98,7 @@ export const template = /*html*/ `
         text-align: right;
       }
 
-      .no-spin::-webkit-inner-spin_button,
+      .no-spin::-webkit-inner-spin-button,
       .no-spin::-webkit-outer-spin-button {
         -webkit-appearance: none;
         margin: 0;
@@ -511,8 +513,10 @@ async function loadBudgetForGrant(grantId) {
     for (const r of subsRaw) {
       const key = `${r.description || ""}`;
       if (!smap.has(key)) {
+        // match description to subs list by name
+        const s = subsList.find((s) => s.name === r.description);
         smap.set(key, {
-          sub_id: null,
+          sub_id: s?.id ?? null,
           name: r.description || "",
           description: "",
           months: {},
@@ -530,8 +534,9 @@ async function loadBudgetForGrant(grantId) {
     for (const r of matsRaw) {
       const key = `${r.description || ""}`;
       if (!mmap.has(key)) {
+        const m = materialsList.find((m) => m.name === r.description);
         mmap.set(key, {
-          material_id: null,
+          material_id: m?.id ?? null,
           name: r.description || "",
           description: "",
           months: {},
@@ -549,8 +554,9 @@ async function loadBudgetForGrant(grantId) {
     for (const r of eqpRaw) {
       const key = `${r.description || ""}`;
       if (!emap.has(key)) {
+        const eq = equipmentList.find((e) => e.name === r.description);
         emap.set(key, {
-          equipment_id: null,
+          equipment_id: eq?.id ?? null,
           name: r.description || "",
           description: "",
           months: {},
@@ -617,7 +623,7 @@ function sectionHeaderRow(label, sectionKey, colSpan) {
     <tr class="section-header-row" data-section="${sectionKey}">
       <td colspan="${colSpan}">
         <button type="button" class="btn-sm section-add" data-section="${sectionKey}">
-          [+] ${label}
+          [+]
         </button>
         <span>${label}</span>
       </td>
@@ -863,7 +869,9 @@ function renderBudgetRows() {
       const cat2 = id ? laborCatById.get(id) : null;
       laborRows[i].employee_name = cat2?.name || "";
 
-      const tr = tbody.querySelector(`tr[data-kind-row="labor"][data-row-index="${i}"]`);
+      const tr = tbody.querySelector(
+        `tr[data-kind-row="labor"][data-row-index="${i}"]`
+      );
       if (tr) {
         const posInput = tr.querySelector(".col-position input");
         const rateInput = tr.querySelector(".budget-rate");
@@ -962,24 +970,28 @@ function renderBudgetRows() {
     });
   });
 
-  tbody.querySelectorAll('select[data-kind="equipment-name"]').forEach((sel) => {
-    sel.addEventListener("change", (e) => {
-      const i = Number(e.target.dataset.row);
-      const id = e.target.value || null;
-      if (!equipmentRows[i]) return;
-      equipmentRows[i].equipment_id = id;
-      const eq = id ? equipmentById.get(id) : null;
-      equipmentRows[i].name = eq?.name || "";
+  tbody
+    .querySelectorAll('select[data-kind="equipment-name"]')
+    .forEach((sel) => {
+      sel.addEventListener("change", (e) => {
+        const i = Number(e.target.dataset.row);
+        const id = e.target.value || null;
+        if (!equipmentRows[i]) return;
+        equipmentRows[i].equipment_id = id;
+        const eq = id ? equipmentById.get(id) : null;
+        equipmentRows[i].name = eq?.name || "";
+      });
     });
-  });
 
-  tbody.querySelectorAll('input[data-kind="equipment-desc"]').forEach((inp) => {
-    inp.addEventListener("input", (e) => {
-      const i = Number(e.target.dataset.row);
-      if (!equipmentRows[i]) return;
-      equipmentRows[i].description = e.target.value || "";
+  tbody
+    .querySelectorAll('input[data-kind="equipment-desc"]')
+    .forEach((inp) => {
+      inp.addEventListener("input", (e) => {
+        const i = Number(e.target.dataset.row);
+        if (!equipmentRows[i]) return;
+        equipmentRows[i].description = e.target.value || "";
+      });
     });
-  });
 
   // Direct / ODC
   tbody.querySelectorAll('input[data-kind="direct"]').forEach((inp) => {
@@ -1048,7 +1060,7 @@ async function saveBudget() {
   // --- Subs / Materials / Equipment / ODC into budget_direct ---
   const directInserts = [];
 
-  function pushRows(rows, categoryOverride) {
+  function pushRows(rows, categoryOverride, useNameAsDescription = false) {
     for (const it of rows) {
       const hasHeader =
         (it.category && it.category.trim && it.category.trim()) ||
@@ -1064,16 +1076,14 @@ async function saveBudget() {
           v !== "" &&
           !isNaN(Number(v))
         ) {
+          const descVal = useNameAsDescription
+            ? (it.name || it.description || null)
+            : (it.description || it.name || null);
+
           directInserts.push({
             grant_id: currentGrantId,
-            category:
-              categoryOverride ||
-              it.category ||
-              null,
-            description:
-              it.description ||
-              it.name ||
-              null,
+            category: categoryOverride || it.category || null,
+            description: descVal,
             ym: b.ym,
             amount: Number(v),
           });
@@ -1082,12 +1092,12 @@ async function saveBudget() {
     }
   }
 
-  // Subs / Materials / Equipment use fixed categories
-  pushRows(subsRows, "Subcontracts");
-  pushRows(materialsRows, "Materials");
-  pushRows(equipmentRows, "Equipment");
-  // ODC keeps its own category (Travel, Licenses, etc.)
-  pushRows(directRows, null);
+  // Subs / Materials / Equipment use fixed categories, description comes from selected name
+  pushRows(subsRows, "Subcontracts", true);
+  pushRows(materialsRows, "Materials", true);
+  pushRows(equipmentRows, "Equipment", true);
+  // ODC keeps its own category/description behavior
+  pushRows(directRows, null, false);
 
   try {
     // Clear existing for this grant
