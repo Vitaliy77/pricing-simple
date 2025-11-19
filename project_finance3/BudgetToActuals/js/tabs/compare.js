@@ -52,15 +52,35 @@ function msg(text, isErr = false) {
  * based on the category text.
  */
 function classifyBudgetCategory(catRaw) {
-  const c = (catRaw || "").toString().toLowerCase();
+  const c = (catRaw || "").toString().toLowerCase().trim();
 
   if (!c) return "odc";
 
-  if (c.startsWith("sub")) return "subs";          // "Subcontractor", "Subs", etc.
-  if (c.startsWith("mat")) return "materials";     // "Materials"
-  if (c.startsWith("equip")) return "equipment";   // "Equipment"
+  if (c.startsWith("sub")) return "subs";        // "Subcontracts", "Subs", etc.
+  if (c.startsWith("mat")) return "materials";   // "Materials"
+  if (c.startsWith("equip")) return "equipment"; // "Equipment"
 
   // everything else is ODC (travel, licenses, etc.)
+  return "odc";
+}
+
+/**
+ * Classify an actuals_net row into:
+ * "labor" | "subs" | "materials" | "equipment" | "odc"
+ * based on the category text stored in actuals_net.category
+ * (e.g. "Labor", "Subcontracts", "Materials", "Equipment", "Travel", etc.).
+ */
+function classifyActualCategory(catRaw) {
+  const c = (catRaw || "").toString().toLowerCase().trim();
+
+  if (!c) return "odc";
+
+  if (c.startsWith("lab")) return "labor";       // "Labor"
+  if (c.startsWith("sub")) return "subs";        // "Subcontracts"
+  if (c.startsWith("mat")) return "materials";   // "Materials"
+  if (c.startsWith("equip")) return "equipment"; // "Equipment"
+
+  // everything else -> ODC
   return "odc";
 }
 
@@ -146,10 +166,10 @@ async function loadCompareForGrant(grantId) {
         .from("labor_categories")
         .select("id,hourly_rate")
         .eq("is_active", true),
-      // 🔹 actuals_net has NO 'category' column, only amounts by grant
+      // 🔹 Now we expect actuals_net to have a 'category' column
       client
         .from("actuals_net")
-        .select("amount_net,grant_id")
+        .select("amount_net,grant_id,category")
         .eq("grant_id", grantId),
     ]);
 
@@ -186,33 +206,65 @@ async function loadCompareForGrant(grantId) {
       const amt = Number(r.amount ?? 0);
       if (!amt) return;
       const bucket = classifyBudgetCategory(r.category);
-      if (bucket === "subs") budgetSubs += amt;
-      else if (bucket === "materials") budgetMaterials += amt;
-      else if (bucket === "equipment") budgetEquipment += amt;
-      else budgetODC += amt;
+      if (bucket === "subs")      budgetSubs      += amt;
+      else if (bucket === "materials")  budgetMaterials += amt;
+      else if (bucket === "equipment")  budgetEquipment += amt;
+      else                          budgetODC       += amt;
     });
 
     const budgetTotal =
       budgetLabor + budgetSubs + budgetMaterials + budgetEquipment + budgetODC;
 
-    // ---------- Actual totals ----------
-    // We only know TOTAL actuals for the grant from actuals_net
-    const actualTotal = actuals.reduce(
-      (sum, a) => sum + Number(a.amount_net ?? 0),
-      0
-    );
+    // ---------- Actual totals (BY CATEGORY) ----------
+    let actualLabor = 0;
+    let actualSubs = 0;
+    let actualMaterials = 0;
+    let actualEquipment = 0;
+    let actualODC = 0;
 
-    // For now: no category-level actuals (because DB doesn't have them)
-    // We'll show only totals for Actual + Variance, and "—" in category rows.
+    actuals.forEach((a) => {
+      const amt = Number(a.amount_net ?? 0);
+      if (!amt) return;
+      const bucket = classifyActualCategory(a.category);
+      if (bucket === "labor")        actualLabor     += amt;
+      else if (bucket === "subs")   actualSubs      += amt;
+      else if (bucket === "materials") actualMaterials += amt;
+      else if (bucket === "equipment") actualEquipment += amt;
+      else                            actualODC      += amt;
+    });
+
+    const actualTotal =
+      actualLabor + actualSubs + actualMaterials + actualEquipment + actualODC;
+
     const rows = [
-      { label: "Labor",             budget: budgetLabor,    actual: null },
-      { label: "Subs",              budget: budgetSubs,     actual: null },
-      { label: "Materials",         budget: budgetMaterials,actual: null },
-      { label: "Equipment",         budget: budgetEquipment,actual: null },
-      { label: "Other Direct Costs",budget: budgetODC,      actual: null },
+      {
+        label: "Labor",
+        budget: budgetLabor,
+        actual: actualLabor,
+      },
+      {
+        label: "Subs",
+        budget: budgetSubs,
+        actual: actualSubs,
+      },
+      {
+        label: "Materials",
+        budget: budgetMaterials,
+        actual: actualMaterials,
+      },
+      {
+        label: "Equipment",
+        budget: budgetEquipment,
+        actual: actualEquipment,
+      },
+      {
+        label: "Other Direct Costs",
+        budget: budgetODC,
+        actual: actualODC,
+      },
     ].map((r) => ({
       ...r,
-      variance: r.actual == null ? null : r.budget - r.actual,
+      variance: r.budget - r.actual,
     }));
 
     const totalsRow = {
@@ -267,13 +319,9 @@ function renderCompareTable(rows, totals) {
     tr.appendChild(h(`<td>${r.label}</td>`));
     tr.appendChild(h(`<td style="text-align:right;">${fmt2(r.budget)}</td>`));
 
-    // Actual + variance: show "—" if we don't have category-level actuals
-    const actualText =
-      r.actual == null ? "—" : fmt2(r.actual);
-    const varText =
-      r.variance == null
-        ? "—"
-        : `${r.variance >= 0 ? "" : "-"}${fmt2(Math.abs(r.variance))}`;
+    const actualText = fmt2(r.actual);
+    const varianceAbs = Math.abs(r.variance);
+    const varText = `${r.variance >= 0 ? "" : "-"}${fmt2(varianceAbs)}`;
 
     tr.appendChild(
       h(`<td style="text-align:right;">${actualText}</td>`)
