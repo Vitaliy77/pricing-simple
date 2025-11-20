@@ -15,9 +15,17 @@ export const template = /*html*/ `
         Email
         <input id="authEmail" type="email" autocomplete="email">
       </label>
-      <div style="margin-top:0.5rem;display:flex;gap:0.5rem;align-items:center;">
-        <button id="authSend" type="button" class="btn-sm">Send magic link</button>
-        <button id="authSignOut" type="button" class="btn-sm secondary">Sign out</button>
+      <div style="margin-top:0.5rem;display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;">
+        <button id="authSend" type="button" class="btn-sm">
+          Send magic link
+        </button>
+        <!-- 👇 New button explicitly called "Sign in" -->
+        <button id="authSignIn" type="button" class="btn-sm primary">
+          Sign in
+        </button>
+        <button id="authSignOut" type="button" class="btn-sm secondary">
+          Sign out
+        </button>
         <small id="authMsg"></small>
       </div>
     </section>
@@ -47,7 +55,9 @@ export async function init(root) {
   rootEl = root;
   root.innerHTML = template;
 
+  // Both buttons trigger the same sign-in flow
   $("#authSend", root).addEventListener("click", sendMagicLink);
+  $("#authSignIn", root).addEventListener("click", sendMagicLink);
   $("#authSignOut", root).addEventListener("click", signOut);
 
   await refreshStatus();
