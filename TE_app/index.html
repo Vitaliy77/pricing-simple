@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Timekeeper – Project Time Tracking</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="./css/app.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="topbar-inner">
+        <h1>Timekeeper</h1>
+        <div id="userStatus"></div>
+      </div>
+    </header>
+
+    <nav class="main-nav">
+      <button data-tab="auth">Sign in</button>
+      <button data-tab="timesheet">My Timesheet</button>
+      <button data-tab="approvals">Approvals</button>
+      <button data-tab="adminEmployees">Admin – Employees</button>
+      <button data-tab="projects">Admin – Projects</button>
+      <button data-tab="assignments">Admin – Assignments</button>
+    </nav>
+
+    <main id="appRoot">
+      <!-- JS will render here -->
+    </main>
+
+    <script type="module" src="./js/main.js"></script>
+  </body>
+</html>
+
