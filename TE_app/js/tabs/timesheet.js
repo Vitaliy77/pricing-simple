@@ -77,7 +77,7 @@ function buildDays(weekStart) {
     const dateStr = d.toISOString().slice(0, 10);
     const label = d.toLocaleDateString("en-US", {
       weekday: "short",
-      month: "M",
+      month: "short",   // ✅ valid: "Jan", "Feb", etc.
       day: "numeric",
     });
     arr.push({ dateStr, label });
