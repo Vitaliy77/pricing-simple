@@ -9,19 +9,26 @@ export const template = /*html*/ `
     <section style="max-width:480px;margin-bottom:1rem;">
       <p>
         Enter your work email. If it matches an employee record,
-        we will send you a magic sign-in link.
+        you can either sign in with a password (if set) or request
+        a magic sign-in link.
       </p>
-      <label>
+
+      <label style="display:block;margin-bottom:0.5rem;">
         Email
         <input id="authEmail" type="email" autocomplete="email">
       </label>
-      <div style="margin-top:0.5rem;display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;">
-        <button id="authSend" type="button" class="btn-sm">
-          Send magic link
+
+      <label style="display:block;margin-bottom:0.5rem;">
+        Password
+        <input id="authPassword" type="password" autocomplete="current-password">
+      </label>
+
+      <div style="margin-top:0.5rem;display:flex;flex-wrap:wrap;gap:0.5rem;align-items:center;">
+        <button id="authPasswordSignIn" type="button" class="btn-sm">
+          Sign in with password
         </button>
-        <!-- 👇 New button explicitly called "Sign in" -->
-        <button id="authSignIn" type="button" class="btn-sm primary">
-          Sign in
+        <button id="authSend" type="button" class="btn-sm secondary">
+          Send magic link
         </button>
         <button id="authSignOut" type="button" class="btn-sm secondary">
           Sign out
@@ -55,9 +62,8 @@ export async function init(root) {
   rootEl = root;
   root.innerHTML = template;
 
-  // Both buttons trigger the same sign-in flow
+  $("#authPasswordSignIn", root).addEventListener("click", passwordSignIn);
   $("#authSend", root).addEventListener("click", sendMagicLink);
-  $("#authSignIn", root).addEventListener("click", sendMagicLink);
   $("#authSignOut", root).addEventListener("click", signOut);
 
   await refreshStatus();
@@ -65,7 +71,7 @@ export async function init(root) {
 
 async function refreshStatus() {
   const status = $("#authStatusSection", rootEl);
-  const statusUser = $("#userStatus");
+  const statusUser = $("#userStatus"); // optional global status in header
   const { data, error } = await client.auth.getUser();
 
   if (error || !data?.user) {
@@ -97,6 +103,52 @@ async function refreshStatus() {
     <p>If you cannot access timesheets, ask admin to link your email to an employee record.</p>
   `;
   if (statusUser) statusUser.textContent = `Signed in: ${email}`;
+}
+
+async function passwordSignIn() {
+  const email = $("#authEmail", rootEl).value.trim().toLowerCase();
+  const password = $("#authPassword", rootEl).value;
+
+  if (!email) {
+    msg("Enter email.", true);
+    return;
+  }
+  if (!password) {
+    msg("Enter password.", true);
+    return;
+  }
+
+  // Optional: check that email exists in employees table
+  const { data: empRows, error: empErr } = await client
+    .from("employees")
+    .select("id")
+    .eq("email", email)
+    .limit(1);
+
+  if (empErr) {
+    console.error("[auth] employees lookup error", empErr);
+    msg(empErr.message, true);
+    return;
+  }
+
+  if (!empRows || !empRows.length) {
+    msg("This email is not linked to any employee. Ask admin to add you.", true);
+    return;
+  }
+
+  const { error } = await client.auth.signInWithPassword({
+    email,
+    password,
+  });
+
+  if (error) {
+    console.error("[auth] password sign-in error", error);
+    msg(error.message, true);
+    return;
+  }
+
+  msg("Signed in successfully.");
+  await refreshStatus();
 }
 
 async function sendMagicLink() {
