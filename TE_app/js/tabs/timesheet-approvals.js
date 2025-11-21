@@ -8,6 +8,7 @@ export const template = /*html*/ `
 
     <section id="apInfoSection" style="margin-bottom:0.5rem;">
       <p>Loading manager info…</p>
+      <small id="apInfoMsg"></small>
     </section>
 
     <section id="apListSection">
@@ -40,10 +41,48 @@ const fmt2 = (n) =>
 
 function msg(text, isErr = false) {
   if (!rootEl) return;
-  const el = $("#apInfoSection small", rootEl) || null;
+  const el = $("#apInfoMsg", rootEl);
   if (!el) return;
   el.textContent = text || "";
   el.style.color = isErr ? "#b00" : "inherit";
+}
+
+function safeParseDate(dateLike) {
+  const d = new Date(dateLike);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function formatDateShort(dateLike) {
+  const d = safeParseDate(dateLike);
+  if (!d) return "";
+  return d.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+/**
+ * Given a YYYY-MM-DD week_start string, build 7 days of the week:
+ * [{ dateStr: "YYYY-MM-DD", label: "Mon Nov 17" }, ...]
+ */
+function buildWeekDays(weekStartStr) {
+  const base = safeParseDate(weekStartStr + "T00:00:00");
+  if (!base) return [];
+
+  const days = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(base);
+    d.setDate(d.getDate() + i);
+    const dateStr = d.toISOString().slice(0, 10);
+    const label = d.toLocaleDateString("en-US", {
+      weekday: "short",
+      month: "short",  // ✅ valid value
+      day: "numeric",  // ✅ valid value
+    });
+    days.push({ dateStr, label });
+  }
+  return days;
 }
 
 /* ---------- Init ---------- */
@@ -57,11 +96,17 @@ export async function init(root) {
 
 async function bootstrapManager() {
   const info = $("#apInfoSection", rootEl);
-  info.innerHTML = "<p>Checking sign-in…</p>";
+  info.innerHTML = `
+    <p>Checking sign-in…</p>
+    <small id="apInfoMsg"></small>
+  `;
 
   const { data, error } = await client.auth.getUser();
   if (error || !data?.user) {
-    info.innerHTML = "<p>Not signed in. Use the Sign in tab first.</p>";
+    info.innerHTML = `
+      <p>Not signed in. Use the Sign in tab first.</p>
+      <small id="apInfoMsg"></small>
+    `;
     $("#apListSection", rootEl).innerHTML = "<p>No data.</p>";
     return;
   }
@@ -77,18 +122,25 @@ async function bootstrapManager() {
 
   if (empErr) {
     console.error("[approvals] employees error", empErr);
-    info.innerHTML = `<p>Error loading employee record: ${empErr.message}</p>`;
+    info.innerHTML = `
+      <p>Error loading employee record: ${empErr.message}</p>
+      <small id="apInfoMsg"></small>
+    `;
     return;
   }
 
   currentManager = empRows?.[0] || null;
   if (!currentManager) {
-    info.innerHTML = `<p>Your email (${email}) is not linked to an employee record. Contact admin.</p>`;
+    info.innerHTML = `
+      <p>Your email (${email}) is not linked to an employee record. Contact admin.</p>
+      <small id="apInfoMsg"></small>
+    `;
     return;
   }
 
   info.innerHTML = `
     <p>Manager: <strong>${currentManager.first_name} ${currentManager.last_name}</strong> (${email})</p>
+    <small id="apInfoMsg"></small>
   `;
 
   await loadApprovals();
@@ -115,6 +167,9 @@ async function loadApprovals() {
   directReports = drRows || [];
   if (!directReports.length) {
     listSec.innerHTML = "<p>You have no direct reports.</p>";
+    $("#apDetailBody", rootEl).innerHTML =
+      "<p>Select a timesheet above to view details.</p>";
+    selectedTs = null;
     return;
   }
 
@@ -176,7 +231,7 @@ function renderTimesheetList() {
     const tr = h("<tr></tr>");
     tr.innerHTML = `
       <td>${name}</td>
-      <td>${ts.week_start}</td>
+      <td>${formatDateShort(ts.week_start)}</td>
       <td><span class="badge-status submitted">submitted</span></td>
       <td>
         <button type="button" class="btn-sm secondary" data-id="${ts.id}">Open</button>
@@ -217,8 +272,10 @@ async function loadTimesheetDetail(ts) {
     return;
   }
 
+  const lineRows = lines || [];
+
   // Load project info
-  const projIds = Array.from(new Set((lines || []).map((l) => l.project_id)));
+  const projIds = Array.from(new Set(lineRows.map((l) => l.project_id)));
   let projects = [];
   if (projIds.length) {
     const { data: prjRows, error: prjErr } = await client
@@ -233,19 +290,11 @@ async function loadTimesheetDetail(ts) {
     projects = prjRows || [];
   }
 
-  // Build days for that week
-  const ws = new Date(ts.week_start + "T00:00:00Z");
-  const days = [];
-  for (let i = 0; i < 7; i++) {
-    const d = new Date(ws);
-    d.setUTCDate(d.getUTCDate() + i);
-    const dateStr = d.toISOString().slice(0, 10);
-    const label = d.toLocaleDateString("en-US", {
-      weekday: "short",
-      month: "M",
-      day: "numeric",
-    });
-    days.push({ dateStr, label });
+  // Build days for that week (FIX: valid month/day options)
+  const days = buildWeekDays(ts.week_start);
+  if (!days.length) {
+    body.innerHTML = "<p>Invalid week start date.</p>";
+    return;
   }
 
   // Build grid: project -> day -> sum
@@ -261,15 +310,55 @@ async function loadTimesheetDetail(ts) {
     byProj.set(p.id, rec);
   });
 
-  (lines || []).forEach((l) => {
+  lineRows.forEach((l) => {
     const proj = byProj.get(l.project_id);
     if (!proj) return;
-    const dateStr = l.work_date?.slice(0, 10);
+    const dateStr = (l.work_date || "").slice(0, 10);
     if (!dateStr || !(dateStr in proj.dayHours)) return;
     proj.dayHours[dateStr] += Number(l.hours || 0);
   });
 
   const rows = Array.from(byProj.values());
+
+  // If there are no projects/lines, show a friendly message
+  if (!rows.length) {
+    const emp = directReports.find((e) => e.id === ts.employee_id);
+    const name = emp
+      ? `${emp.first_name} ${emp.last_name}`
+      : ts.employee_id;
+
+    const header = h(`
+      <div style="margin-bottom:0.4rem;display:flex;gap:0.5rem;align-items:center;">
+        <div>
+          <div><strong>${name}</strong></div>
+          <div style="font-size:0.8rem;">Week of ${formatDateShort(
+            ts.week_start
+          )}</div>
+        </div>
+        <div style="margin-left:auto;display:flex;gap:0.35rem;">
+          <button id="apApprove" type="button" class="btn-sm">Approve</button>
+          <button id="apReject" type="button" class="btn-sm secondary">Reject</button>
+        </div>
+      </div>
+    `);
+
+    const wrapper = h(`<div></div>`);
+    wrapper.appendChild(header);
+    wrapper.appendChild(
+      h(`<p>No hours entered for this timesheet.</p>`)
+    );
+
+    body.innerHTML = "";
+    body.appendChild(wrapper);
+
+    $("#apApprove", wrapper).addEventListener("click", () =>
+      updateStatus(ts.id, "approved")
+    );
+    $("#apReject", wrapper).addEventListener("click", () =>
+      updateStatus(ts.id, "rejected")
+    );
+    return;
+  }
 
   // Render
   const tbl = h(`
@@ -354,7 +443,9 @@ async function loadTimesheetDetail(ts) {
     <div style="margin-bottom:0.4rem;display:flex;gap:0.5rem;align-items:center;">
       <div>
         <div><strong>${name}</strong></div>
-        <div style="font-size:0.8rem;">Week of ${ts.week_start}</div>
+        <div style="font-size:0.8rem;">Week of ${formatDateShort(
+          ts.week_start
+        )}</div>
       </div>
       <div style="margin-left:auto;display:flex;gap:0.35rem;">
         <button id="apApprove" type="button" class="btn-sm">Approve</button>
