@@ -5,7 +5,7 @@ import { getSelectedGrantId, setSelectedGrantId } from "../lib/grantContext.js";
 
 export const template = /*html*/ `
   <article>
-    <h3>Grant Summary</h3>
+    <h3>Grant Financials</h3>
 
     <section style="max-width:700px;margin-bottom:0.75rem;">
       <label>
