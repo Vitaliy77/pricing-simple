@@ -36,15 +36,23 @@ article h4 {
 table {
   font-size: 0.95em;                   /* ~19px */
 }
-table th {
-  font-size: 0.75em;                   /* ~15px – crisp uppercase */
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+
+/* Tables: Grants, Edit Data, etc. – consistent, larger size */
+#app table {
+  font-size: 1em;            /* base for all table text */
+}
+
+/* Header cells a bit bigger & bolder */
+#app table thead th {
+  font-size: 1.05em;
   font-weight: 600;
 }
-table td {
-  font-size: 0.95em;                   /* ~19px */
+
+/* Body cells match normal text size */
+#app table tbody td {
+  font-size: 1em;
 }
+
 
 /* -------------------------------------------
    Normalize text size across ALL tabs
