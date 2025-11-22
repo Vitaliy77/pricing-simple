@@ -20,13 +20,13 @@ export const template = /*html*/ `
               <th>Funder</th>
               <th>Period</th>
               <th>Status</th>
-              <th style="text-align:right;">Budget</th>
-              <th style="text-align:right;">Actual</th>
-              <th style="text-align:right;">Var $</th>
-              <th style="text-align:right;">Var %</th>
-              <th style="text-align:right;">Estimate</th>
-              <th style="text-align:right;">Var $</th>
-              <th style="text-align:right;">Var %</th>
+              <th class="num">Budget</th>
+              <th class="num">Actual</th>
+              <th class="num">Var $</th>
+              <th class="num">Var %</th>
+              <th class="num">Prorated Actual</th>
+              <th class="num">Var $</th>
+              <th class="num">Var %</th>
             </tr>
           </thead>
           <tbody id="portfolioBody">
@@ -337,28 +337,28 @@ async function loadPortfolio() {
                 <td>${funder}</td>
                 <td>${period}</td>
                 <td>${status}</td>
-                <td style="text-align:right;">${fmt2(r.budgetTotal)}</td>
-                <td style="text-align:right;">${fmt2(r.actualTotal)}</td>
-                <td style="text-align:right;">${fmt2(r.varActual)}</td>
-                <td style="text-align:right;">${fmtPct(r.varActualPct)}</td>
-                <td style="text-align:right;">${fmt2(r.proratedActual)}</td>
-                <td style="text-align:right;">${fmt2(r.varProrated)}</td>
-                <td style="text-align:right;">${fmtPct(r.varProratedPct)}</td>
+                <td class="num">${fmt2(r.budgetTotal)}</td>
+                <td class="num">${fmt2(r.actualTotal)}</td>
+                <td class="num">${fmt2(r.varActual)}</td>
+                <td class="num">${fmtPct(r.varActualPct)}</td>
+                <td class="num">${fmt2(r.proratedActual)}</td>
+                <td class="num">${fmt2(r.varProrated)}</td>
+                <td class="num">${fmtPct(r.varProratedPct)}</td>
               </tr>
             `;
           })
           .join("");
 
         const totalsRow = `
-          <tr style="background:#f9fafb;font-weight:600;">
+          <tr class="totals-row">
             <td colspan="4" style="text-align:right;">Totals</td>
-            <td style="text-align:right;">${fmt2(totalBudgetAll)}</td>
-            <td style="text-align:right;">${fmt2(totalActualAll)}</td>
-            <td style="text-align:right;">${fmt2(totalVarAll)}</td>
-            <td style="text-align:right;">${fmtPct(totalVarAllPct)}</td>
-            <td style="text-align:right;">${fmt2(totalProratedAll)}</td>
-            <td style="text-align:right;">${fmt2(totalVarProratedAll)}</td>
-            <td style="text-align:right;">${fmtPct(totalVarProratedAllPct)}</td>
+            <td class="num">${fmt2(totalBudgetAll)}</td>
+            <td class="num">${fmt2(totalActualAll)}</td>
+            <td class="num">${fmt2(totalVarAll)}</td>
+            <td class="num">${fmtPct(totalVarAllPct)}</td>
+            <td class="num">${fmt2(totalProratedAll)}</td>
+            <td class="num">${fmt2(totalVarProratedAll)}</td>
+            <td class="num">${fmtPct(totalVarProratedAllPct)}</td>
           </tr>
         `;
 
