@@ -309,14 +309,14 @@ async function loadPortfolio() {
       `;
     }
 
-    // 5) Render table rows
+    // 5) Render table rows + totals row
     if (bodyEl) {
       if (!rows.length) {
         bodyEl.innerHTML = `
           <tr><td colspan="11">No data to display.</td></tr>
         `;
       } else {
-        bodyEl.innerHTML = rows
+        const rowsHtml = rows
           .map((r) => {
             const g = r.grant;
             const grantLabel = g.grant_id
@@ -348,6 +348,21 @@ async function loadPortfolio() {
             `;
           })
           .join("");
+
+        const totalsRow = `
+          <tr style="background:#f9fafb;font-weight:600;">
+            <td colspan="4" style="text-align:right;">Totals</td>
+            <td style="text-align:right;">${fmt2(totalBudgetAll)}</td>
+            <td style="text-align:right;">${fmt2(totalActualAll)}</td>
+            <td style="text-align:right;">${fmt2(totalVarAll)}</td>
+            <td style="text-align:right;">${fmtPct(totalVarAllPct)}</td>
+            <td style="text-align:right;">${fmt2(totalProratedAll)}</td>
+            <td style="text-align:right;">${fmt2(totalVarProratedAll)}</td>
+            <td style="text-align:right;">${fmtPct(totalVarProratedAllPct)}</td>
+          </tr>
+        `;
+
+        bodyEl.innerHTML = rowsHtml + totalsRow;
       }
     }
 
