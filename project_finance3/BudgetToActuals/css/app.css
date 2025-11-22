@@ -2,7 +2,7 @@
    GLOBAL TYPOGRAPHY – BIG BUT REFINED (~25% larger)
    ===================================================== */
 html {
-  font-size: 16px;                     /* Root stays safe */
+  font-size: 16px;
 }
 
 body {
@@ -14,47 +14,44 @@ body {
 }
 
 #app {
-  font-size: 1em;                      /* Inherits from body */
+  font-size: 1em;
   min-height: 100vh;
 }
 
-/* Headings – bold and clear */
+/* Slightly enlarge text inside cards (summary panels, current grant, etc.) */
+#app .card {
+  font-size: 1.1em;                    /* ~22px – makes everything inside cards pop */
+}
+
+/* Headings */
 article h3 {
-  font-size: 1.4em;                    /* ~28px */
+  font-size: 1.4em;
   font-weight: 600;
   margin-bottom: 0.75rem;
   color: #1e293b;
 }
 
 article h4 {
-  font-size: 1.15em;                   /* ~23px */
+  font-size: 1.15em;
   font-weight: 600;
   margin-bottom: 0.5rem;
   color: #334155;
 }
 
-/* Slightly enlarge text inside cards (summary panels, current grant, etc.) */
-#app .card {
-  font-size: 1.1em;   /* ~10% larger than normal body text */
-}
-
-
 /* =====================================================
-   TABLE TYPOGRAPHY (Grants, Edit Data, etc.)
+   TABLE TYPOGRAPHY
    ===================================================== */
-
-/* All app tables use consistent base size */
 #app table {
-  font-size: 1em;                      /* same as body (≈20px) */
+  font-size: 1em;                      /* ≈20px – consistent */
 }
 
-/* Header cells a bit bigger & bolder */
 #app table thead th {
   font-size: 1.05em;
   font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
-/* Body cells match normal text size */
 #app table tbody td {
   font-size: 1em;
 }
@@ -62,8 +59,6 @@ article h4 {
 /* =====================================================
    NORMALIZE TEXT ACROSS ALL TABS
    ===================================================== */
-
-/* Standard text elements inside the app */
 #app p,
 #app small,
 #app li,
@@ -72,29 +67,35 @@ article h4 {
 #app .muted,
 #app .description,
 #app article > p {
-  font-size: 1em !important;           /* match body (20px) */
+  font-size: 1em !important;
   line-height: 1.5;
 }
 
-/* Optional: tiny captions can be slightly smaller */
 #app .caption {
-  font-size: 0.85em !important;        /* ~17px */
+  font-size: 0.85em !important;
 }
 
-/* Financials (Summary) – make the metrics text larger & consistent */
+/* =====================================================
+   FINANCIAL SUMMARY – NOW BIG & READABLE
+   ===================================================== */
 #app #summaryContent,
 #app #summaryContent * {
-  font-size: 0.70em !important;         /* ~10% bigger than body */
-  line-height: 1.4;
+  font-size: 1.05em !important;        /* ≈ 23px – clear, bold, professional */
+  line-height: 1.5;
+  font-weight: 500;
+}
+
+/* Optional: make the big numbers even punchier */
+#app #summaryContent .text-2xl,
+#app #summaryContent .font-bold {
+  font-size: 1.3em !important;
+  font-weight: 700;
 }
 
 /* =====================================================
    FULL-WIDTH LAYOUT
    ===================================================== */
-html,
-body,
-#app,
-.app-root {
+html, body, #app, .app-root {
   margin: 0;
   padding: 0;
   width: 100%;
@@ -105,7 +106,7 @@ main.wrap {
   width: 100%;
   max-width: none;
   margin: 0;
-  padding: 0 1rem;                     /* tiny breathing room */
+  padding: 0 1rem;
   box-sizing: border-box;
 }
 
@@ -115,9 +116,8 @@ main.wrap {
 }
 
 /* =====================================================
-   UNIFIED INPUTS – scaled for 20px text
+   UNIFIED INPUTS
    ===================================================== */
-
 #app .grant-select,
 #app .budget-select,
 #app .budget-text,
@@ -126,7 +126,7 @@ main.wrap {
 #app input,
 #app select,
 #app textarea {
-  font-size: 1.25rem !important;       /* ≈ 20px – matches body */
+  font-size: 1.25rem !important;
   padding: 0.4rem 0.6rem !important;
   height: 2.6rem !important;
   line-height: 1 !important;
@@ -134,7 +134,6 @@ main.wrap {
   vertical-align: middle;
 }
 
-/* Number cells: width + alignment */
 #app .budget-cell,
 #app .budget-rate {
   min-width: 6.5rem;
@@ -142,27 +141,20 @@ main.wrap {
   text-align: right;
 }
 
-/* Remove spin buttons for numeric inputs */
 .no-spin::-webkit-outer-spin-button,
-.no-spin::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
-.no-spin {
-  -moz-appearance: textfield;
-}
+.no-spin::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.no-spin { -moz-appearance: textfield; }
 
 /* =====================================================
-   STICKY COLUMNS (Budget tables)
+   STICKY COLUMNS
    ===================================================== */
-
 .sticky-col-1 {
   position: sticky;
   left: 0;
   background: #ffffff;
   z-index: 10;
   min-width: 26ch;
-  box-shadow: 2px 0 2px rgba(0, 0, 0, 0.05);
+  box-shadow: 2px 0 2px rgba(0,0,0,0.05);
 }
 
 .sticky-col-2 {
@@ -171,7 +163,7 @@ main.wrap {
   background: #ffffff;
   z-index: 10;
   min-width: 26ch;
-  box-shadow: 2px 0 2px rgba(0, 0, 0, 0.05);
+  box-shadow: 2px 0 2px rgba(0,0,0,0.05);
 }
 
 #laborBody td,
@@ -184,58 +176,33 @@ main.wrap {
 #directBody input,
 #laborBody select,
 #directBody select {
-  padding: 0 !important;               /* main padding handled by .budget-* */
-}
-
-/* =====================================================
-   PRINT STYLES
-   ===================================================== */
-@media print {
-  .nav,
-  .no-print {
-    display: none !important;
-  }
-  .card {
-    box-shadow: none;
-    border: 1px solid #ddd;
-  }
-  body {
-    background: white;
-  }
+  padding: 0 !important;
 }
 
 /* =====================================================
    UNIFIED BUTTON STYLING
    ===================================================== */
-
-/* Base button style for the whole app */
 #app button {
-  font-size: 0.9em;                    /* slightly smaller than body */
+  font-size: 0.9em;
   font-weight: 500;
   padding: 0.4rem 0.9rem;
-  border-radius: 9999px;              /* pill shape */
-  border: 1px solid #1d4ed8;         /* blue outline */
+  border-radius: 9999px;
+  border: 1px solid #1d4ed8;
   background: #ffffff;
   color: #1d4ed8;
   cursor: pointer;
-  transition:
-    background-color 150ms ease,
-    color 150ms ease,
-    box-shadow 150ms ease,
-    transform 50ms ease;
+  transition: all 150ms ease;
 }
 
-/* Secondary / neutral buttons (class="secondary") */
 #app button.secondary {
-  border-color: #64748b;              /* slate */
+  border-color: #64748b;
   color: #334155;
 }
 
-/* Hover + active */
 #app button:hover {
   background: #1d4ed8;
   color: #ffffff;
-  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.18);
+  box-shadow: 0 2px 6px rgba(15,23,42,0.18);
 }
 
 #app button.secondary:hover {
@@ -243,34 +210,18 @@ main.wrap {
   color: #ffffff;
 }
 
-/* Pressed */
-#app button:active {
-  transform: translateY(1px);
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.25);
-}
-
-/* Disabled */
-#app button:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-  box-shadow: none;
-}
-
-/* Keyboard focus outline */
-#app button:focus-visible {
-  outline: 2px solid #0ea5e9;        /* cyan focus ring */
-  outline-offset: 2px;
-}
+#app button:active { transform: translateY(1px); }
+#app button:disabled { opacity: 0.45; cursor: not-allowed; }
+#app button:focus-visible { outline: 2px solid #0ea5e9; outline-offset: 2px; }
 
 /* =====================================================
    TOP NAVIGATION BAR
    ===================================================== */
-
 .nav {
   position: sticky;
   top: 0;
   z-index: 20;
-  background: #0f172a;               /* dark blue/navy */
+  background: #0f172a;
   color: #e5e7eb;
   border-bottom: 1px solid #1f2937;
 }
@@ -285,52 +236,51 @@ main.wrap {
   padding: 0 1.5rem;
 }
 
-/* App name on the left */
 .nav-container > div:first-child {
   font-size: 1.1rem;
   font-weight: 600;
 }
 
-/* Links on the right */
 .nav-container > div:last-child {
   display: flex;
   gap: 0.5rem;
 }
 
-/* Base nav “button” */
 .nav-link {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   padding: 0.4rem 0.9rem;
-  border-radius: 9999px;             /* pill */
+  border-radius: 9999px;
   border: 1px solid transparent;
-  font-size: 1.05rem;                /* slightly bigger than body text */
+  font-size: 1.05rem;
   font-weight: 500;
   color: #e5e7eb;
   text-decoration: none;
-  transition:
-    background-color 150ms ease,
-    color 150ms ease,
-    border-color 150ms ease,
-    transform 80ms ease,
-    box-shadow 150ms ease;
+  transition: all 150ms ease;
 }
 
-/* Hover */
 .nav-link:hover {
   background: #1d4ed8;
   border-color: #1d4ed8;
   color: #ffffff;
-  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.35);
+  box-shadow: 0 2px 6px rgba(15,23,42,0.35);
 }
 
-/* Active tab (router sets .active) */
 .nav-link.active {
-  background: #2563eb;              /* brighter blue */
+  background: #2563eb;
   border-color: #93c5fd;
   color: #ffffff;
   font-weight: 600;
-  transform: translateY(-1px) scale(1.06);  /* subtle “pop” */
-  box-shadow: 0 3px 10px rgba(15, 23, 42, 0.4);
+  transform: translateY(-1px) scale(1.06);
+  box-shadow: 0 3px 10px rgba(15,23,42,0.4);
+}
+
+/* =====================================================
+   PRINT STYLES
+   ===================================================== */
+@media print {
+  .nav, .no-print { display: none !important; }
+  .card { box-shadow: none; border: 1px solid #ddd; }
+  body { background: white; }
 }
