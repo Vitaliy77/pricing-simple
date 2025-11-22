@@ -14,132 +14,122 @@ export const template = /*html*/ `
   <article>
     <h3>Grant Setup</h3>
 
-    <section style="margin-bottom:1rem;">
-      <h4 style="margin-bottom:0.5rem;">Create / Edit Grant</h4>
+    <!-- ====================== CREATE / EDIT FORM ====================== -->
+    <section style="margin-bottom:1.5rem;">
+      <div style="max-width:1200px;margin:0 auto;">
+        <h4 style="margin-bottom:0.5rem;">Create / Edit Grant</h4>
 
-      <!-- Form row built as a table so columns align with All Grants below -->
-      <div style="margin-bottom:0.4rem;">
-        <table style="width:100%; table-layout:fixed; border-collapse:separate; border-spacing:0 0.4rem;">
-          <colgroup>
-            <col style="width:23.3%;">
-            <col style="width:14.0%;">
-            <col style="width:23.3%;">
-            <col style="width:11.6%;">
-            <col style="width:14.0%;">
-            <col style="width:14.0%;">
-            <col style="width:8%;">  <!-- Status placeholder -->
-            <col style="width:5%;">  <!-- Actions placeholder -->
-          </colgroup>
-          <tbody>
-            <tr>
-              <td style="padding:0;">
-                <label style="display:block; margin-bottom:0.25rem;">Grant name</label>
-                <input
-                  id="g_name"
-                  type="text"
-                  placeholder="Grant Name"
-                  style="width:100%; box-sizing:border-box;"
-                >
-              </td>
-              <td style="padding:0;">
-                <label style="display:block; margin-bottom:0.25rem;">Grant ID</label>
-                <input
-                  id="g_id"
-                  type="text"
-                  placeholder="Grant ID"
-                  style="width:100%; box-sizing:border-box;"
-                >
-              </td>
-              <td style="padding:0;">
-                <label style="display:block; margin-bottom:0.25rem;">Funder</label>
-                <input
-                  id="g_funder"
-                  type="text"
-                  placeholder="Funder"
-                  style="width:100%; box-sizing:border-box;"
-                >
-              </td>
-              <td style="padding:0;">
-                <label style="display:block; margin-bottom:0.25rem;">Total award</label>
-                <input
-                  id="g_total"
-                  type="number"
-                  step="1"
-                  min="0"
-                  placeholder="Total Award"
-                  style="width:100%; box-sizing:border-box; text-align:right;"
-                >
-              </td>
-              <td style="padding:0;">
-                <label style="display:block; margin-bottom:0.25rem;">Start</label>
-                <input
-                  id="g_from"
-                  type="date"
-                  style="width:100%; box-sizing:border-box;"
-                >
-              </td>
-              <td style="padding:0;">
-                <label style="display:block; margin-bottom:0.25rem;">End</label>
-                <input
-                  id="g_to"
-                  type="date"
-                  style="width:100%; box-sizing:border-box;"
-                >
-              </td>
-              <td></td> <!-- Status -->
-              <td></td> <!-- Actions -->
-            </tr>
-          </tbody>
-        </table>
-      </div>
+        <!-- Table-based form that perfectly matches the table below -->
+        <div style="margin-bottom:0.4rem;overflow:hidden;border-radius:6px;">
+          <table style="width:100%;table-layout:fixed;border-collapse:collapse;">
+            <colgroup>
+              <col style="width:23.3%">
+              <col style="width:14.0%">
+              <col style="width:23.3%">
+              <col style="width:11.6%">
+              <col style="width:14.0%">
+              <col style="width:14.0%">
+              <col style="width:8%">   <!-- Status placeholder -->
+              <col style="width:5%">   <!-- Actions placeholder -->
+            </colgroup>
+            <tbody>
+              <tr>
+                <td style="padding:0 0.35rem 0.6rem 0.35rem;">
+                  <label style="display:block;margin-bottom:0.25rem;font-weight:600;font-size:0.9rem;">
+                    Grant name
+                  </label>
+                  <input id="g_name" type="text" placeholder="Grant Name"
+                         style="width:100%;box-sizing:border-box;">
+                </td>
+                <td style="padding:0 0.35rem 0.6rem 0.35rem;">
+                  <label style="display:block;margin-bottom:0.25rem;font-weight:600;font-size:0.9rem;">
+                    Grant ID
+                  </label>
+                  <input id="g_id" type="text" placeholder="Grant ID"
+                         style="width:100%;box-sizing:border-box;">
+                </td>
+                <td style="padding:0 0.35rem 0.6rem 0.35rem;">
+                  <label style="display:block;margin-bottom:0.25rem;font-weight:600;font-size:0.9rem;">
+                    Funder
+                  </label>
+                  <input id="g_funder" type="text" placeholder="Funder"
+                         style="width:100%;box-sizing:border-box;">
+                </td>
+                <td style="padding:0 0.35rem 0.6rem 0.35rem;">
+                  <label style="display:block;margin-bottom:0.25rem;font-weight:600;font-size:0.9rem;">
+                    Total award
+                  </label>
+                  <input id="g_total" type="number" step="1" min="0" placeholder="Total Award"
+                         style="width:100%;box-sizing:border-box;text-align:right;">
+                </td>
+                <td style="padding:0 0.35rem 0.6rem 0.35rem;">
+                  <label style="display:block;margin-bottom:0.25rem;font-weight:600;font-size:0.9rem;">
+                    Start
+                  </label>
+                  <input id="g_from" type="date"
+                         style="width:100%;box-sizing:border-box;">
+                </td>
+                <td style="padding:0 0.35rem 0.6rem 0.35rem;">
+                  <label style="display:block;margin-bottom:0.25rem;font-weight:600;font-size:0.9rem;">
+                    End
+                  </label>
+                  <input id="g_to" type="date"
+                         style="width:100%;box-sizing:border-box;">
+                </td>
+                <td></td><td></td> <!-- empty Status & Actions cells -->
+              </tr>
+            </tbody>
+          </table>
+        </div>
 
-      <div style="margin-top:0.5rem; display:flex; gap:0.5rem; align-items:center;">
-        <button id="create" type="button">Create</button>
-        <button id="cancelEdit" type="button" class="secondary" style="display:none;">
-          Cancel edit
-        </button>
-        <small id="msg"></small>
+        <div style="display:flex;gap:0.5rem;align-items:center;">
+          <button id="create" type="button">Create</button>
+          <button id="cancelEdit" type="button" class="secondary" style="display:none;">
+            Cancel edit
+          </button>
+          <small id="msg"></small>
+        </div>
       </div>
     </section>
 
+    <!-- ====================== ALL GRANTS TABLE ====================== -->
     <section>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.25rem;">
-        <h4 style="margin:0;">All Grants</h4>
-        <button
-          id="refreshGrants"
-          type="button"
-          class="secondary"
-          style="font-size:0.8rem;padding:0.15rem 0.5rem;"
-        >
-          Refresh
-        </button>
-      </div>
-      <div class="scroll-x">
-        <table id="tbl" style="width:100%; table-layout:fixed;">
-          <colgroup>
-            <col style="width:23.3%;">
-            <col style="width:14.0%;">
-            <col style="width:23.3%;">
-            <col style="width:11.6%;">
-            <col style="width:14.0%;">
-            <col style="width:14.0%;">
-            <col style="width:8%;">  <!-- Status -->
-            <col style="width:5%;">  <!-- Actions -->
-          </colgroup>
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Grant ID</th>
-              <th>Funder</th>
-              <th>Start</th>
-              <th>End</th>
-              <th>Total Award</th>
-              <th>Status</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
+      <div style="max-width:1200px;margin:0 auto;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.25rem;">
+          <h4 style="margin:0;">All Grants</h4>
+          <button id="refreshGrants" type="button" class="secondary"
+                  style="font-size:0.8rem;padding:0.15rem 0.5rem;">
+            Refresh
+          </button>
+        </div>
+
+        <div class="scroll-x">
+          <table id="tbl" style="width:100%;table-layout:fixed;">
+            <colgroup>
+              <col style="width:23.3%">
+              <col style="width:14.0%">
+              <col style="width:23.3%">
+              <col style="width:11.6%">
+              <col style="width:14.0%">
+              <col style="width:14.0%">
+              <col style="width:8%">
+              <col style="width:5%">
+            </colgroup>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Grant ID</th>
+                <th>Funder</th>
+                <th>Total Award</th>
+                <th>Start</th>
+                <th>End</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
       </div>
     </section>
   </article>
@@ -155,11 +145,7 @@ export async function init(root) {
     if (!m) return;
     m.textContent = t || "";
     m.style.color = e ? "#b00" : "inherit";
-    if (t) {
-      setTimeout(() => {
-        if (m.textContent === t) m.textContent = "";
-      }, 4000);
-    }
+    if (t) setTimeout(() => m.textContent === t && (m.textContent = ""), 4000);
   };
 
   const $createBtn = $("#create", root);
@@ -185,8 +171,7 @@ export async function init(root) {
     $("#g_name", root).value = grant.name || "";
     $("#g_id", root).value = grant.grant_id || "";
     $("#g_funder", root).value = grant.funder || "";
-    $("#g_total", root).value =
-      grant.total_award != null ? String(grant.total_award) : "";
+    $("#g_total", root).value = grant.total_award != null ? String(grant.total_award) : "";
     $("#g_from", root).value = grant.start_date || "";
     $("#g_to", root).value = grant.end_date || "";
     $createBtn.textContent = "Update";
@@ -194,19 +179,15 @@ export async function init(root) {
     msg(`Editing grant: ${grant.name}`);
   }
 
-  // Create / Update grant
+  // CREATE / UPDATE
   $createBtn.onclick = async () => {
-    const { data: userRes, error: authErr } = await client.auth.getUser();
-    if (authErr) {
-      console.error("[grants] auth error", authErr);
-    }
-    const user = userRes?.user || null;
+    const { data: { user } } = await client.auth.getUser();
     if (!user) return msg("Sign in first", true);
 
     const name = $("#g_name", root).value.trim();
     const grant_id = $("#g_id", root).value.trim() || null;
     const funder = $("#g_funder", root).value.trim() || null;
-    const total_award = Math.round(Number($("#g_total", root).value || 0)); // whole dollars
+    const total_award = Math.round(Number($("#g_total", root).value || 0));
     const start_date = $("#g_from", root).value || null;
     const end_date = $("#g_to", root).value || null;
 
@@ -214,62 +195,25 @@ export async function init(root) {
       return msg("Name, start date, and end date are required.", true);
     }
 
-    const rowBase = {
-      name,
-      grant_id,
-      funder,
-      total_award,
-      start_date,
-      end_date,
-    };
+    const rowBase = { name, grant_id, funder, total_award, start_date, end_date };
 
     try {
       if (editingGrantId) {
-        const updateRow = {
-          ...rowBase,
-          pm_user_id: user.id,
-        };
-
-        const { data, error } = await client
+        const { error, data } = await client
           .from("grants")
-          .update(updateRow)
+          .update({ ...rowBase, pm_user_id: user.id })
           .eq("id", editingGrantId)
           .select("id");
 
-        console.log("[grants] update result", { data, error });
-
-        if (error) {
-          console.error("[grants] update error", error);
-          return msg(error.message, true);
-        }
-
-        if (!data || data.length === 0) {
-          return msg(
-            "Update did not affect any rows. Check RLS / permissions for the grants table.",
-            true
-          );
-        }
-
+        if (error || !data?.length) return msg(error?.message || "Update failed", true);
         msg("Grant updated.");
       } else {
-        const insertRow = {
-          ...rowBase,
-          status: "active",
-          pm_user_id: user.id,
-        };
-
-        const { data, error } = await client
+        const { error, data } = await client
           .from("grants")
-          .insert(insertRow)
+          .insert({ ...rowBase, status: "active", pm_user_id: user.id })
           .select("id");
 
-        console.log("[grants] insert result", { data, error });
-
-        if (error) {
-          console.error("[grants] insert error", error);
-          return msg(error.message, true);
-        }
-
+        if (error) return msg(error.message, true);
         msg("Grant created.");
       }
 
@@ -277,12 +221,11 @@ export async function init(root) {
       setCreateMode();
       await load();
     } catch (err) {
-      console.error("[grants] create/update exception", err);
-      msg(String(err?.message || err), true);
+      console.error(err);
+      msg("Unexpected error", true);
     }
   };
 
-  // Cancel edit
   $cancelEdit.onclick = () => {
     clearForm();
     setCreateMode();
@@ -295,70 +238,49 @@ export async function init(root) {
     msg("Loading…");
     const { data, error } = await client
       .from("grants")
-      .select(
-        "id,name,grant_id,funder,start_date,end_date,total_award,status,created_at"
-      )
+      .select("id,name,grant_id,funder,start_date,end_date,total_award,status,created_at")
       .order("created_at", { ascending: false });
 
-    if (error) {
-      console.error("[grants] load error", error);
-      msg(error.message, true);
-      return;
-    }
+    if (error) return msg(error.message, true);
 
-    const tb = $("#tbl tbody", root);
-    tb.innerHTML = "";
+    const tbody = $("#tbl tbody", root);
+    tbody.innerHTML = "";
 
-    (data || []).forEach((g) => {
+    data.forEach((g) => {
       const tr = h("<tr></tr>");
       tr.innerHTML = `
         <td>${g.name}</td>
         <td>${g.grant_id || ""}</td>
         <td>${g.funder || ""}</td>
+        <td style="text-align:right;">${fmt0(g.total_award)}</td>
         <td>${g.start_date || ""}</td>
         <td>${g.end_date || ""}</td>
-        <td>${fmt0(g.total_award)}</td>
         <td>${g.status || ""}</td>
         <td>
-          <button
-            type="button"
-            data-grant="${g.id}"
-            class="secondary"
-            style="font-size:0.75rem;padding:0.1rem 0.4rem;margin-right:0.25rem;"
-          >
+          <button type="button" data-grant="${g.id}" class="secondary"
+                  style="font-size:0.75rem;padding:0.1rem 0.4rem;margin-right:0.25rem;">
             Use
           </button>
-          <button
-            type="button"
-            data-edit-grant="${g.id}"
-            class="secondary"
-            style="font-size:0.75rem;padding:0.1rem 0.4rem;"
-          >
+          <button type="button" data-edit-grant="${g.id}" class="secondary"
+                  style="font-size:0.75rem;padding:0.1rem 0.4rem;">
             Edit
           </button>
         </td>
       `;
-      tb.appendChild(tr);
+      tbody.appendChild(tr);
     });
 
-    // Wire "Use" buttons
-    tb.querySelectorAll("button[data-grant]").forEach((btn) => {
-      btn.addEventListener("click", (e) => {
-        const id = e.currentTarget.getAttribute("data-grant");
-        if (!id) return;
-        setSelectedGrantId(id);
-        msg("Current grant set. Other tabs will use it.");
-      });
-    });
-
-    // Wire "Edit" buttons
-    tb.querySelectorAll("button[data-edit-grant]").forEach((btn) => {
-      btn.addEventListener("click", (e) => {
-        const id = e.currentTarget.getAttribute("data-edit-grant");
-        if (!id) return;
-        const grant = (data || []).find((g) => String(g.id) === String(id));
-        if (!grant) return;
-        setEditMode(grant);
+    // Wire buttons
+    tbody.querySelectorAll("[data-grant]").forEach((b) =>
+      b.addEventListener("click", () => {
+        setSelectedGrantId(b.dataset.grant);
+        msg("Current grant selected");
+      })
+    );
+    tbody.querySelectorAll("[data-edit-grant]").forEach((b) => {
+      b.addEventListener("click", () => {
+        const grant = data.find((x) => x.id == b.dataset.editGrant);
+        if (grant) setEditMode(grant);
       });
     });
 
