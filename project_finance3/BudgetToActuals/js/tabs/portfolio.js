@@ -21,7 +21,7 @@ export const template = /*html*/ `
               <th>Period</th>
               <th>Status</th>
               <th style="text-align:right;">Budget</th>
-              <th style="text-align:right;">Actuale</th>
+              <th style="text-align:right;">Actual</th>
               <th style="text-align:right;">Var $</th>
               <th style="text-align:right;">Var %</th>
               <th style="text-align:right;">Estimate</th>
