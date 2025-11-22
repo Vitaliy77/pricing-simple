@@ -4,7 +4,7 @@ import { client } from "./api/supabase.js";
 const app = document.getElementById("app");
 
 // Tabs that require a signed-in user
-const PROTECTED_TABS = new Set(["#grants", "#budget", "#actuals", "#compare", "#summary"]);
+const PROTECTED_TABS = new Set(["#grants", "#budget", "#actuals", "#compare", "#summary", "#portfolio"]);
 
 let session = null;
 
