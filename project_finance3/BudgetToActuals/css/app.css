@@ -1,12 +1,12 @@
 /* =====================================================
-   GLOBAL TYPOGRAPHY – BIG BUT REFINED (~25% larger)
+   GLOBAL TYPOGRAPHY – UNIFIED BASE SIZE
    ===================================================== */
 html {
   font-size: 16px;
 }
 
 body {
-  font-size: 1.25rem;                  /* ≈ 20px base text */
+  font-size: 1rem;                     /* 16px base */
   line-height: 1.5;
   color: #0f172a;
   font-family: system-ui, -apple-system, BlinkMacSystemFont,
@@ -14,25 +14,25 @@ body {
 }
 
 #app {
-  font-size: 1em;
+  font-size: 1rem;                     /* keep everything aligned */
   min-height: 100vh;
 }
 
-/* Slightly enlarge text inside cards (summary panels, current grant, etc.) */
+/* Cards (summary panels, current grant, etc.) – no extra scaling */
 #app .card {
-  font-size: 1.1em;                    /* ~22px – makes everything inside cards pop */
+  font-size: 1rem;
 }
 
 /* Headings */
 article h3 {
-  font-size: 1.4em;
+  font-size: 1.35rem;
   font-weight: 600;
   margin-bottom: 0.75rem;
   color: #1e293b;
 }
 
 article h4 {
-  font-size: 1.15em;
+  font-size: 1.1rem;
   font-weight: 600;
   margin-bottom: 0.5rem;
   color: #334155;
@@ -42,18 +42,18 @@ article h4 {
    TABLE TYPOGRAPHY
    ===================================================== */
 #app table {
-  font-size: 1em;                      /* ≈20px – consistent */
+  font-size: 0.95rem;                  /* slightly smaller, but consistent */
 }
 
 #app table thead th {
-  font-size: 1.05em;
+  font-size: 0.95rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
 
 #app table tbody td {
-  font-size: 1em;
+  font-size: 0.95rem;
 }
 
 /* =====================================================
@@ -67,36 +67,35 @@ article h4 {
 #app .muted,
 #app .description,
 #app article > p {
-  font-size: 1em !important;
+  font-size: 1rem !important;
   line-height: 1.5;
 }
 
-/* Important captions like current grant details */
+/* Captions – used e.g. for current grant details; should NOT be tiny */
 #app .caption {
-  font-size: 1.05em !important;   /* slightly larger than base text */
+  font-size: 1rem !important;          /* same as body so it's readable */
   line-height: 1.5;
 }
 
 /* =====================================================
-   FINANCIAL SUMMARY – SLIGHTLY SMALLER & BALANCED
+   FINANCIAL SUMMARY – SAME BASE, SLIGHT EMPHASIS
    ===================================================== */
-/* Container: about 10% smaller than the card’s base text */
 #app #summaryContent {
-  font-size: 0.9em !important;         /* ~10% smaller than .card (1.1em) */
+  font-size: 1rem !important;          /* same as rest of the app */
   line-height: 1.5;
   font-weight: 400;
 }
 
-/* Children inherit the container scale without shrinking further */
+/* Children inherit without shrinking/growing */
 #app #summaryContent * {
-  font-size: 1em;
+  font-size: 1rem;
   line-height: 1.5;
 }
 
-/* Big numbers still stand out, but not huge */
+/* Big numbers: just a bit larger and bolder */
 #app #summaryContent .text-2xl,
 #app #summaryContent .font-bold {
-  font-size: 1.15em !important;
+  font-size: 1.15rem !important;
   font-weight: 600;
 }
 
@@ -134,9 +133,9 @@ main.wrap {
 #app input,
 #app select,
 #app textarea {
-  font-size: 1.25rem !important;
+  font-size: 1rem !important;          /* same as base text */
   padding: 0.4rem 0.6rem !important;
-  height: 2.6rem !important;
+  height: 2.4rem !important;
   line-height: 1 !important;
   box-sizing: border-box !important;
   vertical-align: middle;
@@ -150,8 +149,13 @@ main.wrap {
 }
 
 .no-spin::-webkit-outer-spin-button,
-.no-spin::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-.no-spin { -moz-appearance: textfield; }
+.no-spin::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.no-spin {
+  -moz-appearance: textfield;
+}
 
 /* =====================================================
    STICKY COLUMNS
@@ -191,7 +195,7 @@ main.wrap {
    UNIFIED BUTTON STYLING
    ===================================================== */
 #app button {
-  font-size: 0.9em;
+  font-size: 0.9rem;
   font-weight: 500;
   padding: 0.4rem 0.9rem;
   border-radius: 9999px;
@@ -218,9 +222,19 @@ main.wrap {
   color: #ffffff;
 }
 
-#app button:active { transform: translateY(1px); }
-#app button:disabled { opacity: 0.45; cursor: not-allowed; }
-#app button:focus-visible { outline: 2px solid #0ea5e9; outline-offset: 2px; }
+#app button:active {
+  transform: translateY(1px);
+}
+
+#app button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+#app button:focus-visible {
+  outline: 2px solid #0ea5e9;
+  outline-offset: 2px;
+}
 
 /* =====================================================
    TOP NAVIGATION BAR
@@ -245,7 +259,7 @@ main.wrap {
 }
 
 .nav-container > div:first-child {
-  font-size: 1.1rem;
+  font-size: 1rem;
   font-weight: 600;
 }
 
@@ -261,7 +275,7 @@ main.wrap {
   padding: 0.4rem 0.9rem;
   border-radius: 9999px;
   border: 1px solid transparent;
-  font-size: 1.05rem;
+  font-size: 0.95rem;
   font-weight: 500;
   color: #e5e7eb;
   text-decoration: none;
@@ -288,7 +302,15 @@ main.wrap {
    PRINT STYLES
    ===================================================== */
 @media print {
-  .nav, .no-print { display: none !important; }
-  .card { box-shadow: none; border: 1px solid #ddd; }
-  body { background: white; }
+  .nav,
+  .no-print {
+    display: none !important;
+  }
+  .card {
+    box-shadow: none;
+    border: 1px solid #ddd;
+  }
+  body {
+    background: white;
+  }
 }
