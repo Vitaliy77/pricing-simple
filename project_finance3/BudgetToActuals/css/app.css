@@ -159,3 +159,62 @@ input, select, textarea {
   .card { box-shadow: none; border: 1px solid #ddd; }
   body { background: white; }
 }
+
+/* -------------------------------------------
+   Unified button styling
+   ------------------------------------------- */
+
+/* Base button style for the whole app */
+#app button {
+  font-size: 0.9em;
+  font-weight: 500;
+  padding: 0.4rem 0.9rem;
+  border-radius: 9999px;              /* pill shape */
+  border: 1px solid #1d4ed8;         /* blue outline */
+  background: #ffffff;
+  color: #1d4ed8;
+  cursor: pointer;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease,
+    box-shadow 150ms ease,
+    transform 50ms ease;
+}
+
+/* Secondary / neutral buttons (you already use class="secondary") */
+#app button.secondary {
+  border-color: #64748b;              /* slate */
+  color: #334155;
+}
+
+/* Hover + active */
+#app button:hover {
+  background: #1d4ed8;
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.18);
+}
+
+#app button.secondary:hover {
+  background: #64748b;
+  color: #ffffff;
+}
+
+/* Pressed */
+#app button:active {
+  transform: translateY(1px);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.25);
+}
+
+/* Disabled */
+#app button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* Keyboard focus outline */
+#app button:focus-visible {
+  outline: 2px solid #0ea5e9;        /* cyan focus ring */
+  outline-offset: 2px;
+}
+
