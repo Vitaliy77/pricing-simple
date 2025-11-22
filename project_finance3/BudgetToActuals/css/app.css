@@ -332,6 +332,20 @@ main.wrap {
 }
 
 /* =====================================================
+   BUDGET TAB – OVERRIDE GLOBAL DATA-GRID BEHAVIOR
+   ===================================================== */
+#app #budgetTable {
+  table-layout: auto !important;          /* allow natural column widths */
+}
+
+#app #budgetTable th,
+#app #budgetTable td {
+  white-space: nowrap !important;         /* keep cells on one line */
+  word-wrap: normal !important;           /* don't break inside words */
+}
+
+
+/* =====================================================
    DATA GRID ENHANCEMENTS (PORTFOLIO, GRANTS, ETC.)
    ===================================================== */
 
