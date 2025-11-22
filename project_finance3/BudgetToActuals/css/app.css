@@ -1,19 +1,20 @@
 /* =====================================================
-   GLOBAL TYPOGRAPHY – BIG BUT REFINED (~30% larger than original)
+   GLOBAL TYPOGRAPHY – BIG BUT REFINED (~25% larger)
    ===================================================== */
 html {
   font-size: 16px;                     /* Root stays safe */
 }
 
 body {
-  font-size: 1.25rem;                  /* 20px base text → ~25% larger than default, 20% smaller than previous 24px */
+  font-size: 1.25rem;                  /* ≈ 20px base text */
   line-height: 1.5;
   color: #0f172a;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont,
+               "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
 #app {
-  font-size: 1em;                      /* Cleanly inherits 20px */
+  font-size: 1em;                      /* Inherits from body */
   min-height: 100vh;
 }
 
@@ -32,14 +33,13 @@ article h4 {
   color: #334155;
 }
 
-/* Tables – excellent readability */
-table {
-  font-size: 0.95em;                   /* ~19px */
-}
+/* =====================================================
+   TABLE TYPOGRAPHY (Grants, Edit Data, etc.)
+   ===================================================== */
 
-/* Tables: Grants, Edit Data, etc. – consistent, larger size */
+/* All app tables use consistent base size */
 #app table {
-  font-size: 1em;            /* base for all table text */
+  font-size: 1em;                      /* same as body (≈20px) */
 }
 
 /* Header cells a bit bigger & bolder */
@@ -53,17 +53,11 @@ table {
   font-size: 1em;
 }
 
-/* Financials (Summary) – make the metrics text larger & consistent */
-#summaryContent,
-#summaryContent * {
-  font-size: 1.1em !important;   /* ~10% bigger than other body text */
-  line-height: 1.5;
-}
+/* =====================================================
+   NORMALIZE TEXT ACROSS ALL TABS
+   ===================================================== */
 
-
-/* -------------------------------------------
-   Normalize text size across ALL tabs
-   ------------------------------------------- */
+/* Standard text elements inside the app */
 #app p,
 #app small,
 #app li,
@@ -72,19 +66,29 @@ table {
 #app .muted,
 #app .description,
 #app article > p {
-  font-size: 1em !important;           /* Forces exact match to body (20px) */
+  font-size: 1em !important;           /* match body (20px) */
   line-height: 1.5;
 }
 
 /* Optional: tiny captions can be slightly smaller */
 #app .caption {
-  font-size: 0.85em !important;           /* ~17px */
+  font-size: 0.85em !important;        /* ~17px */
+}
+
+/* Financials (Summary) – make the metrics text larger & consistent */
+#app #summaryContent,
+#app #summaryContent * {
+  font-size: 1.1em !important;         /* ~10% bigger than body */
+  line-height: 1.5;
 }
 
 /* =====================================================
    FULL-WIDTH LAYOUT
    ===================================================== */
-html, body, #app, .app-root {
+html,
+body,
+#app,
+.app-root {
   margin: 0;
   padding: 0;
   width: 100%;
@@ -95,7 +99,7 @@ main.wrap {
   width: 100%;
   max-width: none;
   margin: 0;
-  padding: 0 1rem;
+  padding: 0 1rem;                     /* tiny breathing room */
   box-sizing: border-box;
 }
 
@@ -107,50 +111,61 @@ main.wrap {
 /* =====================================================
    UNIFIED INPUTS – scaled for 20px text
    ===================================================== */
-.grant-select,
-.budget-select,
-.budget-text,
-.budget-rate,
-.budget-cell,
-input, select, textarea {
-  font-size: 1.25rem !important;       /* 20px – matches body */
+
+#app .grant-select,
+#app .budget-select,
+#app .budget-text,
+#app .budget-rate,
+#app .budget-cell,
+#app input,
+#app select,
+#app textarea {
+  font-size: 1.25rem !important;       /* ≈ 20px – matches body */
   padding: 0.4rem 0.6rem !important;
-  height: 2.6rem !important;           /* Was 2.8rem → slightly smaller, still generous */
+  height: 2.6rem !important;
   line-height: 1 !important;
   box-sizing: border-box !important;
   vertical-align: middle;
 }
 
-.budget-cell,
-.budget-rate {
+/* Number cells: width + alignment */
+#app .budget-cell,
+#app .budget-rate {
   min-width: 6.5rem;
   max-width: 7.5rem;
   text-align: right;
 }
 
-/* Remove spin buttons */
+/* Remove spin buttons for numeric inputs */
 .no-spin::-webkit-outer-spin-button,
-.no-spin::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-.no-spin { -moz-appearance: textfield; }
+.no-spin::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.no-spin {
+  -moz-appearance: textfield;
+}
 
 /* =====================================================
-   STICKY COLUMNS
+   STICKY COLUMNS (Budget tables)
    ===================================================== */
+
 .sticky-col-1 {
   position: sticky;
   left: 0;
-  background: white;
+  background: #ffffff;
   z-index: 10;
   min-width: 26ch;
-  box-shadow: 2px 0 2px rgba(0,0,0,0.05);
+  box-shadow: 2px 0 2px rgba(0, 0, 0, 0.05);
 }
+
 .sticky-col-2 {
   position: sticky;
   left: calc(26ch + 2rem);
-  background: white;
+  background: #ffffff;
   z-index: 10;
   min-width: 26ch;
-  box-shadow: 2px 0 2px rgba(0,0,0,0.05);
+  box-shadow: 2px 0 2px rgba(0, 0, 0, 0.05);
 }
 
 #laborBody td,
@@ -163,25 +178,33 @@ input, select, textarea {
 #directBody input,
 #laborBody select,
 #directBody select {
-  padding: 0 !important;
+  padding: 0 !important;               /* main padding handled by .budget-* */
 }
 
 /* =====================================================
    PRINT STYLES
    ===================================================== */
 @media print {
-  .nav, .no-print { display: none !important; }
-  .card { box-shadow: none; border: 1px solid #ddd; }
-  body { background: white; }
+  .nav,
+  .no-print {
+    display: none !important;
+  }
+  .card {
+    box-shadow: none;
+    border: 1px solid #ddd;
+  }
+  body {
+    background: white;
+  }
 }
 
-/* -------------------------------------------
-   Unified button styling
-   ------------------------------------------- */
+/* =====================================================
+   UNIFIED BUTTON STYLING
+   ===================================================== */
 
 /* Base button style for the whole app */
 #app button {
-  font-size: 0.9em;
+  font-size: 0.9em;                    /* slightly smaller than body */
   font-weight: 500;
   padding: 0.4rem 0.9rem;
   border-radius: 9999px;              /* pill shape */
@@ -196,7 +219,7 @@ input, select, textarea {
     transform 50ms ease;
 }
 
-/* Secondary / neutral buttons (you already use class="secondary") */
+/* Secondary / neutral buttons (class="secondary") */
 #app button.secondary {
   border-color: #64748b;              /* slate */
   color: #334155;
@@ -233,15 +256,15 @@ input, select, textarea {
   outline-offset: 2px;
 }
 
-/* =========================================
-   Top navigation bar styling
-   ========================================= */
+/* =====================================================
+   TOP NAVIGATION BAR
+   ===================================================== */
 
 .nav {
   position: sticky;
   top: 0;
   z-index: 20;
-  background: #0f172a;              /* dark blue/navy */
+  background: #0f172a;               /* dark blue/navy */
   color: #e5e7eb;
   border-bottom: 1px solid #1f2937;
 }
@@ -274,9 +297,9 @@ input, select, textarea {
   align-items: center;
   justify-content: center;
   padding: 0.4rem 0.9rem;
-  border-radius: 9999px;            /* pill */
+  border-radius: 9999px;             /* pill */
   border: 1px solid transparent;
-  font-size: 0.95rem;               /* larger than before */
+  font-size: 1.05rem;                /* slightly bigger than body text */
   font-weight: 500;
   color: #e5e7eb;
   text-decoration: none;
@@ -296,13 +319,12 @@ input, select, textarea {
   box-shadow: 0 2px 6px rgba(15, 23, 42, 0.35);
 }
 
-/* Active tab (router already adds .active) */
+/* Active tab (router sets .active) */
 .nav-link.active {
-  background: #2563eb;             /* brighter blue */
+  background: #2563eb;              /* brighter blue */
   border-color: #93c5fd;
   color: #ffffff;
   font-weight: 600;
   transform: translateY(-1px) scale(1.06);  /* subtle “pop” */
   box-shadow: 0 3px 10px rgba(15, 23, 42, 0.4);
 }
-
