@@ -29,7 +29,7 @@ main.wrap {
 .budget-text,
 .budget-rate,
 .budget-cell {
-  font-size: 1.00rem;
+  font-size: 1rem;
   padding: 0.35rem 0.5rem;
   height: 2.0rem !important;   /* Force 2.0rem */
   line-height: 1;
