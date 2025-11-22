@@ -5,38 +5,34 @@
   <title>Grants Budget App</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <!-- Tailwind (compiled) and your custom grid CSS -->
+  <!-- Tailwind (compiled) and custom app CSS -->
   <link rel="stylesheet" href="./css/tailwind.css">
   <link rel="stylesheet" href="./css/app.css">
 </head>
 <body>
-  <div class="app-shell">
-    <!-- Top bar -->
-    <header class="nav-bar">
-      <nav class="nav-inner">
-        <ul class="nav-brand">
-          <li>Grants Budget App</li>
-        </ul>
-        <ul class="nav-tabs">
-          <li><a href="#auth"        class="nav-tab">Sign in</a></li>
-          <li><a href="#grantSelect" class="nav-tab">Selection</a></li>
-          <li><a href="#summary"     class="nav-tab">Financials</a></li>
-          <li><a href="#grants"      class="nav-tab">Setup</a></li>
-          <li><a href="#budget"      class="nav-tab">Budget Entry</a></li>
-          <li><a href="#actuals"     class="nav-tab">Actuals Upload</a></li>
-          <li><a href="#compare"     class="nav-tab">Comparison</a></li>
-          <li><a href="#editData"    class="nav-tab">Edit Data</a></li>
-        </ul>
-      </nav>
-    </header>
-
-    <!-- Main content -->
-    <main class="container-max py-4">
-      <div id="app" class="card">
-        <!-- Your JS app renders here -->
+  <!-- Top navigation -->
+  <header class="nav">
+    <nav class="nav-container">
+      <div>Grants Budget App</div>
+      <div>
+        <a href="#auth"        class="nav-link">Sign in</a>
+        <a href="#grantSelect" class="nav-link">Selection</a>
+        <a href="#summary"     class="nav-link">Financials</a>
+        <a href="#grants"      class="nav-link">Setup</a>
+        <a href="#budget"      class="nav-link">Budget Entry</a>
+        <a href="#actuals"     class="nav-link">Actuals Upload</a>
+        <a href="#compare"     class="nav-link">Comparison</a>
+        <a href="#editData"    class="nav-link">Edit Data</a>
       </div>
-    </main>
-  </div>
+    </nav>
+  </header>
+
+  <!-- Main content -->
+  <main class="container-max py-4">
+    <div id="app" class="card">
+      <!-- Your JS app renders here -->
+    </div>
+  </main>
 
   <!-- SheetJS so XLSX is available globally -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -48,22 +44,18 @@
   <!-- Global Chart.js font sizing -->
   <script>
     if (window.Chart) {
-      // Base font for all charts
       Chart.defaults.font.size = 16;
 
-      // Legend text
       if (Chart.defaults.plugins && Chart.defaults.plugins.legend) {
         Chart.defaults.plugins.legend.labels = Chart.defaults.plugins.legend.labels || {};
         Chart.defaults.plugins.legend.labels.font = { size: 16 };
       }
 
-      // Tooltips
       if (Chart.defaults.plugins && Chart.defaults.plugins.tooltip) {
         Chart.defaults.plugins.tooltip.bodyFont = { size: 16 };
         Chart.defaults.plugins.tooltip.titleFont = { size: 16 };
       }
 
-      // Data labels
       if (Chart.defaults.plugins && Chart.defaults.plugins.datalabels) {
         Chart.defaults.plugins.datalabels.font = { size: 16 };
       }
