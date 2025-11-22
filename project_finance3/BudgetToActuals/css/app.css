@@ -53,6 +53,13 @@ table {
   font-size: 1em;
 }
 
+/* Financials (Summary) – make the metrics text larger & consistent */
+#summaryContent,
+#summaryContent * {
+  font-size: 1.1em !important;   /* ~10% bigger than other body text */
+  line-height: 1.5;
+}
+
 
 /* -------------------------------------------
    Normalize text size across ALL tabs
@@ -224,5 +231,78 @@ input, select, textarea {
 #app button:focus-visible {
   outline: 2px solid #0ea5e9;        /* cyan focus ring */
   outline-offset: 2px;
+}
+
+/* =========================================
+   Top navigation bar styling
+   ========================================= */
+
+.nav {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: #0f172a;              /* dark blue/navy */
+  color: #e5e7eb;
+  border-bottom: 1px solid #1f2937;
+}
+
+.nav-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  height: 3.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1.5rem;
+}
+
+/* App name on the left */
+.nav-container > div:first-child {
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+/* Links on the right */
+.nav-container > div:last-child {
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* Base nav “button” */
+.nav-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.4rem 0.9rem;
+  border-radius: 9999px;            /* pill */
+  border: 1px solid transparent;
+  font-size: 0.95rem;               /* larger than before */
+  font-weight: 500;
+  color: #e5e7eb;
+  text-decoration: none;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease,
+    border-color 150ms ease,
+    transform 80ms ease,
+    box-shadow 150ms ease;
+}
+
+/* Hover */
+.nav-link:hover {
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.35);
+}
+
+/* Active tab (router already adds .active) */
+.nav-link.active {
+  background: #2563eb;             /* brighter blue */
+  border-color: #93c5fd;
+  color: #ffffff;
+  font-weight: 600;
+  transform: translateY(-1px) scale(1.06);  /* subtle “pop” */
+  box-shadow: 0 3px 10px rgba(15, 23, 42, 0.4);
 }
 
