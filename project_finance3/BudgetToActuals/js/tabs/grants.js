@@ -19,18 +19,18 @@ export const template = /*html*/ `
       <div style="max-width:1200px;margin:0 auto;">
         <h4 style="margin-bottom:0.5rem;">Create / Edit Grant</h4>
 
-        <!-- Table-based form that perfectly matches the table below -->
+        <!-- Table-based form that matches All Grants column widths/order -->
         <div style="margin-bottom:0.4rem;overflow:hidden;border-radius:6px;">
           <table style="width:100%;table-layout:fixed;border-collapse:collapse;">
             <colgroup>
-              <col style="width:23.3%">
-              <col style="width:14.0%">
-              <col style="width:23.3%">
-              <col style="width:11.6%">
-              <col style="width:14.0%">
-              <col style="width:14.0%">
-              <col style="width:8%">   <!-- Status placeholder -->
-              <col style="width:5%">   <!-- Actions placeholder -->
+              <col style="width:23.3%"> <!-- Name / Grant name -->
+              <col style="width:14.0%"> <!-- Grant ID -->
+              <col style="width:23.3%"> <!-- Funder -->
+              <col style="width:11.6%"> <!-- Start -->
+              <col style="width:14.0%"> <!-- End -->
+              <col style="width:14.0%"> <!-- Total Award -->
+              <col style="width:8%">   <!-- Status -->
+              <col style="width:5%">   <!-- Actions -->
             </colgroup>
             <tbody>
               <tr>
@@ -57,13 +57,6 @@ export const template = /*html*/ `
                 </td>
                 <td style="padding:0 0.35rem 0.6rem 0.35rem;">
                   <label style="display:block;margin-bottom:0.25rem;font-weight:600;font-size:0.9rem;">
-                    Total award
-                  </label>
-                  <input id="g_total" type="number" step="1" min="0" placeholder="Total Award"
-                         style="width:100%;box-sizing:border-box;text-align:right;">
-                </td>
-                <td style="padding:0 0.35rem 0.6rem 0.35rem;">
-                  <label style="display:block;margin-bottom:0.25rem;font-weight:600;font-size:0.9rem;">
                     Start
                   </label>
                   <input id="g_from" type="date"
@@ -76,7 +69,15 @@ export const template = /*html*/ `
                   <input id="g_to" type="date"
                          style="width:100%;box-sizing:border-box;">
                 </td>
-                <td></td><td></td> <!-- empty Status & Actions cells -->
+                <td style="padding:0 0.35rem 0.6rem 0.35rem;">
+                  <label style="display:block;margin-bottom:0.25rem;font-weight:600;font-size:0.9rem;">
+                    Total award
+                  </label>
+                  <input id="g_total" type="number" step="1" min="0" placeholder="Total Award"
+                         style="width:100%;box-sizing:border-box;text-align:right;">
+                </td>
+                <td></td>
+                <td></td>
               </tr>
             </tbody>
           </table>
@@ -120,9 +121,9 @@ export const template = /*html*/ `
                 <th>Name</th>
                 <th>Grant ID</th>
                 <th>Funder</th>
-                <th>Total Award</th>
                 <th>Start</th>
                 <th>End</th>
+                <th>Total Award</th>
                 <th>Status</th>
                 <th>Actions</th>
               </tr>
@@ -145,7 +146,11 @@ export async function init(root) {
     if (!m) return;
     m.textContent = t || "";
     m.style.color = e ? "#b00" : "inherit";
-    if (t) setTimeout(() => m.textContent === t && (m.textContent = ""), 4000);
+    if (t) {
+      setTimeout(() => {
+        if (m.textContent === t) m.textContent = "";
+      }, 4000);
+    }
   };
 
   const $createBtn = $("#create", root);
@@ -171,7 +176,8 @@ export async function init(root) {
     $("#g_name", root).value = grant.name || "";
     $("#g_id", root).value = grant.grant_id || "";
     $("#g_funder", root).value = grant.funder || "";
-    $("#g_total", root).value = grant.total_award != null ? String(grant.total_award) : "";
+    $("#g_total", root).value =
+      grant.total_award != null ? String(grant.total_award) : "";
     $("#g_from", root).value = grant.start_date || "";
     $("#g_to", root).value = grant.end_date || "";
     $createBtn.textContent = "Update";
@@ -181,7 +187,11 @@ export async function init(root) {
 
   // CREATE / UPDATE
   $createBtn.onclick = async () => {
-    const { data: { user } } = await client.auth.getUser();
+    const { data: userRes, error: authErr } = await client.auth.getUser();
+    if (authErr) {
+      console.error("[grants] auth error", authErr);
+    }
+    const user = userRes?.user || null;
     if (!user) return msg("Sign in first", true);
 
     const name = $("#g_name", root).value.trim();
@@ -195,25 +205,42 @@ export async function init(root) {
       return msg("Name, start date, and end date are required.", true);
     }
 
-    const rowBase = { name, grant_id, funder, total_award, start_date, end_date };
+    const rowBase = {
+      name,
+      grant_id,
+      funder,
+      total_award,
+      start_date,
+      end_date,
+    };
 
     try {
       if (editingGrantId) {
-        const { error, data } = await client
+        const { data, error } = await client
           .from("grants")
           .update({ ...rowBase, pm_user_id: user.id })
           .eq("id", editingGrantId)
           .select("id");
 
-        if (error || !data?.length) return msg(error?.message || "Update failed", true);
+        if (error) {
+          console.error("[grants] update error", error);
+          return msg(error.message, true);
+        }
+        if (!data || !data.length) {
+          return msg("Update did not affect any rows.", true);
+        }
+
         msg("Grant updated.");
       } else {
-        const { error, data } = await client
+        const { error } = await client
           .from("grants")
-          .insert({ ...rowBase, status: "active", pm_user_id: user.id })
-          .select("id");
+          .insert({ ...rowBase, status: "active", pm_user_id: user.id });
 
-        if (error) return msg(error.message, true);
+        if (error) {
+          console.error("[grants] insert error", error);
+          return msg(error.message, true);
+        }
+
         msg("Grant created.");
       }
 
@@ -221,8 +248,8 @@ export async function init(root) {
       setCreateMode();
       await load();
     } catch (err) {
-      console.error(err);
-      msg("Unexpected error", true);
+      console.error("[grants] create/update exception", err);
+      msg(String(err?.message || err), true);
     }
   };
 
@@ -238,49 +265,70 @@ export async function init(root) {
     msg("Loading…");
     const { data, error } = await client
       .from("grants")
-      .select("id,name,grant_id,funder,start_date,end_date,total_award,status,created_at")
+      .select(
+        "id,name,grant_id,funder,start_date,end_date,total_award,status,created_at"
+      )
       .order("created_at", { ascending: false });
 
-    if (error) return msg(error.message, true);
+    if (error) {
+      console.error("[grants] load error", error);
+      msg(error.message, true);
+      return;
+    }
 
-    const tbody = $("#tbl tbody", root);
-    tbody.innerHTML = "";
+    const tb = $("#tbl tbody", root);
+    tb.innerHTML = "";
 
-    data.forEach((g) => {
+    (data || []).forEach((g) => {
       const tr = h("<tr></tr>");
       tr.innerHTML = `
         <td>${g.name}</td>
         <td>${g.grant_id || ""}</td>
         <td>${g.funder || ""}</td>
-        <td style="text-align:right;">${fmt0(g.total_award)}</td>
         <td>${g.start_date || ""}</td>
         <td>${g.end_date || ""}</td>
+        <td style="text-align:right;">${fmt0(g.total_award)}</td>
         <td>${g.status || ""}</td>
         <td>
-          <button type="button" data-grant="${g.id}" class="secondary"
-                  style="font-size:0.75rem;padding:0.1rem 0.4rem;margin-right:0.25rem;">
+          <button
+            type="button"
+            data-grant="${g.id}"
+            class="secondary"
+            style="font-size:0.75rem;padding:0.1rem 0.4rem;margin-right:0.25rem;"
+          >
             Use
           </button>
-          <button type="button" data-edit-grant="${g.id}" class="secondary"
-                  style="font-size:0.75rem;padding:0.1rem 0.4rem;">
+          <button
+            type="button"
+            data-edit-grant="${g.id}"
+            class="secondary"
+            style="font-size:0.75rem;padding:0.1rem 0.4rem;"
+          >
             Edit
           </button>
         </td>
       `;
-      tbody.appendChild(tr);
+      tb.appendChild(tr);
     });
 
-    // Wire buttons
-    tbody.querySelectorAll("[data-grant]").forEach((b) =>
-      b.addEventListener("click", () => {
-        setSelectedGrantId(b.dataset.grant);
-        msg("Current grant selected");
-      })
-    );
-    tbody.querySelectorAll("[data-edit-grant]").forEach((b) => {
-      b.addEventListener("click", () => {
-        const grant = data.find((x) => x.id == b.dataset.editGrant);
-        if (grant) setEditMode(grant);
+    // Wire "Use" buttons
+    tb.querySelectorAll("button[data-grant]").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        const id = e.currentTarget.getAttribute("data-grant");
+        if (!id) return;
+        setSelectedGrantId(id);
+        msg("Current grant set. Other tabs will use it.");
+      });
+    });
+
+    // Wire "Edit" buttons
+    tb.querySelectorAll("button[data-edit-grant]").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        const id = e.currentTarget.getAttribute("data-edit-grant");
+        if (!id) return;
+        const grant = (data || []).find((g) => String(g.id) === String(id));
+        if (!grant) return;
+        setEditMode(grant);
       });
     });
 
