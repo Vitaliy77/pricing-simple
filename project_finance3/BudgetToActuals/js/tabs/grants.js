@@ -15,111 +15,119 @@ export const template = /*html*/ `
     <h3>Grant Setup</h3>
 
     <section style="margin-bottom:1rem;">
-      <h4 style="margin-bottom:0.5rem;">Create / Edit Grant</h4>
+      <div style="max-width:1200px;margin:0 auto;">
+        <h4 style="margin-bottom:0.5rem;">Create / Edit Grant</h4>
 
-      <!-- Grant form row with explicit widths -->
-      <div
-        class="grid"
-        style="
-          max-width: 1200px;
-          grid-template-columns: 2.5fr 1.5fr 2.5fr 1.25fr 1.5fr 1.5fr;
-          gap: 0.4rem;
-          margin-bottom: 0.4rem;
-        "
-      >
-        <label>
-          Grant name
-          <input
-            id="g_name"
-            type="text"
-            placeholder="Grant Name"
-            style="width:100%;"
-          >
-        </label>
+        <!-- Grant form row with explicit widths -->
+        <div
+          class="grid"
+          style="
+            grid-template-columns: 2.5fr 1.5fr 2.5fr 1.25fr 1.5fr 1.5fr;
+            gap: 0.4rem;
+            margin-bottom: 0.4rem;
+          "
+        >
+          <label>
+            Grant name
+            <input
+              id="g_name"
+              type="text"
+              placeholder="Grant Name"
+              style="width:100%;"
+            >
+          </label>
 
-        <label>
-          Grant ID
-          <input
-            id="g_id"
-            type="text"
-            placeholder="Grant ID"
-            style="width:100%;"
-          >
-        </label>
+          <label>
+            Grant ID
+            <input
+              id="g_id"
+              type="text"
+              placeholder="Grant ID"
+              style="width:100%;"
+            >
+          </label>
 
-        <label>
-          Funder
-          <input
-            id="g_funder"
-            type="text"
-            placeholder="Funder"
-            style="width:100%;"
-          >
-        </label>
+          <label>
+            Funder
+            <input
+              id="g_funder"
+              type="text"
+              placeholder="Funder"
+              style="width:100%;"
+            >
+          </label>
 
-        <label>
-          Total award
-          <input
-            id="g_total"
-            type="number"
-            step="1"
-            min="0"
-            placeholder="Total Award"
-            style="width:100%;text-align:right;"
-          >
-        </label>
+          <label>
+            Total award
+            <input
+              id="g_total"
+              type="number"
+              step="1"
+              min="0"
+              placeholder="Total Award"
+              style="width:100%;text-align:right;"
+            >
+          </label>
 
-        <label>
-          Start
-          <input
-            id="g_from"
-            type="date"
-            style="width:100%;"
-          >
-        </label>
+          <label>
+            Start
+            <input
+              id="g_from"
+              type="date"
+              style="width:100%;"
+            >
+          </label>
 
-        <label>
-          End
-          <input
-            id="g_to"
-            type="date"
-            style="width:100%;"
-          >
-        </label>
-      </div>
+          <label>
+            End
+            <input
+              id="g_to"
+              type="date"
+              style="width:100%;"
+            >
+          </label>
+        </div>
 
-      <div style="margin-top:0.5rem; display:flex; gap:0.5rem; align-items:center;">
-        <button id="create" type="button">Create</button>
-        <button id="cancelEdit" type="button" class="secondary" style="display:none;">
-          Cancel edit
-        </button>
-        <small id="msg"></small>
+        <div style="margin-top:0.5rem; display:flex; gap:0.5rem; align-items:center;">
+          <button id="create" type="button">Create</button>
+          <button id="cancelEdit" type="button" class="secondary" style="display:none;">
+            Cancel edit
+          </button>
+          <small id="msg"></small>
+        </div>
       </div>
     </section>
 
     <section>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.25rem;">
-        <h4 style="margin:0;">All Grants</h4>
-        <button id="refreshGrants" type="button" class="secondary" style="font-size:0.8rem;padding:0.15rem 0.5rem;">
-          Refresh
-        </button>
-      </div>
-      <div class="scroll-x">
-        <table id="tbl" style="min-width:100%;">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Grant ID</th>
-              <th>Funder</th>
-              <th>Start</th>
-              <th>End</th>
-              <th>Total Award</th>
-              <th>Status</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
+      <div style="max-width:1200px;margin:0 auto;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.25rem;">
+          <h4 style="margin:0;">All Grants</h4>
+          <button
+            id="refreshGrants"
+            type="button"
+            class="secondary"
+            style="font-size:0.8rem;padding:0.15rem 0.5rem;"
+          >
+            Refresh
+          </button>
+        </div>
+        <div class="scroll-x">
+          <table id="tbl" style="min-width:100%;">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Grant ID</th>
+                <th>Funder</th>
+                <th>Start</th>
+                <th>End</th>
+                <th>Total Award</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
       </div>
     </section>
   </article>
