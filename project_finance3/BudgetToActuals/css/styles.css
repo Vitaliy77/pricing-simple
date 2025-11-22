@@ -22,9 +22,9 @@
     @apply max-w-6xl mx-auto px-3 sm:px-4 lg:px-6;
   }
 
-  /* Top nav */
+    /* Top nav */
   .nav-bar {
-    @apply border-b border-slate-200 bg-white/80 backdrop-blur;
+    @apply bg-slate-900 text-slate-100 shadow-sm;
   }
 
   .nav-inner {
@@ -32,23 +32,25 @@
   }
 
   .nav-brand {
-    @apply flex items-center gap-2 text-[11px] font-semibold tracking-[0.16em] uppercase text-slate-600;
+    @apply flex items-center gap-2 text-[11px] font-semibold tracking-[0.18em] uppercase text-slate-300;
   }
 
   .nav-tabs {
-    @apply flex items-center gap-1 text-[11px];
+    @apply flex items-center gap-1 bg-slate-800/80 rounded-full px-1 py-1 border border-slate-700;
   }
 
   .nav-tab {
-    @apply inline-flex items-center px-3 py-1 rounded-full border border-transparent
-           text-[11px] font-medium text-slate-600
-           hover:text-blue-600 hover:bg-blue-50 hover:border-blue-100
-           transition;
+    @apply inline-flex items-center px-3 py-1.5 rounded-full
+           text-[11px] font-medium
+           text-slate-200/80
+           hover:text-white hover:bg-slate-600
+           transition-colors duration-150;
   }
 
   .nav-tab-active {
-    @apply bg-blue-600 text-white border-blue-600 hover:bg-blue-600 hover:text-white;
+    @apply bg-white text-slate-900 shadow-sm;
   }
+
 
   /* Card */
   .card {
