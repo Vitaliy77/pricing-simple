@@ -1,49 +1,53 @@
 /* =====================================================
-   GLOBAL TYPOGRAPHY – BIGGER, CLEANER, CONSISTENT
+   GLOBAL TYPOGRAPHY – 50% LARGER & BEAUTIFUL
    ===================================================== */
-html, body {
-  font-size: 16px;                     /* Base font size – nice and readable */
+html {
+  font-size: 16px;                     /* Root stays at 16px – safe for mobile */
+}
+
+body {
+  font-size: 1.5rem;                   /* ~24px base text – exactly 50% larger */
   line-height: 1.5;
-  color: #0f172a;                      /* Tailwind slate-900 */
+  color: #0f172a;                      /* slate-900 */
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
 #app {
-  font-size: 1rem;                     /* Force consistency across all tabs */
+  font-size: 1em;                      /* Inherits 24px cleanly across all tabs */
   min-height: 100vh;
 }
 
-/* Headings inside tab content */
+/* Headings – big but not overwhelming */
 article h3 {
-  font-size: 1.35rem;
+  font-size: 1.35em;                   /* ~32px */
   font-weight: 600;
   margin-bottom: 0.75rem;
   color: #1e293b;                      /* slate-800 */
 }
 
 article h4 {
-  font-size: 1.1rem;
+  font-size: 1.15em;                   /* ~27.6px */
   font-weight: 600;
   margin-bottom: 0.5rem;
   color: #334155;                      /* slate-700 */
 }
 
-/* All tables (Grants, Edit Data, Budget, etc.) */
+/* Tables – still big, but readable in dense grids */
 table {
-  font-size: 0.95rem;
+  font-size: 0.9em;                    /* ~21.6px – perfect balance */
 }
 table th {
-  font-size: 0.8rem;
+  font-size: 0.75em;                   /* ~18px – uppercase headers stay crisp */
   text-transform: uppercase;
   letter-spacing: 0.05em;
   font-weight: 600;
 }
 table td {
-  font-size: 0.95rem;
+  font-size: 0.9em;                    /* ~21.6px */
 }
 
 /* =====================================================
-   FULL-WIDTH LAYOUT (same as before)
+   FULL-WIDTH LAYOUT
    ===================================================== */
 html, body, #app, .app-root {
   margin: 0;
@@ -56,7 +60,7 @@ main.wrap {
   width: 100%;
   max-width: none;
   margin: 0;
-  padding: 0 1rem;                     /* tiny breathing room on mobile */
+  padding: 0 1rem;
   box-sizing: border-box;
 }
 
@@ -66,7 +70,7 @@ main.wrap {
 }
 
 /* =====================================================
-   UNIFIED INPUT HEIGHT (2rem) – EVERYTHING
+   UNIFIED INPUT HEIGHT – 2.8rem (scaled up with bigger font)
    ===================================================== */
 .grant-select,
 .budget-select,
@@ -74,19 +78,19 @@ main.wrap {
 .budget-rate,
 .budget-cell,
 input, select, textarea {
-  font-size: 1rem !important;
-  padding: 0.35rem 0.5rem !important;
-  height: 2.0rem !important;
+  font-size: 1.5rem !important;        /* Matches body text */
+  padding: 0.4rem 0.6rem !important;
+  height: 2.8rem !important;           /* Was 2rem → now 40% taller for big text */
   line-height: 1 !important;
   box-sizing: border-box !important;
   vertical-align: middle;
 }
 
-/* Number cells */
+/* Number cells – slightly wider for bigger digits */
 .budget-cell,
 .budget-rate {
-  min-width: 5.5rem;
-  max-width: 6.5rem;
+  min-width: 7rem;                     /* Was 5.5rem */
+  max-width: 8rem;
   text-align: right;
 }
 
@@ -96,33 +100,31 @@ input, select, textarea {
 .no-spin { -moz-appearance: textfield; }
 
 /* =====================================================
-   STICKY COLUMNS (Edit Data tab, etc.)
+   STICKY COLUMNS (still perfect)
    ===================================================== */
 .sticky-col-1 {
   position: sticky;
   left: 0;
   background: white;
   z-index: 10;
-  min-width: 25ch;
+  min-width: 28ch;                     /* Slightly wider for bigger text */
   box-shadow: 2px 0 2px rgba(0,0,0,0.05);
 }
 .sticky-col-2 {
   position: sticky;
-  left: calc(25ch + 1.5rem);
+  left: calc(28ch + 2rem);
   background: white;
   z-index: 10;
-  min-width: 25ch;
+  min-width: 28ch;
   box-shadow: 2px 0 2px rgba(0,0,0,0.05);
 }
 
-/* Table cells in big editable tables */
 #laborBody td,
 #directBody td {
   vertical-align: middle;
-  padding: 0.35rem 0.5rem;
+  padding: 0.4rem 0.6rem;
 }
 
-/* Kill any conflicting padding from Tailwind */
 #laborBody input,
 #directBody input,
 #laborBody select,
@@ -131,7 +133,7 @@ input, select, textarea {
 }
 
 /* =====================================================
-   PRINT STYLES (optional but nice)
+   PRINT STYLES
    ===================================================== */
 @media print {
   .nav, .no-print { display: none !important; }
