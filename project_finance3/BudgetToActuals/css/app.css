@@ -314,3 +314,20 @@ main.wrap {
     background: white;
   }
 }
+
+/* Full-width data tables */
+#app .data-grid {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;       /* columns share space evenly */
+}
+
+/* Allow long grant names to wrap instead of forcing horizontal scroll too early */
+#app .data-grid th,
+#app .data-grid td {
+  padding: 0.4rem 0.6rem;
+  vertical-align: middle;
+  word-wrap: break-word;
+  white-space: normal;
+}
+
