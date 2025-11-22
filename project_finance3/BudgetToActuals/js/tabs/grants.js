@@ -15,128 +15,131 @@ export const template = /*html*/ `
     <h3>Grant Setup</h3>
 
     <section style="margin-bottom:1rem;">
-      <div style="max-width:1200px;margin:0 auto;">
-        <h4 style="margin-bottom:0.5rem;">Create / Edit Grant</h4>
+      <h4 style="margin-bottom:0.5rem;">Create / Edit Grant</h4>
 
-        <!-- Grant form row with explicit widths -->
-        <div
-          class="grid"
-          style="
-            grid-template-columns: 2.5fr 1.5fr 2.5fr 1.25fr 1.5fr 1.5fr;
-            gap: 0.4rem;
-            margin-bottom: 0.4rem;
-          "
-        >
-          <label>
-            Grant name
-            <input
-              id="g_name"
-              type="text"
-              placeholder="Grant Name"
-              style="width:100%;"
-            >
-          </label>
+      <!-- Form row built as a table so columns align with All Grants below -->
+      <div style="margin-bottom:0.4rem;">
+        <table style="width:100%; table-layout:fixed; border-collapse:separate; border-spacing:0 0.4rem;">
+          <colgroup>
+            <col style="width:23.3%;">
+            <col style="width:14.0%;">
+            <col style="width:23.3%;">
+            <col style="width:11.6%;">
+            <col style="width:14.0%;">
+            <col style="width:14.0%;">
+            <col style="width:8%;">  <!-- Status placeholder -->
+            <col style="width:5%;">  <!-- Actions placeholder -->
+          </colgroup>
+          <tbody>
+            <tr>
+              <td style="padding:0;">
+                <label style="display:block; margin-bottom:0.25rem;">Grant name</label>
+                <input
+                  id="g_name"
+                  type="text"
+                  placeholder="Grant Name"
+                  style="width:100%; box-sizing:border-box;"
+                >
+              </td>
+              <td style="padding:0;">
+                <label style="display:block; margin-bottom:0.25rem;">Grant ID</label>
+                <input
+                  id="g_id"
+                  type="text"
+                  placeholder="Grant ID"
+                  style="width:100%; box-sizing:border-box;"
+                >
+              </td>
+              <td style="padding:0;">
+                <label style="display:block; margin-bottom:0.25rem;">Funder</label>
+                <input
+                  id="g_funder"
+                  type="text"
+                  placeholder="Funder"
+                  style="width:100%; box-sizing:border-box;"
+                >
+              </td>
+              <td style="padding:0;">
+                <label style="display:block; margin-bottom:0.25rem;">Total award</label>
+                <input
+                  id="g_total"
+                  type="number"
+                  step="1"
+                  min="0"
+                  placeholder="Total Award"
+                  style="width:100%; box-sizing:border-box; text-align:right;"
+                >
+              </td>
+              <td style="padding:0;">
+                <label style="display:block; margin-bottom:0.25rem;">Start</label>
+                <input
+                  id="g_from"
+                  type="date"
+                  style="width:100%; box-sizing:border-box;"
+                >
+              </td>
+              <td style="padding:0;">
+                <label style="display:block; margin-bottom:0.25rem;">End</label>
+                <input
+                  id="g_to"
+                  type="date"
+                  style="width:100%; box-sizing:border-box;"
+                >
+              </td>
+              <td></td> <!-- Status -->
+              <td></td> <!-- Actions -->
+            </tr>
+          </tbody>
+        </table>
+      </div>
 
-          <label>
-            Grant ID
-            <input
-              id="g_id"
-              type="text"
-              placeholder="Grant ID"
-              style="width:100%;"
-            >
-          </label>
-
-          <label>
-            Funder
-            <input
-              id="g_funder"
-              type="text"
-              placeholder="Funder"
-              style="width:100%;"
-            >
-          </label>
-
-          <label>
-            Total award
-            <input
-              id="g_total"
-              type="number"
-              step="1"
-              min="0"
-              placeholder="Total Award"
-              style="width:100%;text-align:right;"
-            >
-          </label>
-
-          <label>
-            Start
-            <input
-              id="g_from"
-              type="date"
-              style="width:100%;"
-            >
-          </label>
-
-          <label>
-            End
-            <input
-              id="g_to"
-              type="date"
-              style="width:100%;"
-            >
-          </label>
-        </div>
-
-        <div style="margin-top:0.5rem; display:flex; gap:0.5rem; align-items:center;">
-          <button id="create" type="button">Create</button>
-          <button id="cancelEdit" type="button" class="secondary" style="display:none;">
-            Cancel edit
-          </button>
-          <small id="msg"></small>
-        </div>
+      <div style="margin-top:0.5rem; display:flex; gap:0.5rem; align-items:center;">
+        <button id="create" type="button">Create</button>
+        <button id="cancelEdit" type="button" class="secondary" style="display:none;">
+          Cancel edit
+        </button>
+        <small id="msg"></small>
       </div>
     </section>
 
     <section>
-      <div style="max-width:1200px;margin:0 auto;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.25rem;">
-          <h4 style="margin:0;">All Grants</h4>
-          <button
-            id="refreshGrants"
-            type="button"
-            class="secondary"
-            style="font-size:0.8rem;padding:0.15rem 0.5rem;"
-          >
-            Refresh
-          </button>
-        </div>
-        <div class="scroll-x">
-          <table id="tbl" style="width:100%;table-layout:fixed;">
-            <colgroup>
-              <col style="width:23.3%;">
-              <col style="width:14.0%;">
-              <col style="width:23.3%;">
-              <col style="width:11.6%;">
-              <col style="width:14.0%;">
-              <col style="width:14.0%;">
-              <!-- Status + Actions will auto-shrink based on content -->
-            </colgroup>
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Grant ID</th>
-                <th>Funder</th>
-                <th>Start</th>
-                <th>End</th>
-                <th>Total Award</th>
-                <th>Status</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody></tbody>
-          </table>
-        </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.25rem;">
+        <h4 style="margin:0;">All Grants</h4>
+        <button
+          id="refreshGrants"
+          type="button"
+          class="secondary"
+          style="font-size:0.8rem;padding:0.15rem 0.5rem;"
+        >
+          Refresh
+        </button>
+      </div>
+      <div class="scroll-x">
+        <table id="tbl" style="width:100%; table-layout:fixed;">
+          <colgroup>
+            <col style="width:23.3%;">
+            <col style="width:14.0%;">
+            <col style="width:23.3%;">
+            <col style="width:11.6%;">
+            <col style="width:14.0%;">
+            <col style="width:14.0%;">
+            <col style="width:8%;">  <!-- Status -->
+            <col style="width:5%;">  <!-- Actions -->
+          </colgroup>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Grant ID</th>
+              <th>Funder</th>
+              <th>Start</th>
+              <th>End</th>
+              <th>Total Award</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
       </div>
     </section>
   </article>
@@ -211,7 +214,6 @@ export async function init(root) {
       return msg("Name, start date, and end date are required.", true);
     }
 
-    // Fields user can edit
     const rowBase = {
       name,
       grant_id,
@@ -223,7 +225,6 @@ export async function init(root) {
 
     try {
       if (editingGrantId) {
-        // UPDATE existing grant, also keep pm_user_id = current user
         const updateRow = {
           ...rowBase,
           pm_user_id: user.id,
@@ -233,7 +234,7 @@ export async function init(root) {
           .from("grants")
           .update(updateRow)
           .eq("id", editingGrantId)
-          .select("id"); // we want to know if any rows actually updated
+          .select("id");
 
         console.log("[grants] update result", { data, error });
 
@@ -251,7 +252,6 @@ export async function init(root) {
 
         msg("Grant updated.");
       } else {
-        // CREATE new grant: set status + pm_user_id
         const insertRow = {
           ...rowBase,
           status: "active",
