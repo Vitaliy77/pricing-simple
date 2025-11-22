@@ -1,6 +1,50 @@
-/* -------------------------------------------------
-   FULL-WIDTH LAYOUT
-   ------------------------------------------------- */
+/* =====================================================
+   GLOBAL TYPOGRAPHY – BIGGER, CLEANER, CONSISTENT
+   ===================================================== */
+html, body {
+  font-size: 16px;                     /* Base font size – nice and readable */
+  line-height: 1.5;
+  color: #0f172a;                      /* Tailwind slate-900 */
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+#app {
+  font-size: 1rem;                     /* Force consistency across all tabs */
+  min-height: 100vh;
+}
+
+/* Headings inside tab content */
+article h3 {
+  font-size: 1.35rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+  color: #1e293b;                      /* slate-800 */
+}
+
+article h4 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: #334155;                      /* slate-700 */
+}
+
+/* All tables (Grants, Edit Data, Budget, etc.) */
+table {
+  font-size: 0.95rem;
+}
+table th {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+table td {
+  font-size: 0.95rem;
+}
+
+/* =====================================================
+   FULL-WIDTH LAYOUT (same as before)
+   ===================================================== */
 html, body, #app, .app-root {
   margin: 0;
   padding: 0;
@@ -12,33 +56,33 @@ main.wrap {
   width: 100%;
   max-width: none;
   margin: 0;
-  padding: 0 1rem;          /* tiny breathing room on mobile */
+  padding: 0 1rem;                     /* tiny breathing room on mobile */
   box-sizing: border-box;
 }
 
 .scroll-x {
   overflow-x: auto;
-  width: 100%;              /* table-scroll containers are full-width */
+  width: 100%;
 }
 
-/* -------------------------------------------------
-   UNIFIED INPUT HEIGHT: 2.0rem for EVERYTHING
-   ------------------------------------------------- */
+/* =====================================================
+   UNIFIED INPUT HEIGHT (2rem) – EVERYTHING
+   ===================================================== */
 .grant-select,
 .budget-select,
 .budget-text,
 .budget-rate,
-.budget-cell {
-  font-size: 1rem;
-  padding: 0.35rem 0.5rem;
-  height: 2.0rem !important;   /* Force 2.0rem */
-  line-height: 1;
-  box-sizing: border-box;
-  width: 100%;
+.budget-cell,
+input, select, textarea {
+  font-size: 1rem !important;
+  padding: 0.35rem 0.5rem !important;
+  height: 2.0rem !important;
+  line-height: 1 !important;
+  box-sizing: border-box !important;
   vertical-align: middle;
 }
 
-/* Number cells: width + alignment */
+/* Number cells */
 .budget-cell,
 .budget-rate {
   min-width: 5.5rem;
@@ -48,13 +92,12 @@ main.wrap {
 
 /* Remove spin buttons */
 .no-spin::-webkit-outer-spin-button,
-.no-spin::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
+.no-spin::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .no-spin { -moz-appearance: textfield; }
 
-/* Sticky columns */
+/* =====================================================
+   STICKY COLUMNS (Edit Data tab, etc.)
+   ===================================================== */
 .sticky-col-1 {
   position: sticky;
   left: 0;
@@ -65,24 +108,33 @@ main.wrap {
 }
 .sticky-col-2 {
   position: sticky;
-  left: calc(25ch + 1.5rem);   /* 25ch + cell padding */
+  left: calc(25ch + 1.5rem);
   background: white;
   z-index: 10;
   min-width: 25ch;
   box-shadow: 2px 0 2px rgba(0,0,0,0.05);
 }
 
-/* Table cells */
+/* Table cells in big editable tables */
 #laborBody td,
 #directBody td {
   vertical-align: middle;
   padding: 0.35rem 0.5rem;
 }
 
-/* Remove any conflicting padding overrides */
+/* Kill any conflicting padding from Tailwind */
 #laborBody input,
 #directBody input,
 #laborBody select,
 #directBody select {
-  padding: 0 !important;   /* .budget-* rules handle padding */
+  padding: 0 !important;
+}
+
+/* =====================================================
+   PRINT STYLES (optional but nice)
+   ===================================================== */
+@media print {
+  .nav, .no-print { display: none !important; }
+  .card { box-shadow: none; border: 1px solid #ddd; }
+  body { background: white; }
 }
