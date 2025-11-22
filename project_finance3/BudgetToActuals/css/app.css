@@ -71,9 +71,10 @@ article h4 {
   line-height: 1.5;
 }
 
-/* Important info like grant details shouldn’t be tiny */
+/* Important captions like current grant details */
 #app .caption {
-  font-size: 0.95em !important;        /* just a touch smaller than body */
+  font-size: 1.05em !important;   /* slightly larger than base text */
+  line-height: 1.5;
 }
 
 /* =====================================================
