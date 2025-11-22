@@ -7,7 +7,6 @@ export const template = /*html*/ `
     <h3>Edit Reference Data</h3>
     <p style="font-size:0.9rem;">
       Manage employees, subcontractors, materials, equipment, and ODC categories.
-      Changes are saved directly to Supabase.
     </p>
 
     <!-- === EMPLOYEES === -->
