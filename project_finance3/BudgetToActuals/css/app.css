@@ -33,6 +33,12 @@ article h4 {
   color: #334155;
 }
 
+/* Slightly enlarge text inside cards (summary panels, current grant, etc.) */
+#app .card {
+  font-size: 1.1em;   /* ~10% larger than normal body text */
+}
+
+
 /* =====================================================
    TABLE TYPOGRAPHY (Grants, Edit Data, etc.)
    ===================================================== */
@@ -78,8 +84,8 @@ article h4 {
 /* Financials (Summary) – make the metrics text larger & consistent */
 #app #summaryContent,
 #app #summaryContent * {
-  font-size: 1.1em !important;         /* ~10% bigger than body */
-  line-height: 1.5;
+  font-size: 0.70em !important;         /* ~10% bigger than body */
+  line-height: 1.4;
 }
 
 /* =====================================================
