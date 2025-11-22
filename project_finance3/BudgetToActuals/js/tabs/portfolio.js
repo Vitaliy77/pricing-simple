@@ -20,13 +20,13 @@ export const template = /*html*/ `
               <th>Funder</th>
               <th>Period</th>
               <th>Status</th>
-              <th style="text-align:right;">Total Budget</th>
-              <th style="text-align:right;">Actual to Date</th>
-              <th style="text-align:right;">Var $ (B – A)</th>
-              <th style="text-align:right;">Var % (B – A)</th>
-              <th style="text-align:right;">Prorated Actual</th>
-              <th style="text-align:right;">Var $ (B – P)</th>
-              <th style="text-align:right;">Var % (B – P)</th>
+              <th style="text-align:right;">Budget</th>
+              <th style="text-align:right;">Actuale</th>
+              <th style="text-align:right;">Var $</th>
+              <th style="text-align:right;">Var %</th>
+              <th style="text-align:right;">Estimate</th>
+              <th style="text-align:right;">Var $</th>
+              <th style="text-align:right;">Var %</th>
             </tr>
           </thead>
           <tbody id="portfolioBody">
