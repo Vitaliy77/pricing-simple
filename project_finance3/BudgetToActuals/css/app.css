@@ -71,25 +71,32 @@ article h4 {
   line-height: 1.5;
 }
 
+/* Important info like grant details shouldn’t be tiny */
 #app .caption {
-  font-size: 0.85em !important;
+  font-size: 0.95em !important;        /* just a touch smaller than body */
 }
 
 /* =====================================================
-   FINANCIAL SUMMARY – NOW BIG & READABLE
+   FINANCIAL SUMMARY – SLIGHTLY SMALLER & BALANCED
    ===================================================== */
-#app #summaryContent,
-#app #summaryContent * {
-  font-size: 1.05em !important;        /* ≈ 23px – clear, bold, professional */
+/* Container: about 10% smaller than the card’s base text */
+#app #summaryContent {
+  font-size: 0.9em !important;         /* ~10% smaller than .card (1.1em) */
   line-height: 1.5;
-  font-weight: 500;
+  font-weight: 400;
 }
 
-/* Optional: make the big numbers even punchier */
+/* Children inherit the container scale without shrinking further */
+#app #summaryContent * {
+  font-size: 1em;
+  line-height: 1.5;
+}
+
+/* Big numbers still stand out, but not huge */
 #app #summaryContent .text-2xl,
 #app #summaryContent .font-bold {
-  font-size: 1.3em !important;
-  font-weight: 700;
+  font-size: 1.15em !important;
+  font-weight: 600;
 }
 
 /* =====================================================
