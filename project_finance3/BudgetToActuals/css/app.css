@@ -331,3 +331,39 @@ main.wrap {
   white-space: normal;
 }
 
+/* =====================================================
+   DATA GRID ENHANCEMENTS (PORTFOLIO, GRANTS, ETC.)
+   ===================================================== */
+
+/* Right-align numeric columns */
+#app .data-grid .num {
+  text-align: right;
+}
+
+/* Header row styling */
+#app .data-grid thead th {
+  background: #f9fafb;
+  border-bottom: 2px solid #cbd5f5;
+}
+
+/* Row separators */
+#app .data-grid tbody tr {
+  border-bottom: 1px solid #e5e7eb;
+}
+
+/* Zebra striping (exclude totals row) */
+#app .data-grid tbody tr:nth-child(even):not(.totals-row) {
+  background: #f9fafb;
+}
+
+/* Hover highlight */
+#app .data-grid tbody tr:hover {
+  background: #eef2ff;
+}
+
+/* Totals row at the bottom */
+#app .data-grid tr.totals-row {
+  background: #fefce8;
+  font-weight: 600;
+}
+
