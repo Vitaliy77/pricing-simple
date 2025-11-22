@@ -112,7 +112,16 @@ export const template = /*html*/ `
           </button>
         </div>
         <div class="scroll-x">
-          <table id="tbl" style="min-width:100%;">
+          <table id="tbl" style="width:100%;table-layout:fixed;">
+            <colgroup>
+              <col style="width:23.3%;">
+              <col style="width:14.0%;">
+              <col style="width:23.3%;">
+              <col style="width:11.6%;">
+              <col style="width:14.0%;">
+              <col style="width:14.0%;">
+              <!-- Status + Actions will auto-shrink based on content -->
+            </colgroup>
             <thead>
               <tr>
                 <th>Name</th>
