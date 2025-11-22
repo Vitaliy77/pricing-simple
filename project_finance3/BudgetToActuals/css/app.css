@@ -1,49 +1,69 @@
 /* =====================================================
-   GLOBAL TYPOGRAPHY – 50% LARGER & BEAUTIFUL
+   GLOBAL TYPOGRAPHY – BIG BUT REFINED (~30% larger than original)
    ===================================================== */
 html {
-  font-size: 16px;                     /* Root stays at 16px – safe for mobile */
+  font-size: 16px;                     /* Root stays safe */
 }
 
 body {
-  font-size: 1.5rem;                   /* ~24px base text – exactly 50% larger */
+  font-size: 1.25rem;                  /* 20px base text → ~25% larger than default, 20% smaller than previous 24px */
   line-height: 1.5;
-  color: #0f172a;                      /* slate-900 */
+  color: #0f172a;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
 #app {
-  font-size: 1em;                      /* Inherits 24px cleanly across all tabs */
+  font-size: 1em;                      /* Cleanly inherits 20px */
   min-height: 100vh;
 }
 
-/* Headings – big but not overwhelming */
+/* Headings – bold and clear */
 article h3 {
-  font-size: 1.35em;                   /* ~32px */
+  font-size: 1.4em;                    /* ~28px */
   font-weight: 600;
   margin-bottom: 0.75rem;
-  color: #1e293b;                      /* slate-800 */
+  color: #1e293b;
 }
 
 article h4 {
-  font-size: 1.15em;                   /* ~27.6px */
+  font-size: 1.15em;                   /* ~23px */
   font-weight: 600;
   margin-bottom: 0.5rem;
-  color: #334155;                      /* slate-700 */
+  color: #334155;
 }
 
-/* Tables – still big, but readable in dense grids */
+/* Tables – excellent readability */
 table {
-  font-size: 0.9em;                    /* ~21.6px – perfect balance */
+  font-size: 0.95em;                   /* ~19px */
 }
 table th {
-  font-size: 0.75em;                   /* ~18px – uppercase headers stay crisp */
+  font-size: 0.75em;                   /* ~15px – crisp uppercase */
   text-transform: uppercase;
   letter-spacing: 0.05em;
   font-weight: 600;
 }
 table td {
-  font-size: 0.9em;                    /* ~21.6px */
+  font-size: 0.95em;                   /* ~19px */
+}
+
+/* -------------------------------------------
+   Normalize text size across ALL tabs
+   ------------------------------------------- */
+#app p,
+#app small,
+#app li,
+#app label,
+#app .help-text,
+#app .muted,
+#app .description,
+#app article > p {
+  font-size: 1em !important;           /* Forces exact match to body (20px) */
+  line-height: 1.5;
+}
+
+/* Optional: tiny captions can be slightly smaller */
+#app .caption {
+  font-size: 0.85em !important;           /* ~17px */
 }
 
 /* =====================================================
@@ -70,7 +90,7 @@ main.wrap {
 }
 
 /* =====================================================
-   UNIFIED INPUT HEIGHT – 2.8rem (scaled up with bigger font)
+   UNIFIED INPUTS – scaled for 20px text
    ===================================================== */
 .grant-select,
 .budget-select,
@@ -78,19 +98,18 @@ main.wrap {
 .budget-rate,
 .budget-cell,
 input, select, textarea {
-  font-size: 1.5rem !important;        /* Matches body text */
+  font-size: 1.25rem !important;       /* 20px – matches body */
   padding: 0.4rem 0.6rem !important;
-  height: 2.8rem !important;           /* Was 2rem → now 40% taller for big text */
+  height: 2.6rem !important;           /* Was 2.8rem → slightly smaller, still generous */
   line-height: 1 !important;
   box-sizing: border-box !important;
   vertical-align: middle;
 }
 
-/* Number cells – slightly wider for bigger digits */
 .budget-cell,
 .budget-rate {
-  min-width: 7rem;                     /* Was 5.5rem */
-  max-width: 8rem;
+  min-width: 6.5rem;
+  max-width: 7.5rem;
   text-align: right;
 }
 
@@ -100,22 +119,22 @@ input, select, textarea {
 .no-spin { -moz-appearance: textfield; }
 
 /* =====================================================
-   STICKY COLUMNS (still perfect)
+   STICKY COLUMNS
    ===================================================== */
 .sticky-col-1 {
   position: sticky;
   left: 0;
   background: white;
   z-index: 10;
-  min-width: 28ch;                     /* Slightly wider for bigger text */
+  min-width: 26ch;
   box-shadow: 2px 0 2px rgba(0,0,0,0.05);
 }
 .sticky-col-2 {
   position: sticky;
-  left: calc(28ch + 2rem);
+  left: calc(26ch + 2rem);
   background: white;
   z-index: 10;
-  min-width: 28ch;
+  min-width: 26ch;
   box-shadow: 2px 0 2px rgba(0,0,0,0.05);
 }
 
