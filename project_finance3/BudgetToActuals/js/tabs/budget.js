@@ -11,14 +11,22 @@ export const template = /*html*/ `
 
     <!-- Grant + Start Year -->
     <section style="max-width:820px;margin-bottom:0.5rem;">
-      <div class="grid" style="gap:0.35rem;">
-        <label>
+      <div
+        style="
+          display:flex;
+          justify-content:space-between;
+          gap:0.75rem;
+          flex-wrap:wrap;
+          align-items:flex-end;
+        "
+      >
+        <label style="flex:1 1 320px;min-width:260px;">
           Grant
           <select id="grantSelect" class="grant-select" style="min-width:320px;">
             <option value="">— Select a grant —</option>
           </select>
         </label>
-        <label style="max-width:120px;">
+        <label style="flex:0 0 auto;min-width:120px;text-align:right;">
           Start Year
           <input id="startYear" type="number" min="2000" max="2100" value="2025">
         </label>
@@ -37,9 +45,7 @@ export const template = /*html*/ `
 
       <div class="scroll-x">
         <table class="data-grid">
-          <thead>
-            <tr id="budgetHeaderRow"></tr>
-          </thead>
+          <thead></thead>
           <tbody id="budgetBody"></tbody>
         </table>
       </div>
@@ -51,12 +57,39 @@ export const template = /*html*/ `
         border-collapse: collapse;
         width: 100%;
       }
+
       .data-grid th,
       .data-grid td {
         border: 1px solid #ddd;
-        padding: 0; /* height from global input/select styles */
+        padding: 0.15rem 0.25rem;
         white-space: nowrap;
-        line-height: 1.1;
+        line-height: 1.2;
+      }
+
+      .data-grid thead th {
+        background: #f3f4f6;
+        font-size: 0.8rem;
+        line-height: 1.3;
+      }
+
+      .month-year-header {
+        text-align: center;
+        font-weight: 600;
+      }
+
+      .month-header {
+        text-align: center;
+        font-size: 0.78rem;
+      }
+
+      .rate-header {
+        min-width: 6.5rem;
+        text-align: right;
+      }
+
+      .total-header {
+        min-width: 7rem;
+        text-align: right;
       }
 
       /* Sticky first two columns */
@@ -115,6 +148,13 @@ export const template = /*html*/ `
       .section-header-row td {
         background: #f9fafb;
         font-weight: 600;
+      }
+
+      .section-header-cell {
+        position: sticky;
+        left: 0;
+        z-index: 12;
+        background: #eef2ff; /* slightly tinted so it stands out */
       }
 
       .section-header-row button.section-add {
@@ -599,34 +639,84 @@ async function loadBudgetForGrant(grantId) {
 /* ---------- Rendering ---------- */
 
 function renderHeaders() {
-  const headerRow = $("#budgetHeaderRow", rootEl);
-  if (!headerRow) return;
+  if (!rootEl) return;
+  const thead = rootEl.querySelector(".data-grid thead");
+  if (!thead) return;
 
-  const monthThs = buckets
+  if (!buckets.length) {
+    thead.innerHTML = "";
+    return;
+  }
+
+  const beforeBucket = buckets[0];
+  const afterBucket = buckets[buckets.length - 1];
+  const monthBuckets = buckets.slice(1, buckets.length - 1); // only the actual months
+
+  // Group months by year
+  const yearGroups = [];
+  let currentYear = null;
+  let currentCount = 0;
+
+  monthBuckets.forEach((b) => {
+    const year = b.ym.slice(0, 4);
+    if (year !== currentYear) {
+      if (currentYear !== null) {
+        yearGroups.push({ year: currentYear, count: currentCount });
+      }
+      currentYear = year;
+      currentCount = 1;
+    } else {
+      currentCount++;
+    }
+  });
+  if (currentYear !== null) {
+    yearGroups.push({ year: currentYear, count: currentCount });
+  }
+
+  const yearHeaderCells = yearGroups
     .map(
-      (b) =>
-        `<th style="min-width:6.5rem;text-align:right;">${esc(b.label)}</th>`
+      (g) =>
+        `<th class="month-year-header" colspan="${g.count}">${esc(g.year)}</th>`
     )
     .join("");
 
-  headerRow.innerHTML = `
-    <th class="sticky-col-1 col-employee">Name / Category</th>
-    <th class="sticky-col-2 col-position">Position / Description</th>
-    <th style="min-width:6.5rem;text-align:right;">Rate / —</th>
-    ${monthThs}
-    <th style="min-width:7rem;text-align:right;">Total</th>
+  const monthHeaderCells = monthBuckets
+    .map((b) => {
+      const d = new Date(b.ym);
+      const mon = d.toLocaleString("en-US", { month: "short" });
+      return `<th class="month-header">${esc(mon)}</th>`;
+    })
+    .join("");
+
+  thead.innerHTML = `
+    <tr>
+      <th rowspan="2" class="sticky-col-1 col-employee">Name / Category</th>
+      <th rowspan="2" class="sticky-col-2 col-position">Position / Description</th>
+      <th rowspan="2" class="rate-header">Rate / &mdash;</th>
+      <th rowspan="2" class="month-year-header">${esc(beforeBucket.label)}</th>
+      ${yearHeaderCells}
+      <th rowspan="2" class="month-year-header">${esc(afterBucket.label)}</th>
+      <th rowspan="2" class="total-header">Total</th>
+    </tr>
+    <tr>
+      ${monthHeaderCells}
+    </tr>
   `;
 }
 
 function sectionHeaderRow(label, sectionKey, colSpan) {
+  // First cell: sticky block with button + label spanning Name/Position/Rate.
+  // Second cell: empty, spans the months + Total so column count stays consistent.
+  const trailingSpan = colSpan - 3;
   return `
     <tr class="section-header-row" data-section="${sectionKey}">
-      <td colspan="${colSpan}">
+      <td class="sticky-col-1 section-header-cell" colspan="3">
         <button type="button" class="btn-sm section-add" data-section="${sectionKey}">
           [+]
         </button>
         <span>${label}</span>
       </td>
+      <td colspan="${trailingSpan}"></td>
     </tr>
   `;
 }
