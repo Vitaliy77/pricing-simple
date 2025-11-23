@@ -3,8 +3,6 @@ import { $ } from '../lib/dom.js';
 import { getProjectId } from '../lib/state.js';
 import { client } from '../api/supabase.js';
 
-let plChartInstance = null;
-
 export const template = /*html*/ `
   <section class="space-y-4">
     <!-- P&L action bar -->
@@ -12,61 +10,52 @@ export const template = /*html*/ `
       <div>
         <h2 class="text-lg font-semibold tracking-tight">P&amp;L</h2>
         <p class="text-xs text-slate-500">
-          Monthly revenue, costs, and margin for the selected project.
+          Prior years, two planning years by month, and outer years for the selected project.
         </p>
       </div>
-      <div class="flex items-center gap-2">
+      <div class="flex items-center gap-3 text-xs">
+        <label class="inline-flex items-center gap-1">
+          <span class="text-slate-600">View</span>
+          <select id="plYearSelect"
+                  class="border border-slate-300 rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+            <option value="2025" selected>2025–2026</option>
+            <option value="2024">2024–2025</option>
+            <option value="2023">2023–2024</option>
+          </select>
+        </label>
+
         <button
           id="recomputeEac"
-          class="px-3 py-1.5 rounded-md bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700"
-        >
+          class="px-3 py-1.5 rounded-md bg-emerald-600 text-white text-xs font-medium hover:bg-emerald-700">
           Recompute EAC
         </button>
         <button
           id="refreshPL"
-          class="px-3 py-1.5 rounded-md border text-sm font-medium hover:bg-slate-50"
-        >
+          class="px-3 py-1.5 rounded-md border text-xs font-medium hover:bg-slate-50">
           Refresh P&amp;L
         </button>
       </div>
     </div>
 
-    <!-- Table + chart card -->
-    <div class="bg-white rounded-xl shadow-sm p-4 space-y-4">
+    <!-- Table -->
+    <div class="bg-white rounded-xl shadow-sm p-4">
       <div id="plWrap" class="overflow-auto border rounded-lg">
         <table class="text-xs md:text-sm min-w-full" id="plTable"></table>
       </div>
-
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div class="md:col-span-2 min-h-[220px]">
-          <h3 class="text-sm font-semibold mb-2">P&amp;L Trend</h3>
-          <div class="h-52">
-            <canvas id="plChart"></canvas>
-          </div>
-        </div>
-        <div class="text-xs text-slate-500 space-y-1">
-          <p>
-            <span class="font-semibold">Tip:</span>
-            Use the month picker in the top bar to jump between years.
-          </p>
-          <p>
-            Revenue uses % complete (earned value) on baseline.
-          </p>
-          <p>
-            Costs = Actuals (past) + Plan (future) + Indirects.
-          </p>
-        </div>
-      </div>
+      <p class="mt-2 text-xs text-slate-500">
+        Revenue uses % complete (earned value) on baseline.
+        Costs = Actuals (past) + Plan (future) + Indirects.
+        Table shows prior years in aggregate, two planning years by month, and outer years.
+      </p>
     </div>
   </section>
 `;
 
 export async function init(viewEl) {
-  // Wire buttons
   $('#recomputeEac')?.addEventListener('click', recomputeEAC);
   $('#refreshPL')?.addEventListener('click', refreshPL);
+  $('#plYearSelect')?.addEventListener('change', refreshPL);
 
-  // Initial render
   await refreshPL();
 }
 
@@ -93,7 +82,6 @@ async function recomputeEAC() {
     btn.textContent = 'Recomputing…';
     status.textContent = 'Recomputing EAC…';
 
-    // RPC name/arg must match your SQL function
     const { error } = await client.rpc('recompute_eac', { p_project_id: projectId });
     if (error) throw error;
 
@@ -118,92 +106,117 @@ async function refreshPL() {
   if (!projectId) {
     plTable.innerHTML =
       '<tbody><tr><td class="p-3 text-slate-500">Select a project to view P&amp;L.</td></tr></tbody>';
-    // Clear chart if no project
-    if (plChartInstance) {
-      plChartInstance.destroy();
-      plChartInstance = null;
-    }
     return;
   }
 
   try {
     status.textContent = 'Loading P&L…';
 
-    const ym = $('#monthPicker')?.value || new Date().toISOString().slice(0, 7); // yyyy-mm
-    const year = Number(ym.slice(0, 4));
-    const start = `${year}-01-01`;
-    const end = `${year + 1}-01-01`;
+    const baseYear = Number($('#plYearSelect')?.value || 2025);
+    const year1 = baseYear;
+    const year2 = baseYear + 1;
 
-    // Costs
+    const year1Months = Array.from({ length: 12 }, (_, i) => new Date(Date.UTC(year1, i, 1)));
+    const year2Months = Array.from({ length: 12 }, (_, i) => new Date(Date.UTC(year2, i, 1)));
+
+    const year1Start = new Date(Date.UTC(year1, 0, 1));
+    const year2Start = new Date(Date.UTC(year2, 0, 1));
+    const year3Start = new Date(Date.UTC(year2 + 1, 0, 1));
+
+    // Grab all months for this project so we can bucket into prior / two years / outer.
     const { data: costs, error: cErr } = await client
       .from('vw_eac_monthly_pl')
       .select('ym, labor, equip, materials, subs, fringe, overhead, gna, total_cost')
       .eq('project_id', projectId)
-      .gte('ym', start)
-      .lt('ym', end)
-      .order('ym');
+      .gte('ym', '1900-01-01')
+      .lt('ym', '2100-01-01');
+
     if (cErr) throw cErr;
 
-    // Revenue
     const { data: rev, error: rErr } = await client
       .from('vw_eac_revenue_monthly')
       .select('ym, revenue')
       .eq('project_id', projectId)
-      .gte('ym', start)
-      .lt('ym', end)
-      .order('ym');
-    if (rErr) throw rErr;
+      .gte('ym', '1900-01-01')
+      .lt('ym', '2100-01-01');
 
-    const months = Array.from({ length: 12 }, (_, i) => new Date(Date.UTC(year, i, 1)));
-    const key = (d) => d.toISOString().slice(0, 7);
+    if (rErr) throw rErr;
 
     const costMap = Object.create(null);
     (costs || []).forEach((r) => {
-      costMap[new Date(r.ym).toISOString().slice(0, 7)] = r;
+      const k = new Date(r.ym).toISOString().slice(0, 7);
+      costMap[k] = r;
     });
 
     const revMap = Object.create(null);
     (rev || []).forEach((r) => {
-      revMap[new Date(r.ym).toISOString().slice(0, 7)] = Number(r.revenue || 0);
+      const k = new Date(r.ym).toISOString().slice(0, 7);
+      revMap[k] = Number(r.revenue || 0);
+    });
+
+    const key = (d) => d.toISOString().slice(0, 7);
+
+    const allMonthKeysSet = new Set([
+      ...Object.keys(costMap),
+      ...Object.keys(revMap)
+    ]);
+    const allMonthMeta = Array.from(allMonthKeysSet).map((k) => {
+      return {
+        k,
+        date: new Date(`${k}-01T00:00:00Z`)
+      };
     });
 
     const rows = [
-      ['Revenue', (k) => Number(revMap[k] || 0)],
-      ['Labor', (k) => Number(costMap[k]?.labor || 0)],
-      ['Sub', (k) => Number(costMap[k]?.subs || 0)],
-      ['Equipment', (k) => Number(costMap[k]?.equip || 0)],
+      ['Revenue',  (k) => Number(revMap[k] || 0)],
+      ['Labor',    (k) => Number(costMap[k]?.labor || 0)],
+      ['Sub',      (k) => Number(costMap[k]?.subs || 0)],
+      ['Equipment',(k) => Number(costMap[k]?.equip || 0)],
       ['Material', (k) => Number(costMap[k]?.materials || 0)],
-      ['ODC', (k) => 0], // if you have ODC, replace 0 with proper field
-      ['Fringe', (k) => Number(costMap[k]?.fringe || 0)],
+      ['ODC',      (k) => 0], // adjust if you add ODC to the view
+      ['Fringe',   (k) => Number(costMap[k]?.fringe || 0)],
       ['Overhead', (k) => Number(costMap[k]?.overhead || 0)],
-      ['G&A', (k) => Number(costMap[k]?.gna || 0)],
+      ['G&A',      (k) => Number(costMap[k]?.gna || 0)],
       ['Total Cost', (k) => Number(costMap[k]?.total_cost || 0)],
-      ['Profit', (k) => Number(revMap[k] || 0) - Number(costMap[k]?.total_cost || 0)],
-      [
-        'Margin %',
-        (k) => {
-          const R = Number(revMap[k] || 0);
-          const C = Number(costMap[k]?.total_cost || 0);
-          if (R === 0 && C === 0) return null;
-          if (!R && C) return -100;
-          if (R) return ((R - C) / R) * 100;
-          return 0;
-        }
-      ]
+      ['Profit',   (k) => Number(revMap[k] || 0) - Number(costMap[k]?.total_cost || 0)],
+      ['Margin %', (k) => {
+        const R = Number(revMap[k] || 0);
+        const C = Number(costMap[k]?.total_cost || 0);
+        if (R === 0 && C === 0) return null;
+        if (!R && C) return -100;
+        if (R) return ((R - C) / R) * 100;
+        return 0;
+      }]
     ];
 
-    // Build table HTML
     let html = '<thead><tr>';
-    html +=
-      '<th class="p-2 sticky-col text-xs font-semibold text-slate-500 bg-slate-50 border-b">Line</th>';
-    months.forEach((d) => {
+    html += '<th class="p-2 sticky-col text-xs font-semibold text-slate-500 bg-slate-50 border-b">Line</th>';
+    html += '<th class="p-2 text-right text-xs font-semibold text-slate-500 bg-slate-50 border-b">Prior Years</th>';
+
+    year1Months.forEach((d) => {
       html += `<th class="p-2 text-right text-xs font-semibold text-slate-500 bg-slate-50 border-b">${d.toLocaleString(
         'en-US',
-        { month: 'short', timeZone: 'UTC' }
+        { month: 'short', year: '2-digit', timeZone: 'UTC' }
       )}</th>`;
     });
-    html +=
-      '<th class="p-2 text-right text-xs font-semibold text-slate-500 bg-slate-50 border-b">Year Total</th></tr></thead><tbody>';
+
+    year2Months.forEach((d) => {
+      html += `<th class="p-2 text-right text-xs font-semibold text-slate-500 bg-slate-50 border-b">${d.toLocaleString(
+        'en-US',
+        { month: 'short', year: '2-digit', timeZone: 'UTC' }
+      )}</th>`;
+    });
+
+    html += '<th class="p-2 text-right text-xs font-semibold text-slate-500 bg-slate-50 border-b">Outer Years</th>';
+    html += '<th class="p-2 text-right text-xs font-semibold text-slate-500 bg-slate-50 border-b">Total</th>';
+    html += '</tr></thead><tbody>';
+
+    const calcMargin = (revTotal, costTotal) => {
+      if (revTotal === 0 && costTotal === 0) return null;
+      if (!revTotal && costTotal) return -100;
+      if (revTotal) return ((revTotal - costTotal) / revTotal) * 100;
+      return 0;
+    };
 
     rows.forEach(([label, fn]) => {
       const isSummary = label === 'Total Cost' || label === 'Profit' || label === 'Margin %';
@@ -218,68 +231,138 @@ async function refreshPL() {
       html += `<tr class="${rowClassParts.join(' ')}">`;
       html += `<td class="p-2 font-medium sticky-col text-xs md:text-sm">${label}</td>`;
 
-      let yearTotal = 0;
+      if (!isMargin) {
+        let priorTotal = 0;
+        let outerTotal = 0;
 
-      months.forEach((d) => {
-        const k = key(d);
-        const val = fn(k);
+        allMonthMeta.forEach(({ k, date }) => {
+          const v = Number(fn(k) || 0);
+          if (date < year1Start) priorTotal += v;
+          else if (date >= year3Start) outerTotal += v;
+        });
 
-        if (isMargin) {
-          if (val == null) {
-            html += '<td class="p-2 text-right text-slate-400">—</td>';
-          } else {
-            const n = Number(val);
-            let cls = 'p-2 text-right font-medium';
-            if (n > 0.05) cls += ' text-emerald-600';
-            else if (n < -0.05) cls += ' text-rose-600';
-            else cls += ' text-slate-500';
-            html += `<td class="${cls}">${n.toFixed(1)}%</td>`;
-          }
-        } else {
-          const n = Number(val || 0);
-          yearTotal += n;
+        const year1Values = year1Months.map((d) => Number(fn(key(d)) || 0));
+        const year2Values = year2Months.map((d) => Number(fn(key(d)) || 0));
 
+        const totalAll =
+          priorTotal +
+          year1Values.reduce((s, v) => s + v, 0) +
+          year2Values.reduce((s, v) => s + v, 0) +
+          outerTotal;
+
+        html += `<td class="p-2 text-right tabular-nums">${fmtUSD0(priorTotal)}</td>`;
+
+        year1Values.forEach((n) => {
           let cls = 'p-2 text-right tabular-nums';
           if (isProfit) {
             if (n > 0.5) cls += ' text-emerald-700 font-semibold';
             else if (n < -0.5) cls += ' text-rose-700 font-semibold';
             else cls += ' text-slate-600 font-medium';
           }
-
           html += `<td class="${cls}">${fmtUSD0(n)}</td>`;
+        });
+
+        year2Values.forEach((n) => {
+          let cls = 'p-2 text-right tabular-nums';
+          if (isProfit) {
+            if (n > 0.5) cls += ' text-emerald-700 font-semibold';
+            else if (n < -0.5) cls += ' text-rose-700 font-semibold';
+            else cls += ' text-slate-600 font-medium';
+          }
+          html += `<td class="${cls}">${fmtUSD0(n)}</td>`;
+        });
+
+        let outerCls = 'p-2 text-right tabular-nums';
+        if (isProfit) {
+          if (outerTotal > 0.5) outerCls += ' text-emerald-700 font-semibold';
+          else if (outerTotal < -0.5) outerCls += ' text-rose-700 font-semibold';
         }
-      });
+        html += `<td class="${outerCls}">${fmtUSD0(outerTotal)}</td>`;
 
-      // Year total column
-      if (isMargin) {
-        const Rtot = months.reduce((s, d) => s + Number(revMap[key(d)] || 0), 0);
-        const Ctot = months.reduce((s, d) => s + Number(costMap[key(d)]?.total_cost || 0), 0);
-        const mtot =
-          Rtot === 0 && Ctot === 0
-            ? null
-            : Rtot
-            ? ((Rtot - Ctot) / Rtot) * 100
-            : Ctot
-            ? -100
-            : 0;
+        let totalCls = 'p-2 text-right font-semibold tabular-nums';
+        if (isProfit) {
+          if (totalAll > 0.5) totalCls += ' text-emerald-700';
+          else if (totalAll < -0.5) totalCls += ' text-rose-700';
+        }
+        html += `<td class="${totalCls}">${fmtUSD0(totalAll)}</td>`;
+      } else {
+        let priorRev = 0;
+        let priorCost = 0;
+        let outerRev = 0;
+        let outerCost = 0;
 
-        if (mtot == null) {
+        allMonthMeta.forEach(({ k, date }) => {
+          const revVal = Number(revMap[k] || 0);
+          const costVal = Number(costMap[k]?.total_cost || 0);
+          if (date < year1Start) {
+            priorRev += revVal;
+            priorCost += costVal;
+          } else if (date >= year3Start) {
+            outerRev += revVal;
+            outerCost += costVal;
+          }
+        });
+
+        const year1RevArr = year1Months.map((d) => revMap[key(d)] || 0);
+        const year1CostArr = year1Months.map((d) => Number(costMap[key(d)]?.total_cost || 0));
+        const year2RevArr = year2Months.map((d) => revMap[key(d)] || 0);
+        const year2CostArr = year2Months.map((d) => Number(costMap[key(d)]?.total_cost || 0));
+
+        const priorMargin = calcMargin(priorRev, priorCost);
+        const year1Margins = year1Months.map((d, idx) =>
+          calcMargin(year1RevArr[idx], year1CostArr[idx])
+        );
+        const year2Margins = year2Months.map((d, idx) =>
+          calcMargin(year2RevArr[idx], year2CostArr[idx])
+        );
+        const outerMargin = calcMargin(outerRev, outerCost);
+
+        const totalRev =
+          priorRev +
+          year1RevArr.reduce((s, v) => s + v, 0) +
+          year2RevArr.reduce((s, v) => s + v, 0) +
+          outerRev;
+        const totalCost =
+          priorCost +
+          year1CostArr.reduce((s, v) => s + v, 0) +
+          year2CostArr.reduce((s, v) => s + v, 0) +
+          outerCost;
+        const totalMargin = calcMargin(totalRev, totalCost);
+
+        const renderMarginCell = (value) => {
+          if (value == null) {
+            return '<td class="p-2 text-right text-slate-400">—</td>';
+          }
+          const n = Number(value);
+          let cls = 'p-2 text-right font-medium';
+          if (n > 0.05) cls += ' text-emerald-600';
+          else if (n < -0.05) cls += ' text-rose-600';
+          else cls += ' text-slate-500';
+          return `<td class="${cls}">${n.toFixed(1)}%</td>`;
+        };
+
+        html += renderMarginCell(priorMargin);
+
+        year1Margins.forEach((m) => {
+          html += renderMarginCell(m);
+        });
+
+        year2Margins.forEach((m) => {
+          html += renderMarginCell(m);
+        });
+
+        html += renderMarginCell(outerMargin);
+
+        if (totalMargin == null) {
           html += '<td class="p-2 text-right text-slate-400 font-semibold">—</td>';
         } else {
-          const n = Number(mtot);
+          const n = Number(totalMargin);
           let cls = 'p-2 text-right font-semibold';
           if (n > 0.05) cls += ' text-emerald-700';
           else if (n < -0.05) cls += ' text-rose-700';
           else cls += ' text-slate-600';
           html += `<td class="${cls}">${n.toFixed(1)}%</td>`;
         }
-      } else {
-        let cls = 'p-2 text-right font-semibold tabular-nums';
-        if (isProfit) {
-          if (yearTotal > 0.5) cls += ' text-emerald-700';
-          else if (yearTotal < -0.5) cls += ' text-rose-700';
-        }
-        html += `<td class="${cls}">${fmtUSD0(yearTotal)}</td>`;
       }
 
       html += '</tr>';
@@ -287,100 +370,10 @@ async function refreshPL() {
 
     html += '</tbody>';
     plTable.innerHTML = html;
-
-    // --- Build chart datasets ---
-    const labels = months.map((d) =>
-      d.toLocaleString('en-US', { month: 'short', timeZone: 'UTC' })
-    );
-
-    const revenueSeries = months.map((d) => {
-      const k = key(d);
-      return Number(revMap[k] || 0);
-    });
-
-    const costSeries = months.map((d) => {
-      const k = key(d);
-      return Number(costMap[k]?.total_cost || 0);
-    });
-
-    const profitSeries = months.map((d, i) => revenueSeries[i] - costSeries[i]);
-
-    const ctx = document.getElementById('plChart');
-    if (ctx && window.Chart) {
-      if (plChartInstance) {
-        plChartInstance.destroy();
-      }
-
-      plChartInstance = new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels,
-          datasets: [
-            {
-              label: 'Revenue',
-              data: revenueSeries,
-              borderWidth: 2,
-              tension: 0.3
-            },
-            {
-              label: 'Total Cost',
-              data: costSeries,
-              borderWidth: 2,
-              tension: 0.3
-            },
-            {
-              label: 'Profit',
-              data: profitSeries,
-              borderWidth: 2,
-              borderDash: [4, 4],
-              tension: 0.3
-            }
-          ]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: {
-              position: 'bottom',
-              labels: {
-                boxWidth: 12
-              }
-            },
-            tooltip: {
-              callbacks: {
-                label(ctx) {
-                  const v = ctx.parsed.y || 0;
-                  return `${ctx.dataset.label}: ${v.toLocaleString('en-US', {
-                    maximumFractionDigits: 0
-                  })}`;
-                }
-              }
-            }
-          },
-          scales: {
-            y: {
-              ticks: {
-                callback(value) {
-                  return value.toLocaleString('en-US', {
-                    maximumFractionDigits: 0
-                  });
-                }
-              }
-            }
-          }
-        }
-      });
-    }
-
     status.textContent = '';
   } catch (err) {
     console.error('P&L render error', err);
-    plTable.innerHTML = `<tbody><tr><td class="p-3 text-red-600">P&L error: ${
-      err.message || err
-    }</td></tr></tbody>`;
-    if (status) {
-      status.textContent = `P&L error: ${err.message || err}`;
-    }
+    plTable.innerHTML = `<tbody><tr><td class="p-3 text-red-600">P&L error: ${err.message || err}</td></tr></tbody>`;
+    status.textContent = `P&L error: ${err.message || err}`;
   }
 }
