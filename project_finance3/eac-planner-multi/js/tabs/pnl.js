@@ -6,17 +6,50 @@ import { client } from '../api/supabase.js';
 export const template = /*html*/ `
   <section class="space-y-4">
     <!-- P&L action bar -->
-    <div class="bg-white rounded-xl shadow-sm p-4 flex items-center justify-between">
-      <h2 class="text-lg font-semibold">P&L</h2>
+    <div class="bg-white rounded-xl shadow-sm p-4 flex flex-wrap items-center gap-3 justify-between">
+      <div>
+        <h2 class="text-lg font-semibold tracking-tight">P&amp;L</h2>
+        <p class="text-xs text-slate-500">
+          Monthly revenue, costs, and margin for the selected project.
+        </p>
+      </div>
       <div class="flex items-center gap-2">
-        <button id="recomputeEac" class="px-3 py-1.5 rounded-md bg-emerald-600 text-white hover:bg-emerald-700">
+        <button id="recomputeEac"
+          class="px-3 py-2 rounded-md bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700">
           Recompute EAC
         </button>
-        <button id="refreshPL" class="px-3 py-1.5 rounded-md border hover:bg-slate-50">
-          Refresh P&L
+        <button id="refreshPL"
+          class="px-3 py-2 rounded-md border text-sm font-medium hover:bg-slate-50">
+          Refresh P&amp;L
         </button>
       </div>
     </div>
+
+    <!-- Table + chart -->
+    <div class="bg-white rounded-xl shadow-sm p-4 space-y-4">
+      <div id="plWrap" class="overflow-auto border rounded-lg">
+        <table class="text-xs md:text-sm min-w-full" id="plTable"></table>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="md:col-span-2">
+          <h3 class="text-sm font-semibold mb-2">P&amp;L Trend</h3>
+          <canvas id="plChart" height="160"></canvas>
+        </div>
+        <div class="text-xs text-slate-500 space-y-1">
+          <p>
+            <span class="font-semibold">Tip:</span>
+            Use the month picker in the top bar to jump between years.
+          </p>
+          <p>
+            Revenue uses % complete on baseline. Costs = Actuals (past) + Plan (future) + Indirects.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+`;
+
 
     <!-- Table -->
     <div class="bg-white rounded-xl shadow-sm p-4">
