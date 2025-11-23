@@ -206,5 +206,20 @@ async function init() {
   }
 }
 
+function syncActiveTab() {
+  const hash = location.hash || '#project';
+  document.querySelectorAll('.tab-link').forEach(a => {
+    const isActive = a.getAttribute('href') === hash;
+    a.classList.toggle('border-blue-600', isActive);
+    a.classList.toggle('text-blue-600', isActive);
+    a.classList.toggle('bg-slate-50', isActive);
+    a.classList.toggle('font-semibold', isActive);
+  });
+}
+
+window.addEventListener('hashchange', syncActiveTab);
+document.addEventListener('DOMContentLoaded', syncActiveTab);
+
+
 window.addEventListener('hashchange', render);
 init();
