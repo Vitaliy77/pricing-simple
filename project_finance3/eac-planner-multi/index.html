@@ -5,120 +5,208 @@
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>EAC Planner</title>
 
-  <!-- Tailwind CDN (fine for static hosting) -->
+  <!-- Tailwind CDN -->
   <script src="https://cdn.tailwindcss.com" defer></script>
 
-  <!-- App styles -->
+  <!-- App styles (your global overrides) -->
   <link rel="stylesheet" href="./css/styles.css">
 </head>
-<body class="bg-gray-50 text-slate-900">
-  <!-- Top header -->
-  <header class="bg-white border-b">
-    <div class="max-w-6xl mx-auto px-5 py-4">
-      <h1 class="text-xl font-semibold">EAC Planner</h1>
-      <p class="text-sm text-slate-500">Plan, save, and review P&amp;L per project</p>
+
+<body class="bg-gray-50 text-slate-900 antialiased">
+
+  <!-- A. NICER TOP HEADER -->
+  <header class="bg-white border-b shadow-sm">
+    <div class="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+      <div>
+        <h1 class="text-2xl font-semibold tracking-tight text-slate-900">EAC Planner</h1>
+        <p class="text-sm text-slate-500 mt-0.5">
+          Plan, save, and review P&L per project
+        </p>
+      </div>
+
+      <div class="hidden sm:flex items-center gap-3 text-xs text-slate-400">
+        <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-200">
+          <span class="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          Connected to Supabase
+        </span>
+      </div>
     </div>
   </header>
 
-  <!-- Project bar -->
+  <!-- B. PROJECT BAR – Clean, aligned, professional -->
   <section class="bg-white border-b">
-    <div class="max-w-6xl mx-auto px-5 py-4 flex items-center gap-3">
-      <label for="projectSelect" class="text-sm text-gray-600">Project</label>
-      <select id="projectSelect" class="border rounded-md p-2 min-w-64">
-        <option value="">Loading projects…</option>
-      </select>
-      <button id="newProjectBtn" class="px-3 py-1.5 rounded-md border hover:bg-slate-50">+ New Project</button>
-      <button id="manageProjectsBtn" class="px-3 py-1.5 rounded-md border hover:bg-slate-50">Manage</button>
-      <span id="projMsg" class="text-sm text-slate-500"></span>
+    <div class="max-w-6xl mx-auto px-6 py-3 flex flex-wrap items-center gap-4">
+      <div class="flex items-center gap-2">
+        <label for="projectSelect" class="text-xs font-medium text-gray-600 uppercase tracking-wider">
+          Project
+        </label>
+        <select
+          id="projectSelect"
+          class="border border-slate-300 rounded-md px-3 py-2 min-w-64 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+        >
+          <option value="">Loading projects…</option>
+        </select>
+      </div>
 
-      <!-- Month picker lives here so all tabs can use it -->
+      <div class="flex items-center gap-2">
+        <button
+          id="newProjectBtn"
+          class="px-4 py-2 rounded-md border border-slate-300 text-sm font-medium hover:bg-slate-50 transition"
+        >
+          + New Project
+        </button>
+        <button
+          id="manageProjectsBtn"
+          class="px-4 py-2 rounded-md border border-slate-300 text-sm font-medium hover:bg-slate-50 transition"
+        >
+          Manage
+        </button>
+      </div>
+
+      <span id="projMsg" class="text-xs text-slate-500"></span>
+
+      <!-- Month picker on the right -->
       <div class="ml-auto flex items-center gap-2">
-        <label for="monthPicker" class="text-sm text-gray-600">Month</label>
-        <input id="monthPicker" type="month" class="border rounded-md p-2"/>
+        <label for="monthPicker" class="text-xs font-medium text-gray-600 uppercase tracking-wider">
+          Month
+        </label>
+        <input
+          id="monthPicker"
+          type="month"
+          class="border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+        />
       </div>
     </div>
   </section>
 
-  <!-- Tabs nav -->
-  <nav class="bg-white">
-    <div class="max-w-6xl mx-auto px-5">
-      <ul id="tabs" class="flex gap-6 text-sm">
-        <li><a href="#project"         class="py-3 block font-semibold text-blue-600">Project Information</a></li>
-        <li><a href="#pnl"             class="py-3 block font-semibold text-blue-600">P&amp;L</a></li>
-        <li><a href="#benchmarks"      class="py-3 block font-semibold text-blue-600">Benchmarks</a></li>
-        <li><a href="#plan-employees"  class="py-3 block font-semibold text-blue-600">Employees</a></li>
-        <li><a href="#plan-subs"       class="py-3 block font-semibold text-blue-600">Subcontractors</a></li>
-        <li><a href="#plan-equipment"  class="py-3 block font-semibold text-blue-600">Equipment</a></li>
-        <li><a href="#plan-materials"  class="py-3 block font-semibold text-blue-600">Materials</a></li>
-        <li><a href="#plan-odc"        class="py-3 block font-semibold text-blue-600">Other Direct Cost</a></li>
-        <li><a href="#admin"           class="py-3 block font-semibold text-blue-600">Admin</a></li>
+  <!-- C. TABS NAV – Modern app-like look with active state -->
+  <nav class="bg-white border-b sticky top-0 z-40 shadow-sm">
+    <div class="max-w-6xl mx-auto px-6">
+      <ul id="tabs" class="flex flex-wrap gap-1 text-sm font-medium">
+        <li>
+          <a href="#project" class="tab-link inline-flex items-center px-4 py-3 rounded-t-md border-b-2 border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition">
+            Project Information
+          </a>
+        </li>
+        <li>
+          <a href="#pnl" class="tab-link inline-flex items-center px-4 py-3 rounded-t-md border-b-2 border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition">
+            P&L
+          </a>
+        </li>
+        <li>
+          <a href="#benchmarks" class="tab-link inline-flex items-center px-4 py-3 rounded-t-md border-b-2 border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition">
+            Benchmarks
+          </a>
+        </li>
+        <li>
+          <a href="#plan-employees" class="tab-link inline-flex items-center px-4 py-3 rounded-t-md border-b-2 border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition">
+            Employees
+          </a>
+        </li>
+        <li>
+          <a href="#plan-subs" class="tab-link inline-flex items-center px-4 py-3 rounded-t-md border-b-2 border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition">
+            Subcontractors
+          </a>
+        </li>
+        <li>
+          <a href="#plan-equipment" class="tab-link inline-flex items-center px-4 py-3 rounded-t-md border-b-2 border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition">
+            Equipment
+          </a>
+        </li>
+        <li>
+          <a href="#plan-materials" class="tab-link inline-flex items-center px-4 py-3 rounded-t-md border-b-2 border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition">
+            Materials
+          </a>
+        </li>
+        <li>
+          <a href="#plan-odc" class="tab-link inline-flex items-center px-4 py-3 rounded-t-md border-b-2 border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition">
+            Other Direct Cost
+          </a>
+        </li>
+        <li>
+          <a href="#admin" class="tab-link inline-flex items-center px-4 py-3 rounded-t-md border-b-2 border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition">
+            Admin
+          </a>
+        </li>
       </ul>
     </div>
   </nav>
 
-  <!-- P&L action bar (hidden by default; unhide when #pnl is active) -->
+  <!-- Active tab indicator (auto-added by JS below) -->
+  <script>
+    // Auto-highlight active tab
+    function highlightActiveTab() {
+      const hash = location.hash || '#project';
+      document.querySelectorAll('.tab-link').forEach(link => {
+        link.classList.remove('text-blue-600', 'bg-blue-50', 'border-blue-500', 'font-semibold');
+        if (link.getAttribute('href') === hash) {
+          link.classList.add('text-blue-600', 'bg-blue-50', 'border-blue-500', 'font-semibold');
+          link.style.borderBottomColor = '#3b82f6';
+        }
+      });
+    }
+    window.addEventListener('hashchange', highlightActiveTab);
+    document.addEventListener('DOMContentLoaded', highlightActiveTab);
+  </script>
+
+  <!-- P&L action bar (still works the same) -->
   <section id="pnlActions" class="bg-white border-b hidden">
-    <div class="max-w-6xl mx-auto px-5 py-3 flex items-center justify-between">
-      <h3 class="text-sm font-semibold text-slate-700">P&amp;L Actions</h3>
-      <div class="flex items-center gap-2">
-      </div>
+    <div class="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between">
+      <h3 class="text-sm font-semibold text-slate-700">P&L Actions</h3>
+      <div class="flex items-center gap-2"></div>
     </div>
   </section>
 
-  <!-- Main: current tab renders here -->
-  <main class="max-w-6xl mx-auto px-5 py-6">
-    <section id="status" class="text-sm text-slate-500 mb-3"></section>
+  <!-- Main content -->
+  <main class="max-w-6xl mx-auto px-6 py-8">
+    <section id="status" class="text-sm text-slate-500 mb-4"></section>
     <section id="view"></section>
   </main>
 
-  <!-- New Project Modal -->
+  <!-- New Project Modal (unchanged – already perfect) -->
   <div id="projModal" class="fixed inset-0 hidden items-center justify-center bg-black/40 z-50">
-    <div class="bg-white rounded-xl shadow-xl w-full max-w-lg p-5">
-      <div class="flex items-center justify-between mb-3">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg p-6">
+      <div class="flex items-center justify-between mb-4">
         <h3 class="text-lg font-semibold">New Project</h3>
-        <button id="projClose" class="px-2 py-1 text-slate-500 hover:text-slate-800">✕</button>
+        <button id="projClose" class="px-2 py-1 text-slate-500 hover:text-slate-800 text-xl">x</button>
       </div>
-      <form id="projForm" class="grid grid-cols-1 gap-4">
+      <form id="projForm" class="grid grid-cols-1 gap-5">
         <label class="block">
-          <span class="text-sm text-gray-600">Project name *</span>
-          <input id="projName" name="name" type="text" required class="mt-1 border rounded-md p-2 w-full" placeholder="e.g., Airport Expansion"/>
+          <span class="text-sm text-gray-600 font-medium">Project name *</span>
+          <input id="projName" name="name" type="text" required class="mt-1 border border-slate-300 rounded-md p-2.5 w-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="e.g., Airport Expansion"/>
         </label>
-
-        <!-- Optional inputs; harmless if your schema doesn’t have these yet -->
         <label class="block">
-          <span class="text-sm text-gray-600">Client</span>
-          <input id="projClient" name="client" type="text" class="mt-1 border rounded-md p-2 w-full" placeholder="e.g., City of Springfield"/>
+          <span class="text-sm text-gray-600 font-medium">Client</span>
+          <input id="projClient" name="client" type="text" class="mt-1 border border-slate-300 rounded-md p-2.5 w-full" placeholder="e.g., City of Springfield"/>
         </label>
         <div class="grid grid-cols-2 gap-4">
           <label class="block">
-            <span class="text-sm text-gray-600">Start date</span>
-            <input id="projStart" name="start" type="date" class="mt-1 border rounded-md p-2 w-full"/>
+            <span class="text-sm text-gray-600 font-medium">Start date</span>
+            <input id="projStart" name="start" type="date" class="mt-1 border border-slate-300 rounded-md p-2.5 w-full"/>
           </label>
           <label class="block">
-            <span class="text-sm text-gray-600">End date</span>
-            <input id="projEnd" name="end" type="date" class="mt-1 border rounded-md p-2 w-full"/>
+            <span class="text-sm text-gray-600 font-medium">End date</span>
+            <input id="projEnd" name="end" type="date" class="mt-1 border border-slate-300 rounded-md p-2.5 w-full"/>
           </label>
         </div>
-
         <label class="inline-flex items-center gap-2">
-          <input id="projOpenRev" type="checkbox" class="h-4 w-4">
+          <input id="projOpenRev" type="checkbox" class="h-4 w-4 text-blue-600 rounded">
           <span class="text-sm text-gray-600">Open Revenue settings after creating</span>
         </label>
-
-        <div class="flex items-center justify-end gap-2 pt-2">
-          <button type="button" id="projCancel" class="px-3 py-1.5 rounded-md border hover:bg-slate-50">Cancel</button>
-          <button type="submit" class="px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700">Create Project</button>
+        <div class="flex items-center justify-end gap-3 pt-3">
+          <button type="button" id="projCancel" class="px-4 py-2 rounded-md border border-slate-300 hover:bg-slate-50">Cancel</button>
+          <button type="submit" class="px-5 py-2 rounded-md bg-blue-600 text-white font-medium hover:bg-blue-700">Create Project</button>
         </div>
-        <p id="projErr" class="text-sm text-red-600"></p>
+        <p id="projErr" class="text-sm text-red-600 mt-2"></p>
       </form>
     </div>
   </div>
 
   <!-- App entrypoint -->
   <script type="module" src="js/main.js?v=admin-eq-auto2"></script>
+
+  <!-- Keep P&L actions visible when on #pnl tab -->
   <script>
-    // Optional tiny helper: show P&L action bar whenever #pnl hash is active.
-    // If your router already handles this, you can delete this snippet.
     function togglePnlActions() {
       const pnl = document.getElementById('pnlActions');
       if (!pnl) return;
