@@ -19,11 +19,9 @@ export const template = /*html*/ `
       <div class="flex items-center gap-3 text-xs">
         <label class="inline-flex items-center gap-1">
           <span class="text-slate-600">Year</span>
+          <!-- options are filled in init() for 2024–2034 -->
           <select id="empYearSelect"
                   class="border border-slate-300 rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-            <option value="2025" selected>2025</option>
-            <option value="2024">2024</option>
-            <option value="2023">2023</option>
           </select>
         </label>
 
@@ -94,10 +92,19 @@ export async function init(rootEl) {
     return;
   }
 
-  // Year selector aligned with P&L tab style
-  state.year = yearSelect
-    ? Number(yearSelect.value || new Date().getUTCFullYear())
-    : new Date().getUTCFullYear();
+  // Populate year dropdown: 2024–2034, default 2025
+  const years = [];
+  for (let y = 2024; y <= 2034; y++) years.push(y);
+  const defaultYear = 2025;
+  if (yearSelect) {
+    yearSelect.innerHTML = years
+      .map(
+        y => `<option value="${y}" ${y === defaultYear ? 'selected' : ''}>${y}</option>`
+      )
+      .join('');
+  }
+
+  state.year = defaultYear;
   state.months = monthsForYear(state.year);
 
   if (msg) msg.textContent = 'Loading…';
@@ -176,12 +183,15 @@ function renderGrid() {
 
   let html = '<thead><tr>';
 
-  // Header row – styled like P&L table
-  html += '<th class="p-2 sticky-col text-left text-xs font-semibold text-slate-500 bg-slate-50 border-b">Employee</th>';
-  html += '<th class="p-2 text-left text-xs font-semibold text-slate-500 bg-slate-50 border-b">Role</th>';
+  // Header row – sticky Employee + Role, month headers as Jan-25, etc.
+  html += '<th class="p-2 sticky-col-1 text-left text-xs font-semibold text-slate-500 bg-slate-50 border-b">Employee</th>';
+  html += '<th class="p-2 sticky-col-2 text-left text-xs font-semibold text-slate-500 bg-slate-50 border-b">Role</th>';
 
-  months.forEach(m => {
-    html += `<th class="p-2 text-right text-xs font-semibold text-slate-500 bg-slate-50 border-b">${m.label}</th>`;
+  months.forEach((m, idx) => {
+    const isAlt = idx % 2 === 1; // alternate column shading
+    html += `<th class="p-2 text-right text-xs font-semibold text-slate-500 bg-slate-50 border-b month-col ${isAlt ? 'col-alt' : ''}">
+      ${m.label}
+    </th>`;
   });
 
   html += `
@@ -211,20 +221,24 @@ function renderGrid() {
 
     html += `<tr data-idx="${idx}" class="pl-row">`;
 
-    html += `<td class="p-2 sticky-col bg-white">
+    // Employee (sticky column 1)
+    html += `<td class="p-2 sticky-col-1 bg-white">
       <select class="empSel border rounded-md px-2 py-1 min-w-56 text-xs">
         <option value="">— Select —</option>
         ${empOptions}
       </select>
     </td>`;
 
-    html += `<td class="p-2">
+    // Role (sticky column 2)
+    html += `<td class="p-2 sticky-col-2 bg-white">
       <input class="roleInp border rounded-md px-2 py-1 w-40 bg-slate-50 text-xs" value="${esc(row.role || '')}" disabled>
     </td>`;
 
-    monthKeys.forEach(k => {
+    // Month inputs with alternating column stripes
+    monthKeys.forEach((k, idx2) => {
       const v = row.monthHours[k] ?? '';
-      html += `<td class="p-1 text-right">
+      const isAlt = idx2 % 2 === 1;
+      html += `<td class="p-1 text-right month-col ${isAlt ? 'col-alt' : ''}">
         <input data-k="${k}"
                class="hrInp border rounded-md px-2 py-1 w-20 text-right text-xs"
                type="number" min="0" step="0.1"
@@ -245,9 +259,12 @@ function renderGrid() {
 
   const totals = calcTotals(state.rows, monthKeys);
   html += `<tr class="font-semibold summary-row">
-    <td class="p-2 sticky-col bg-white">Totals</td>
-    <td class="p-2"></td>
-    ${monthKeys.map(k => `<td class="p-2 text-right">${fmtNum(totals.hoursByMonth[k])}</td>`).join('')}
+    <td class="p-2 sticky-col-1 bg-white">Totals</td>
+    <td class="p-2 sticky-col-2 bg-white"></td>
+    ${monthKeys.map((k, idx3) => {
+      const isAlt = idx3 % 2 === 1;
+      return `<td class="p-2 text-right month-col ${isAlt ? 'col-alt' : ''}">${fmtNum(totals.hoursByMonth[k])}</td>`;
+    }).join('')}
     <td class="p-2 text-right">${fmtNum(totals.hoursYear)}</td>
     <td class="p-2 text-right">${fmtUSD0(totals.costYear)}</td>
     <td class="p-2 text-right">${fmtUSD0(totals.revYear)}</td>
@@ -312,8 +329,10 @@ function blankRow() {
 function monthsForYear(year) {
   return Array.from({ length: 12 }, (_, i) => {
     const d = new Date(Date.UTC(year, i, 1));
+    const mm = d.toLocaleString('en-US', { month: 'short', timeZone: 'UTC' });
+    const yy = String(year).slice(2); // last 2 digits, e.g. 25
     return {
-      label: d.toLocaleString('en-US', { month: 'short', timeZone: 'UTC' }),
+      label: `${mm}-${yy}`,
       ym: d.toISOString().slice(0, 10)
     };
   });
