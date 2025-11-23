@@ -7,7 +7,7 @@ import { listProjects, createProject } from './data/projects.js';
 import { client } from './api/supabase.js';
 
 // -------------------------------
-// Tab routing (lazy-loaded files)
+// Tab routing (lazy-loaded)
 // -------------------------------
 const routes = {
   '#project': () => import('./tabs/project-info.js'),
@@ -19,7 +19,7 @@ const routes = {
   '#plan-odc': () => import('./tabs/plan-odc.js'),
   '#benchmarks': () => import('./tabs/benchmarks.js'),
   '#admin': () => import('./tabs/admin-lookups.js?v=eq-dynamic-1'),
-  '#visuals': () => import('./tabs/visuals.js'),   // ← NEW TAB ADDED
+  '#visuals': () => import('./tabs/visuals.js'),   // ← CHARTS TAB FULLY HOOKED
 };
 
 async function render() {
@@ -29,29 +29,30 @@ async function render() {
 
   try {
     $('#status').textContent = 'Loading tab…';
+
     const mod = await loader();
 
-    view.innerHTML = mod.template || `<div class="text-sm text-slate-500">Loaded.</div>`;
+    view.innerHTML = mod.template || `<div class="text-sm text-slate-500 p-8 text-center">Tab loaded.</div>`;
 
     if (typeof mod.init === 'function') {
       await mod.init(view);
     }
 
-    // Re-wire any global buttons that might have been added (e.g. Recompute EAC)
     wireActionButtons();
-
     $('#status').textContent = '';
   } catch (err) {
     console.error('Tab render error:', err);
-    view.innerHTML = `<div class="p-6 rounded-xl bg-red-50 text-red-700 text-sm">
-      Failed to load tab: ${err?.message || err}
-    </div>`;
-    $('#status').textContent = 'Tab load failed';
+    view.innerHTML = `
+      <div class="p-8 rounded-xl bg-red-50 text-red-700 text-center">
+        <p class="font-medium">Failed to load tab</p>
+        <p class="text-sm mt-2">${err?.message || err}</p>
+      </div>`;
+    $('#status').textContent = 'Tab failed to load';
   }
 }
 
 // -------------------------------
-// EAC recompute wiring (post-render)
+// Global action buttons (e.g. Recompute EAC)
 // -------------------------------
 function wireActionButtons() {
   const btn = document.getElementById('recomputeEac');
@@ -81,19 +82,16 @@ async function recomputeEAC() {
     const { error } = await client.rpc('recompute_eac', { p_project_id: projectId });
     if (error) throw error;
 
-    status.textContent = 'Recompute finished. Refreshing…';
+    status.textContent = 'Done. Refreshing view…';
 
     const refreshBtn = document.getElementById('refreshPL');
-    if (refreshBtn) {
-      refreshBtn.click();
-    } else {
-      await render();
-    }
+    if (refreshBtn) refreshBtn.click();
+    else await render();
 
-    status.textContent = 'Done.';
+    status.textContent = 'EAC updated successfully.';
   } catch (err) {
     console.error('recomputeEAC error', err);
-    status.textContent = `EAC recompute error: ${err.message || err}`;
+    status.textContent = `Error: ${err.message || err}`;
   } finally {
     if (btn) {
       btn.disabled = false;
@@ -166,17 +164,10 @@ async function handleProjectFormSubmit(e) {
   }
 }
 
-// -------------------------------
-// App bootstrap
-// -------------------------------
 function wireProjectControls() {
   $('#projectSelect').addEventListener('change', async (e) => {
     setProjectId(e.target.value || null);
-    if (!getProjectId()) {
-      $('#projMsg').textContent = 'Select a project.';
-      return;
-    }
-    await render();
+    if (getProjectId()) await render();
   });
 
   $('#newProjectBtn').onclick = openProjectModal;
@@ -185,34 +176,27 @@ function wireProjectControls() {
   $('#projForm').addEventListener('submit', handleProjectFormSubmit);
 
   $('#manageProjectsBtn').onclick = () =>
-    alert('Manage screen coming soon. For now, use the Project bar.');
+    alert('Manage projects coming soon!');
 }
 
 function initMonthPicker() {
   const el = $('#monthPicker');
-  if (!el.value) {
-    el.value = new Date().toISOString().slice(0, 7);
-  }
-  el.addEventListener('change', () => render());
+  if (!el.value) el.value = new Date().toISOString().slice(0, 7);
+  el.addEventListener('change', render);
 }
 
 async function init() {
-  try {
-    $('#status').textContent = 'Loading…';
-    initMonthPicker();
+  $('#status').textContent = 'Starting app…';
+  initMonthPicker();
 
-    restoreProjectId();
-    await refreshProjectsUI();
-    wireProjectControls();
+  restoreProjectId();
+  await refreshProjectsUI();
+  wireProjectControls();
 
-    if (!location.hash) location.hash = '#project';
-    await render();
+  if (!location.hash) location.hash = '#project';
+  await render();
 
-    $('#status').textContent = '';
-  } catch (err) {
-    console.error('Init error', err);
-    $('#status').textContent = `Error loading app: ${err?.message || err}`;
-  }
+  $('#status').textContent = '';
 }
 
 // -------------------------------
