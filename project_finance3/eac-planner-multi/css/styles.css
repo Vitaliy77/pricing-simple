@@ -1,107 +1,45 @@
-/* =====================================================
-   P&L TABLE – Sticky Header + Sticky First Column
-   ===================================================== */
-#plWrap {
-  overflow: auto;
-  max-height: 70vh; /* optional: prevents table from growing forever */
-  border: 1px solid #e5e7eb;
-  border-radius: 0.5rem;
-}
-
+/* P&L sticky header + first column */
+#plWrap { overflow: auto; }
 #plTable {
   border-collapse: separate;
   border-spacing: 0;
-  width: 100%;
-  min-width: 900px; /* ensures horizontal scroll on small screens */
-  font-size: 0.875rem; /* text-sm */
 }
-
 #plTable th,
 #plTable td {
-  padding: 0.75rem 1rem;
-  text-align: right;
   white-space: nowrap;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid #e5e7eb; /* subtle row separators */
 }
-
-#plTable th {
-  font-weight: 600;
-  text-align: left;
-  background: #f9fafb;
-}
-
-/* Sticky Header */
 #plTable thead th {
   position: sticky;
   top: 0;
-  z-index: 10;
+  z-index: 2;
   background: #f9fafb;
-  box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 1px 0 rgba(0,0,0,0.06);
 }
-
-/* Sticky First Column (Category names) */
 #plTable .sticky-col {
   position: sticky;
   left: 0;
-  z-index: 9;
+  z-index: 3;
   background: #ffffff;
-  font-weight: 500;
-  min-width: 140px;
-  text-align: left !important;
-  box-shadow: 2px 0 4px -2px rgba(0, 0, 0, 0.1);
+  box-shadow: 1px 0 0 rgba(0,0,0,0.06);
 }
-
-/* Corner cell: header + sticky column */
 #plTable thead th.sticky-col {
-  z-index: 20;
-  background: #f1f5f9;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-size: 0.75rem;
-  color: #475569;
+  z-index: 4;
 }
 
-/* Row styling */
-#plTable tbody tr:hover {
-  background-color: #f1f5f9 !important;
+/* Zebra striping + emphasis rows */
+#plTable tbody tr.pl-row:nth-child(odd) {
+  background: #f9fafb;
 }
-
-#plTable tbody tr:nth-child(even) {
-  background-color: #fdfdfe;
+#plTable tbody tr.pl-row:hover {
+  background: #e5e7eb;
 }
-
-/* Special rows */
-#plTable tbody tr.profit-row {
-  background-color: #ecfdf5 !important;
-  font-weight: 600;
-  color: #166534;
-}
-
-#plTable tbody tr.margin-row {
-  background-color: #eff6ff !important;
-  font-weight: 600;
-  color: #1d4ed8;
-}
-
 #plTable tbody tr.summary-row {
-  border-top: 2px solid #94a3b8;
-  font-weight: 700;
-  background-color: #f8fafc !important;
+  border-top: 1px solid #e5e7eb;
 }
-
-/* Year total column */
-#plTable th:last-child,
-#plTable td:last-child {
-  font-weight: 700;
-  background-color: #f8fafc;
-  position: sticky;
-  right: 0;
-  z-index: 8;
-  box-shadow: -2px 0 4px -2px rgba(0, 0, 0, 0.1);
+#plTable tbody tr.profit-row {
+  background: #ecfdf3;
 }
-
-#plTable thead th:last-child {
-  z-index: 11;
-  background: #e2e8f0;
+#plTable tbody tr.margin-row {
+  background: #eff6ff;
 }
