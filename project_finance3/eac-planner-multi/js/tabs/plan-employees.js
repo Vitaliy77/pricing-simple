@@ -7,19 +7,48 @@ import { getProjectId } from '../lib/state.js';
 import { loadLookups, rolesRate, employees as empLookup } from '../data/lookups.js';
 
 export const template = /*html*/ `
-  <div class="bg-white rounded-xl shadow-sm p-5">
-    <div class="flex items-center justify-between mb-4">
-      <h2 class="text-lg font-semibold">Employees (Hours by Month)</h2>
-      <div class="flex items-center gap-2">
-        <button id="empAddRow" class="px-3 py-1.5 rounded-md border hover:bg-slate-50">+ Add Row</button>
-        <button id="empSave" class="px-3 py-1.5 rounded-md bg-blue-600 text-white hover:bg-blue-700">Save</button>
+  <section class="space-y-4">
+    <!-- Header card – aligned with P&L look -->
+    <div class="bg-white rounded-xl shadow-sm p-4 flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <h2 class="text-lg font-semibold tracking-tight">Employees (Hours by Month)</h2>
+        <p class="text-xs text-slate-500">
+          Plan labor hours by employee and month; costs and revenue are calculated automatically.
+        </p>
+      </div>
+      <div class="flex items-center gap-3 text-xs">
+        <label class="inline-flex items-center gap-1">
+          <span class="text-slate-600">Year</span>
+          <select id="empYearSelect"
+                  class="border border-slate-300 rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+            <option value="2025" selected>2025</option>
+            <option value="2024">2024</option>
+            <option value="2023">2023</option>
+          </select>
+        </label>
+
+        <button id="empAddRow"
+                class="px-3 py-1.5 rounded-md border text-xs font-medium hover:bg-slate-50">
+          + Add Row
+        </button>
+        <button id="empSave"
+                class="px-3 py-1.5 rounded-md bg-blue-600 text-white text-xs font-medium hover:bg-blue-700">
+          Save
+        </button>
       </div>
     </div>
-    <div id="empMsg" class="text-sm text-slate-500 mb-3"></div>
-    <div class="overflow-x-auto">
-      <table id="empTable" class="min-w-full text-sm border-separate border-spacing-y-1"></table>
+
+    <!-- Grid card -->
+    <div class="bg-white rounded-xl shadow-sm p-4">
+      <div id="empMsg" class="text-sm text-slate-500 mb-3"></div>
+      <div id="empWrap" class="plan-table-wrap overflow-auto border rounded-lg">
+        <table id="empTable" class="plan-table text-xs md:text-sm min-w-full"></table>
+      </div>
+      <p class="mt-2 text-xs text-slate-500">
+        Totals are per year for the selected planning year. Hours are stored in <code>plan_labor</code>.
+      </p>
     </div>
-  </div>
+  </section>
 `;
 
 // keep focus/caret when re-rendering
@@ -33,7 +62,9 @@ function withCaretPreserved(run) {
   run();
 
   if (isCell && rowIdx != null && monthKey) {
-    const el = document.querySelector(`tr[data-idx="${rowIdx}"] input.hrInp[data-k="${monthKey}"]`);
+    const el = document.querySelector(
+      `tr[data-idx="${rowIdx}"] input.hrInp[data-k="${monthKey}"]`
+    );
     if (el) {
       el.focus();
       if (s != null && e != null) {
@@ -55,79 +86,120 @@ export async function init(rootEl) {
   const pid = getProjectId();
   const msg = $('#empMsg');
   const table = $('#empTable');
+  const yearSelect = $('#empYearSelect');
 
   if (!pid) {
-    msg.textContent = 'Select or create a project to edit employees.';
-    table.innerHTML = '';
+    if (msg) msg.textContent = 'Select or create a project to edit employees.';
+    if (table) table.innerHTML = '';
     return;
   }
 
-  state.year = Number(($('#monthPicker')?.value || new Date().toISOString().slice(0,7)).slice(0,4));
+  // Year selector aligned with P&L tab style
+  state.year = yearSelect
+    ? Number(yearSelect.value || new Date().getUTCFullYear())
+    : new Date().getUTCFullYear();
   state.months = monthsForYear(state.year);
 
-  msg.textContent = 'Loading…';
+  if (msg) msg.textContent = 'Loading…';
+
   try {
     await loadLookups();
-
-    const proj = await fetchProject(pid);
-    state.projectFormula = proj?.revenue_formula || 'TM';
-    state.projectFeePct = Number(proj?.fee_pct || 0);
-
-    const plan = await fetchPlanLabor(pid, state.year);
-    const empById = mapById(empLookup);
-    const byEmp = {};
-    for (const r of plan) {
-      const k = keyVal(r.ym);
-      if (!k) continue;
-      const emp = empById[r.employee_id] || {};
-      if (!byEmp[r.employee_id]) {
-        byEmp[r.employee_id] = {
-          employee_id: r.employee_id,
-          name: emp.full_name ?? emp.name ?? '',
-          role: emp.role ?? '',
-          monthHours: {}
-        };
-      }
-      byEmp[r.employee_id].monthHours[k] = Number(r.hours || 0);
-    }
-    state.rows = Object.values(byEmp);
-    if (state.rows.length === 0) state.rows.push(blankRow());
-
-    renderGrid();
-    msg.textContent = '';
+    await loadYearData(pid);
+    if (msg) msg.textContent = '';
   } catch (err) {
     console.error('Employees init error', err);
-    table.innerHTML = `<tbody><tr><td class="p-3 text-red-600">Error: ${err?.message || err}</td></tr></tbody>`;
-    msg.textContent = '';
+    if (table) {
+      table.innerHTML = `<tbody><tr><td class="p-3 text-red-600">Error: ${err?.message || err}</td></tr></tbody>`;
+    }
+    if (msg) msg.textContent = '';
   }
 
-  $('#empAddRow').onclick = () => {
+  $('#empAddRow')?.addEventListener('click', () => {
     state.rows.push(blankRow());
     withCaretPreserved(() => renderGrid());
-  };
-  $('#empSave').onclick = saveAll;
+  });
+
+  $('#empSave')?.addEventListener('click', saveAll);
+
+  if (yearSelect) {
+    yearSelect.addEventListener('change', async () => {
+      const pid2 = getProjectId();
+      if (!pid2) return;
+      state.year = Number(yearSelect.value || state.year);
+      state.months = monthsForYear(state.year);
+      if (msg) msg.textContent = 'Loading…';
+      try {
+        await loadYearData(pid2);
+        if (msg) msg.textContent = '';
+      } catch (err) {
+        console.error('Employees year change error', err);
+        if (msg) msg.textContent = `Error: ${err?.message || err}`;
+      }
+    });
+  }
+}
+
+async function loadYearData(projectId) {
+  const proj = await fetchProject(projectId);
+  state.projectFormula = proj?.revenue_formula || 'TM';
+  state.projectFeePct = Number(proj?.fee_pct || 0);
+
+  const plan = await fetchPlanLabor(projectId, state.year);
+  const empById = mapById(empLookup);
+  const byEmp = {};
+  for (const r of plan) {
+    const k = keyVal(r.ym);
+    if (!k) continue;
+    const emp = empById[r.employee_id] || {};
+    if (!byEmp[r.employee_id]) {
+      byEmp[r.employee_id] = {
+        employee_id: r.employee_id,
+        name: emp.full_name ?? emp.name ?? '',
+        role: emp.role ?? '',
+        monthHours: {}
+      };
+    }
+    byEmp[r.employee_id].monthHours[k] = Number(r.hours || 0);
+  }
+  state.rows = Object.values(byEmp);
+  if (state.rows.length === 0) state.rows.push(blankRow());
+
+  renderGrid();
 }
 
 function renderGrid() {
   const table = $('#empTable');
+  if (!table) return;
+
   const months = state.months;
-  const monthKeys = months.map(m => m.ym.slice(0,7));
+  const monthKeys = months.map(m => m.ym.slice(0, 7));
 
   let html = '<thead><tr>';
-  html += '<th class="p-2 text-left sticky left-0 bg-white">Employee</th>';
-  html += '<th class="p-2 text-left sticky left-0 bg-white">Role</th>';
-  months.forEach(m => html += `<th class="p-2 text-right">${m.label}</th>`);
+
+  // Header row – styled like P&L table
+  html += '<th class="p-2 sticky-col text-left text-xs font-semibold text-slate-500 bg-slate-50 border-b">Employee</th>';
+  html += '<th class="p-2 text-left text-xs font-semibold text-slate-500 bg-slate-50 border-b">Role</th>';
+
+  months.forEach(m => {
+    html += `<th class="p-2 text-right text-xs font-semibold text-slate-500 bg-slate-50 border-b">${m.label}</th>`;
+  });
+
   html += `
-    <th class="p-2 text-right">Year Hours</th>
-    <th class="p-2 text-right">Year Cost</th>
-    <th class="p-2 text-right">Year Revenue</th>
-    <th class="p-2 text-right">Profit</th>
-    <th class="p-2"></th>
+    <th class="p-2 text-right text-xs font-semibold text-slate-500 bg-slate-50 border-b">Year Hours</th>
+    <th class="p-2 text-right text-xs font-semibold text-slate-500 bg-slate-50 border-b">Year Cost</th>
+    <th class="p-2 text-right text-xs font-semibold text-slate-500 bg-slate-50 border-b">Year Revenue</th>
+    <th class="p-2 text-right text-xs font-semibold text-slate-500 bg-slate-50 border-b">Profit</th>
+    <th class="p-2 text-xs font-semibold text-slate-500 bg-slate-50 border-b"></th>
   `;
   html += '</tr></thead><tbody>';
 
   const empOptions = empLookup
-    .map(e => `<option value="${e.id}" data-role="${esc(e.role ?? '')}" data-name="${esc(e.full_name ?? e.name ?? '')}">${esc(e.full_name ?? e.name ?? '')}</option>`)
+    .map(e => `
+      <option value="${e.id}"
+              data-role="${esc(e.role ?? '')}"
+              data-name="${esc(e.full_name ?? e.name ?? '')}">
+        ${esc(e.full_name ?? e.name ?? '')}
+      </option>`)
     .join('');
 
   state.rows.forEach((row, idx) => {
@@ -137,23 +209,26 @@ function renderGrid() {
     const revYear   = computeRevenue(costYear, state.projectFormula, state.projectFeePct);
     const profit    = revYear - costYear;
 
-    html += `<tr data-idx="${idx}">`;
+    html += `<tr data-idx="${idx}" class="pl-row">`;
 
-    html += `<td class="p-2 sticky left-0 bg-white">
-      <select class="empSel border rounded-md p-1 min-w-56">
+    html += `<td class="p-2 sticky-col bg-white">
+      <select class="empSel border rounded-md px-2 py-1 min-w-56 text-xs">
         <option value="">— Select —</option>
         ${empOptions}
       </select>
     </td>`;
 
-    html += `<td class="p-2 sticky left-0 bg-white">
-      <input class="roleInp border rounded-md p-1 w-40 bg-slate-50" value="${esc(row.role || '')}" disabled>
+    html += `<td class="p-2">
+      <input class="roleInp border rounded-md px-2 py-1 w-40 bg-slate-50 text-xs" value="${esc(row.role || '')}" disabled>
     </td>`;
 
     monthKeys.forEach(k => {
       const v = row.monthHours[k] ?? '';
       html += `<td class="p-1 text-right">
-        <input data-k="${k}" class="hrInp border rounded-md p-1 w-20 text-right" type="number" min="0" step="0.1" value="${v !== '' ? String(v) : ''}">
+        <input data-k="${k}"
+               class="hrInp border rounded-md px-2 py-1 w-20 text-right text-xs"
+               type="number" min="0" step="0.1"
+               value="${v !== '' ? String(v) : ''}">
       </td>`;
     });
 
@@ -162,16 +237,16 @@ function renderGrid() {
     html += `<td class="p-2 text-right">${fmtUSD0(revYear)}</td>`;
     html += `<td class="p-2 text-right">${fmtUSD0(profit)}</td>`;
     html += `<td class="p-2 text-right">
-      <button class="rowDel px-2 py-1 rounded-md border hover:bg-slate-50">✕</button>
+      <button class="rowDel px-2 py-1 rounded-md border text-xs hover:bg-slate-50">✕</button>
     </td>`;
 
     html += '</tr>';
   });
 
   const totals = calcTotals(state.rows, monthKeys);
-  html += `<tr class="font-semibold">
-    <td class="p-2 sticky left-0 bg-white">Totals</td>
-    <td class="p-2 sticky left-0 bg-white"></td>
+  html += `<tr class="font-semibold summary-row">
+    <td class="p-2 sticky-col bg-white">Totals</td>
+    <td class="p-2"></td>
     ${monthKeys.map(k => `<td class="p-2 text-right">${fmtNum(totals.hoursByMonth[k])}</td>`).join('')}
     <td class="p-2 text-right">${fmtNum(totals.hoursYear)}</td>
     <td class="p-2 text-right">${fmtUSD0(totals.costYear)}</td>
@@ -183,12 +258,14 @@ function renderGrid() {
   html += '</tbody>';
   table.innerHTML = html;
 
+  // Restore selected employees
   table.querySelectorAll('tr[data-idx]').forEach(tr => {
     const i = Number(tr.dataset.idx);
     const sel = tr.querySelector('.empSel');
     if (sel) sel.value = state.rows[i].employee_id || '';
   });
 
+  // Wire events
   table.querySelectorAll('.empSel').forEach(sel => {
     sel.addEventListener('change', (e) => {
       const tr = e.target.closest('tr');
@@ -237,7 +314,7 @@ function monthsForYear(year) {
     const d = new Date(Date.UTC(year, i, 1));
     return {
       label: d.toLocaleString('en-US', { month: 'short', timeZone: 'UTC' }),
-      ym: d.toISOString().slice(0,10)
+      ym: d.toISOString().slice(0, 10)
     };
   });
 }
@@ -249,8 +326,13 @@ function mapById(list) {
 }
 
 function keyVal(ym) {
-  try { return (typeof ym === 'string') ? ym.slice(0,7) : new Date(ym).toISOString().slice(0,7); }
-  catch { return null; }
+  try {
+    return (typeof ym === 'string')
+      ? ym.slice(0, 7)
+      : new Date(ym).toISOString().slice(0, 7);
+  } catch {
+    return null;
+  }
 }
 
 function resolveLoadedRate(role) {
@@ -261,21 +343,23 @@ function resolveLoadedRate(role) {
 function computeRevenue(cost, formula, feePct) {
   if (!Number.isFinite(cost)) return 0;
   switch (formula) {
-    case 'COST_PLUS': return cost * (1 + (Number(feePct || 0) / 100));
-    case 'TM':        return cost;
-    case 'FP':        return cost;
-    default:          return cost;
+    case 'COST_PLUS':
+      return cost * (1 + (Number(feePct || 0) / 100));
+    case 'TM':
+    case 'FP':
+    default:
+      return cost;
   }
 }
 
 function calcTotals(rows, monthKeys) {
   const hoursByMonth = {};
-  monthKeys.forEach(k => hoursByMonth[k] = 0);
+  monthKeys.forEach(k => (hoursByMonth[k] = 0));
   let hoursYear = 0, costYear = 0, revYear = 0;
 
   for (const row of rows) {
     const rate = resolveLoadedRate(row.role);
-    const hYear = monthKeys.reduce((s,k)=> s + Number(row.monthHours[k] || 0), 0);
+    const hYear = monthKeys.reduce((s, k) => s + Number(row.monthHours[k] || 0), 0);
     const cost  = hYear * rate;
     const rev   = computeRevenue(cost, state.projectFormula, state.projectFeePct);
 
@@ -284,6 +368,7 @@ function calcTotals(rows, monthKeys) {
     costYear  += cost;
     revYear   += rev;
   }
+
   return { hoursByMonth, hoursYear, costYear, revYear };
 }
 
@@ -291,12 +376,21 @@ function fmtNum(v) {
   const n = Number(v || 0);
   return n.toLocaleString('en-US', { maximumFractionDigits: 1 });
 }
+
 function fmtUSD0(v) {
   const n = Number(v || 0);
-  return n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+  return n.toLocaleString('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 0
+  });
 }
+
 function esc(s) {
-  return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  return String(s ?? '').replace(
+    /[&<>"']/g,
+    c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c])
+  );
 }
 
 // ------------- persistence -------------
@@ -316,16 +410,16 @@ async function fetchPlanLabor(projectId, year) {
     .select('employee_id, ym, hours')
     .eq('project_id', projectId);
   if (error) throw error;
-  return (data || []).filter(r => keyVal(r.ym)?.slice(0,4) === String(year));
+  return (data || []).filter(r => keyVal(r.ym)?.slice(0, 4) === String(year));
 }
 
 async function saveAll() {
   const msg = $('#empMsg');
   const pid = getProjectId();
-  if (!pid) { msg.textContent = 'Select a project first.'; return; }
-  msg.textContent = 'Saving…';
+  if (!pid) { if (msg) msg.textContent = 'Select a project first.'; return; }
+  if (msg) msg.textContent = 'Saving…';
 
-  const months = state.months.map(m => m.ym.slice(0,7));
+  const months = state.months.map(m => m.ym.slice(0, 7));
   const inserts = [];
   for (const row of state.rows) {
     if (!row.employee_id) continue;
@@ -358,10 +452,10 @@ async function saveAll() {
       if (insErr) throw insErr;
     }
 
-    msg.textContent = 'Saved.';
-    setTimeout(() => (msg.textContent = ''), 1200);
+    if (msg) msg.textContent = 'Saved.';
+    setTimeout(() => { if (msg) msg.textContent = ''; }, 1200);
   } catch (err) {
     console.error('Employees save error', err);
-    msg.textContent = `Save failed: ${err?.message || err}`;
+    if (msg) msg.textContent = `Save failed: ${err?.message || err}`;
   }
 }
