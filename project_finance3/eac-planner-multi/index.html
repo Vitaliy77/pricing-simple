@@ -4,17 +4,14 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>EAC Planner</title>
-
   <!-- Tailwind CDN -->
   <script src="https://cdn.tailwindcss.com" defer></script>
-
   <!-- App styles -->
   <link rel="stylesheet" href="./css/styles.css">
 </head>
-
 <body class="bg-gray-50 text-slate-900 antialiased">
 
-  <!-- A. HEADER – Full width -->
+  <!-- HEADER – Full width -->
   <header class="bg-white border-b shadow-sm">
     <div class="w-full px-6 py-4 flex items-center justify-between">
       <div>
@@ -23,7 +20,6 @@
           Plan, save, and review P&L per project
         </p>
       </div>
-
       <div class="hidden sm:flex items-center gap-3 text-xs text-slate-400">
         <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-200">
           <span class="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
@@ -33,53 +29,35 @@
     </div>
   </header>
 
-  <!-- B. PROJECT BAR – Full width -->
+  <!-- PROJECT BAR – Full width -->
   <section class="bg-white border-b">
     <div class="w-full px-6 py-3 flex flex-wrap items-center gap-4">
       <div class="flex items-center gap-2">
-        <label for="projectSelect" class="text-xs font-medium text-gray-600 uppercase tracking-wider">
-          Project
-        </label>
-        <select
-          id="projectSelect"
-          class="border border-slate-300 rounded-md px-3 py-2 min-w-64 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
-        >
+        <label for="projectSelect" class="text-xs font-medium text-gray-600 uppercase tracking-wider">Project</label>
+        <select id="projectSelect" class="border border-slate-300 rounded-md px-3 py-2 min-w-64 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
           <option value="">Loading projects…</option>
         </select>
       </div>
-
       <div class="flex items-center gap-2">
-        <button id="newProjectBtn" class="px-4 py-2 rounded-md border border-slate-300 text-sm font-medium hover:bg-slate-50 transition">
-          + New Project
-        </button>
-        <button id="manageProjectsBtn" class="px-4 py-2 rounded-md border border-slate-300 text-sm font-medium hover:bg-slate-50 transition">
-          Manage
-        </button>
+        <button id="newProjectBtn" class="px-4 py-2 rounded-md border border-slate-300 text-sm font-medium hover:bg-slate-50 transition">+ New Project</button>
+        <button id="manageProjectsBtn" class="px-4 py-2 rounded-md border border-slate-300 text-sm font-medium hover:bg-slate-50 transition">Manage</button>
       </div>
-
       <span id="projMsg" class="text-xs text-slate-500"></span>
-
       <div class="ml-auto flex items-center gap-2">
-        <label for="monthPicker" class="text-xs font-medium text-gray-600 uppercase tracking-wider">
-          Month
-        </label>
-        <input
-          id="monthPicker"
-          type="month"
-          class="border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
-        />
+        <label for="monthPicker" class="text-xs font-medium text-gray-600 uppercase tracking-wider">Month</label>
+        <input id="monthPicker" type="month" class="border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"/>
       </div>
     </div>
   </section>
 
-  <!-- C. TABS NAV – Full width + sticky -->
+  <!-- TABS NAV – Full width + sticky -->
   <nav class="bg-white border-b sticky top-0 z-40 shadow-sm">
     <div class="w-full px-6">
       <ul id="tabs" class="flex flex-wrap gap-1 text-sm font-medium overflow-x-auto">
         <li><a href="#project" class="tab-link inline-flex items-center px-4 py-3 rounded-t-md border-b-2 border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition">Project Information</a></li>
         <li><a href="#pnl" class="tab-link inline-flex items-center px-4 py-3 rounded-t-md border-b-2 border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition">P&L</a></li>
         <li><a href="#benchmarks" class="tab-link inline-flex items-center px-4 py-3 rounded-t-md border-b-2 border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition">Benchmarks</a></li>
-        <li><a href="#visuals"         class="py-3 block font-semibold text-blue-600">Charts</a></li>
+        <li><a href="#visuals" class="tab-link inline-flex items-center px-4 py-3 rounded-t-md border-b-2 border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition">Charts</a></li>
         <li><a href="#plan-employees" class="tab-link inline-flex items-center px-4 py-3 rounded-t-md border-b-2 border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition">Employees</a></li>
         <li><a href="#plan-subs" class="tab-link inline-flex items-center px-4 py-3 rounded-t-md border-b-2 border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition">Subcontractors</a></li>
         <li><a href="#plan-equipment" class="tab-link inline-flex items-center px-4 py-3 rounded-t-md border-b-2 border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition">Equipment</a></li>
@@ -106,7 +84,7 @@
     document.addEventListener('DOMContentLoaded', highlightActiveTab);
   </script>
 
-  <!-- D. P&L action bar – Full width -->
+  <!-- P&L action bar – Full width -->
   <section id="pnlActions" class="bg-white border-b hidden">
     <div class="w-full px-6 py-3 flex items-center justify-between">
       <h3 class="text-sm font-semibold text-slate-700">P&L Actions</h3>
@@ -114,7 +92,7 @@
     </div>
   </section>
 
-  <!-- E. MAIN CONTENT – Full width -->
+  <!-- MAIN CONTENT – Full width -->
   <main class="w-full px-6 py-8">
     <section id="status" class="text-sm text-slate-500 mb-4"></section>
     <section id="view"></section>
@@ -137,14 +115,8 @@
           <input id="projClient" name="client" type="text" class="mt-1 border border-slate-300 rounded-md p-2.5 w-full" placeholder="e.g., City of Springfield"/>
         </label>
         <div class="grid grid-cols-2 gap-4">
-          <label class="block">
-            <span class="text-sm text-gray-600 font-medium">Start date</span>
-            <input id="projStart" name="start" type="date" class="mt-1 border border-slate-300 rounded-md p-2.5 w-full"/>
-          </label>
-          <label class="block">
-            <span class="text-sm text-gray-600 font-medium">End date</span>
-            <input id="projEnd" name="end" type="date" class="mt-1 border border-slate-300 rounded-md p-2.5 w-full"/>
-          </label>
+          <label class="block"><span class="text-sm text-gray-600 font-medium">Start date</span><input id="projStart" name="start" type="date" class="mt-1 border border-slate-300 rounded-md p-2.5 w-full"/></label>
+          <label class="block"><span class="text-sm text-gray-600 font-medium">End date</span><input id="projEnd" name="end" type="date" class="mt-1 border border-slate-300 rounded-md p-2.5 w-full"/></label>
         </div>
         <label class="inline-flex items-center gap-2">
           <input id="projOpenRev" type="checkbox" class="h-4 w-4 text-blue-600 rounded">
@@ -159,9 +131,16 @@
     </div>
   </div>
 
-  <!-- Charts -->
+  <!-- Charts + DataLabels Plugin -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+  <script>
+    // Properly register the DataLabels plugin
+    if (window.Chart) {
+      window.Chart.register(window.ChartDataLabels);
+    }
+  </script>
+
   <!-- App entrypoint -->
   <script type="module" src="js/main.js?v=admin-eq-auto2"></script>
 
