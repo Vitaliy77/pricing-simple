@@ -37,25 +37,27 @@ export const template = /*html*/ `
     </div>
 
     <div class="bg-white rounded-xl shadow-sm p-4 space-y-6">
-      <div>
-        <h3 class="text-sm font-semibold mb-2">P&amp;L Trend (selected year)</h3>
-        <div class="h-60">
-          <canvas id="vizTrendChart"></canvas>
-        </div>
-      </div>
-
+      <!-- PIES FIRST (bigger) -->
       <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
           <h3 class="text-sm font-semibold mb-2">Funding vs Planned Revenue (total project)</h3>
-          <div class="h-60">
+          <div class="h-96">
             <canvas id="vizFundingPie"></canvas>
           </div>
         </div>
         <div>
           <h3 class="text-sm font-semibold mb-2">Cost Breakdown (total project)</h3>
-          <div class="h-60">
+          <div class="h-96">
             <canvas id="vizCostPie"></canvas>
           </div>
+        </div>
+      </div>
+
+      <!-- P&L TREND BELOW (bigger) -->
+      <div>
+        <h3 class="text-sm font-semibold mb-2">P&amp;L Trend (selected year)</h3>
+        <div class="h-96">
+          <canvas id="vizTrendChart"></canvas>
         </div>
       </div>
 
@@ -147,11 +149,21 @@ async function refreshVisuals() {
 
     const profitSeries = months.map((d, i) => revenueSeries[i] - costSeries[i]);
 
+    // ----- Trend chart with y-axis aligned to outside max -----
     const trendCtx = document.getElementById('vizTrendChart');
     if (trendCtx && window.Chart) {
       if (plTrendChart) {
         plTrendChart.destroy();
       }
+
+      // compute a nice max based on data (outside max)
+      const rawMax = Math.max(
+        ...(revenueSeries.length ? revenueSeries : [0]),
+        ...(costSeries.length ? costSeries : [0])
+      );
+      const paddedMax = rawMax > 0
+        ? Math.ceil(rawMax * 1.1 / 1000) * 1000   // 10% headroom, rounded to nearest 1000
+        : 0;
 
       plTrendChart = new Chart(trendCtx, {
         type: 'line',
@@ -200,9 +212,11 @@ async function refreshVisuals() {
           },
           scales: {
             y: {
+              beginAtZero: true,
+              max: paddedMax || undefined,
               ticks: {
                 callback(value) {
-                  return value.toLocaleString('en-US', {
+                  return Number(value).toLocaleString('en-US', {
                     maximumFractionDigits: 0
                   });
                 }
@@ -239,7 +253,7 @@ async function refreshVisuals() {
     const funded = Number(proj?.funded_value || 0);
     const totalRevenue = (allRev || []).reduce((sum, r) => sum + Number(r.revenue || 0), 0);
 
-    // Funding vs Planned Revenue pie
+    // Funding vs Planned Revenue doughnut (pie with hole)
     const fundingCtx = document.getElementById('vizFundingPie');
     if (fundingCtx && window.Chart) {
       const values = [funded, totalRevenue];
@@ -250,7 +264,7 @@ async function refreshVisuals() {
       }
 
       fundingPieChart = new Chart(fundingCtx, {
-        type: 'pie',
+        type: 'doughnut',
         data: {
           labels: labelsPie,
           datasets: [
@@ -262,6 +276,7 @@ async function refreshVisuals() {
         options: {
           responsive: true,
           maintainAspectRatio: false,
+          cutout: '60%', // hole in the middle
           plugins: {
             legend: {
               position: 'bottom'
