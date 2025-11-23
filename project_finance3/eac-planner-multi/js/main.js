@@ -19,7 +19,7 @@ const routes = {
   '#plan-odc': () => import('./tabs/plan-odc.js'),
   '#benchmarks': () => import('./tabs/benchmarks.js'),
   '#admin': () => import('./tabs/admin-lookups.js?v=eq-dynamic-1'),
-  '#visuals': () => import('./tabs/visuals.js'),   // ← CHARTS TAB FULLY HOOKED
+  '#visuals': () => import('./tabs/visuals.js'),   // Charts tab
 };
 
 async function render() {
@@ -29,7 +29,6 @@ async function render() {
 
   try {
     $('#status').textContent = 'Loading tab…';
-
     const mod = await loader();
 
     view.innerHTML = mod.template || `<div class="text-sm text-slate-500 p-8 text-center">Tab loaded.</div>`;
@@ -51,9 +50,7 @@ async function render() {
   }
 }
 
-// -------------------------------
 // Global action buttons (e.g. Recompute EAC)
-// -------------------------------
 function wireActionButtons() {
   const btn = document.getElementById('recomputeEac');
   if (btn && !btn.dataset.wired) {
@@ -100,9 +97,7 @@ async function recomputeEAC() {
   }
 }
 
-// -------------------------------
 // Project selector + modal
-// -------------------------------
 async function refreshProjectsUI(selectAfterId = null) {
   $('#projMsg').textContent = 'Loading projects…';
   const projects = await listProjects();
@@ -179,15 +174,25 @@ function wireProjectControls() {
     alert('Manage projects coming soon!');
 }
 
+// SAFE: Only runs if #monthPicker exists in DOM
 function initMonthPicker() {
-  const el = $('#monthPicker');
-  if (!el.value) el.value = new Date().toISOString().slice(0, 7);
-  el.addEventListener('change', render);
+  const input = document.getElementById('monthPicker');
+
+  // If the element doesn't exist (e.g. on #visuals tab), just exit silently
+  if (!input) return;
+
+  // Set default to current month if empty
+  if (!input.value) {
+    input.value = new Date().toISOString().slice(0, 7); // YYYY-MM
+  }
+
+  // Re-render on change (so tabs that use the selected month)
+  input.addEventListener('change', render);
 }
 
 async function init() {
   $('#status').textContent = 'Starting app…';
-  initMonthPicker();
+  initMonthPicker(); // now safe even if element missing
 
   restoreProjectId();
   await refreshProjectsUI();
@@ -199,9 +204,7 @@ async function init() {
   $('#status').textContent = '';
 }
 
-// -------------------------------
 // Active tab highlighting
-// -------------------------------
 function syncActiveTab() {
   const hash = location.hash || '#project';
   document.querySelectorAll('.tab-link').forEach(a => {
@@ -217,8 +220,6 @@ function syncActiveTab() {
 window.addEventListener('hashchange', syncActiveTab);
 document.addEventListener('DOMContentLoaded', syncActiveTab);
 
-// Render on hash change
 window.addEventListener('hashchange', render);
 
-// Start the app
 init();
