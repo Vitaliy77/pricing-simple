@@ -230,10 +230,10 @@ function renderGrid() {
 
     html += `<tr data-idx="${idx}" class="pl-row">`;
 
-    // Sticky Employee + Role cell
+    // Sticky Employee + Role cell on the same line
     html += `
-      <td class="p-2 sticky-col bg-white align-top">
-        <div class="flex flex-col gap-1">
+      <td class="p-2 sticky-col bg-white align-middle">
+        <div class="flex flex-row items-center gap-2">
           <select class="empSel border rounded-md px-2 py-1 min-w-56 text-xs">
             <option value="">— Select —</option>
             ${empOptions}
@@ -246,6 +246,7 @@ function renderGrid() {
         </div>
       </td>
     `;
+
 
     // Month inputs
     monthKeys.forEach((k) => {
