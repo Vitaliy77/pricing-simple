@@ -8,15 +8,15 @@
   <!-- Tailwind CDN -->
   <script src="https://cdn.tailwindcss.com" defer></script>
 
-  <!-- App styles (your global overrides) -->
+  <!-- App styles -->
   <link rel="stylesheet" href="./css/styles.css">
 </head>
 
 <body class="bg-gray-50 text-slate-900 antialiased">
 
-  <!-- A. NICER TOP HEADER -->
+  <!-- A. HEADER – Full width -->
   <header class="bg-white border-b shadow-sm">
-    <div class="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+    <div class="w-full px-6 py-4 flex items-center justify-between">
       <div>
         <h1 class="text-2xl font-semibold tracking-tight text-slate-900">EAC Planner</h1>
         <p class="text-sm text-slate-500 mt-0.5">
@@ -33,9 +33,9 @@
     </div>
   </header>
 
-  <!-- B. PROJECT BAR – Clean, aligned, professional -->
+  <!-- B. PROJECT BAR – Full width -->
   <section class="bg-white border-b">
-    <div class="max-w-6xl mx-auto px-6 py-3 flex flex-wrap items-center gap-4">
+    <div class="w-full px-6 py-3 flex flex-wrap items-center gap-4">
       <div class="flex items-center gap-2">
         <label for="projectSelect" class="text-xs font-medium text-gray-600 uppercase tracking-wider">
           Project
@@ -49,23 +49,16 @@
       </div>
 
       <div class="flex items-center gap-2">
-        <button
-          id="newProjectBtn"
-          class="px-4 py-2 rounded-md border border-slate-300 text-sm font-medium hover:bg-slate-50 transition"
-        >
+        <button id="newProjectBtn" class="px-4 py-2 rounded-md border border-slate-300 text-sm font-medium hover:bg-slate-50 transition">
           + New Project
         </button>
-        <button
-          id="manageProjectsBtn"
-          class="px-4 py-2 rounded-md border border-slate-300 text-sm font-medium hover:bg-slate-50 transition"
-        >
+        <button id="manageProjectsBtn" class="px-4 py-2 rounded-md border border-slate-300 text-sm font-medium hover:bg-slate-50 transition">
           Manage
         </button>
       </div>
 
       <span id="projMsg" class="text-xs text-slate-500"></span>
 
-      <!-- Month picker on the right -->
       <div class="ml-auto flex items-center gap-2">
         <label for="monthPicker" class="text-xs font-medium text-gray-600 uppercase tracking-wider">
           Month
@@ -79,62 +72,25 @@
     </div>
   </section>
 
-  <!-- C. TABS NAV – Modern app-like look with active state -->
+  <!-- C. TABS NAV – Full width + sticky -->
   <nav class="bg-white border-b sticky top-0 z-40 shadow-sm">
-    <div class="max-w-6xl mx-auto px-6">
-      <ul id="tabs" class="flex flex-wrap gap-1 text-sm font-medium">
-        <li>
-          <a href="#project" class="tab-link inline-flex items-center px-4 py-3 rounded-t-md border-b-2 border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition">
-            Project Information
-          </a>
-        </li>
-        <li>
-          <a href="#pnl" class="tab-link inline-flex items-center px-4 py-3 rounded-t-md border-b-2 border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition">
-            P&L
-          </a>
-        </li>
-        <li>
-          <a href="#benchmarks" class="tab-link inline-flex items-center px-4 py-3 rounded-t-md border-b-2 border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition">
-            Benchmarks
-          </a>
-        </li>
-        <li>
-          <a href="#plan-employees" class="tab-link inline-flex items-center px-4 py-3 rounded-t-md border-b-2 border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition">
-            Employees
-          </a>
-        </li>
-        <li>
-          <a href="#plan-subs" class="tab-link inline-flex items-center px-4 py-3 rounded-t-md border-b-2 border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition">
-            Subcontractors
-          </a>
-        </li>
-        <li>
-          <a href="#plan-equipment" class="tab-link inline-flex items-center px-4 py-3 rounded-t-md border-b-2 border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition">
-            Equipment
-          </a>
-        </li>
-        <li>
-          <a href="#plan-materials" class="tab-link inline-flex items-center px-4 py-3 rounded-t-md border-b-2 border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition">
-            Materials
-          </a>
-        </li>
-        <li>
-          <a href="#plan-odc" class="tab-link inline-flex items-center px-4 py-3 rounded-t-md border-b-2 border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition">
-            Other Direct Cost
-          </a>
-        </li>
-        <li>
-          <a href="#admin" class="tab-link inline-flex items-center px-4 py-3 rounded-t-md border-b-2 border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition">
-            Admin
-          </a>
-        </li>
+    <div class="w-full px-6">
+      <ul id="tabs" class="flex flex-wrap gap-1 text-sm font-medium overflow-x-auto">
+        <li><a href="#project" class="tab-link inline-flex items-center px-4 py-3 rounded-t-md border-b-2 border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition">Project Information</a></li>
+        <li><a href="#pnl" class="tab-link inline-flex items-center px-4 py-3 rounded-t-md border-b-2 border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition">P&L</a></li>
+        <li><a href="#benchmarks" class="tab-link inline-flex items-center px-4 py-3 rounded-t-md border-b-2 border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition">Benchmarks</a></li>
+        <li><a href="#plan-employees" class="tab-link inline-flex items-center px-4 py-3 rounded-t-md border-b-2 border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition">Employees</a></li>
+        <li><a href="#plan-subs" class="tab-link inline-flex items-center px-4 py-3 rounded-t-md border-b-2 border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition">Subcontractors</a></li>
+        <li><a href="#plan-equipment" class="tab-link inline-flex items-center px-4 py-3 rounded-t-md border-b-2 border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition">Equipment</a></li>
+        <li><a href="#plan-materials" class="tab-link inline-flex items-center px-4 py-3 rounded-t-md border-b-2 border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition">Materials</a></li>
+        <li><a href="#plan-odc" class="tab-link inline-flex items-center px-4 py-3 rounded-t-md border-b-2 border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition">Other Direct Cost</a></li>
+        <li><a href="#admin" class="tab-link inline-flex items-center px-4 py-3 rounded-t-md border-b-2 border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition">Admin</a></li>
       </ul>
     </div>
   </nav>
 
-  <!-- Active tab indicator (auto-added by JS below) -->
+  <!-- Active tab indicator -->
   <script>
-    // Auto-highlight active tab
     function highlightActiveTab() {
       const hash = location.hash || '#project';
       document.querySelectorAll('.tab-link').forEach(link => {
@@ -149,21 +105,21 @@
     document.addEventListener('DOMContentLoaded', highlightActiveTab);
   </script>
 
-  <!-- P&L action bar (still works the same) -->
+  <!-- D. P&L action bar – Full width -->
   <section id="pnlActions" class="bg-white border-b hidden">
-    <div class="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between">
+    <div class="w-full px-6 py-3 flex items-center justify-between">
       <h3 class="text-sm font-semibold text-slate-700">P&L Actions</h3>
       <div class="flex items-center gap-2"></div>
     </div>
   </section>
 
-  <!-- Main content -->
-  <main class="max-w-6xl mx-auto px-6 py-8">
+  <!-- E. MAIN CONTENT – Full width -->
+  <main class="w-full px-6 py-8">
     <section id="status" class="text-sm text-slate-500 mb-4"></section>
     <section id="view"></section>
   </main>
 
-  <!-- New Project Modal (unchanged – already perfect) -->
+  <!-- New Project Modal -->
   <div id="projModal" class="fixed inset-0 hidden items-center justify-center bg-black/40 z-50">
     <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg p-6">
       <div class="flex items-center justify-between mb-4">
@@ -208,7 +164,7 @@
   <!-- App entrypoint -->
   <script type="module" src="js/main.js?v=admin-eq-auto2"></script>
 
-  <!-- Keep P&L actions visible when on #pnl tab -->
+  <!-- Show P&L actions only on #pnl tab -->
   <script>
     function togglePnlActions() {
       const pnl = document.getElementById('pnlActions');
