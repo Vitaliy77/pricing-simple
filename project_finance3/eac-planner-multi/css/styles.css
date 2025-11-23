@@ -6,12 +6,13 @@
 .plan-table-wrap,
 #plWrap {
   overflow: auto;
-  max-height: 75vh; /* optional: prevent full-page takeover */
+  max-height: 75vh;
   border: 1px solid #e5e7eb;
   border-radius: 0.5rem;
+  background: white;
 }
 
-/* Base table */
+/* Base table – shared */
 .plan-table,
 #plTable {
   border-collapse: separate;
@@ -21,18 +22,18 @@
   font-size: 0.875rem; /* text-sm */
 }
 
-/* Tight, clean cell padding (~3px vertical) */
+/* Ultra-tight, professional padding (~1mm vertical) */
 .plan-table th,
 .plan-table td,
 #plTable th,
 #plTable td {
   white-space: nowrap;
-  padding: 6px 10px; /* tighter than default */
+  padding: 3px 8px;           /* exactly as requested: 3px top/bottom, 8px left/right */
   border-bottom: 1px solid #e5e7eb;
   text-align: right;
 }
 
-/* Left-align category/name columns */
+/* Left-align first column (labels) */
 .plan-table th:first-child,
 .plan-table td:first-child,
 #plTable th:first-child,
@@ -48,12 +49,12 @@
   top: 0;
   z-index: 10;
   background: #f9fafb;
-  box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 1px 0 rgba(0,0,0,0.06);
   font-weight: 600;
 }
 
-/* Sticky first column (Category / Name) */
-.plan-table .sticky:col-1,
+/* Sticky first column – used by both P&L and planning tabs */
+.plan-table .sticky-col,
 #plTable .sticky-col {
   position: sticky;
   left: 0;
@@ -61,46 +62,47 @@
   background: #ffffff;
   min-width: 140px;
   font-weight: 500;
-  box-shadow: 2px 0 4px -2px rgba(0, 0, 0, 0.1);
+  box-shadow: 1px 0 0 rgba(0,0,0,0.06);
 }
 
-/* Sticky second column (e.g. Unit, Rate, etc. in planning tabs) */
+/* Sticky second column – only used in planning tabs (Rate, Unit, etc.) */
 .plan-table .sticky-col-2 {
   position: sticky;
-  left: 14rem; /* adjust if your first column width changes */
+  left: 14rem; /* adjust if your first column is wider/narrower */
   z-index: 9;
   background: #ffffff;
   min-width: 100px;
-  box-shadow: 2px 0 4px -2px rgba(0, 0, 0, 0.1);
+  box-shadow: 1px 0 0 rgba(0,0,0,0.06);
 }
 
-/* Corner cells – header + sticky */
-.plan-table thead th.sticky-col-1,
+/* Corner cells – header + sticky column(s) */
+.plan-table thead th.sticky-col,
 .plan-table thead th.sticky-col-2,
 #plTable thead th.sticky-col {
   z-index: 20;
   background: #f1f5f9;
 }
 
-/* Row hover & zebra */
+/* Row hover & zebra striping */
 .plan-table tbody tr:hover,
 #plTable tbody tr:hover {
-  background-color: #f1f5f9 !important;
+  background-color: #e5e7eb !important;
 }
 
-.plan-table tbody tr:nth-child(even),
-#plTable tbody tr:nth-child(even) {
-  background-color: #fdfdfe;
+.plan-table tbody tr.pl-row:nth-child(odd),
+#plTable tbody tr.pl-row:nth-child(odd) {
+  background: #f9fafb;
 }
 
-/* Alternate month column striping (subtle) */
-.plan-table .month-col:nth-child(odd),
-#plTable thead th:nth-child(n+3):nth-child(odd),
-#plTable tbody td:nth-child(n+3):nth-child(odd) {
-  background-color: #f8fafc;
+/* Summary / total row emphasis */
+.plan-table tbody tr.summary-row,
+#plTable tbody tr.summary-row {
+  border-top: 2px solid #94a3b8;
+  background: #f3f4f6 !important;
+  font-weight: 700;
 }
 
-/* Emphasis rows */
+/* Profit & Margin rows (P&L only) */
 #plTable tbody tr.profit-row,
 .plan-table tbody tr.profit-row {
   background-color: #ecfdf5 !important;
@@ -115,14 +117,14 @@
   color: #1d4ed8;
 }
 
-#plTable tbody tr.summary-row,
-.plan-table tbody tr.summary-row {
-  border-top: 2px solid #94a3b8;
-  background-color: #f1f5f9 !important;
-  font-weight: 700;
+/* Subtle alternating month column background */
+.plan-table .month-col:nth-child(odd),
+#plTable thead th:nth-child(n+3):nth-child(odd),
+#plTable tbody td:nth-child(n+3):nth-child(odd) {
+  background-color: #f8fafc;
 }
 
-/* Year total column – sticky right */
+/* Sticky right column – Year Total (P&L + planning) */
 #plTable th:last-child,
 #plTable td:last-child,
 .plan-table th:last-child,
@@ -136,7 +138,7 @@
 }
 
 #plTable thead th:last-child,
-.plan-table thead  th:last-child {
+.plan-table thead th:last-child {
   z-index: 11;
   background: #e2e8f0;
 }
