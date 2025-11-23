@@ -4,7 +4,7 @@
 import { $ } from './lib/dom.js';
 import { setProjectId, getProjectId, restoreProjectId } from './lib/state.js';
 import { listProjects, createProject } from './data/projects.js';
-import { client } from './api/supabase.js'; // <-- needed for RPC
+import { client } from './api/supabase.js';
 
 // -------------------------------
 // Tab routing (lazy-loaded files)
@@ -19,25 +19,34 @@ const routes = {
   '#plan-odc': () => import('./tabs/plan-odc.js'),
   '#benchmarks': () => import('./tabs/benchmarks.js'),
   '#admin': () => import('./tabs/admin-lookups.js?v=eq-dynamic-1'),
+  '#visuals': () => import('./tabs/visuals.js'),   // ← NEW TAB ADDED
 };
 
 async function render() {
   const hash = location.hash || '#project';
   const loader = routes[hash] || routes['#project'];
   const view = $('#view');
+
   try {
+    $('#status').textContent = 'Loading tab…';
     const mod = await loader();
+
     view.innerHTML = mod.template || `<div class="text-sm text-slate-500">Loaded.</div>`;
+
     if (typeof mod.init === 'function') {
       await mod.init(view);
     }
-    // Wire buttons that may have appeared in this tab (like #recomputeEac)
+
+    // Re-wire any global buttons that might have been added (e.g. Recompute EAC)
     wireActionButtons();
+
+    $('#status').textContent = '';
   } catch (err) {
     console.error('Tab render error:', err);
-    view.innerHTML = `<div class="p-4 rounded-md bg-red-50 text-red-700 text-sm">
-      Failed to load tab. ${err?.message || err}
+    view.innerHTML = `<div class="p-6 rounded-xl bg-red-50 text-red-700 text-sm">
+      Failed to load tab: ${err?.message || err}
     </div>`;
+    $('#status').textContent = 'Tab load failed';
   }
 }
 
@@ -63,17 +72,17 @@ async function recomputeEAC() {
   }
 
   try {
-    if (btn) { btn.disabled = true; btn.textContent = 'Recomputing…'; }
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = 'Recomputing…';
+    }
     status.textContent = 'Recomputing EAC…';
 
-    // Must match your DB function signature:
-    // create function public.recompute_eac(p_project_id uuid) returns void
     const { error } = await client.rpc('recompute_eac', { p_project_id: projectId });
     if (error) throw error;
 
     status.textContent = 'Recompute finished. Refreshing…';
 
-    // If the P&L tab exposed a refresh button, click it; otherwise just re-render the tab.
     const refreshBtn = document.getElementById('refreshPL');
     if (refreshBtn) {
       refreshBtn.click();
@@ -86,7 +95,10 @@ async function recomputeEAC() {
     console.error('recomputeEAC error', err);
     status.textContent = `EAC recompute error: ${err.message || err}`;
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = 'Recompute EAC'; }
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = 'Recompute EAC';
+    }
   }
 }
 
@@ -105,10 +117,8 @@ async function refreshProjectsUI(selectAfterId = null) {
     return;
   }
 
-  // Build options
   sel.innerHTML = projects.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
 
-  // Choose selection: newly created id, or previously stored (if still valid), or first
   const stored = getProjectId();
   const validStored = projects.some(p => p.id === stored) ? stored : null;
   const toSelect = selectAfterId || validStored || projects[0].id;
@@ -125,6 +135,7 @@ function openProjectModal() {
   $('#projModal').classList.add('flex');
   $('#projName').focus();
 }
+
 function closeProjectModal() {
   $('#projModal').classList.add('hidden');
   $('#projModal').classList.remove('flex');
@@ -135,12 +146,12 @@ async function handleProjectFormSubmit(e) {
   $('#projErr').textContent = '';
   try {
     const name = $('#projName').value.trim();
-    if (!name) { $('#projErr').textContent = 'Project name is required.'; return; }
+    if (!name) {
+      $('#projErr').textContent = 'Project name is required.';
+      return;
+    }
 
-    // Minimal payload (only name) to avoid schema mismatches
     const newId = await createProject({ name });
-
-    // Refresh & select the new project
     await refreshProjectsUI(newId);
     closeProjectModal();
 
@@ -161,29 +172,28 @@ async function handleProjectFormSubmit(e) {
 function wireProjectControls() {
   $('#projectSelect').addEventListener('change', async (e) => {
     setProjectId(e.target.value || null);
-    if (!getProjectId()) { $('#projMsg').textContent = 'Select a project.'; return; }
+    if (!getProjectId()) {
+      $('#projMsg').textContent = 'Select a project.';
+      return;
+    }
     await render();
   });
 
-  // Modal open/close + submit
   $('#newProjectBtn').onclick = openProjectModal;
   $('#projCancel').onclick = closeProjectModal;
   $('#projClose').onclick = closeProjectModal;
   $('#projForm').addEventListener('submit', handleProjectFormSubmit);
 
-  // (Optional placeholder)
   $('#manageProjectsBtn').onclick = () =>
-    alert('Manage screen coming soon. For now, create/switch using the Project bar.');
+    alert('Manage screen coming soon. For now, use the Project bar.');
 }
 
 function initMonthPicker() {
   const el = $('#monthPicker');
   if (!el.value) {
-    el.value = new Date().toISOString().slice(0, 7); // YYYY-MM
+    el.value = new Date().toISOString().slice(0, 7);
   }
-  el.addEventListener('change', () => {
-    render();
-  });
+  el.addEventListener('change', () => render());
 }
 
 async function init() {
@@ -201,25 +211,30 @@ async function init() {
     $('#status').textContent = '';
   } catch (err) {
     console.error('Init error', err);
-    const msg = (err && err.message) ? err.message : JSON.stringify(err || {}, null, 2);
-    $('#status').textContent = `Error loading app: ${msg}`;
+    $('#status').textContent = `Error loading app: ${err?.message || err}`;
   }
 }
 
+// -------------------------------
+// Active tab highlighting
+// -------------------------------
 function syncActiveTab() {
   const hash = location.hash || '#project';
   document.querySelectorAll('.tab-link').forEach(a => {
     const isActive = a.getAttribute('href') === hash;
-    a.classList.toggle('border-blue-600', isActive);
     a.classList.toggle('text-blue-600', isActive);
-    a.classList.toggle('bg-slate-50', isActive);
+    a.classList.toggle('bg-blue-50', isActive);
+    a.classList.toggle('border-blue-500', isActive);
     a.classList.toggle('font-semibold', isActive);
+    if (isActive) a.style.borderBottomColor = '#3b82f6';
   });
 }
 
 window.addEventListener('hashchange', syncActiveTab);
 document.addEventListener('DOMContentLoaded', syncActiveTab);
 
-
+// Render on hash change
 window.addEventListener('hashchange', render);
+
+// Start the app
 init();
