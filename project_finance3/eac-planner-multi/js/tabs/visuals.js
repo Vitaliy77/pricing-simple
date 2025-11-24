@@ -1,13 +1,15 @@
 // js/tabs/visuals.js
-// Visual aids: P&L trend line + funding vs planned revenue + cost breakdown pies.
+// Visual aids: P&L trend line + funding vs planned revenue + cost breakdown pies + benchmark bands.
 
 import { $ } from '../lib/dom.js';
 import { getProjectId } from '../lib/state.js';
 import { client } from '../api/supabase.js';
+import { loadLookups, rolesRate, employees as empLookup, equipmentList, materialsList } from '../data/lookups.js';
 
 let plTrendChart = null;
 let fundingPieChart = null;
 let costPieChart = null;
+let bmBandChart = null;
 
 export const template = /*html*/ `
   <section class="space-y-4">
@@ -53,11 +55,24 @@ export const template = /*html*/ `
         </div>
       </div>
 
-      <!-- BOTTOM: P&L trend -->
+      <!-- MIDDLE: P&L trend -->
       <div>
         <h3 class="text-sm font-semibold mb-2">P&amp;L Trend (selected year)</h3>
         <div class="h-64">
           <canvas id="vizTrendChart"></canvas>
+        </div>
+      </div>
+
+      <!-- BOTTOM: Benchmark bands -->
+      <div>
+        <div class="flex items-center justify-between mb-1">
+          <h3 class="text-sm font-semibold">Benchmark Bands (annual)</h3>
+          <p class="text-[0.70rem] text-slate-500">
+            Shaded band = P25–P75, ● = P50, ◆ = project.
+          </p>
+        </div>
+        <div class="h-80">
+          <canvas id="vizBenchmarkBands"></canvas>
         </div>
       </div>
 
@@ -89,7 +104,6 @@ async function refreshVisuals() {
   if (!status) return;
 
   if (!projectId) {
-    // clear any existing charts
     destroyCharts();
     status.textContent = 'Select a project to view visuals.';
     return;
@@ -101,6 +115,9 @@ async function refreshVisuals() {
     const year = Number($('#vizYearSelect')?.value || 2025);
     const start = `${year}-01-01`;
     const end = `${year + 1}-01-01`;
+
+    // Ensure lookups are loaded for benchmark math
+    await loadLookups();
 
     // --------- Year-by-month data for trend chart ---------
     const { data: costs, error: cErr } = await client
@@ -269,7 +286,7 @@ async function refreshVisuals() {
     // --------- Pies (full project totals) ---------
     const { data: proj, error: pErr } = await client
       .from('projects')
-      .select('contract_value, funded_value')
+      .select('contract_value, funded_value, project_type_id')
       .eq('id', projectId)
       .single();
 
@@ -493,6 +510,9 @@ async function refreshVisuals() {
       });
     }
 
+    // --------- Benchmark band chart (annual) ---------
+    await renderBenchmarkBands(projectId, proj?.project_type_id, year);
+
     status.textContent = '';
   } catch (err) {
     console.error('Visuals render error', err);
@@ -507,4 +527,406 @@ function destroyCharts() {
   if (plTrendChart) { plTrendChart.destroy(); plTrendChart = null; }
   if (fundingPieChart) { fundingPieChart.destroy(); fundingPieChart = null; }
   if (costPieChart) { costPieChart.destroy(); costPieChart = null; }
+  if (bmBandChart) { bmBandChart.destroy(); bmBandChart = null; }
+}
+
+/* ------------ Benchmark band chart helpers (adapted from benchmarks.js) ------------ */
+
+async function renderBenchmarkBands(projectId, projectTypeId, year) {
+  const ctx = document.getElementById('vizBenchmarkBands');
+  if (!ctx || !window.Chart) return;
+
+  if (!projectId || !projectTypeId) {
+    if (bmBandChart) {
+      bmBandChart.destroy();
+      bmBandChart = null;
+    }
+    return;
+  }
+
+  try {
+    // Annual project metrics using Actuals/Forecast blend
+    const { rev, labor$, subs$, equip$, materials$, odc$, laborHrs } =
+      await computeAFMaps(projectId, year);
+
+    const months = Array.from({ length: 12 }, (_, i) => `${year}-${String(i + 1).padStart(2, '0')}`);
+    const sum = (m) => months.reduce((s, k) => s + Number(m[k] || 0), 0);
+
+    const revY   = sum(rev);
+    const laborY = sum(labor$);
+    const subsY  = sum(subs$);
+    const equipY = sum(equip$);
+    const matsY  = sum(materials$);
+    const odcY   = sum(odc$);
+    const costY  = laborY + subsY + equipY + matsY + odcY;
+    const margin = (revY === 0 && costY === 0)
+      ? null
+      : (revY ? ((revY - costY) / revY * 100) : (costY ? -100 : 0));
+
+    const hrsY   = sum(laborHrs);
+    const revPerHr  = hrsY ? (revY / hrsY) : null;
+    const costPerHr = hrsY ? (laborY / hrsY) : null;
+
+    // Benchmarks table for this project type (annual)
+    const { data: bmData, error: bmErr } = await client
+      .from('benchmarks')
+      .select('metric, period, p25, p50, p75, n')
+      .eq('project_type_id', projectTypeId)
+      .eq('period', 'annual');
+
+    if (bmErr) throw bmErr;
+
+    const bmMap = {};
+    (bmData || []).forEach((r) => {
+      bmMap[r.metric] = r;
+    });
+
+    // Build comparison rows (same metrics as Benchmarks tab; we only chart the % ones)
+    const allRows = [
+      makeMetricRow('Margin %',           margin, '%', 'margin_pct',          +1, bmMap),
+      makeMetricRow('Labor % of Rev',     pct(marginSafe(laborY), marginSafe(revY)), '%', 'labor_pct_rev',       -1, bmMap),
+      makeMetricRow('Subs % of Rev',      pct(marginSafe(subsY),  marginSafe(revY)), '%', 'subs_pct_rev',        -1, bmMap),
+      makeMetricRow('Equip % of Rev',     pct(marginSafe(equipY), marginSafe(revY)), '%', 'equip_pct_rev',       -1, bmMap),
+      makeMetricRow('Materials % of Rev', pct(marginSafe(matsY),  marginSafe(revY)), '%', 'materials_pct_rev',   -1, bmMap),
+      makeMetricRow('ODC % of Rev',       pct(marginSafe(odcY),   marginSafe(revY)), '%', 'odc_pct_rev',         -1, bmMap),
+
+      makeMetricRow('Revenue per Labor Hr', revPerHr, '$', 'rev_per_labor_hr',  +1, bmMap),
+      makeMetricRow('Labor $ per Labor Hr', costPerHr,'$', 'labor_cost_per_hr', -1, bmMap),
+
+      makeMetricRow('Revenue (Annual)', revY, '$', 'revenue_annual', +1, bmMap),
+      makeMetricRow('Cost (Annual)',    costY,'$', 'cost_annual',    -1, bmMap),
+      makeMetricRow('Profit (Annual)',  revY - costY,'$', 'profit_annual', +1, bmMap),
+    ];
+
+    // For this chart, use only % metrics so the scale stays readable
+    const rows = allRows.filter((r) =>
+      r &&
+      r.unit === '%' &&
+      Number.isFinite(r.value) &&
+      Number.isFinite(r.p25) &&
+      Number.isFinite(r.p50) &&
+      Number.isFinite(r.p75)
+    );
+
+    if (!rows.length) {
+      if (bmBandChart) {
+        bmBandChart.destroy();
+        bmBandChart = null;
+      }
+      return;
+    }
+
+    const labels = rows.map((r) => r.label);
+    const bandData = rows.map((r) => [r.p25, r.p75]);
+    const p50Data = rows.map((r) => ({ x: r.p50, y: r.label }));
+    const projData = rows.map((r) => ({ x: r.value, y: r.label }));
+
+    if (bmBandChart) {
+      bmBandChart.destroy();
+    }
+
+    bmBandChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          {
+            label: 'Benchmark band (P25–P75)',
+            data: bandData,         // floating bar: [min, max]
+            backgroundColor: 'rgba(37, 99, 235, 0.12)',
+            borderColor: 'rgba(37, 99, 235, 0.7)',
+            borderWidth: 1,
+            borderSkipped: false
+          },
+          {
+            type: 'line',
+            label: 'P50 (median)',
+            data: p50Data,
+            showLine: false,
+            pointRadius: 4,
+            pointBackgroundColor: 'rgba(30, 64, 175, 1)',
+            pointBorderColor: '#ffffff',
+            pointBorderWidth: 1.5
+          },
+          {
+            type: 'line',
+            label: 'Project',
+            data: projData,
+            showLine: false,
+            pointRadius: 4,
+            pointStyle: 'diamond',
+            pointBackgroundColor: 'rgba(16, 185, 129, 1)',
+            pointBorderColor: '#ffffff',
+            pointBorderWidth: 1.5
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        indexAxis: 'y',
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: {
+              color: '#0f172a',
+              font: { size: 11, weight: '600' }
+            }
+          },
+          tooltip: {
+            callbacks: {
+              label(ctx) {
+                const label = ctx.dataset.label || '';
+                const raw = ctx.raw;
+
+                if (Array.isArray(raw)) {
+                  const [min, max] = raw;
+                  return `${label}: ${min.toFixed(1)}% – ${max.toFixed(1)}%`;
+                }
+
+                let v = raw;
+                if (raw && typeof raw === 'object' && 'x' in raw) {
+                  v = raw.x;
+                }
+                return `${label}: ${Number(v || 0).toFixed(1)}%`;
+              }
+            }
+          },
+          datalabels: {
+            display: false
+          }
+        },
+        scales: {
+          x: {
+            ticks: {
+              color: '#64748b',
+              font: { size: 10 },
+              callback(value) {
+                return Number(value).toFixed(0) + '%';
+              }
+            },
+            grid: {
+              color: 'rgba(148, 163, 184, 0.2)'
+            }
+          },
+          y: {
+            ticks: {
+              color: '#64748b',
+              font: { size: 10 }
+            },
+            grid: {
+              display: false
+            }
+          }
+        }
+      }
+    });
+  } catch (err) {
+    console.error('Benchmark bands render error', err);
+    if (bmBandChart) {
+      bmBandChart.destroy();
+      bmBandChart = null;
+    }
+  }
+}
+
+// Safe helpers to avoid infinities in pct calc
+function marginSafe(v) {
+  return Number.isFinite(v) ? v : 0;
+}
+
+function pct(part, whole) {
+  if (!Number.isFinite(part) || !Number.isFinite(whole)) return null;
+  if (part === 0 && whole === 0) return null;
+  return whole ? (part / whole * 100) : (part ? (part > 0 ? +Infinity : -Infinity) : 0);
+}
+
+function makeMetricRow(label, value, unit, metricKey, betterDir, bmMap) {
+  const bm = bmMap[metricKey];
+  if (!bm) return { label, value, unit, p25: NaN, p50: NaN, p75: NaN, n: null };
+
+  const p50 = Number(bm?.p50 ?? NaN);
+  const p25 = Number(bm?.p25 ?? NaN);
+  const p75 = Number(bm?.p75 ?? NaN);
+  const n   = Number.isFinite(Number(bm?.n)) ? Number(bm?.n) : null;
+
+  // We keep only numeric parts needed for chart; delta is not used here
+  return { label, value, unit, p25, p50, p75, n, betterDir };
+}
+
+/* ---------------- AF computation (Actuals when present; else Forecast) ---------------- */
+
+async function computeAFMaps(projectId, year) {
+  const fc = await computeForecastFromPlans(projectId, year);
+  const act = await fetchActualsMonthly(projectId, year);
+
+  const months = Array.from({ length: 12 }, (_, i) => `${year}-${String(i + 1).padStart(2, '0')}`);
+  const useActual = {};
+  months.forEach((mm) => {
+    const any = (act.rev[mm] || 0) || (act.labor$[mm] || 0) || (act.subs$[mm] || 0) ||
+                (act.equip$[mm] || 0) || (act.materials$[mm] || 0) || (act.odc$[mm] || 0);
+    useActual[mm] = Number(any) !== 0;
+  });
+
+  const pick = (aMap, fMap) =>
+    Object.fromEntries(months.map((mm) => [mm, useActual[mm] ? (aMap[mm] || 0) : (fMap[mm] || 0)]));
+
+  return {
+    rev:        pick(act.rev,        fc.rev),
+    labor$:     pick(act.labor$,     fc.labor$),
+    subs$:      pick(act.subs$,      fc.subs$),
+    equip$:     pick(act.equip$,     fc.equip$),
+    materials$: pick(act.materials$, fc.materials$),
+    odc$:       pick(act.odc$,       fc.odc$),
+    laborHrs:   fc.laborHrs
+  };
+}
+
+async function computeForecastFromPlans(projectId, year) {
+  const { data: proj, error: pErr } = await client
+    .from('projects')
+    .select('revenue_formula, fee_pct')
+    .eq('id', projectId)
+    .single();
+  if (pErr) throw pErr;
+
+  const formula = proj?.revenue_formula || 'TM';
+  const feePct = Number(proj?.fee_pct || 0);
+
+  const [lab, subs, eqp, mats, odc] = await Promise.all([
+    client.from('plan_labor').select('employee_id, ym, hours').eq('project_id', projectId),
+    client.from('plan_subs').select('ym, cost').eq('project_id', projectId),
+    client.from('plan_equipment').select('equipment_type, ym, hours').eq('project_id', projectId),
+    client.from('plan_materials').select('sku, ym, qty').eq('project_id', projectId),
+    client.from('plan_odc').select('odc_type, ym, cost').eq('project_id', projectId)
+  ]);
+
+  const inYear = (r) =>
+    (r?.ym &&
+      (typeof r.ym === 'string'
+        ? r.ym.slice(0, 4)
+        : new Date(r.ym).getUTCFullYear().toString()) === String(year));
+
+  const planLabor = (lab.error ? [] : (lab.data || [])).filter(inYear);
+  const planSubs  = (subs.error ? [] : (subs.data || [])).filter(inYear);
+  const planEqp   = (eqp.error ? [] : (eqp.data || [])).filter(inYear);
+  const planMat   = (mats.error ? [] : (mats.data || [])).filter(inYear);
+  const planODC   = (odc.error ? [] : (odc.data || [])).filter(inYear);
+
+  const empById = {};
+  (empLookup || []).forEach((e) => {
+    if (e?.id) empById[e.id] = e;
+  });
+
+  const eqMeta = {};
+  (equipmentList || []).forEach((e) => {
+    const t = e.equip_type ?? e.name;
+    if (t) eqMeta[t] = { rate: Number(e.rate || 0) };
+  });
+
+  const matMeta = {};
+  (materialsList || []).forEach((m) => {
+    if (m?.sku) {
+      matMeta[m.sku] = {
+        unit_cost: Number(m.unit_cost || 0),
+        waste_pct: Number(m.waste_pct || 0)
+      };
+    }
+  });
+
+  const months = Array.from({ length: 12 }, (_, i) => `${year}-${String(i + 1).padStart(2, '0')}`);
+  const m = () => Object.fromEntries(months.map((mm) => [mm, 0]));
+  const labor$ = m(), subs$ = m(), equip$ = m(), materials$ = m(), odc$ = m(), laborHrs = m();
+
+  const k = (ym) =>
+    (typeof ym === 'string') ? ym.slice(0, 7) : new Date(ym).toISOString().slice(0, 7);
+
+  // Labor
+  planLabor.forEach((r) => {
+    const mm = k(r.ym);
+    if (!mm) return;
+    const emp = empById[r.employee_id] || {};
+    const rate = Number(rolesRate[emp.role || ''] || 0);
+    const hrs  = Number(r.hours || 0);
+    laborHrs[mm] += hrs;
+    labor$[mm]   += hrs * rate;
+  });
+
+  // Subs
+  planSubs.forEach((r) => {
+    const mm = k(r.ym);
+    if (mm) subs$[mm] += Number(r.cost || 0);
+  });
+
+  // Equipment
+  planEqp.forEach((r) => {
+    const mm = k(r.ym);
+    if (!mm) return;
+    const meta = eqMeta[r.equipment_type] || { rate: 0 };
+    equip$[mm] += Number(r.hours || 0) * Number(meta.rate || 0);
+  });
+
+  // Materials
+  planMat.forEach((r) => {
+    const mm = k(r.ym);
+    if (!mm) return;
+    const meta = matMeta[r.sku] || { unit_cost: 0, waste_pct: 0 };
+    const loaded = Number(meta.unit_cost || 0) * (1 + Number(meta.waste_pct || 0));
+    materials$[mm] += Number(r.qty || 0) * loaded;
+  });
+
+  // ODC
+  planODC.forEach((r) => {
+    const mm = k(r.ym);
+    if (mm) odc$[mm] += Number(r.cost || 0);
+  });
+
+  // Revenue from cost (COST_PLUS applies fee)
+  const rev = m();
+  months.forEach((mm) => {
+    const C = labor$[mm] + subs$[mm] + equip$[mm] + materials$[mm] + odc$[mm];
+    rev[mm] = (formula === 'COST_PLUS') ? C * (1 + (feePct / 100)) : C;
+  });
+
+  return { rev, labor$, subs$, equip$, materials$, odc$, laborHrs };
+}
+
+async function fetchActualsMonthly(projectId, year) {
+  let rows = [];
+  try {
+    const res = await client
+      .from('actuals_monthly')
+      .select('ym, category, amount')
+      .eq('project_id', projectId);
+    if (res.error) throw res.error;
+    rows = res.data || [];
+  } catch {
+    rows = [];
+  }
+
+  const inYear = (r) =>
+    (r?.ym &&
+      (typeof r.ym === 'string'
+        ? r.ym.slice(0, 4)
+        : new Date(r.ym).getUTCFullYear().toString()) === String(year));
+
+  const months = Array.from({ length: 12 }, (_, i) => `${year}-${String(i + 1).padStart(2, '0')}`);
+  const m = () => Object.fromEntries(months.map((mm) => [mm, 0]));
+  const maps = { rev: m(), labor$: m(), subs$: m(), equip$: m(), materials$: m(), odc$: m() };
+
+  rows.filter(inYear).forEach((r) => {
+    const mm =
+      (typeof r.ym === 'string') ? r.ym.slice(0, 7) : new Date(r.ym).toISOString().slice(0, 7);
+    const v = Number(r.amount || 0);
+    const c = String(r.category || '').toLowerCase();
+    if      (c === 'revenue')                            maps.rev[mm]        += v;
+    else if (c === 'labor')                              maps.labor$[mm]     += v;
+    else if (c === 'subs' || c === 'subcontractors' || c === 'sub') maps.subs$[mm] += v;
+    else if (c === 'equipment')                          maps.equip$[mm]     += v;
+    else if (c === 'materials' || c === 'material')      maps.materials$[mm] += v;
+    else if (c === 'odc' || c === 'other' || c === 'other direct cost') maps.odc$[mm] += v;
+    else                                                 maps.odc$[mm]       += v;
+  });
+
+  return maps;
 }
