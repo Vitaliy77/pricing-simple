@@ -13,7 +13,7 @@ export const template = /*html*/ `
   <section class="space-y-4">
     <div class="bg-white rounded-xl shadow-sm p-4 flex flex-wrap items-center justify-between gap-3">
       <div>
-        <h2 class="text-lg font-semibold tracking-tight">Visuals</h2>
+        <h2 class="text-lg font-semibold tracking-tight text-slate-900">Visuals</h2>
         <p class="text-xs text-slate-500">
           Trend and composition charts for the selected project.
         </p>
@@ -37,26 +37,28 @@ export const template = /*html*/ `
     </div>
 
     <div class="bg-white rounded-xl shadow-sm p-4 space-y-6">
-      <!-- PIES FIRST (bigger) -->
       <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
-          <h3 class="text-sm font-semibold mb-2">Funding vs Planned Revenue (total project)</h3>
-          <div class="h-96">
+          <h3 class="text-sm font-semibold mb-2 text-slate-900">
+            Funding vs Planned Revenue (total project)
+          </h3>
+          <div class="h-[280px] md:h-[340px]">
             <canvas id="vizFundingPie"></canvas>
           </div>
         </div>
         <div>
-          <h3 class="text-sm font-semibold mb-2">Cost Breakdown (total project)</h3>
-          <div class="h-96">
+          <h3 class="text-sm font-semibold mb-2 text-slate-900">
+            Cost Breakdown (total project)
+          </h3>
+          <div class="h-[280px] md:h-[340px]">
             <canvas id="vizCostPie"></canvas>
           </div>
         </div>
       </div>
 
-      <!-- P&L TREND BELOW (bigger) -->
       <div>
-        <h3 class="text-sm font-semibold mb-2">P&amp;L Trend (selected year)</h3>
-        <div class="h-96">
+        <h3 class="text-sm font-semibold mb-2 text-slate-900">P&amp;L Trend (selected year)</h3>
+        <div class="h-[320px] md:h-[420px]">
           <canvas id="vizTrendChart"></canvas>
         </div>
       </div>
@@ -69,8 +71,24 @@ export const template = /*html*/ `
 `;
 
 export async function init(viewEl) {
-  $('#vizYearSelect')?.addEventListener('change', refreshVisuals);
-  $('#refreshVisuals')?.addEventListener('click', refreshVisuals);
+  // Make Chart.js text match app typography a bit better
+  if (window.Chart) {
+    // Base font ~ Tailwind text-sm, dark slate color
+    Chart.defaults.font.size = 12;
+    Chart.defaults.font.family =
+      "'system-ui', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+    Chart.defaults.color = '#0f172a'; // slate-900
+  }
+
+  const yearSel = $('#vizYearSelect');
+  if (yearSel) {
+    yearSel.addEventListener('change', refreshVisuals);
+  }
+
+  const btn = $('#refreshVisuals');
+  if (btn) {
+    btn.addEventListener('click', refreshVisuals);
+  }
 
   await refreshVisuals();
 }
@@ -97,7 +115,7 @@ async function refreshVisuals() {
     const start = `${year}-01-01`;
     const end = `${year + 1}-01-01`;
 
-    // Year-by-month data for trend chart
+    // --------- Year-by-month data for trend chart ---------
     const { data: costs, error: cErr } = await client
       .from('vw_eac_monthly_pl')
       .select('ym, labor, equip, materials, subs, fringe, overhead, gna, total_cost')
@@ -149,21 +167,11 @@ async function refreshVisuals() {
 
     const profitSeries = months.map((d, i) => revenueSeries[i] - costSeries[i]);
 
-    // ----- Trend chart with y-axis aligned to outside max -----
     const trendCtx = document.getElementById('vizTrendChart');
     if (trendCtx && window.Chart) {
       if (plTrendChart) {
         plTrendChart.destroy();
       }
-
-      // compute a nice max based on data (outside max)
-      const rawMax = Math.max(
-        ...(revenueSeries.length ? revenueSeries : [0]),
-        ...(costSeries.length ? costSeries : [0])
-      );
-      const paddedMax = rawMax > 0
-        ? Math.ceil(rawMax * 1.1 / 1000) * 1000   // 10% headroom, rounded to nearest 1000
-        : 0;
 
       plTrendChart = new Chart(trendCtx, {
         type: 'line',
@@ -174,20 +182,35 @@ async function refreshVisuals() {
               label: 'Revenue',
               data: revenueSeries,
               borderWidth: 2,
-              tension: 0.3
+              tension: 0.3,
+              borderColor: '#1d4ed8',   // blue-700
+              backgroundColor: 'rgba(37, 99, 235, 0.12)',
+              pointRadius: 3,
+              pointHoverRadius: 4,
+              pointBackgroundColor: '#1d4ed8'
             },
             {
               label: 'Total Cost',
               data: costSeries,
               borderWidth: 2,
-              tension: 0.3
+              tension: 0.3,
+              borderColor: '#0f766e',   // teal-700
+              backgroundColor: 'rgba(15, 118, 110, 0.12)',
+              pointRadius: 3,
+              pointHoverRadius: 4,
+              pointBackgroundColor: '#0f766e'
             },
             {
               label: 'Profit',
               data: profitSeries,
               borderWidth: 2,
               borderDash: [4, 4],
-              tension: 0.3
+              tension: 0.3,
+              borderColor: '#16a34a',   // green-600
+              backgroundColor: 'rgba(22, 163, 74, 0.12)',
+              pointRadius: 3,
+              pointHoverRadius: 4,
+              pointBackgroundColor: '#16a34a'
             }
           ]
         },
@@ -197,7 +220,14 @@ async function refreshVisuals() {
           plugins: {
             legend: {
               position: 'bottom',
-              labels: { boxWidth: 12 }
+              labels: {
+                boxWidth: 12,
+                color: '#0f172a', // slate-900
+                font: {
+                  size: 12,
+                  weight: '600'
+                }
+              }
             },
             tooltip: {
               callbacks: {
@@ -208,18 +238,52 @@ async function refreshVisuals() {
                   })}`;
                 }
               }
+            },
+            // Numbers "outside" the lines
+            datalabels: {
+              color: '#0f172a',
+              align: 'top',
+              anchor: 'end',
+              offset: 4,
+              backgroundColor: 'rgba(255,255,255,0.9)',
+              borderRadius: 4,
+              padding: { top: 2, bottom: 2, left: 4, right: 4 },
+              font: {
+                size: 10,
+                weight: '600'
+              },
+              formatter(value) {
+                const n = Number(value || 0);
+                if (!n) return '';
+                return n.toLocaleString('en-US', { maximumFractionDigits: 0 });
+              }
             }
           },
           scales: {
-            y: {
-              beginAtZero: true,
-              max: paddedMax || undefined,
+            x: {
               ticks: {
-                callback(value) {
-                  return Number(value).toLocaleString('en-US', {
-                    maximumFractionDigits: 0
-                  });
+                color: '#0f172a',
+                font: {
+                  size: 11
                 }
+              },
+              grid: {
+                color: 'rgba(148, 163, 184, 0.2)' // slate-400/20
+              }
+            },
+            y: {
+              ticks: {
+                color: '#0f172a',
+                font: {
+                  size: 11
+                },
+                callback(value) {
+                  const n = Number(value || 0);
+                  return n.toLocaleString('en-US', { maximumFractionDigits: 0 });
+                }
+              },
+              grid: {
+                color: 'rgba(148, 163, 184, 0.2)'
               }
             }
           }
@@ -253,7 +317,7 @@ async function refreshVisuals() {
     const funded = Number(proj?.funded_value || 0);
     const totalRevenue = (allRev || []).reduce((sum, r) => sum + Number(r.revenue || 0), 0);
 
-    // Funding vs Planned Revenue doughnut (pie with hole)
+    // Funding vs Planned Revenue doughnut
     const fundingCtx = document.getElementById('vizFundingPie');
     if (fundingCtx && window.Chart) {
       const values = [funded, totalRevenue];
@@ -269,17 +333,26 @@ async function refreshVisuals() {
           labels: labelsPie,
           datasets: [
             {
-              data: values
+              data: values,
+              backgroundColor: ['#1d4ed8', '#10b981'], // blue-700, emerald-500
+              hoverOffset: 4
             }
           ]
         },
         options: {
           responsive: true,
           maintainAspectRatio: false,
-          cutout: '60%', // hole in the middle
+          cutout: '55%',
           plugins: {
             legend: {
-              position: 'bottom'
+              position: 'bottom',
+              labels: {
+                color: '#0f172a',
+                font: {
+                  size: 12,
+                  weight: '600'
+                }
+              }
             },
             tooltip: {
               callbacks: {
@@ -295,16 +368,23 @@ async function refreshVisuals() {
               }
             },
             datalabels: {
+              color: '#0f172a',
               formatter(value, ctx) {
                 const dataArr = ctx.chart.data.datasets[0].data || [];
                 const total = dataArr.reduce((s, v) => s + Number(v || 0), 0);
                 const pct = total ? (value / total) * 100 : 0;
-                return `${value.toLocaleString('en-US', {
-                  maximumFractionDigits: 0
-                })}\n${pct.toFixed(1)}%`;
+                const v = Number(value || 0);
+                if (!v) return '';
+                return (
+                  v.toLocaleString('en-US', { maximumFractionDigits: 0 }) +
+                  '\n' +
+                  pct.toFixed(1) +
+                  '%'
+                );
               },
               font: {
-                size: 10
+                size: 11,
+                weight: '600'
               }
             }
           }
@@ -356,7 +436,17 @@ async function refreshVisuals() {
           labels: costLabels,
           datasets: [
             {
-              data: costValues
+              data: costValues,
+              backgroundColor: [
+                '#1d4ed8', // blue
+                '#0f766e', // teal
+                '#10b981', // emerald
+                '#0369a1', // sky-700
+                '#6366f1', // indigo-500
+                '#4b5563', // slate-600
+                '#14b8a6'  // teal-500
+              ],
+              hoverOffset: 4
             }
           ]
         },
@@ -365,7 +455,14 @@ async function refreshVisuals() {
           maintainAspectRatio: false,
           plugins: {
             legend: {
-              position: 'bottom'
+              position: 'bottom',
+              labels: {
+                color: '#0f172a',
+                font: {
+                  size: 12,
+                  weight: '600'
+                }
+              }
             },
             tooltip: {
               callbacks: {
@@ -381,16 +478,23 @@ async function refreshVisuals() {
               }
             },
             datalabels: {
+              color: '#0f172a',
               formatter(value, ctx) {
                 const dataArr = ctx.chart.data.datasets[0].data || [];
                 const total = dataArr.reduce((s, v) => s + Number(v || 0), 0);
                 const pct = total ? (value / total) * 100 : 0;
-                return `${value.toLocaleString('en-US', {
-                  maximumFractionDigits: 0
-                })}\n${pct.toFixed(1)}%`;
+                const v = Number(value || 0);
+                if (!v) return '';
+                return (
+                  v.toLocaleString('en-US', { maximumFractionDigits: 0 }) +
+                  '\n' +
+                  pct.toFixed(1) +
+                  '%'
+                );
               },
               font: {
-                size: 10
+                size: 11,
+                weight: '600'
               }
             }
           }
