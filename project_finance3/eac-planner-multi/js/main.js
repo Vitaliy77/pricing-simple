@@ -24,8 +24,8 @@ const routes = {
 };
 
 async function render() {
-  const hash = location.hash || '#project';
-  const loader = routes[hash] || routes['#project'];
+  const hash = location.hash || '#visuals';
+  const loader = routes[hash] || routes['#visuals'];
   const view = $('#view');
 
   try {
