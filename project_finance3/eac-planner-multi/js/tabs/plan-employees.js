@@ -1,6 +1,6 @@
 // js/tabs/plan-employees.js
 // Employees planning tab: month columns for HOURS; saves to plan_labor.
-// Now with beautiful zebra striping, hover, and pro polish.
+// Now merges GL actuals (vw_actual_labor_monthly) + plan_labor and locks actual months.
 
 import { $ } from '../lib/dom.js';
 import { client } from '../api/supabase.js';
@@ -50,7 +50,7 @@ function withCaretPreserved(run) {
 var state = {
   year: new Date().getUTCFullYear(),
   months: [],
-  rows: [],
+  rows: [], // { employee_id, name, role, monthHours:{'YYYY-MM':num}, monthIsActual:{'YYYY-MM':bool} }
   projectFormula: 'TM',
   projectFeePct: 0,
   lastActualYm: null
@@ -77,6 +77,7 @@ export async function init(rootEl) {
   try {
     await loadLookups();
 
+    // Project settings
     var projRes = await client
       .from('projects')
       .select('id, revenue_formula, fee_pct')
@@ -87,6 +88,7 @@ export async function init(rootEl) {
     state.projectFormula = proj.revenue_formula || 'TM';
     state.projectFeePct = Number(proj.fee_pct || 0);
 
+    // PLAN labor for the year
     var planRes = await client
       .from('plan_labor')
       .select('employee_id, ym, hours')
@@ -97,37 +99,62 @@ export async function init(rootEl) {
       return k && k.slice(0, 4) === String(state.year);
     });
 
+    // ACTUAL labor per employee per month from vw_actual_labor_monthly
     var actRes = await client
-      .from('labor_actuals_monthly')
-      .select('ym, hours')
+      .from('vw_actual_labor_monthly')
+      .select('employee_id, ym, hours')
       .eq('project_id', pid)
+      .gte('ym', state.year + '-01-01')
+      .lte('ym', state.year + '-12-31')
       .order('ym');
     if (actRes.error && actRes.error.code !== 'PGRST204') throw actRes.error;
-    var actData = actRes.data || [];
+    var actual = actRes.data || [];
+
+    // Determine last actual month (YYYY-MM) for header band
     var last = null;
-    for (var i = 0; i < actData.length; i++) {
-      var ak = keyVal(actData[i].ym);
+    for (var i = 0; i < actual.length; i++) {
+      var ak = keyVal(actual[i].ym);
       if (ak && (!last || ak > last)) last = ak;
     }
     state.lastActualYm = last;
 
     var empById = mapById(empLookup);
     var byEmp = {};
-    for (var j = 0; j < plan.length; j++) {
-      var r = plan[j];
-      var k2 = keyVal(r.ym);
-      if (!k2) continue;
 
-      var emp = empById[r.employee_id] || {};
-      if (!byEmp[r.employee_id]) {
-        byEmp[r.employee_id] = {
-          employee_id: r.employee_id,
+    // helper to ensure row exists
+    function ensureRow(empId) {
+      if (!byEmp[empId]) {
+        var emp = empById[empId] || {};
+        byEmp[empId] = {
+          employee_id: empId,
           name: emp.full_name || emp.name || '',
           role: emp.role || '',
-          monthHours: {}
+          monthHours: {},
+          monthIsActual: {}
         };
       }
-      byEmp[r.employee_id].monthHours[k2] = Number(r.hours || 0);
+      return byEmp[empId];
+    }
+
+    // 1) Seed from ACTUALS (GL-driven)
+    for (var a = 0; a < actual.length; a++) {
+      var ar = actual[a];
+      var ak2 = keyVal(ar.ym);
+      if (!ak2 || ak2.slice(0, 4) !== String(state.year)) continue;
+      var rowA = ensureRow(ar.employee_id);
+      rowA.monthHours[ak2] = Number(ar.hours || 0);
+      rowA.monthIsActual[ak2] = true;
+    }
+
+    // 2) Overlay PLAN where there is no actual for that emp+month
+    for (var j = 0; j < plan.length; j++) {
+      var r = plan[j];
+      var pk = keyVal(r.ym);
+      if (!pk || pk.slice(0, 4) !== String(state.year)) continue;
+      var rowP = ensureRow(r.employee_id);
+      if (!rowP.monthIsActual[pk]) {
+        rowP.monthHours[pk] = Number(r.hours || 0);
+      }
     }
 
     state.rows = Object.values(byEmp);
@@ -160,7 +187,7 @@ function renderGrid() {
 
   var html = '<thead>';
 
-  // Actuals vs Forecast band
+  // Actuals vs Forecast band (uses lastActualYm)
   var last = state.lastActualYm;
   if (last) {
     var actualCount = monthKeys.filter(k => k <= last).length;
@@ -197,7 +224,7 @@ function renderGrid() {
     return `<option value="${esc(e.id)}" data-role="${esc(e.role || '')}" data-name="${esc(nm)}">${esc(nm)}</option>`;
   }).join('');
 
-  // DATA ROWS – ZEBRA STRIPING + HOVER
+  // DATA ROWS
   state.rows.forEach((row, idx) => {
     var rate = resolveLoadedRate(row.role);
     var hoursYear = monthKeys.reduce((s, k) => s + Number(row.monthHours[k] || 0), 0);
@@ -218,8 +245,17 @@ function renderGrid() {
 
     monthKeys.forEach(k => {
       var v = row.monthHours[k] !== undefined ? row.monthHours[k] : '';
+      var isActual = !!(row.monthIsActual && row.monthIsActual[k]);
       html += `<td class="p-1 text-right">
-        <input data-k="${k}" class="hrInp border rounded-md px-2 py-1 w-20 text-right text-xs" type="number" min="0" step="0.1" value="${v !== '' ? v : ''}">
+        <input
+          data-k="${k}"
+          class="hrInp border rounded-md px-2 py-1 w-20 text-right text-xs ${isActual ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : ''}"
+          type="number"
+          min="0"
+          step="0.1"
+          value="${v !== '' ? v : ''}"
+          ${isActual ? 'disabled' : ''}
+        >
       </td>`;
     });
 
@@ -232,7 +268,7 @@ function renderGrid() {
     </td></tr>`;
   });
 
-  // TOTALS ROW – bold, highlighted
+  // TOTALS ROW
   var totals = calcTotals(state.rows, monthKeys);
   html += `<tr class="font-bold text-slate-900 bg-slate-100 summary-row">
     <td class="p-2 sticky left-0 bg-slate-100">Totals</td>
@@ -248,7 +284,7 @@ function renderGrid() {
 
   table.innerHTML = html;
 
-  // Restore selections
+  // Restore employee selections
   table.querySelectorAll('tr[data-idx]').forEach(tr => {
     var i = Number(tr.dataset.idx);
     var sel = tr.querySelector('.empSel');
@@ -291,11 +327,17 @@ function renderGrid() {
 }
 
 /* ---------------- helpers ---------------- */
-function blankRow() { return { employee_id: null, name: '', role: '', monthHours: {} }; }
+function blankRow() {
+  return { employee_id: null, name: '', role: '', monthHours: {}, monthIsActual: {} };
+}
+
 function monthsForYear(y) {
   return Array.from({length:12}, (_,i) => {
     var d = new Date(Date.UTC(y, i, 1));
-    return { label: d.toLocaleString('en-US', {month:'short', timeZone:'UTC'}) + '-' + String(y).slice(2), ym: d.toISOString().slice(0,10) };
+    return {
+      label: d.toLocaleString('en-US', {month:'short', timeZone:'UTC'}) + '-' + String(y).slice(2),
+      ym: d.toISOString().slice(0,10)
+    };
   });
 }
 function mapById(l) { var m={}; (l||[]).forEach(x=>x?.id && (m[x.id]=x)); return m; }
@@ -329,11 +371,13 @@ async function saveAll() {
   if (!pid) { msg && (msg.textContent='Select a project first.'); return; }
   msg && (msg.textContent='Saving…');
 
-  var months = state.months.map(m=>m.ym.slice(0,7));
+  var monthKeys = state.months.map(m=>m.ym.slice(0,7));
   var inserts = [];
   state.rows.forEach(row=>{
     if (!row.employee_id) return;
-    months.forEach(mk=>{
+    monthKeys.forEach(mk => {
+      // Do NOT overwrite actuals: only save plan for non-actual months
+      if (row.monthIsActual && row.monthIsActual[mk]) return;
       var hrs = Number(row.monthHours[mk]||0);
       if (hrs) inserts.push({project_id:pid, employee_id:row.employee_id, ym:mk+'-01', hours:hrs});
     });
@@ -341,10 +385,12 @@ async function saveAll() {
 
   try {
     var year = String(state.year);
-    await client.from('plan_labor').delete().eq('project_id',pid)
-      .gte('ym', year+'-01-01').lte('ym', year+'-12-31');
+    await client.from('plan_labor').delete()
+      .eq('project_id',pid)
+      .gte('ym', year+'-01-01')
+      .lte('ym', year+'-12-31');
     if (inserts.length) await client.from('plan_labor').insert(inserts);
-    msg && (msg.textContent='Saved.', setTimeout(()=>msg.textContent='',1200));
+    msg && (msg.textContent='Saved.', setTimeout(()=>{ msg.textContent=''; },1200));
   } catch(err) {
     console.error('Save error', err);
     msg && (msg.textContent='Save failed: '+(err?.message||String(err)));
