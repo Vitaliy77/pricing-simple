@@ -1,6 +1,6 @@
 // js/tabs/plan-employees.js
-// Employees planning tab: month columns for hours; saves to plan_labor.
-// Now supports Actual vs Plan using vw_actual_labor_monthly.
+// Employees planning tab: month columns for HOURS; saves to plan_labor.
+// Layout aligned with Subs tab; shows Actuals vs Forecast band above headers.
 
 import { $ } from '../lib/dom.js';
 import { client } from '../api/supabase.js';
@@ -9,41 +9,21 @@ import { loadLookups, rolesRate, employees as empLookup } from '../data/lookups.
 
 export const template = /*html*/ `
   <div class="bg-white rounded-xl shadow-sm p-5">
-    <div class="flex items-center justify-between mb-3">
-      <div class="flex flex-col gap-1">
-        <h2 class="text-lg font-semibold">Employees (Hours by Month)</h2>
-        <p id="empLegend" class="text-xs text-slate-500">
-          Loading actual vs plan info…
-        </p>
-      </div>
-      <div class="flex items-center gap-3">
-        <label class="flex items-center gap-2 text-xs text-slate-600">
-          <span class="uppercase tracking-wide">Year</span>
-          <select
-            id="empYearSelect"
-            class="border border-slate-300 rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          >
-            ${Array.from({ length: 11 }, (_, i) => {
-              const y = 2024 + i;
-              const selected = y === 2025 ? 'selected' : '';
-              return `<option value="${y}" ${selected}>${y}</option>`;
-            }).join('')}
-          </select>
-        </label>
-        <button id="empAddRow" class="px-3 py-1.5 rounded-md border text-xs hover:bg-slate-50">+ Add Row</button>
-        <button id="empSave" class="px-3 py-1.5 rounded-md bg-blue-600 text-white text-xs hover:bg-blue-700">Save</button>
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-lg font-semibold">Employees (Hours by Month)</h2>
+      <div class="flex items-center gap-2">
+        <button id="empAddRow" class="px-3 py-1.5 rounded-md border hover:bg-slate-50">+ Add Row</button>
+        <button id="empSave" class="px-3 py-1.5 rounded-md bg-blue-600 text-white hover:bg-blue-700">Save</button>
       </div>
     </div>
-
-    <div id="empMsg" class="text-sm text-slate-500 mb-2"></div>
-
+    <div id="empMsg" class="text-sm text-slate-500 mb-3"></div>
     <div class="overflow-x-auto">
-      <table id="empTable" class="min-w-full text-xs border-separate border-spacing-y-[2px]"></table>
+      <table id="empTable" class="min-w-full text-sm border-separate border-spacing-y-1"></table>
     </div>
   </div>
 `;
 
-// keep focus/caret when re-rendering
+/* ---------------- focus/caret preserve helper ---------------- */
 function withCaretPreserved(run) {
   var active = document.activeElement;
   var isCell = !!(active && active.classList && active.classList.contains('hrInp'));
@@ -73,9 +53,7 @@ var state = {
   rows: [], // { employee_id, name, role, monthHours: { 'YYYY-MM': number } }
   projectFormula: 'TM',
   projectFeePct: 0,
-  actualByEmpMonth: {},  // { employee_id -> { 'YYYY-MM' -> hours } }
-  actualCutoffKey: null, // 'YYYY-MM'
-  actualCutoffIdx: -1    // index in monthKeys
+  lastActualYm: null // 'YYYY-MM' for latest labor actuals month (project level)
 };
 
 export async function init(rootEl) {
@@ -86,124 +64,89 @@ export async function init(rootEl) {
   if (!pid) {
     if (msg) msg.textContent = 'Select or create a project to edit employees.';
     if (table) table.innerHTML = '';
-    var legend = $('#empLegend');
-    if (legend) legend.textContent = 'No project selected.';
     return;
   }
 
-  var yrSel = $('#empYearSelect');
-  if (yrSel && yrSel.value) {
-    state.year = Number(yrSel.value);
-  } else {
-    state.year = new Date().getUTCFullYear();
-  }
-  state.months = monthsForYear(state.year);
-
-  await loadDataAndRender(pid);
-
-  // Wire year change
-  if (yrSel) {
-    yrSel.onchange = function () {
-      state.year = Number(yrSel.value || new Date().getUTCFullYear());
-      state.months = monthsForYear(state.year);
-      loadDataAndRender(pid);
-    };
-  }
-
-  // Wire buttons
-  var addBtn = $('#empAddRow');
-  if (addBtn) {
-    addBtn.onclick = function () {
-      state.rows.push(blankRow());
-      withCaretPreserved(function () { renderGrid(); });
-    };
-  }
-
-  var saveBtn = $('#empSave');
-  if (saveBtn) saveBtn.onclick = saveAll;
-}
-
-async function loadDataAndRender(pid) {
-  var msg = $('#empMsg');
-  var table = $('#empTable');
-  if (!pid || !table) return;
-
+  // Determine year from month picker (or today) – same pattern as other planning tabs
+  var mp = $('#monthPicker');
+  var mpVal = (mp && mp.value) ? mp.value : new Date().toISOString().slice(0, 7);
+  state.year = Number(mpVal.slice(0, 4));
   state.months = monthsForYear(state.year);
 
   if (msg) msg.textContent = 'Loading…';
-  var legend = $('#empLegend');
-  if (legend) legend.textContent = 'Loading actual vs plan info…';
 
   try {
     await loadLookups();
 
-    // project formula/fee
-    var proj = await fetchProject(pid);
-    state.projectFormula = proj && proj.revenue_formula ? proj.revenue_formula : 'TM';
-    state.projectFeePct  = Number(proj && proj.fee_pct ? proj.fee_pct : 0);
+    // Project revenue formula / fee
+    var projRes = await client
+      .from('projects')
+      .select('id, revenue_formula, fee_pct')
+      .eq('id', pid)
+      .single();
+    if (projRes.error) throw projRes.error;
+    var proj = projRes.data || {};
+    state.projectFormula = proj.revenue_formula || 'TM';
+    state.projectFeePct = Number(proj.fee_pct || 0);
 
-    // plan for this year
-    var plan = await fetchPlanLabor(pid, state.year);
-    var empById = mapById(empLookup);
-    var byEmp = {};
-    for (var i = 0; i < plan.length; i++) {
-      var r = plan[i];
+    // Existing plan_labor for this project (we'll filter to this year in JS)
+    var planRes = await client
+      .from('plan_labor')
+      .select('employee_id, ym, hours')
+      .eq('project_id', pid);
+    if (planRes.error) throw planRes.error;
+    var plan = (planRes.data || []).filter(function (r) {
       var k = keyVal(r.ym);
-      if (!k) continue;
+      return k && k.slice(0, 4) === String(state.year);
+    });
+
+    // Labor actuals monthly (project-level) to determine last actual month
+    // NOTE: this is not per-employee; we only use it to draw "Actuals vs Forecast" band.
+    var actRes = await client
+      .from('labor_actuals_monthly')
+      .select('ym, hours')
+      .eq('project_id', pid)
+      .order('ym');
+    if (actRes.error && actRes.error.details && actRes.error.code !== 'PGRST204') {
+      // PGRST204 would be "No rows" – that's fine
+      throw actRes.error;
+    }
+    var actData = actRes.data || [];
+    var last = null;
+    for (var i = 0; i < actData.length; i++) {
+      var ak = keyVal(actData[i].ym);
+      if (!ak) continue;
+      if (!last || ak > last) last = ak;
+    }
+    state.lastActualYm = last; // might be null if no actuals yet
+
+    // Map employees by id
+    var empById = mapById(empLookup);
+
+    // Build per-employee rows
+    var byEmp = {};
+    for (var j = 0; j < plan.length; j++) {
+      var r = plan[j];
+      var k2 = keyVal(r.ym);
+      if (!k2) continue;
+
       var emp = empById[r.employee_id] || {};
       if (!byEmp[r.employee_id]) {
         byEmp[r.employee_id] = {
           employee_id: r.employee_id,
-          name: emp.full_name ? emp.full_name : (emp.name || ''),
+          name: emp.full_name || emp.name || '',
           role: emp.role || '',
           monthHours: {}
         };
       }
-      byEmp[r.employee_id].monthHours[k] = Number(r.hours || 0);
+      byEmp[r.employee_id].monthHours[k2] = Number(r.hours || 0);
     }
+
     state.rows = Object.values(byEmp);
     if (state.rows.length === 0) state.rows.push(blankRow());
 
-    // actuals for this year
-    var actualInfo = await fetchActualLabor(pid, state.year);
-    state.actualByEmpMonth = actualInfo.byEmpMonth;
-    state.actualCutoffKey  = actualInfo.lastYmKey;
-    state.actualCutoffIdx  = -1;
-
-    var monthKeys = state.months.map(function (m) { return m.ym.slice(0, 7); });
-    if (state.actualCutoffKey) {
-      state.actualCutoffIdx = monthKeys.indexOf(state.actualCutoffKey);
-    }
-
-    // ensure any employees with actuals but no plan row are visible
-    for (var empId in state.actualByEmpMonth) {
-      if (!Object.prototype.hasOwnProperty.call(state.actualByEmpMonth, empId)) continue;
-      if (!empId) continue;
-      var exists = state.rows.some(function (r) { return r.employee_id === empId; });
-      if (!exists) {
-        var emp2 = empById[empId] || {};
-        state.rows.push({
-          employee_id: empId,
-          name: emp2.full_name ? emp2.full_name : (emp2.name || ''),
-          role: emp2.role || '',
-          monthHours: {}
-        });
-      }
-    }
-
     renderGrid();
     if (msg) msg.textContent = '';
-
-    // Legend text
-    if (legend) {
-      if (state.actualCutoffIdx >= 0) {
-        var cutoffLabel = state.months[state.actualCutoffIdx].label;
-        legend.textContent =
-          'Grey columns: Actuals through ' + cutoffLabel + '. Blue columns: Plan months.';
-      } else {
-        legend.textContent = 'All months are Plan (no labor actuals for this year).';
-      }
-    }
   } catch (err) {
     console.error('Employees init error', err);
     if (table) {
@@ -213,13 +156,22 @@ async function loadDataAndRender(pid) {
         '</td></tr></tbody>';
     }
     if (msg) msg.textContent = '';
-    if (legend) legend.textContent = 'Error loading actual vs plan.';
+  }
+
+  var addBtn = $('#empAddRow');
+  if (addBtn) {
+    addBtn.onclick = function () {
+      state.rows.push(blankRow());
+      withCaretPreserved(function () { renderGrid(); });
+    };
+  }
+  var saveBtn = $('#empSave');
+  if (saveBtn) {
+    saveBtn.onclick = saveAll;
   }
 }
 
-// ---------------------
-// Rendering & helpers
-// ---------------------
+/* ---------------- Rendering & helpers ---------------- */
 function renderGrid() {
   var table = $('#empTable');
   if (!table) return;
@@ -227,135 +179,149 @@ function renderGrid() {
   var months = state.months;
   var monthKeys = months.map(function (m) { return m.ym.slice(0, 7); });
 
-  var html = '<thead><tr>';
+  var html = '';
 
-  // One sticky column for Employee + Role
-  html += ''
-    + '<th class="p-1 sticky-col text-left text-xs font-semibold text-slate-600 bg-slate-50 border-b">'
-    +   'Employee / Role'
-    + '</th>';
+  // THEAD start
+  html += '<thead>';
 
-  // Month headers: Jan-25, with different color for Actual vs Plan
-  for (var i = 0; i < months.length; i++) {
-    var m = months[i];
-    var isActualCol = (state.actualCutoffIdx >= 0 && i <= state.actualCutoffIdx);
-    var thClass = 'p-1 text-right text-[11px] font-semibold border-b ';
-    if (isActualCol) {
-      thClass += 'bg-slate-100 text-slate-700';
-    } else {
-      thClass += 'bg-blue-50 text-blue-700';
+  // Optional top band: "Actuals" vs "Forecast" based on lastActualYm
+  var last = state.lastActualYm; // 'YYYY-MM' or null
+  if (last) {
+    var actualCount = 0;
+    for (var i = 0; i < monthKeys.length; i++) {
+      if (monthKeys[i] <= last) actualCount++;
     }
-    html += '<th class="' + thClass + '">' + m.label + '</th>';
-  }
+    var forecastCount = monthKeys.length - actualCount;
 
-  html += ''
-    + '<th class="p-1 text-right text-[11px] font-semibold text-slate-500 bg-slate-50 border-b">Year Hours</th>'
-    + '<th class="p-1 text-right text-[11px] font-semibold text-slate-500 bg-slate-50 border-b">Year Cost</th>'
-    + '<th class="p-1 text-right text-[11px] font-semibold text-slate-500 bg-slate-50 border-b">Year Revenue</th>'
-    + '<th class="p-1 text-right text-[11px] font-semibold text-slate-500 bg-slate-50 border-b">Profit</th>'
-    + '<th class="p-1 text-xs font-semibold text-slate-500 bg-slate-50 border-b"></th>';
+    html += '<tr>';
+    // Sticky empty cell above Employee column
+    html += '<th class="p-1 text-xs text-slate-500 sticky left-0 bg-white"></th>';
 
-  html += '</tr></thead><tbody>';
-
-  var empOptions = (empLookup || [])
-    .map(function (e) {
-      return ''
-        + '<option value="' + e.id + '"'
-        + ' data-role="' + esc(e.role || '') + '"'
-        + ' data-name="' + esc(e.full_name || e.name || '') + '">'
-        + esc(e.full_name || e.name || '')
-        + '</option>';
-    })
-    .join('');
-
-  for (var idx = 0; idx < state.rows.length; idx++) {
-    var row = state.rows[idx];
-    var rate = resolveLoadedRate(row.role);
-    var hoursYear = monthKeys.reduce(function (s, k) {
-      return s + Number(row.monthHours[k] || 0);
-    }, 0);
-    var costYear  = hoursYear * rate;
-    var revYear   = computeRevenue(costYear, state.projectFormula, state.projectFeePct);
-    var profit    = revYear - costYear;
-
-    html += '<tr data-idx="' + idx + '" class="pl-row">';
-
-    // Sticky Employee + Role cell (same line)
-    html += ''
-      + '<td class="p-[3px] sticky-col bg-white align-top">'
-      +   '<div class="flex items-center gap-2">'
-      +     '<select class="empSel border rounded-md px-2 py-1 min-w-48 text-xs">'
-      +       '<option value="">— Select —</option>'
-      +       empOptions
-      +     '</select>'
-      +     '<input'
-      +       ' class="roleInp border rounded-md px-2 py-1 w-40 bg-slate-50 text-xs"'
-      +       ' value="' + esc(row.role || '') + '"'
-      +       ' disabled'
-      +     '>'
-      +   '</div>'
-      + '</td>';
-
-    var actForEmp = row.employee_id ? (state.actualByEmpMonth[row.employee_id] || {}) : {};
-    var hasActualCutoff = (state.actualCutoffIdx >= 0);
-
-    for (var j = 0; j < monthKeys.length; j++) {
-      var mk = monthKeys[j];
-      var isActualCell = hasActualCutoff && (j <= state.actualCutoffIdx);
-      var val;
-      var disabledAttr = '';
-      var cellClass = 'hrInp border rounded-md px-2 py-[3px] w-20 text-right text-xs';
-
-      if (isActualCell) {
-        // actual hours; if missing, treat as 0 actual
-        val = actForEmp && Object.prototype.hasOwnProperty.call(actForEmp, mk)
-          ? actForEmp[mk]
-          : 0;
-        disabledAttr = ' disabled';
-        cellClass += ' bg-slate-50 text-slate-500 cursor-not-allowed';
-      } else {
-        // plan value
-        var pv = row.monthHours[mk];
-        val = (pv !== undefined && pv !== null) ? pv : '';
-      }
-
-      html += ''
-        + '<td class="p-[2px] text-right">'
-        +   '<input'
-        +     ' data-k="' + mk + '"'
-        +     ' class="' + cellClass + '"'
-        +     ' type="number" min="0" step="0.1"'
-        +     ' value="' + (val !== '' ? String(val) : '') + '"'
-        +     disabledAttr
-        +   '>'
-        + '</td>';
+    if (actualCount > 0) {
+      html +=
+        '<th colspan="' + actualCount + '" ' +
+        'class="p-1 text-xs font-semibold text-emerald-700 text-center ' +
+        'bg-emerald-50 border-b border-emerald-200">' +
+        'Actuals' +
+        '</th>';
+    }
+    if (forecastCount > 0) {
+      html +=
+        '<th colspan="' + forecastCount + '" ' +
+        'class="p-1 text-xs font-semibold text-sky-700 text-center ' +
+        'bg-sky-50 border-b border-sky-200">' +
+        'Forecast' +
+        '</th>';
     }
 
-    html += '<td class="p-1 text-right">' + fmtNum(hoursYear) + '</td>';
-    html += '<td class="p-1 text-right">' + fmtUSD0(costYear)  + '</td>';
-    html += '<td class="p-1 text-right">' + fmtUSD0(revYear)   + '</td>';
-    html += '<td class="p-1 text-right">' + fmtUSD0(profit)    + '</td>';
-    html += ''
-      + '<td class="p-1 text-right">'
-      +   '<button class="rowDel px-2 py-1 rounded-md border text-xs hover:bg-slate-50">✕</button>'
-      + '</td>';
+    // Totals band
+    html +=
+      '<th colspan="4" ' +
+      'class="p-1 text-xs font-semibold text-slate-600 text-center bg-slate-50 border-b">' +
+      'Totals' +
+      '</th>';
 
+    // Empty cell over delete column
+    html += '<th class="p-1 bg-slate-50 border-b"></th>';
     html += '</tr>';
   }
 
+  // Main header row
+  html += '<tr>';
+  html += '<th class="p-2 text-left text-xs font-semibold text-slate-500 sticky left-0 bg-slate-50 border-b">Employee</th>';
+  monthKeys.forEach(function (_k, idx) {
+    var m = months[idx];
+    html +=
+      '<th class="p-2 text-right text-xs font-semibold text-slate-500 bg-slate-50 border-b">' +
+      esc(m.label) +
+      '</th>';
+  });
+  html += '<th class="p-2 text-right text-xs font-semibold text-slate-500 bg-slate-50 border-b">Year Hours</th>';
+  html += '<th class="p-2 text-right text-xs font-semibold text-slate-500 bg-slate-50 border-b">Year Cost</th>';
+  html += '<th class="p-2 text-right text-xs font-semibold text-slate-500 bg-slate-50 border-b">Year Revenue</th>';
+  html += '<th class="p-2 text-right text-xs font-semibold text-slate-500 bg-slate-50 border-b">Profit</th>';
+  html += '<th class="p-2 text-xs font-semibold text-slate-500 bg-slate-50 border-b"></th>';
+  html += '</tr>';
+
+  html += '</thead><tbody>';
+
+  // Employee dropdown options
+  var empOptions = (empLookup || [])
+    .map(function (e) {
+      var nm = e.full_name || e.name || '';
+      return (
+        '<option value="' + esc(e.id) + '" ' +
+        'data-role="' + esc(e.role || '') + '" ' +
+        'data-name="' + esc(nm) + '">' +
+        esc(nm) +
+        '</option>'
+      );
+    })
+    .join('');
+
+  // Data rows
+  state.rows.forEach(function (row, idx) {
+    var rate = resolveLoadedRate(row.role);
+    var hoursYear = monthKeys.reduce(function (s, k) { return s + Number(row.monthHours[k] || 0); }, 0);
+    var costYear = hoursYear * rate;
+    var revYear = computeRevenue(costYear, state.projectFormula, state.projectFeePct);
+    var profit = revYear - costYear;
+
+    html += '<tr data-idx="' + idx + '" class="pl-row">';
+
+    // Sticky Employee cell: dropdown + small role under it
+    html +=
+      '<td class="p-2 sticky left-0 bg-white align-top">' +
+      '<select class="empSel border rounded-md px-2 py-1 min-w-56 text-xs">' +
+      '<option value="">— Select —</option>' +
+      empOptions +
+      '</select>' +
+      '<div class="text-xs text-slate-500 mt-0.5">' + esc(row.role || '') + '</div>' +
+      '</td>';
+
+    // Month inputs (hours)
+    monthKeys.forEach(function (k) {
+      var v = (row.monthHours[k] !== undefined && row.monthHours[k] !== null) ? row.monthHours[k] : '';
+      html +=
+        '<td class="p-1 text-right">' +
+        '<input data-k="' + k + '" ' +
+        'class="hrInp border rounded-md px-2 py-1 w-20 text-right text-xs" ' +
+        'type="number" min="0" step="0.1" ' +
+        'value="' + (v !== '' ? String(v) : '') + '">' +
+        '</td>';
+    });
+
+    // Totals
+    html += '<td class="p-2 text-right">' + fmtNum(hoursYear) + '</td>';
+    html += '<td class="p-2 text-right">' + fmtUSD0(costYear) + '</td>';
+    html += '<td class="p-2 text-right">' + fmtUSD0(revYear) + '</td>';
+    html += '<td class="p-2 text-right">' + fmtUSD0(profit) + '</td>';
+
+    // Remove button
+    html +=
+      '<td class="p-2 text-right">' +
+      '<button class="rowDel px-2 py-1 rounded-md border text-xs hover:bg-slate-50">✕</button>' +
+      '</td>';
+
+    html += '</tr>';
+  });
+
+  // Footer totals
   var totals = calcTotals(state.rows, monthKeys);
-  html += ''
-    + '<tr class="font-semibold summary-row">'
-    +   '<td class="p-1 sticky-col bg-white">Totals</td>'
-    +   monthKeys.map(function (k) {
-          return '<td class="p-1 text-right">' + fmtNum(totals.hoursByMonth[k]) + '</td>';
-        }).join('')
-    +   '<td class="p-1 text-right">' + fmtNum(totals.hoursYear) + '</td>'
-    +   '<td class="p-1 text-right">' + fmtUSD0(totals.costYear) + '</td>'
-    +   '<td class="p-1 text-right">' + fmtUSD0(totals.revYear)  + '</td>'
-    +   '<td class="p-1 text-right">' + fmtUSD0(totals.revYear - totals.costYear) + '</td>'
-    +   '<td class="p-1"></td>'
-    + '</tr>';
+  html +=
+    '<tr class="font-semibold summary-row">' +
+    '<td class="p-2 sticky left-0 bg-white">Totals</td>' +
+    monthKeys
+      .map(function (k) {
+        return '<td class="p-2 text-right">' + fmtNum(totals.hoursByMonth[k]) + '</td>';
+      })
+      .join('') +
+    '<td class="p-2 text-right">' + fmtNum(totals.hoursYear) + '</td>' +
+    '<td class="p-2 text-right">' + fmtUSD0(totals.costYear) + '</td>' +
+    '<td class="p-2 text-right">' + fmtUSD0(totals.revYear) + '</td>' +
+    '<td class="p-2 text-right">' + fmtUSD0(totals.revYear - totals.costYear) + '</td>' +
+    '<td class="p-2"></td>' +
+    '</tr>';
 
   html += '</tbody>';
   table.innerHTML = html;
@@ -370,44 +336,40 @@ function renderGrid() {
   // Wire events
   table.querySelectorAll('.empSel').forEach(function (sel) {
     sel.addEventListener('change', function (e) {
-      var tr = e.target.closest ? e.target.closest('tr') : null;
+      var tr = e.target.closest && e.target.closest('tr');
       var idx = tr ? Number(tr.getAttribute('data-idx')) : -1;
-      var opt = (e.target.selectedOptions && e.target.selectedOptions[0]) ? e.target.selectedOptions[0] : null;
+      if (idx < 0) return;
+      var opt = e.target.selectedOptions && e.target.selectedOptions[0];
       var role = opt && opt.getAttribute('data-role') ? opt.getAttribute('data-role') : '';
       var name = opt && opt.getAttribute('data-name') ? opt.getAttribute('data-name') : '';
-      if (idx >= 0) {
-        state.rows[idx].employee_id = e.target.value || null;
-        state.rows[idx].role = role;
-        state.rows[idx].name = name;
-        withCaretPreserved(function () { renderGrid(); });
-      }
+      state.rows[idx].employee_id = e.target.value || null;
+      state.rows[idx].role = role;
+      state.rows[idx].name = name;
+      withCaretPreserved(function () { renderGrid(); });
     });
   });
 
   table.querySelectorAll('.hrInp').forEach(function (inp) {
-    // Only allow editing if not disabled (Plan cells)
-    if (!inp.disabled) {
-      inp.addEventListener('change', function (e) {
-        var tr = e.target.closest ? e.target.closest('tr') : null;
-        var idx = tr ? Number(tr.getAttribute('data-idx')) : -1;
-        var k = e.target.getAttribute('data-k');
-        var raw = e.target.value;
-        var n = (raw === '') ? '' : Math.max(0, Number(raw));
-        if (!Number.isFinite(n) && raw !== '') n = 0;
-        if (idx >= 0 && k) {
-          state.rows[idx].monthHours[k] = (raw === '') ? '' : n;
-          withCaretPreserved(function () { renderGrid(); });
-        }
-      });
-      inp.addEventListener('keydown', function (e) {
-        if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); }
-      });
-    }
+    inp.addEventListener('change', function (e) {
+      var tr = e.target.closest && e.target.closest('tr');
+      var idx = tr ? Number(tr.getAttribute('data-idx')) : -1;
+      if (idx < 0) return;
+      var k = e.target.getAttribute('data-k');
+      var n = e.target.value === '' ? '' : Math.max(0, Number(e.target.value));
+      state.rows[idx].monthHours[k] = (e.target.value === '') ? '' : (isFinite(n) ? n : 0);
+      withCaretPreserved(function () { renderGrid(); });
+    });
+    inp.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        e.target.blur();
+      }
+    });
   });
 
   table.querySelectorAll('.rowDel').forEach(function (btn) {
     btn.addEventListener('click', function () {
-      var tr = btn.closest ? btn.closest('tr') : null;
+      var tr = btn.closest && btn.closest('tr');
       var idx = tr ? Number(tr.getAttribute('data-idx')) : -1;
       if (idx >= 0) {
         state.rows.splice(idx, 1);
@@ -418,6 +380,7 @@ function renderGrid() {
   });
 }
 
+/* ---------------- small helpers ---------------- */
 function blankRow() {
   return { employee_id: null, name: '', role: '', monthHours: {} };
 }
@@ -425,10 +388,10 @@ function blankRow() {
 function monthsForYear(year) {
   return Array.from({ length: 12 }, function (_, i) {
     var d = new Date(Date.UTC(year, i, 1));
-    var monthLabel = d.toLocaleString('en-US', { month: 'short', timeZone: 'UTC' });
-    var yy = String(year).slice(-2);
+    var mm = d.toLocaleString('en-US', { month: 'short', timeZone: 'UTC' }); // Jan, Feb…
+    var yy = String(year).slice(2); // 25
     return {
-      label: monthLabel + '-' + yy,  // e.g., Jan-25
+      label: mm + '-' + yy,            // e.g., Jan-25
       ym: d.toISOString().slice(0, 10) // YYYY-MM-01
     };
   });
@@ -453,11 +416,11 @@ function keyVal(ym) {
 
 function resolveLoadedRate(role) {
   var r = Number(rolesRate[role] || 0);
-  return Number.isFinite(r) ? r : 0;
+  return isFinite(r) ? r : 0;
 }
 
 function computeRevenue(cost, formula, feePct) {
-  if (!Number.isFinite(Number(cost))) return 0;
+  if (!isFinite(Number(cost))) return 0;
   var c = Number(cost);
   switch (formula) {
     case 'COST_PLUS': return c * (1 + (Number(feePct || 0) / 100));
@@ -470,24 +433,24 @@ function computeRevenue(cost, formula, feePct) {
 function calcTotals(rows, monthKeys) {
   var hoursByMonth = {};
   monthKeys.forEach(function (k) { hoursByMonth[k] = 0; });
+
   var hoursYear = 0, costYear = 0, revYear = 0;
 
   for (var i = 0; i < rows.length; i++) {
     var row = rows[i];
     var rate = resolveLoadedRate(row.role);
-    var hYear = monthKeys.reduce(function (s, k) {
-      return s + Number(row.monthHours[k] || 0);
-    }, 0);
-    var cost  = hYear * rate;
-    var rev   = computeRevenue(cost, state.projectFormula, state.projectFeePct);
+    var hYear = monthKeys.reduce(function (s, k) { return s + Number(row.monthHours[k] || 0); }, 0);
+    var cost = hYear * rate;
+    var rev = computeRevenue(cost, state.projectFormula, state.projectFeePct);
 
     monthKeys.forEach(function (k) {
       hoursByMonth[k] += Number(row.monthHours[k] || 0);
     });
     hoursYear += hYear;
-    costYear  += cost;
-    revYear   += rev;
+    costYear += cost;
+    revYear += rev;
   }
+
   return { hoursByMonth: hoursByMonth, hoursYear: hoursYear, costYear: costYear, revYear: revYear };
 }
 
@@ -502,85 +465,27 @@ function fmtUSD0(v) {
 function esc(s) {
   var str = (s == null ? '' : String(s));
   return str.replace(/[&<>"']/g, function (c) {
-    return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c];
+    return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]);
   });
 }
 
-// ------------- persistence + data fetch -------------
-
-async function fetchProject(projectId) {
-  var res = await client
-    .from('projects')
-    .select('id, revenue_formula, fee_pct')
-    .eq('id', projectId)
-    .single();
-  if (res.error) throw res.error;
-  return res.data;
-}
-
-async function fetchPlanLabor(projectId, year) {
-  var res = await client
-    .from('plan_labor')
-    .select('employee_id, ym, hours')
-    .eq('project_id', projectId);
-  if (res.error) throw res.error;
-  var data = res.data || [];
-  return data.filter(function (r) {
-    var kv = keyVal(r.ym);
-    return kv && kv.slice(0, 4) === String(year);
-  });
-}
-
-async function fetchActualLabor(projectId, year) {
-  var yearStart = String(year) + '-01-01';
-  var yearEnd   = String(year + 1) + '-01-01';
-
-  var res = await client
-    .from('vw_actual_labor_monthly')
-    .select('project_id, employee_id, ym, hours')
-    .eq('project_id', projectId)
-    .gte('ym', yearStart)
-    .lt('ym', yearEnd);
-  if (res.error) {
-    console.warn('fetchActualLabor error:', res.error.message || res.error);
-    return { byEmpMonth: {}, lastYmKey: null };
-  }
-  var rows = res.data || [];
-  var byEmpMonth = {};
-  var lastYmKey = null;
-
-  for (var i = 0; i < rows.length; i++) {
-    var r = rows[i];
-    if (!r.employee_id) continue; // skip null employee for now
-    var k = keyVal(r.ym);
-    if (!k) continue;
-
-    if (!byEmpMonth[r.employee_id]) byEmpMonth[r.employee_id] = {};
-    byEmpMonth[r.employee_id][k] = Number(r.hours || 0);
-
-    if (!lastYmKey || k > lastYmKey) lastYmKey = k;
-  }
-
-  return { byEmpMonth: byEmpMonth, lastYmKey: lastYmKey };
-}
-
+/* ---------------- persistence ---------------- */
 async function saveAll() {
   var msg = $('#empMsg');
   var pid = getProjectId();
-  if (!pid) { if (msg) msg.textContent = 'Select a project first.'; return; }
+  if (!pid) {
+    if (msg) msg.textContent = 'Select a project first.';
+    return;
+  }
   if (msg) msg.textContent = 'Saving…';
 
   var months = state.months.map(function (m) { return m.ym.slice(0, 7); });
-
   var inserts = [];
+
   for (var i = 0; i < state.rows.length; i++) {
     var row = state.rows[i];
     if (!row.employee_id) continue;
-
     for (var j = 0; j < months.length; j++) {
-      // Only save Plan months (after actual cutoff)
-      if (state.actualCutoffIdx >= 0 && j <= state.actualCutoffIdx) continue;
-
       var mk = months[j];
       var hrs = Number(row.monthHours[mk] || 0);
       if (!hrs) continue;
@@ -604,18 +509,19 @@ async function saveAll() {
     if (delRes.error) throw delRes.error;
 
     if (inserts.length) {
-      var insRes = await client
-        .from('plan_labor')
-        .insert(inserts);
+      var insRes = await client.from('plan_labor').insert(inserts);
       if (insRes.error) throw insRes.error;
     }
 
-    if (msg) msg.textContent = 'Saved.';
-    setTimeout(function () { if (msg) msg.textContent = ''; }, 1200);
+    if (msg) {
+      msg.textContent = 'Saved.';
+      setTimeout(function () { msg.textContent = ''; }, 1200);
+    }
   } catch (err) {
     console.error('Employees save error', err);
     if (msg) {
-      msg.textContent = 'Save failed: ' + (err && err.message ? err.message : String(err));
+      msg.textContent =
+        'Save failed: ' + (err && (err.details || err.message) ? (err.details || err.message) : String(err));
     }
   }
 }
