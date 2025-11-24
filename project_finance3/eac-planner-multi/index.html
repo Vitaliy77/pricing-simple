@@ -247,5 +247,20 @@
     window.addEventListener('hashchange', togglePnlActions);
     document.addEventListener('DOMContentLoaded', togglePnlActions);
   </script>
+
+  <!-- Show Project bar only on #project tab -->
+  <script>
+    function toggleProjectBar() {
+      const bar = document.getElementById('projectBar');
+      if (!bar) return;
+  
+      const hash = location.hash || '#visuals'; // or whatever your default tab is
+      bar.classList.toggle('hidden', hash !== '#project');
+    }
+  
+    window.addEventListener('hashchange', toggleProjectBar);
+    document.addEventListener('DOMContentLoaded', toggleProjectBar);
+  </script>
+
 </body>
 </html>
