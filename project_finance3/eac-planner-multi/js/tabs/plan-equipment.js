@@ -43,7 +43,7 @@ export const template = /*html*/ `
         <table id="equipTable" class="plan-table text-xs md:text-sm min-w-full"></table>
       </div>
       <p class="mt-2 text-xs text-slate-500">
-        Totals are per year for the selected planning year. Hours are stored in <code>plan_equipment</code>.
+        Actuals months are locked; forecast months are editable. Hours are stored in <code>plan_equipment</code>.
       </p>
     </div>
   </section>
@@ -77,7 +77,8 @@ let state = {
   months: [],
   rows: [], // { equip_type, rate, unit, monthHours: { 'YYYY-MM': number } }
   projectFormula: 'TM',
-  projectFeePct: 0
+  projectFeePct: 0,
+  lastActualYm: null // 'YYYY-MM' of last equipment actual (from actuals_monthly)
 };
 
 export async function init(rootEl) {
@@ -108,7 +109,7 @@ export async function init(rootEl) {
   if (msg) msg.textContent = 'Loading…';
 
   try {
-    await loadLookups(); // loads equipmentList, vendors, etc.
+    await loadLookups(); // loads equipmentList, etc.
 
     // Project revenue formula/fee
     const projRes = await client
@@ -120,6 +121,22 @@ export async function init(rootEl) {
     const proj = projRes.data || {};
     state.projectFormula = proj.revenue_formula || 'TM';
     state.projectFeePct = Number(proj.fee_pct || 0);
+
+    // Determine last actual month for equipment from actuals_monthly
+    const actRes = await client
+      .from('actuals_monthly')
+      .select('ym')
+      .eq('project_id', pid)
+      .eq('category', 'equipment')
+      .order('ym');
+
+    if (actRes.error && actRes.error.code !== 'PGRST204') throw actRes.error;
+    let last = null;
+    (actRes.data || []).forEach(r => {
+      const k = keyVal(r.ym);
+      if (k && (!last || k > last)) last = k;
+    });
+    state.lastActualYm = last; // e.g. '2025-03'
 
     // Load plan data for this year
     await loadYearData(pid);
@@ -210,8 +227,30 @@ function renderGrid() {
 
   const months = state.months;
   const monthKeys = months.map(m => m.ym.slice(0, 7));
+  const last = state.lastActualYm; // 'YYYY-MM' or null
 
-  let html = '<thead><tr>';
+  let html = '<thead>';
+
+  // Actuals vs Forecast band (like Employees tab)
+  if (last) {
+    const actualCount = monthKeys.filter(k => k <= last).length;
+    const forecastCount = monthKeys.length - actualCount;
+
+    html += '<tr>';
+    html += '<th class="p-1 text-xs text-slate-500 sticky-col bg-white"></th>';
+    if (actualCount > 0) {
+      html += `<th colspan="${actualCount}" class="p-1 text-xs font-semibold text-emerald-700 text-center bg-emerald-50 border-b border-emerald-200">Actuals</th>`;
+    }
+    if (forecastCount > 0) {
+      html += `<th colspan="${forecastCount}" class="p-1 text-xs font-semibold text-sky-700 text-center bg-sky-50 border-b border-sky-200">Forecast</th>`;
+    }
+    html += '<th colspan="4" class="p-1 text-xs font-semibold text-slate-600 text-center bg-slate-50 border-b">Totals</th>';
+    html += '<th class="p-1 bg-slate-50 border-b"></th>';
+    html += '</tr>';
+  }
+
+  // Main header row
+  html += '<tr>';
 
   // One sticky column: Equipment + Rate
   html += `
@@ -268,288 +307,4 @@ function renderGrid() {
           <select class="eqSel border rounded-md px-2 py-1 min-w-56 text-xs">
             <option value="">— Select —</option>
             ${eqOptions}
-          </select>
-          <input
-            class="rateInp border rounded-md px-2 py-1 w-40 bg-slate-50 text-xs"
-            value="${esc(fmtRate(row.rate, row.unit))}"
-            disabled
-          >
-        </div>
-      </td>
-    `;
-
-    // Month inputs (hours)
-    monthKeys.forEach(k => {
-      const v = (row.monthHours[k] !== undefined && row.monthHours[k] !== null) ? row.monthHours[k] : '';
-      html += `
-        <td class="p-1 text-right">
-          <input
-            data-k="${k}"
-            class="hrInp border rounded-md px-2 py-1 w-20 text-right text-xs"
-            type="number"
-            min="0"
-            step="0.1"
-            value="${v !== '' ? String(v) : ''}"
-          >
-        </td>
-      `;
-    });
-
-    // Totals
-    html += '<td class="p-2 text-right">' + fmtNum(yearHours) + '</td>';
-    html += '<td class="p-2 text-right">' + fmtUSD0(yearCost)  + '</td>';
-    html += '<td class="p-2 text-right">' + fmtUSD0(yearRev)   + '</td>';
-    html += '<td class="p-2 text-right">' + fmtUSD0(profit)    + '</td>';
-
-    // Remove
-    html += `
-      <td class="p-2 text-right">
-        <button class="rowDel px-2 py-1 rounded-md border text-xs hover:bg-slate-50">✕</button>
-      </td>
-    `;
-
-    html += '</tr>';
-  });
-
-  // Footer totals
-  const totals = calcTotals(state.rows, monthKeys, state.projectFormula, state.projectFeePct);
-  html += `
-    <tr class="font-semibold summary-row">
-      <td class="p-2 sticky-col bg-white">Totals</td>
-      ${monthKeys.map(k => `
-        <td class="p-2 text-right">${fmtNum(totals.hoursByMonth[k])}</td>
-      `).join('')}
-      <td class="p-2 text-right">${fmtNum(totals.hoursYear)}</td>
-      <td class="p-2 text-right">${fmtUSD0(totals.costYear)}</td>
-      <td class="p-2 text-right">${fmtUSD0(totals.revYear)}</td>
-      <td class="p-2 text-right">${fmtUSD0(totals.revYear - totals.costYear)}</td>
-      <td class="p-2"></td>
-    </tr>
-  `;
-
-  html += '</tbody>';
-  table.innerHTML = html;
-
-  // Restore selected equipment
-  table.querySelectorAll('tr[data-idx]').forEach(tr => {
-    const i = Number(tr.getAttribute('data-idx'));
-    const sel = tr.querySelector('.eqSel');
-    if (sel) sel.value = state.rows[i].equip_type || '';
-  });
-
-  // Handlers
-
-  // On equipment change, update rate/unit and re-render
-  table.querySelectorAll('.eqSel').forEach(sel => {
-    sel.addEventListener('change', (e) => {
-      const tr = e.target.closest ? e.target.closest('tr') : null;
-      const idx = tr ? Number(tr.getAttribute('data-idx')) : -1;
-      const opt = (e.target.selectedOptions && e.target.selectedOptions[0]) ? e.target.selectedOptions[0] : null;
-      const type = e.target.value || '';
-      const rate = opt ? Number(opt.getAttribute('data-rate') || 0) : 0;
-      const unit = opt ? (opt.getAttribute('data-unit') || 'hour') : 'hour';
-      if (idx >= 0) {
-        state.rows[idx].equip_type = type || null;
-        state.rows[idx].rate = rate;
-        state.rows[idx].unit = unit;
-        withCaretPreserved(() => renderGrid());
-      }
-    });
-  });
-
-  // Hours inputs
-  table.querySelectorAll('.hrInp').forEach(inp => {
-    inp.addEventListener('change', (e) => {
-      const tr = e.target.closest ? e.target.closest('tr') : null;
-      const idx = tr ? Number(tr.getAttribute('data-idx')) : -1;
-      const k = e.target.getAttribute('data-k');
-      let n = (e.target.value === '') ? '' : Number(e.target.value);
-      if (n !== '' && !Number.isFinite(n)) n = 0;
-      if (idx >= 0 && k) {
-        state.rows[idx].monthHours[k] =
-          (e.target.value === '') ? '' : Math.max(0, n);
-        withCaretPreserved(() => renderGrid());
-      }
-    });
-    inp.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); }
-    });
-  });
-
-  // Delete row
-  table.querySelectorAll('.rowDel').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const tr = btn.closest ? btn.closest('tr') : null;
-      const idx = tr ? Number(tr.getAttribute('data-idx')) : -1;
-      if (idx >= 0) {
-        state.rows.splice(idx, 1);
-        if (state.rows.length === 0) state.rows.push(blankRow());
-        withCaretPreserved(() => renderGrid());
-      }
-    });
-  });
-}
-
-/* ---------------- helpers ---------------- */
-
-function blankRow() {
-  return { equip_type: null, rate: 0, unit: 'hour', monthHours: {} };
-}
-
-function monthsForYear(year) {
-  return Array.from({ length: 12 }, (_, i) => {
-    const d = new Date(Date.UTC(year, i, 1));
-    const mm = d.toLocaleString('en-US', { month: 'short', timeZone: 'UTC' }); // Jan, Feb...
-    const yy = String(year).slice(2); // "25"
-    return {
-      label: `${mm}-${yy}`,
-      ym: d.toISOString().slice(0, 10) // YYYY-MM-01
-    };
-  });
-}
-
-function keyVal(ym) {
-  try {
-    if (typeof ym === 'string') return ym.slice(0, 7);
-    return new Date(ym).toISOString().slice(0, 7);
-  } catch (_) { return null; }
-}
-
-function labelEquip(e) {
-  const t = e.equip_type ? e.equip_type : (e.name ? e.name : '');
-  const r = Number(e.rate || 0);
-  const u = e.rate_unit ? e.rate_unit : 'hour';
-  return r ? (t + ' — ' + fmtRate(r, u)) : t;
-}
-
-function findEquipMeta(type) {
-  const arr = equipmentList || [];
-  for (let i = 0; i < arr.length; i++) {
-    const x = arr[i];
-    const key = x.equip_type ? x.equip_type : (x.name ? x.name : '');
-    if (key === type) {
-      return {
-        rate: Number(x.rate || 0),
-        rate_unit: x.rate_unit ? x.rate_unit : 'hour'
-      };
-    }
-  }
-  return { rate: 0, rate_unit: 'hour' };
-}
-
-function computeRevenue(cost, formula, feePct) {
-  const c = Number(cost || 0);
-  switch (formula) {
-    case 'COST_PLUS':
-      return c * (1 + (Number(feePct || 0) / 100));
-    case 'TM':
-    case 'FP':
-    default:
-      return c;
-  }
-}
-
-function calcTotals(rows, monthKeys, formula, feePct) {
-  const hoursByMonth = {};
-  monthKeys.forEach(k => hoursByMonth[k] = 0);
-  let hoursYear = 0, costYear = 0, revYear = 0;
-
-  for (let i = 0; i < rows.length; i++) {
-    const row = rows[i];
-    const hYear = monthKeys.reduce((s,k)=> s + Number(row.monthHours[k] || 0), 0);
-    const cost  = hYear * Number(row.rate || 0);
-    const rev   = computeRevenue(cost, formula, feePct);
-
-    monthKeys.forEach(k => { hoursByMonth[k] += Number(row.monthHours[k] || 0); });
-    hoursYear += hYear;
-    costYear  += cost;
-    revYear   += rev;
-  }
-  return { hoursByMonth, hoursYear, costYear, revYear };
-}
-
-function fmtRate(rate, unit='hour') {
-  const n = Number(rate || 0);
-  return (
-    n.toLocaleString('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      maximumFractionDigits: 0
-    }) + '/' + unit
-  );
-}
-function fmtNum(v) {
-  const n = Number(v || 0);
-  return n.toLocaleString('en-US', { maximumFractionDigits: 1 });
-}
-function fmtUSD0(v) {
-  const n = Number(v || 0);
-  return n.toLocaleString('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: 0
-  });
-}
-function esc(s) {
-  const str = (s == null ? '' : String(s));
-  return str.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-}
-
-/* ---------------- persistence ---------------- */
-
-async function saveAll() {
-  const msg = $('#equipMsg');
-  const pid = getProjectId();
-  if (!pid) {
-    if (msg) msg.textContent = 'Select a project first.';
-    return;
-  }
-  if (msg) msg.textContent = 'Saving…';
-
-  const months = state.months.map(m => m.ym.slice(0, 7));
-  const inserts = [];
-
-  for (let i = 0; i < state.rows.length; i++) {
-    const row = state.rows[i];
-    if (!row.equip_type) continue;
-    for (let j = 0; j < months.length; j++) {
-      const mk = months[j];
-      const hrs = Number(row.monthHours[mk] || 0);
-      if (!hrs) continue;
-      inserts.push({
-        project_id: pid,
-        equipment_type: row.equip_type,
-        ym: mk + '-01',
-        hours: hrs
-      });
-    }
-  }
-
-  try {
-    const yearPrefix = String(state.year) + '-';
-    const delRes = await client
-      .from('plan_equipment')
-      .delete()
-      .eq('project_id', pid)
-      .gte('ym', yearPrefix + '01-01')
-      .lte('ym', yearPrefix + '12-31');
-    if (delRes.error) throw delRes.error;
-
-    if (inserts.length) {
-      const insRes = await client.from('plan_equipment').insert(inserts);
-      if (insRes.error) throw insRes.error;
-    }
-
-    if (msg) {
-      msg.textContent = 'Saved.';
-      setTimeout(() => { msg.textContent = ''; }, 1200);
-    }
-  } catch (err) {
-    console.error('Equipment save error', err);
-    if (msg) {
-      msg.textContent =
-        'Save failed: ' +
-        (err && err.message ? err.message : String(err));
-    }
-  }
-}
+          </select
