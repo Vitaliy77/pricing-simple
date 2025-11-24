@@ -18,7 +18,7 @@ export const template = /*html*/ `
     </div>
     <div id="empMsg" class="text-sm text-slate-500 mb-3"></div>
     <div class="overflow-x-auto">
-      <table id="empTable" class="min-w-full text-sm border-separate border-spacing-y-1"></table>
+      <table id="empTable" class="min-w-full text-sm border-separate border-spacing-y-[2px]"></table>
     </div>
   </div>
 `;
