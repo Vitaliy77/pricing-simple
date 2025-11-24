@@ -1,5 +1,5 @@
 // js/tabs/pnl.js
-// P&L tab – now with real ODC from vw_eac_monthly_pl_v2
+// P&L tab – real ODC, accurate prior/outer years, pro-grade rendering
 
 import { $ } from '../lib/dom.js';
 import { getProjectId } from '../lib/state.js';
@@ -18,7 +18,7 @@ export const template = /*html*/ `
         <label class="inline-flex items-center gap-1">
           <span class="text-slate-600">View</span>
           <select id="plYearSelect"
-                  class="border border-slate-300 rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                  class="border border-slate-300 rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500">
             <option value="2025" selected>2025–2026</option>
             <option value="2024">2024–2025</option>
             <option value="2023">2023–2024</option>
@@ -40,15 +40,14 @@ export const template = /*html*/ `
         <table class="text-xs md:text-sm min-w-full" id="plTable"></table>
       </div>
       <p class="mt-2 text-xs text-slate-500">
-        Revenue uses % complete (earned value) on baseline.
-        Costs = Actuals (past) + Plan (future) + Indirects.
-        Table shows prior years in aggregate, two planning years by month, and outer years.
+        Revenue uses % complete (earned value) on baseline.<br>
+        Costs = Actuals (past) + Plan (future) + Indirects + ODC.
       </p>
     </div>
   </section>
 `;
 
-export async function init(viewEl) {
+export async function init() {
   $('#recomputeEac')?.addEventListener('click', recomputeEAC);
   $('#refreshPL')?.addEventListener('click', refreshPL);
   $('#plYearSelect')?.addEventListener('change', refreshPL);
@@ -75,7 +74,7 @@ async function recomputeEAC() {
     const { error } = await client.rpc('recompute_eac', { p_project_id: projectId });
     if (error) throw error;
     await refreshPL();
-    status.textContent = 'EAC recomputed successfully.';
+    status.textContent = 'EAC recomputed.';
   } catch (err) {
     console.error('recomputeEAC error', err);
     status.textContent = `Error: ${err.message || err}`;
@@ -98,6 +97,7 @@ async function refreshPL() {
 
   try {
     status.textContent = 'Loading P&L…';
+
     const baseYear = Number($('#plYearSelect')?.value || 2025);
     const year1 = baseYear;
     const year2 = baseYear + 1;
@@ -107,7 +107,7 @@ async function refreshPL() {
     const year1Start = new Date(Date.UTC(year1, 0, 1));
     const year3Start = new Date(Date.UTC(year2 + 1, 0, 1));
 
-    // Updated: Use new view with ODC included
+    // Costs with real ODC included
     const { data: costs, error: cErr } = await client
       .from('vw_eac_monthly_pl_v2')
       .select('ym, labor, equip, materials, subs, odc, fringe, overhead, gna, total_cost')
@@ -128,34 +128,41 @@ async function refreshPL() {
 
     if (rErr) throw rErr;
 
+    // Build maps keyed by 'YYYY-MM'
     const costMap = Object.create(null);
     (costs || []).forEach(r => {
+      if (!r.ym) return;
       const k = new Date(r.ym).toISOString().slice(0, 7);
       costMap[k] = r;
     });
 
     const revMap = Object.create(null);
     (rev || []).forEach(r => {
+      if (!r.ym) return;
       const k = new Date(r.ym).toISOString().slice(0, 7);
       revMap[k] = Number(r.revenue || 0);
     });
 
-    const key = d => d.toISOString().slice(0, 7);
+    const keyFromDate = d => d.toISOString().slice(0, 7);
 
-    // Updated: ODC now pulls real data from the view
+    // All months we have data for — used for accurate prior/outer bucketing
+    const allKeys = Array.from(
+      new Set([...Object.keys(costMap), ...Object.keys(revMap)])
+    ).sort();
+
     const rows = [
-      ['Revenue',      (k) => Number(revMap[k] || 0)],
-      ['Labor',        (k) => Number(costMap[k]?.labor || 0)],
-      ['Sub',          (k) => Number(costMap[k]?.subs || 0)],
-      ['Equipment',    (k) => Number(costMap[k]?.equip || 0)],
-      ['Material',     (k) => Number(costMap[k]?.materials || 0)],
-      ['ODC',          (k) => Number(costMap[k]?.odc || 0)],     // Real ODC now included
-      ['Fringe',       (k) => Number(costMap[k]?.fringe || 0)],
-      ['Overhead',     (k) => Number(costMap[k]?.overhead || 0)],
-      ['G&A',          (k) => Number(costMap[k]?.gna || 0)],
-      ['Total Cost',   (k) => Number(costMap[k]?.total_cost || 0)],
-      ['Profit',       (k) => Number(revMap[k] || 0) - Number(costMap[k]?.total_cost || 0)],
-      ['Margin %',     (k) => {
+      ['Revenue',     (k) => Number(revMap[k] || 0)],
+      ['Labor',       (k) => Number(costMap[k]?.labor || 0)],
+      ['Sub',         (k) => Number(costMap[k]?.subs || 0)],
+      ['Equipment',   (k) => Number(costMap[k]?.equip || 0)],
+      ['Material',    (k) => Number(costMap[k]?.materials || 0)],
+      ['ODC',         (k) => Number(costMap[k]?.odc || 0)],           // Real ODC
+      ['Fringe',      (k) => Number(costMap[k]?.fringe || 0)],
+      ['Overhead',    (k) => Number(costMap[k]?.overhead || 0)],
+      ['G&A',         (k) => Number(costMap[k]?.gna || 0)],
+      ['Total Cost',  (k) => Number(costMap[k]?.total_cost || 0)],
+      ['Profit',      (k) => Number(revMap[k] || 0) - Number(costMap[k]?.total_cost || 0)],
+      ['Margin %',    (k) => {
         const R = Number(revMap[k] || 0);
         const C = Number(costMap[k]?.total_cost || 0);
         if (R === 0 && C === 0) return null;
@@ -165,19 +172,6 @@ async function refreshPL() {
       }]
     ];
 
-    let html = '<thead><tr>';
-    html += '<th class="p-2 sticky-col text-xs font-semibold text-slate-500 bg-slate-50 border-b">Line</th>';
-    html += '<th class="p-2 text-right text-xs font-semibold text-slate-500 bg-slate-50 border-b">Prior Years</th>';
-    year1Months.forEach(d => {
-      html += `<th class="p-2 text-right text-xs font-semibold text-slate-500 bg-slate-50 border-b">${d.toLocaleString('en-US', { month: 'short', year: '2-digit', timeZone: 'UTC' })}</th>`;
-    });
-    year2Months.forEach(d => {
-      html += `<th class="p-2 text-right text-xs font-semibold text-slate-500 bg-slate-50 border-b">${d.toLocaleString('en-US', { month: 'short', year: '2-digit', timeZone: 'UTC' })}</th>`;
-    });
-    html += '<th class="p-2 text-right text-xs font-semibold text-slate-500 bg-slate-50 border-b">Outer Years</th>';
-    html += '<th class="p-2 text-right text-xs font-semibold text-slate-500 bg-slate-50 border-b">Total</th>';
-    html += '</tr></thead><tbody>';
-
     const calcMargin = (revTotal, costTotal) => {
       if (revTotal === 0 && costTotal === 0) return null;
       if (!revTotal && costTotal) return -100;
@@ -185,55 +179,100 @@ async function refreshPL() {
       return 0;
     };
 
+    // --------- Render header ---------
+    let html = '<thead><tr>';
+    html += '<th class="p-2 sticky-col text-xs font-semibold text-slate-500 bg-slate-50 border-b">Line</th>';
+    html += '<th class="p-2 text-right text-xs font-semibold text-slate-500 bg-slate-50 border-b">Prior Years</th>';
+    year1Months.forEach(d => {
+      html += `<th class="p-2 text-right text-xs font-semibold text-slate-500 bg-slate-50 border-b">
+        ${d.toLocaleString('en-US', { month: 'short', year: '2-digit', timeZone: 'UTC' })}
+      </th>`;
+    });
+    year2Months.forEach(d => {
+      html += `<th class="p-2 text-right text-xs font-semibold text-slate-500 bg-slate-50 border-b">
+        ${d.toLocaleString('en-US', { month: 'short', year: '2-digit', timeZone: 'UTC' })}
+      </th>`;
+    });
+    html += '<th class="p-2 text-right text-xs font-semibold text-slate-500 bg-slate-50 border-b">Outer Years</th>';
+    html += '<th class="p-2 text-right text-xs font-semibold text-slate-500 bg-slate-50 border-b">Total</th>';
+    html += '</tr></thead><tbody>';
+
+    // --------- Render data rows ---------
     rows.forEach(([label, fn]) => {
-      const isSummary = ['Total Cost', 'Profit', 'Margin %'].includes(label);
       const isProfit = label === 'Profit';
       const isMargin = label === 'Margin %';
+      const isSummary = ['Total Cost', 'Profit', 'Margin %'].includes(label);
       const rowClass = isSummary ? 'summary-row' : isProfit ? 'profit-row' : isMargin ? 'margin-row' : 'pl-row';
 
       html += `<tr class="${rowClass}">`;
       html += `<td class="p-2 font-medium sticky-col text-xs md:text-sm">${label}</td>`;
 
       if (!isMargin) {
-        let priorTotal = 0, outerTotal = 0;
-        const year1Values = year1Months.map(d => Number(fn(key(d)) || 0));
-        const year2Values = year2Months.map(d => Number(fn(key(d)) || 0));
+        const year1Values = year1Months.map(d => Number(fn(keyFromDate(d)) || 0));
+        const year2Values = year2Months.map(d => Number(fn(keyFromDate(d)) || 0));
 
-        for (const { k } of [...year1Months, ...year2Months]) {
-          const v = Number(fn(key(k)) || 0);
-          const date = new Date(k + '-01');
+        let priorTotal = 0;
+        let outerTotal = 0;
+
+        allKeys.forEach(k => {
+          const date = new Date(k + '-01T00:00:00Z');
+          const v = Number(fn(k) || 0);
           if (date < year1Start) priorTotal += v;
           else if (date >= year3Start) outerTotal += v;
-        }
+        });
 
-        const totalAll = priorTotal + year1Values.reduce((a,b)=>a+b,0) + year2Values.reduce((a,b)=>a+b,0) + outerTotal;
+        const totalAll = priorTotal +
+          year1Values.reduce((a, b) => a + b, 0) +
+          year2Values.reduce((a, b) => a + b, 0) +
+          outerTotal;
 
+        // Prior Years
         html += `<td class="p-2 text-right tabular-nums">${fmtUSD0(priorTotal)}</td>`;
+
+        // Monthly columns
         [...year1Values, ...year2Values].forEach(n => {
           let cls = 'p-2 text-right tabular-nums';
-          if (isProfit) cls += n > 0.5 ? ' text-emerald-700 font-semibold' : n < -0.5 ? ' text-rose-700 font-semibold' : ' text-slate-600';
+          if (isProfit) {
+            if (n > 0.5) cls += ' text-emerald-700 font-semibold';
+            else if (n < -0.5) cls += ' text-rose-700 font-semibold';
+            else cls += ' text-slate-600';
+          }
           html += `<td class="${cls}">${fmtUSD0(n)}</td>`;
         });
-        html += `<td class="p-2 text-right tabular-nums">${fmtUSD0(outerTotal)}</td>`;
-        html += `<td class="p-2 text-right font-semibold tabular-nums${isProfit && totalAll > 0.5 ? ' text-emerald-700' : isProfit && totalAll < -0.5 ? ' text-rose-700' : ''}">${fmtUSD0(totalAll)}</td>`;
-      } else {
-        // Margin % row – unchanged logic, now accurate because total_cost includes ODC
-        let priorRev = 0, priorCost = 0, outerRev = 0, outerCost = 0;
-        const year1Rev = year1Months.map(d => revMap[key(d)] || 0);
-        const year1Cost = year1Months.map(d => costMap[key(d)]?.total_cost || 0);
-        const year2Rev = year2Months.map(d => revMap[key(d)] || 0);
-        const year2Cost = year2Months.map(d => costMap[key(d)]?.total_cost || 0);
 
-        for (const { k } of [...year1Months, ...year2Months]) {
-          const date = new Date(k + '-01');
+        // Outer Years
+        html += `<td class="p-2 text-right tabular-nums">${fmtUSD0(outerTotal)}</td>`;
+
+        // Grand Total
+        let totalCls = 'p-2 text-right font-semibold tabular-nums';
+        if (isProfit) {
+          if (totalAll > 0.5) totalCls += ' text-emerald-700';
+          else if (totalAll < -0.5) totalCls += ' text-rose-700';
+        }
+        html += `<td class="${totalCls}">${fmtUSD0(totalAll)}</td>`;
+      } else {
+        // Margin % row
+        let priorRev = 0, priorCost = 0, outerRev = 0, outerCost = 0;
+
+        const year1Rev = year1Months.map(d => revMap[keyFromDate(d)] || 0);
+        const year1Cost = year1Months.map(d => costMap[keyFromDate(d)]?.total_cost || 0);
+        const year2Rev = year2Months.map(d => revMap[keyFromDate(d)] || 0);
+        const year2Cost = year2Months.map(d => costMap[keyFromDate(d)]?.total_cost || 0);
+
+        allKeys.forEach(k => {
+          const date = new Date(k + '-01T00:00:00Z');
           const r = revMap[k] || 0;
           const c = costMap[k]?.total_cost || 0;
           if (date < year1Start) { priorRev += r; priorCost += c; }
           else if (date >= year3Start) { outerRev += r; outerCost += c; }
-        }
+        });
 
-        const renderMargin = v => v == null ? '<td class="p-2 text-right text-slate-400">—</td>' :
-          `<td class="p-2 text-right font-medium${v > 0.05 ? ' text-emerald-600' : v < -0.05 ? ' text-rose-600' : ' text-slate-500'}">${Number(v).toFixed(1)}%</td>`;
+        const renderMargin = v =>
+          v == null
+            ? '<td class="p-2 text-right text-slate-400">—</td>'
+            : `<td class="p-2 text-right font-medium${
+                v > 0.05 ? ' text-emerald-600' : v < -0.05 ? ' text-rose-600' : ' text-slate-500'
+              }">${Number(v).toFixed(1)}%</td>`;
 
         html += renderMargin(calcMargin(priorRev, priorCost));
         year1Rev.forEach((_, i) => html += renderMargin(calcMargin(year1Rev[i], year1Cost[i])));
@@ -244,6 +283,7 @@ async function refreshPL() {
           priorCost + year1Cost.reduce((a,b)=>a+b,0) + year2Cost.reduce((a,b)=>a+b,0) + outerCost
         ));
       }
+
       html += '</tr>';
     });
 
