@@ -150,7 +150,7 @@ async function handleProjectFormSubmit(e) {
     closeProjectModal();
 
     if ($('#projOpenRev')?.checked) {
-      location.hash = '#project';
+      location.hash = '#visuals';
     }
 
     await render();
@@ -199,7 +199,7 @@ async function init() {
   await refreshProjectsUI();
   wireProjectControls();
 
-  if (!location.hash) location.hash = '#project';
+  if (!location.hash) location.hash = '#visuals';
   await render();
 
   $('#status').textContent = '';
@@ -207,7 +207,7 @@ async function init() {
 
 // Active tab highlighting
 function syncActiveTab() {
-  const hash = location.hash || '#project';
+  const hash = location.hash || '#visuals';
   document.querySelectorAll('.tab-link').forEach(a => {
     const isActive = a.getAttribute('href') === hash;
     a.classList.toggle('text-blue-600', isActive);
