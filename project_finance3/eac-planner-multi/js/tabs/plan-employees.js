@@ -269,15 +269,20 @@ function renderGrid() {
 
     html += '<tr data-idx="' + idx + '" class="pl-row">';
 
-    // Sticky Employee cell: dropdown + small role under it
+    // Sticky Employee cell: dropdown + role inline
     html +=
       '<td class="p-2 sticky left-0 bg-white align-top">' +
-      '<select class="empSel border rounded-md px-2 py-1 min-w-56 text-xs">' +
-      '<option value="">— Select —</option>' +
-      empOptions +
-      '</select>' +
-      '<div class="text-xs text-slate-500 mt-0.5">' + esc(row.role || '') + '</div>' +
+        '<div class="flex items-center gap-2">' +
+          '<select class="empSel border rounded-md px-2 py-1 min-w-56 text-xs">' +
+            '<option value="">— Select —</option>' +
+            empOptions +
+          '</select>' +
+          '<span class="text-xs text-slate-500 whitespace-nowrap">' +
+            esc(row.role || '') +
+          '</span>' +
+        '</div>' +
       '</td>';
+
 
     // Month inputs (hours)
     monthKeys.forEach(function (k) {
