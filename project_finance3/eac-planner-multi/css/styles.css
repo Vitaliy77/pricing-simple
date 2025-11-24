@@ -148,3 +148,17 @@ tbody tr.pl-row:nth-child(even) td:not(.sticky-col) {
   background-color: #f8fafc; /* Tailwind's slate-50 */
 }
 
+/* Shared zebra striping and totals row for planning grids */
+.pl-row:nth-child(odd) td {
+  background-color: #ffffff;
+}
+
+.pl-row:nth-child(even) td {
+  background-color: #f9fafb; /* light gray, same feel as Subs tab */
+}
+
+.summary-row td {
+  background-color: #f3f4f6; /* slightly darker for totals */
+  border-top: 1px solid #e5e7eb;
+  font-weight: 600;
+}
