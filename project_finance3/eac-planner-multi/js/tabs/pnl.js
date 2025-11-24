@@ -1,5 +1,5 @@
 // js/tabs/pnl.js
-// P&L tab – real ODC, accurate prior/outer years, pro-grade rendering
+// P&L tab – real ODC, accurate prior/outer years, bulletproof key helper
 
 import { $ } from '../lib/dom.js';
 import { getProjectId } from '../lib/state.js';
@@ -8,46 +8,47 @@ import { client } from '../api/supabase.js';
 export const template = /*html*/ `
   <section class="space-y-4">
     <div class="bg-white rounded-xl shadow-sm p-4 flex flex-wrap items-center justify-between gap-3">
-      <div>
-        <h2 class="text-lg font-semibold tracking-tight">P&L</h2>
-        <p class="text-xs text-slate-500">
-          Prior years, two planning years by month, and outer years for the selected project.
-        </p>
-      </div>
-      <div class="flex items-center gap-3 text-xs">
-        <label class="inline-flex items-center gap-1">
-          <span class="text-slate-600">View</span>
-          <select id="plYearSelect"
-                  class="border border-slate-300 rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500">
-            <option value="2025" selected>2025–2026</option>
-            <option value="2024">2024–2025</option>
-            <option value="2023">2023–2024</option>
-          </select>
-        </label>
-        <button id="recomputeEac"
-                class="px-3 py-1.5 rounded-md bg-emerald-600 text-white text-xs font-medium hover:bg-emerald-700">
-          Recompute EAC
-        </button>
-        <button id="refreshPL"
-                class="px-3 py-1.5 rounded-md border text-xs font-medium hover:bg-slate-50">
-          Refresh P&L
-        </button>
-      </div>
-    </div>
-
-    <div class="bg-white rounded-xl shadow-sm p-4">
-      <div id="plWrap" class="overflow-auto border rounded-lg">
-        <table class="text-xs md:text-sm min-w-full" id="plTable"></table>
-      </div>
-      <p class="mt-2 text-xs text-slate-500">
-        Revenue uses % complete (earned value) on baseline.<br>
-        Costs = Actuals (past) + Plan (future) + Indirects + ODC.
+    <div>
+      <h2 class="text-lg font-semibold tracking-tight">P&L</h2>
+      <p class="text-xs text-slate-500">
+        Prior years, two planning years by month, and outer years for the selected project.
       </p>
     </div>
-  </section>
+    <div class="flex items-center gap-3 text-xs">
+      <label class="inline-flex items-center gap-1">
+        <span class="text-slate-600">View</span>
+        <select id="plYearSelect"
+                class="border border-slate-300 rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <option value="2025" selected>2025–2026</option>
+          <option value="2024">2024–2025</option>
+          <option value="2023">2023–2024</option>
+        </select>
+      </label>
+      <button id="recomputeEac"
+              class="px-3 py-1.5 rounded-md bg-emerald-600 text-white text-xs font-medium hover:bg-emerald-700">
+        Recompute EAC
+      </button>
+      <button id="refreshPL"
+              class="px-3 py-1.5 rounded-md border text-xs font-medium hover:bg-slate-50">
+        Refresh P&L
+      </button>
+    </div>
+  </div>
+
+  <div class="bg-white rounded-xl shadow-sm p-4">
+    <div id="plWrap" class="overflow-auto border rounded-lg">
+      <table class="text-xs md:text-sm min-w-full" id="plTable"></table>
+    </div>
+    <p class="mt-2 text-xs text-slate-500">
+      Revenue uses % complete (earned value) on baseline.<br>
+      Costs = Actuals (past) + Plan (future) + Indirects + ODC.
+    </p>
+  </div>
+</section>
 `;
 
 export async function init() {
+  {
   $('#recomputeEac')?.addEventListener('click', recomputeEAC);
   $('#refreshPL')?.addEventListener('click', refreshPL);
   $('#plYearSelect')?.addEventListener('change', refreshPL);
@@ -84,6 +85,22 @@ async function recomputeEAC() {
   }
 }
 
+/**
+ * Safe YYYY-MM key extractor – handles Date objects, strings, nulls, etc.
+ */
+const key = (d) => {
+  if (!d) return '';
+  if (typeof d === 'string') {
+    // 'YYYY-MM' or 'YYYY-MM-DD' → return first 7 chars
+    return d.slice(0, 7);
+  }
+  try {
+    return d.toISOString().slice(0, 7);
+  } catch (e) {
+    return '';
+  }
+};
+
 async function refreshPL() {
   const status = $('#status');
   const projectId = getProjectId();
@@ -107,7 +124,7 @@ async function refreshPL() {
     const year1Start = new Date(Date.UTC(year1, 0, 1));
     const year3Start = new Date(Date.UTC(year2 + 1, 0, 1));
 
-    // Costs with real ODC included
+    // Costs with real ODC
     const { data: costs, error: cErr } = await client
       .from('vw_eac_monthly_pl_v2')
       .select('ym, labor, equip, materials, subs, odc, fringe, overhead, gna, total_cost')
@@ -128,24 +145,22 @@ async function refreshPL() {
 
     if (rErr) throw rErr;
 
-    // Build maps keyed by 'YYYY-MM'
+    // Build maps – now using robust key()
     const costMap = Object.create(null);
     (costs || []).forEach(r => {
-      if (!r.ym) return;
-      const k = new Date(r.ym).toISOString().slice(0, 7);
-      costMap[k] = r;
+      const k = key(r.ym);
+      if (k) costMap[k] = r;
     });
 
     const revMap = Object.create(null);
     (rev || []).forEach(r => {
-      if (!r.ym) return;
-      const k = new Date(r.ym).toISOString().slice(0, 7);
-      revMap[k] = Number(r.revenue || 0);
+      const k = key(r.ym);
+      if (k) revMap[k] = Number(r.revenue || 0);
     });
 
-    const keyFromDate = d => d.toISOString().slice(0, 7);
+    const keyFromDate = d => key(d); // reuse robust version
 
-    // All months we have data for — used for accurate prior/outer bucketing
+    // All months with data
     const allKeys = Array.from(
       new Set([...Object.keys(costMap), ...Object.keys(revMap)])
     ).sort();
@@ -156,7 +171,7 @@ async function refreshPL() {
       ['Sub',         (k) => Number(costMap[k]?.subs || 0)],
       ['Equipment',   (k) => Number(costMap[k]?.equip || 0)],
       ['Material',    (k) => Number(costMap[k]?.materials || 0)],
-      ['ODC',         (k) => Number(costMap[k]?.odc || 0)],           // Real ODC
+      ['ODC',         (k) => Number(costMap[k]?.odc || 0)],
       ['Fringe',      (k) => Number(costMap[k]?.fringe || 0)],
       ['Overhead',    (k) => Number(costMap[k]?.overhead || 0)],
       ['G&A',         (k) => Number(costMap[k]?.gna || 0)],
@@ -179,7 +194,7 @@ async function refreshPL() {
       return 0;
     };
 
-    // --------- Render header ---------
+    // Header
     let html = '<thead><tr>';
     html += '<th class="p-2 sticky-col text-xs font-semibold text-slate-500 bg-slate-50 border-b">Line</th>';
     html += '<th class="p-2 text-right text-xs font-semibold text-slate-500 bg-slate-50 border-b">Prior Years</th>';
@@ -197,7 +212,7 @@ async function refreshPL() {
     html += '<th class="p-2 text-right text-xs font-semibold text-slate-500 bg-slate-50 border-b">Total</th>';
     html += '</tr></thead><tbody>';
 
-    // --------- Render data rows ---------
+    // Data rows
     rows.forEach(([label, fn]) => {
       const isProfit = label === 'Profit';
       const isMargin = label === 'Margin %';
@@ -226,10 +241,7 @@ async function refreshPL() {
           year2Values.reduce((a, b) => a + b, 0) +
           outerTotal;
 
-        // Prior Years
         html += `<td class="p-2 text-right tabular-nums">${fmtUSD0(priorTotal)}</td>`;
-
-        // Monthly columns
         [...year1Values, ...year2Values].forEach(n => {
           let cls = 'p-2 text-right tabular-nums';
           if (isProfit) {
@@ -239,21 +251,13 @@ async function refreshPL() {
           }
           html += `<td class="${cls}">${fmtUSD0(n)}</td>`;
         });
-
-        // Outer Years
         html += `<td class="p-2 text-right tabular-nums">${fmtUSD0(outerTotal)}</td>`;
-
-        // Grand Total
         let totalCls = 'p-2 text-right font-semibold tabular-nums';
-        if (isProfit) {
-          if (totalAll > 0.5) totalCls += ' text-emerald-700';
-          else if (totalAll < -0.5) totalCls += ' text-rose-700';
-        }
+        if (isProfit) totalCls += totalAll > 0.5 ? ' text-emerald-700' : totalAll < -0.5 ? ' text-rose-700' : '';
         html += `<td class="${totalCls}">${fmtUSD0(totalAll)}</td>`;
       } else {
-        // Margin % row
+        // Margin % row – unchanged, just using robust key()
         let priorRev = 0, priorCost = 0, outerRev = 0, outerCost = 0;
-
         const year1Rev = year1Months.map(d => revMap[keyFromDate(d)] || 0);
         const year1Cost = year1Months.map(d => costMap[keyFromDate(d)]?.total_cost || 0);
         const year2Rev = year2Months.map(d => revMap[keyFromDate(d)] || 0);
