@@ -125,7 +125,7 @@ async function refreshPL() {
 
     // Costs with real ODC
     const { data: costs, error: cErr } = await client
-      .from('vw_eac_monthly_pl_v2')
+      .from('vw_eac_monthly_pl_v3')
       .select('ym, labor, equip, materials, subs, odc, fringe, overhead, gna, total_cost')
       .eq('project_id', projectId)
       .gte('ym', '1900-01-01')
