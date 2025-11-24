@@ -10,16 +10,17 @@ import { client } from './api/supabase.js';
 // Tab routing (lazy-loaded)
 // -------------------------------
 const routes = {
-  '#project': () => import('./tabs/project-info.js'),
+  '#visuals': () => import('./tabs/visuals.js'),   // Charts tab
+  '#benchmarks': () => import('./tabs/benchmarks.js'),
   '#pnl': () => import('./tabs/pnl.js'),
+  '#project': () => import('./tabs/project-info.js'),
   '#plan-employees': () => import('./tabs/plan-employees.js'),
   '#plan-subs': () => import('./tabs/plan-subs.js'),
   '#plan-equipment': () => import('./tabs/plan-equipment.js'),
   '#plan-materials': () => import('./tabs/plan-materials.js'),
   '#plan-odc': () => import('./tabs/plan-odc.js'),
-  '#benchmarks': () => import('./tabs/benchmarks.js'),
   '#admin': () => import('./tabs/admin-lookups.js?v=eq-dynamic-1'),
-  '#visuals': () => import('./tabs/visuals.js'),   // Charts tab
+  
 };
 
 async function render() {
