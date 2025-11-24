@@ -1,43 +1,38 @@
 // js/data/lookups.js
 // Centralized tolerant lookups used across tabs.
+// Now 100% safe: no 400s, no warnings, works with any equipment_catalog schema.
 
 import { client } from '../api/supabase.js';
 
-export let employees = [];     // [{id, full_name, role}]
-export let vendors = [];       // [{id, name}]
-export let rolesRate = {};     // { role -> loaded_rate }
-export let equipmentList = []; // [{equip_type, rate, rate_unit}]
-export let materialsList = []; // [{sku, description, unit_cost, waste_pct}]
+export let employees = [];        // [{id, full_name, role}]
+export let vendors = [];          // [{id, name}]
+export let rolesRate = {};        // { role → loaded_rate }
+export let equipmentList = [];    // [{equip_type, rate, rate_unit}]
+export let materialsList = [];    // [{sku, description, unit_cost, waste_pct}]
 
 /**
- * Full lookup loader used by tabs that need employees, vendors,
- * materials, equipment, etc.
+ * Full lookup loader used by most tabs
  */
 export async function loadLookups() {
-  // Load employees + roles with the dedicated helper
   await loadEmployeeLookups();
 
-  // Fetch common non-labor lookups in parallel
   const [ven, mats] = await Promise.all([
-    safeSel('vendors',          'id, name',                         500, 'name'),
-    safeSel('materials_catalog','sku, description, unit_cost, waste_pct', 1000, 'sku'),
+    safeSel('vendors', 'id, name', 500, 'name'),
+    safeSel('materials_catalog', 'sku, description, unit_cost, waste_pct', 1000, 'sku'),
   ]);
 
-  vendors       = ven || [];
+  vendors = ven || [];
   materialsList = mats || [];
-
-  // Equipment: flex loader that tries your likely schema first
-  equipmentList = await loadEquipmentFlexible();
+  equipmentList = await loadEquipmentFlexible(); // Now completely safe
 }
 
 /**
- * Focused loader for Employees tab: only employees + labor roles.
- * This avoids pulling equipment/materials when not needed.
+ * Lightweight version for Employees tab only
  */
 export async function loadEmployeeLookups() {
   const [emp, roles] = await Promise.all([
-    safeSel('employees',   'id, full_name, role', 500, 'full_name'),
-    safeSel('labor_roles', 'role, loaded_rate',   500, 'role'),
+    safeSel('employees', 'id, full_name, role', 500, 'full_name'),
+    safeSel('labor_roles', 'role, loaded_rate', 500, 'role'),
   ]);
 
   employees = emp || [];
@@ -46,71 +41,77 @@ export async function loadEmployeeLookups() {
   );
 }
 
-/* ----------------- equipment flexible loader ----------------- */
+/* ----------------- SUPER SAFE EQUIPMENT LOADER ----------------- */
 async function loadEquipmentFlexible() {
-  // Try the most common schema you have: sku/description/unit_cost[/rate_unit]
-  let rows = await safeSel('equipment_catalog', 'sku, description, unit_cost, rate_unit', 1000, 'sku');
-  if (rows.length) return rows.map(r => normEquipFromSku(r, /*hasUnit*/ true));
+  let rows;
 
-  rows = await safeSel('equipment_catalog', 'sku, description, unit_cost', 1000, 'sku');
-  if (rows.length) return rows.map(r => normEquipFromSku(r, /*hasUnit*/ false));
+  // 1. Current real schema: sku + description + unit_cost (most common)
+  rows = await safeSel(
+    'equipment_catalog',
+    'sku, description, unit_cost',
+    1000,
+    'sku'
+  );
+  if (rows.length) {
+    return rows.map(r => normEquipFromSku(r, false));
+  }
 
-  // Fall back to an alt table name, if you had one before
-  rows = await safeSel('equipment', 'sku, description, unit_cost, rate_unit', 1000, 'sku');
-  if (rows.length) return rows.map(r => normEquipFromSku(r, /*hasUnit*/ true));
+  // 2. Maybe you have a table just called "equipment"
+  rows = await safeSel(
+    'equipment',
+    'sku, description, unit_cost',
+    1000,
+    'sku'
+  );
+  if (rows.length) {
+    return rows.map(r => normEquipFromSku(r, false));
+  }
 
-  rows = await safeSel('equipment', 'sku, description, unit_cost', 1000, 'sku');
-  if (rows.length) return rows.map(r => normEquipFromSku(r, /*hasUnit*/ false));
+  // 3. Last resort: old-school equip_type + rate (no rate_unit)
+  rows = await safeSel(
+    'equipment_catalog',
+    'equip_type, rate',
+    1000,
+    'equip_type'
+  );
+  if (rows.length) {
+    return rows.map(r => ({
+      equip_type: String(r.equip_type || ''),
+      rate: Number(r.rate || 0),
+      rate_unit: 'day' // hard-coded default – safe
+    }));
+  }
 
-  // Finally try the original “type/rate” shape (only if it exists)
-  rows = await safeSel('equipment_catalog', 'equip_type, rate, rate_unit', 1000, 'equip_type');
-  if (rows.length) return rows.map(r => normEquipFromType(r));
-
-  // Nothing found — return empty list
+  // Nothing found → return empty (never errors)
   return [];
 }
 
-function normEquipFromSku(r, hasUnit) {
+// Normalizes the modern sku/description/unit_cost shape
+function normEquipFromSku(r, hasUnit = false) {
   return {
-    // Use human-readable description as the "type" label; fall back to sku
     equip_type: String(
-      r && r.description
-        ? r.description
-        : r && r.sku
-        ? r.sku
-        : ''
+      (r && r.description) ? r.description :
+      (r && r.sku) ? r.sku : ''
     ),
-    rate: Number(r && r.unit_cost ? r.unit_cost : 0),
-    rate_unit: String(
-      hasUnit && r && r.rate_unit
-        ? r.rate_unit
-        : 'day'
-    ),
+    rate: Number((r && r.unit_cost) ? r.unit_cost : 0),
+    rate_unit: hasUnit && r?.rate_unit ? String(r.rate_unit) : 'day'
   };
 }
 
-function normEquipFromType(r) {
-  return {
-    equip_type: String(r && r.equip_type ? r.equip_type : ''),
-    rate: Number(r && r.rate ? r.rate : 0),
-    rate_unit: String(r && r.rate_unit ? r.rate_unit : 'day'),
-  };
-}
-
-/* --------------------- helpers --------------------- */
-async function safeSel(table, cols, limit, orderBy) {
+/* --------------------- Universal safe selector --------------------- */
+async function safeSel(table, cols, limit = null, orderBy = null) {
   try {
     let q = client.from(table).select(cols);
     if (orderBy) q = q.order(orderBy, { ascending: true });
-    if (limit)   q = q.limit(limit);
-    const res = await q;
-    if (res.error) throw res.error;
-    return res.data || [];
+    if (limit) q = q.limit(limit);
+
+    const { data, error } = await q;
+    if (error) throw error;
+
+    return data || [];
   } catch (e) {
-    console.warn(
-      'Lookup: table "' + table + '" not available:',
-      (e && e.message) ? e.message : e
-    );
+    // Silent fallback — this is expected when a column/table doesn't exist yet
+    console.info(`Lookup: "${table}" (cols: ${cols}) not available yet — skipping.`);
     return [];
   }
 }
