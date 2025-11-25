@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Finance & Accounting Hub</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* 3D hover tilt effect */
+    .card-3d {
+      transform: perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1);
+      transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.1);
+    }
+    .card-3d:hover {
+      transform: perspective(1000px) rotateX(8deg) rotateY(8deg) scale3d(1.03, 1.03, 1.03);
+      box-shadow: 0 30px 60px -12px rgba(59, 130, 246, 0.35), 0 18px 36px -18px rgba(0, 0, 0, 0.3);
+    }
+    /* Gradient fade on description */
+    .fade-text {
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .fade-text::after {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 60px;
+      background: linear-gradient(to bottom, transparent, white);
+      pointer-events: none;
+    }
+    .expanded .fade-text::after { display: none; }
+    .expanded .fade-text {
+      -webkit-line-clamp: unset;
+    }
+  </style>
+</head>
+<body class="bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 min-h-screen text-white">
+
+  <div class="container mx-auto px-6 py-16">
+    <header class="text-center mb-16">
+      <h1 class="text-5xl md:text-6xl font-bold bg-gradient-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent">
+        Finance & Accounting Hub
+      </h1>
+      <p class="mt-4 text-xl text-blue-200">Your all-in-one toolkit for financial excellence</p>
+    </header>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10 max-w-7xl mx-auto">
+      
+      <!-- Card 1 -->
+      <article class="card-3d group relative bg-white text-gray-900 rounded-2xl overflow-hidden shadow-2xl">
+        <div class="absolute inset-0 bg-gradient-to-br from-blue-500 to-cyan-400 opacity-0 group-hover:opacity-20 transition-opacity duration-500"></div>
+        <div class="relative p-8">
+          <div class="w-16 h-16 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-xl flex items-center justify-center mb-6 shadow-lg">
+            <span class="text-3xl">Chart Line Up</span>
+          </div>
+          <h3 class="text-2xl font-bold mb-4">EAC Planner</h3>
+          <div class="relative">
+            <p class="fade-text text-gray-700 leading-relaxed">
+              Real-time Estimate at Completion (EAC) forecasting tool for construction and project-based businesses. 
+              Track labor, subcontractors, equipment, materials, and ODCs with live P&L, burn-down charts, and scenario planning. 
+              Automatically calculates contingencies, risk-adjusted forecasts, and cash flow projections.
+            </p>
+          </div>
+          <div class="mt-6 flex items-center justify-between">
+            <button onclick="this.closest('article').classList.toggle('expanded')" 
+                    class="text-sm font-medium text-blue-600 hover:text-blue-800 underline">
+              Read more
+            </button>
+            <a href="https://your-eac-planner.com" target="_blank"
+               class="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-cyan-500 text-white font-semibold rounded-lg shadow-md hover:shadow-xl transform hover:scale-105 transition">
+              Open Tool →
+            </a>
+          </div>
+        </div>
+      </article>
+
+      <!-- Card 2 -->
+      <article class="card-3d group relative bg-white text-gray-900 rounded-2xl overflow-hidden shadow-2xl">
+        <div class="absolute inset-0 bg-gradient-to-br from-emerald-500 to-teal-400 opacity-0 group-hover:opacity-20 transition-opacity duration-500"></div>
+        <div class="relative p-8">
+          <div class="w-16 h-16 bg-gradient-to-br from-emerald-500 to-teal-400 rounded-xl flex items-center justify-center mb-6 shadow-lg">
+            <span class="text-3xl">Calculator</span>
+          </div>
+          <h3 class="text-2xl font-bold mb-4">Job Cost Analyzer</h3>
+          <div class="relative">
+            <p class="fade-text text-gray-700 leading-relaxed">
+              Deep-dive job profitability analysis with drill-down into cost codes, change orders, and variance reporting. 
+              Compare actuals vs. budget in real time, identify bleeding cost centers instantly, and export audit-ready reports for owners and bonding companies.
+            </p>
+          </div>
+          <div class="mt-6 flex items-center justify-between">
+            <button onclick="this.closest('article').classList.toggle('expanded')" 
+                    class="text-sm font-medium text-emerald-600 hover:text-emerald-800 underline">
+              Read more
+            </button>
+            <a href="/job-cost-analyzer.html" 
+               class="px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-500 text-white font-semibold rounded-lg shadow-md hover:shadow-xl transform hover:scale-105 transition">
+              Open Tool →
+            </a>
+          </div>
+        </div>
+      </article>
+
+      <!-- Card 3 -->
+      <article class="card-3d group relative bg-white text-gray-900 rounded-2xl overflow-hidden shadow-2xl">
+        <div class="absolute inset-0 bg-gradient-to-br from-purple-500 to-pink-400 opacity-0 group-hover:opacity-20 transition-opacity duration-500"></div>
+        <div class="relative p-8">
+          <div class="w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-400 rounded-xl flex items-center justify-center mb-6 shadow-lg">
+            <span class="text-3xl">Currency Exchange</span>
+          </div>
+          <h3 class="text-2xl font-bold mb-4">Cash Flow Forecaster</h3>
+          <div class="relative">
+            <p class="fade-text text-gray-700 leading-relaxed">
+              12–24 month rolling cash flow projection engine that integrates committed costs, projected revenue, retention, and pay-when-paid terms. 
+              Visualize cash crunches before they happen and test mitigation strategies like over-billing or draw schedule adjustments.
+            </p>
+          </div>
+          <div class="mt-6 flex items-center justify-between">
+            <button onclick="this.closest('article').classList.toggle('expanded')" 
+                    class="text-sm font-medium text-purple-600 hover:text-purple-800 underline">
+              Read more
+            </button>
+            <a href="/cashflow-forecaster.html" 
+               class="px-5 py-2.5 bg-gradient-to-r from-purple-600 to-pink-500 text-white font-semibold rounded-lg shadow-md hover:shadow-xl transform hover:scale-105 transition">
+              Open Tool →
+            </a>
+          </div>
+        </div>
+      </article>
+
+      <!-- Add more cards as needed -->
+
+    </div>
+
+    <footer class="text-center mt-20 text-blue-300">
+      <p class="text-sm">© 2025 Your Company • Built for financial clarity and control</p>
+    </footer>
+  </div>
+
+  <script>
+    // Optional: Auto-collapse when clicking outside (nice UX touch)
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('article')) {
+        document.querySelectorAll('article.expanded').forEach(card => {
+          card.classList.remove('expanded');
+        });
+      }
+    });
+  </script>
+</body>
+</html>
