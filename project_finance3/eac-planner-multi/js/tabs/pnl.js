@@ -41,7 +41,7 @@ export const template = /*html*/ `
       </div>
       <p class="mt-2 text-xs text-slate-500">
         Revenue uses % complete (earned value) on baseline.<br>
-        Costs = Actuals (past) + Plan (future) + Indirects + ODC.
+        Costs = Actuals (past) + Plan (future) + ODC.
       </p>
     </div>
   </section>
@@ -123,10 +123,10 @@ async function refreshPL() {
     const year1Start = new Date(Date.UTC(year1, 0, 1));
     const year3Start = new Date(Date.UTC(year2 + 1, 0, 1));
 
-    // Costs with real ODC
+    // Costs from the PL view (matches your schema: labor, subs, equipment, materials, odc)
     const { data: costs, error: cErr } = await client
-      .from('vw_eac_revenue_monthly_v4')
-      .select('ym, labor, equip, materials, subs, odc, fringe, overhead, gna, total_cost')
+      .from('vw_eac_monthly_pl_v4')
+      .select('ym, labor, subs, equipment, materials, odc')
       .eq('project_id', projectId)
       .gte('ym', '1900-01-01')
       .lt('ym', '2100-01-01')
@@ -134,6 +134,7 @@ async function refreshPL() {
 
     if (cErr) throw cErr;
 
+    // Revenue from revenue view (unchanged)
     const { data: rev, error: rErr } = await client
       .from('vw_eac_revenue_monthly')
       .select('ym, revenue')
@@ -148,7 +149,17 @@ async function refreshPL() {
     const costMap = Object.create(null);
     (costs || []).forEach(r => {
       const k = key(r.ym);
-      if (k) costMap[k] = r;
+      if (!k) return;
+
+      // Compute total_cost from the components we actually have
+      const total_cost =
+        Number(r.labor || 0) +
+        Number(r.subs || 0) +
+        Number(r.equipment || 0) +
+        Number(r.materials || 0) +
+        Number(r.odc || 0);
+
+      costMap[k] = { ...r, total_cost };
     });
 
     const revMap = Object.create(null);
@@ -168,12 +179,10 @@ async function refreshPL() {
       ['Revenue',     (k) => Number(revMap[k] || 0)],
       ['Labor',       (k) => Number(costMap[k]?.labor || 0)],
       ['Sub',         (k) => Number(costMap[k]?.subs || 0)],
-      ['Equipment',   (k) => Number(costMap[k]?.equip || 0)],
+      ['Equipment',   (k) => Number(costMap[k]?.equipment || 0)],
       ['Material',    (k) => Number(costMap[k]?.materials || 0)],
       ['ODC',         (k) => Number(costMap[k]?.odc || 0)],
-      ['Fringe',      (k) => Number(costMap[k]?.fringe || 0)],
-      ['Overhead',    (k) => Number(costMap[k]?.overhead || 0)],
-      ['G&A',         (k) => Number(costMap[k]?.gna || 0)],
+      // total_cost is now computed in JS from the above components
       ['Total Cost',  (k) => Number(costMap[k]?.total_cost || 0)],
       ['Profit',      (k) => Number(revMap[k] || 0) - Number(costMap[k]?.total_cost || 0)],
       ['Margin %',    (k) => {
