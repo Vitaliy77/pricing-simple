@@ -1,5 +1,6 @@
 // js/tabs/pnl.js
-// P&L – Final Form: v5 + safe helpers + zero crashes
+// P&L – FINAL: Fully wired to vw_eac_monthly_pl_v5 (revenue + costs in one row)
+// One query. One map. Zero bugs. Trust the DB.
 import { $ } from '../lib/dom.js';
 import { getProjectId } from '../lib/state.js';
 import { client } from '../api/supabase.js';
@@ -105,7 +106,7 @@ async function refreshPL() {
     const year1Start = new Date(Date.UTC(year1, 0, 1));
     const year3Start = new Date(Date.UTC(year2 + 1, 0, 1));
 
-    // ONE QUERY: v5 has everything
+    // ONE QUERY — v5 has everything (revenue + all costs)
     const { data: rows, error: plErr } = await client
       .from('vw_eac_monthly_pl_v5')
       .select('ym, revenue, labor, subs, equip, materials, odc, total_cost')
@@ -116,14 +117,15 @@ async function refreshPL() {
 
     if (plErr) throw plErr;
 
-    const costMap = Object.create(null);
-    const revMap  = Object.create(null);
+    // Single unified map — revenue and costs live together
+    const plMap = Object.create(null);
 
     (rows || []).forEach(r => {
       const k = key(r.ym);
       if (!k) return;
 
-      costMap[k] = {
+      plMap[k] = {
+        revenue:    Number(r.revenue ?? 0),
         labor:      Number(r.labor ?? 0),
         subs:       Number(r.subs ?? 0),
         equip:      Number(r.equip ?? 0),
@@ -131,38 +133,26 @@ async function refreshPL() {
         odc:        Number(r.odc ?? 0),
         total_cost: Number(r.total_cost ?? 0),
       };
-
-      revMap[k] = Number(r.revenue ?? 0);
     });
 
-    // Ensure costMap has entry for every revenue month (zero-fill)
-    Object.keys(revMap).forEach(k => {
-      if (!costMap[k]) {
-        costMap[k] = { labor: 0, subs: 0, equip: 0, materials: 0, odc: 0, total_cost: 0 };
-      }
-    });
-
-    // SAFE HELPERS – NEVER crash on missing keys
-    const getCost = (k, field) => {
-      const row = costMap[k];
-      return row ? Number(row[field] ?? 0) : 0;
-    };
-    const getRev = (k) => Number(revMap[k] ?? 0);
+    // Safe accessors — never crash
+    const get = (k, field) => plMap[k]?.[field] ?? 0;
+    const getRev = (k) => get(k, 'revenue');
+    const getCost = (k, field) => get(k, field);
 
     const keyFromDate = d => key(d);
-    const allKeys = Object.keys(revMap).sort();
+    const allKeys = Object.keys(plMap).sort();
 
-    // Unified rows with Margin % inside
     const rowsDef = [
-      ['Revenue',     k => getRev(k)],
-      ['Labor',       k => getCost(k, 'labor')],
-      ['Sub',         k => getCost(k, 'subs')],
-      ['Equipment',   k => getCost(k, 'equip')],
-      ['Material',    k => getCost(k, 'materials')],
-      ['ODC',         k => getCost(k, 'odc')],
-      ['Total Cost',  k => getCost(k, 'total_cost')],
-      ['Profit',      k => getRev(k) - getCost(k, 'total_cost')],
-      ['Margin %',    k => {
+      ['Revenue',    k => getRev(k)],
+      ['Labor',      k => getCost(k, 'labor')],
+      ['Sub',        k => getCost(k, 'subs')],
+      ['Equipment',  k => getCost(k, 'equip')],
+      ['Material',   k => getCost(k, 'materials')],
+      ['ODC',        k => getCost(k, 'odc')],
+      ['Total Cost', k => getCost(k, 'total_cost')],
+      ['Profit',     k => getRev(k) - getCost(k, 'total_cost')],
+      ['Margin %',   k => {
         const R = getRev(k);
         const C = getCost(k, 'total_cost');
         if (R === 0 && C === 0) return null;
@@ -177,7 +167,7 @@ async function refreshPL() {
       return rev ? ((rev - cost) / rev) * 100 : 0;
     };
 
-    // Render
+    // Render table
     let html = '<thead><tr>';
     html += '<th class="p-2 sticky-col text-xs font-semibold text-slate-500 bg-slate-50 border-b">Line</th>';
     html += '<th class="p-2 text-right text-xs font-semibold text-slate-500 bg-slate-50 border-b">Prior Years</th>';
@@ -214,7 +204,7 @@ async function refreshPL() {
           else if (date >= year3Start) outer += v;
         });
 
-        const total = prior + y1.reduce((a,b)=>a+b,0) + y2.reduce((a,b)=>a+b,0) + outer;
+        const total = prior + y1.reduce((a,b) => a + b, 0) + y2.reduce((a,b) => a + b, 0) + outer;
 
         html += `<td class="p-2 text-right tabular-nums">${fmtUSD0(prior)}</td>`;
         [...y1, ...y2].forEach(n => {
@@ -226,7 +216,6 @@ async function refreshPL() {
         html += `<td class="p-2 text-right tabular-nums">${fmtUSD0(outer)}</td>`;
         html += `<td class="p-2 text-right font-bold tabular-nums ${isProfit && total > 0 ? 'text-emerald-700' : isProfit && total < 0 ? 'text-rose-700' : ''}">${fmtUSD0(total)}</td>`;
       } else {
-        // Margin row
         let priorRev = 0, priorCost = 0, outerRev = 0, outerCost = 0;
         const y1Rev = year1Months.map(d => getRev(keyFromDate(d)));
         const y1Cost = year1Months.map(d => getCost(keyFromDate(d), 'total_cost'));
