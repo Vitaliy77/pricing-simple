@@ -1,5 +1,6 @@
 // js/tabs/pnl.js
-// P&L tab – now uses vw_eac_revenue_monthly_v4 for accurate cost breakdown (including real equipment)
+// P&L tab – real ODC, accurate prior/outer years, bulletproof key helper
+
 import { $ } from '../lib/dom.js';
 import { getProjectId } from '../lib/state.js';
 import { client } from '../api/supabase.js';
@@ -33,13 +34,14 @@ export const template = /*html*/ `
         </button>
       </div>
     </div>
+
     <div class="bg-white rounded-xl shadow-sm p-4">
       <div id="plWrap" class="overflow-auto border rounded-lg">
         <table class="text-xs md:text-sm min-w-full" id="plTable"></table>
       </div>
       <p class="mt-2 text-xs text-slate-500">
         Revenue uses % complete (earned value) on baseline.<br>
-        Costs = Actuals (past) + Plan (future) + Indirects + ODC.
+        Costs = Actuals (past) + Plan (future) + ODC.
       </p>
     </div>
   </section>
@@ -64,6 +66,7 @@ async function recomputeEAC() {
   const status = $('#status');
   const projectId = getProjectId();
   if (!btn || !status || !projectId) return;
+
   try {
     btn.disabled = true;
     btn.textContent = 'Recomputing…';
@@ -82,14 +85,17 @@ async function recomputeEAC() {
 }
 
 /**
- * Safe YYYY-MM key extractor – handles strings, Date objects, nulls
+ * Safe YYYY-MM key extractor – handles Date objects, strings, nulls, etc.
  */
 const key = (d) => {
   if (!d) return '';
-  if (typeof d === 'string') return d.slice(0, 7);
+  if (typeof d === 'string') {
+    // 'YYYY-MM' or 'YYYY-MM-DD' → return first 7 chars
+    return d.slice(0, 7);
+  }
   try {
     return d.toISOString().slice(0, 7);
-  } catch {
+  } catch (e) {
     return '';
   }
 };
@@ -107,6 +113,7 @@ async function refreshPL() {
 
   try {
     status.textContent = 'Loading P&L…';
+
     const baseYear = Number($('#plYearSelect')?.value || 2025);
     const year1 = baseYear;
     const year2 = baseYear + 1;
@@ -116,17 +123,34 @@ async function refreshPL() {
     const year1Start = new Date(Date.UTC(year1, 0, 1));
     const year3Start = new Date(Date.UTC(year2 + 1, 0, 1));
 
-    // === COSTS FROM v4 VIEW (includes real equipment column) ===
-    const { data: costs, error: cErr } = await client
-      .from('vw_eac_revenue_monthly_v4')
-      .select('ym, labor, subs, equipment, materials, odc')
-      .eq('project_id', projectId)
-      .gte('ym', '1900-01-01')
-      .lt('ym', '2100-01-01')
-      .order('ym');
-    if (cErr) throw cErr;
+    // ---- COSTS (defensive: select * and handle varying column names) ----
+    let costs = [];
+    try {
+      // primary cost view – this is where revenue + cost breakdown usually lives
+      const { data, error } = await client
+        .from('vw_eac_monthly_pl_v4')
+        .select('*')
+        .eq('project_id', projectId)
+        .gte('ym', '1900-01-01')
+        .lt('ym', '2100-01-01')
+        .order('ym');
+      if (error) throw error;
+      costs = data || [];
+    } catch (e) {
+      // optional fallback – if the PL view errors completely, try the revenue_v4 view
+      console.warn('vw_eac_monthly_pl_v4 failed, falling back to vw_eac_revenue_monthly_v4', e);
+      const { data, error } = await client
+        .from('vw_eac_revenue_monthly_v4')
+        .select('*')
+        .eq('project_id', projectId)
+        .gte('ym', '1900-01-01')
+        .lt('ym', '2100-01-01')
+        .order('ym');
+      if (error) throw error;
+      costs = data || [];
+    }
 
-    // === REVENUE (unchanged) ===
+    // ---- REVENUE (this has been working fine) ----
     const { data: rev, error: rErr } = await client
       .from('vw_eac_revenue_monthly')
       .select('ym, revenue')
@@ -134,20 +158,34 @@ async function refreshPL() {
       .gte('ym', '1900-01-01')
       .lt('ym', '2100-01-01')
       .order('ym');
+
     if (rErr) throw rErr;
 
-    // === BUILD MAPS + COMPUTE total_cost IN JS (safe & accurate) ===
+    // ---- Build maps, handling multiple possible column names ----
     const costMap = Object.create(null);
     (costs || []).forEach(r => {
       const k = key(r.ym);
       if (!k) return;
-      const total_cost =
-        Number(r.labor || 0) +
-        Number(r.subs || 0) +
-        Number(r.equipment || 0) +
-        Number(r.materials || 0) +
-        Number(r.odc || 0);
-      costMap[k] = { ...r, total_cost };
+
+      const labor      = Number(r.labor      ?? r.direct_labor       ?? 0);
+      const subs       = Number(r.subs       ?? r.sub                ?? 0);
+      const equip      = Number(r.equip      ?? r.equipment          ?? 0);
+      const materials  = Number(r.materials  ?? r.mats               ?? 0);
+      const odc        = Number(r.odc        ?? r.other_direct_costs ?? 0);
+      const total_cost = Number(
+        r.total_cost ??
+        (labor + subs + equip + materials + odc)
+      );
+
+      costMap[k] = {
+        ...r,
+        labor,
+        subs,
+        equip,
+        materials,
+        odc,
+        total_cost
+      };
     });
 
     const revMap = Object.create(null);
@@ -158,22 +196,21 @@ async function refreshPL() {
 
     const keyFromDate = d => key(d);
 
-    // All unique months
+    // All months with data
     const allKeys = Array.from(
       new Set([...Object.keys(costMap), ...Object.keys(revMap)])
     ).sort();
 
-    // === ROW DEFINITIONS (uses correct .equipment field) ===
     const rows = [
-      ['Revenue', (k) => Number(revMap[k] || 0)],
-      ['Labor', (k) => Number(costMap[k]?.labor || 0)],
-      ['Sub', (k) => Number(costMap[k]?.subs || 0)],
-      ['Equipment', (k) => Number(costMap[k]?.equipment || 0)],     // ← Now correct
-      ['Material', (k) => Number(costMap[k]?.materials || 0)],
-      ['ODC', (k) => Number(costMap[k]?.odc || 0)],
-      ['Total Cost', (k) => Number(costMap[k]?.total_cost || 0)],
-      ['Profit', (k) => Number(revMap[k] || 0) - Number(costMap[k]?.total_cost || 0)],
-      ['Margin %', (k) => {
+      ['Revenue',     (k) => Number(revMap[k] || 0)],
+      ['Labor',       (k) => Number(costMap[k]?.labor || 0)],
+      ['Sub',         (k) => Number(costMap[k]?.subs || 0)],
+      ['Equipment',   (k) => Number(costMap[k]?.equip || 0)],
+      ['Material',    (k) => Number(costMap[k]?.materials || 0)],
+      ['ODC',         (k) => Number(costMap[k]?.odc || 0)],
+      ['Total Cost',  (k) => Number(costMap[k]?.total_cost || 0)],
+      ['Profit',      (k) => Number(revMap[k] || 0) - Number(costMap[k]?.total_cost || 0)],
+      ['Margin %',    (k) => {
         const R = Number(revMap[k] || 0);
         const C = Number(costMap[k]?.total_cost || 0);
         if (R === 0 && C === 0) return null;
@@ -190,7 +227,7 @@ async function refreshPL() {
       return 0;
     };
 
-    // === RENDER TABLE (unchanged logic, just cleaner data source) ===
+    // ---- Header ----
     let html = '<thead><tr>';
     html += '<th class="p-2 sticky-col text-xs font-semibold text-slate-500 bg-slate-50 border-b">Line</th>';
     html += '<th class="p-2 text-right text-xs font-semibold text-slate-500 bg-slate-50 border-b">Prior Years</th>';
@@ -208,11 +245,12 @@ async function refreshPL() {
     html += '<th class="p-2 text-right text-xs font-semibold text-slate-500 bg-slate-50 border-b">Total</th>';
     html += '</tr></thead><tbody>';
 
+    // ---- Data rows ----
     rows.forEach(([label, fn]) => {
       const isProfit = label === 'Profit';
       const isMargin = label === 'Margin %';
       const isSummary = ['Total Cost', 'Profit', 'Margin %'].includes(label);
-      const rowClass = isSummary ? 'font-semibold bg-slate-50' : '';
+      const rowClass = isSummary ? 'summary-row' : isProfit ? 'profit-row' : isMargin ? 'margin-row' : 'pl-row';
 
       html += `<tr class="${rowClass}">`;
       html += `<td class="p-2 font-medium sticky-col text-xs md:text-sm">${label}</td>`;
@@ -223,6 +261,7 @@ async function refreshPL() {
 
         let priorTotal = 0;
         let outerTotal = 0;
+
         allKeys.forEach(k => {
           const date = new Date(k + '-01T00:00:00Z');
           const v = Number(fn(k) || 0);
@@ -230,7 +269,8 @@ async function refreshPL() {
           else if (date >= year3Start) outerTotal += v;
         });
 
-        const totalAll = priorTotal +
+        const totalAll =
+          priorTotal +
           year1Values.reduce((a, b) => a + b, 0) +
           year2Values.reduce((a, b) => a + b, 0) +
           outerTotal;
@@ -238,13 +278,22 @@ async function refreshPL() {
         html += `<td class="p-2 text-right tabular-nums">${fmtUSD0(priorTotal)}</td>`;
         [...year1Values, ...year2Values].forEach(n => {
           let cls = 'p-2 text-right tabular-nums';
-          if (isProfit) cls += n > 0 ? ' text-emerald-700 font-semibold' : n < 0 ? ' text-rose-700 font-semibold' : ' text-slate-600';
+          if (isProfit) {
+            if (n > 0.5) cls += ' text-emerald-700 font-semibold';
+            else if (n < -0.5) cls += ' text-rose-700 font-semibold';
+            else cls += ' text-slate-600';
+          }
           html += `<td class="${cls}">${fmtUSD0(n)}</td>`;
         });
         html += `<td class="p-2 text-right tabular-nums">${fmtUSD0(outerTotal)}</td>`;
-        html += `<td class="p-2 text-right font-semibold tabular-nums${isProfit && totalAll > 0 ? ' text-emerald-700' : isProfit && totalAll < 0 ? ' text-rose-700' : ''}">${fmtUSD0(totalAll)}</td>`;
+        let totalCls = 'p-2 text-right font-semibold tabular-nums';
+        if (isProfit) {
+          if (totalAll > 0.5) totalCls += ' text-emerald-700';
+          else if (totalAll < -0.5) totalCls += ' text-rose-700';
+        }
+        html += `<td class="${totalCls}">${fmtUSD0(totalAll)}</td>`;
       } else {
-        // Margin % row (same logic as before)
+        // Margin % row
         let priorRev = 0, priorCost = 0, outerRev = 0, outerCost = 0;
         const year1Rev = year1Months.map(d => revMap[keyFromDate(d)] || 0);
         const year1Cost = year1Months.map(d => costMap[keyFromDate(d)]?.total_cost || 0);
@@ -259,9 +308,12 @@ async function refreshPL() {
           else if (date >= year3Start) { outerRev += r; outerCost += c; }
         });
 
-        const renderMargin = v => v == null
-          ? '<td class="p-2 text-right text-slate-400">—</td>'
-          : `<td class="p-2 text-right font-medium${v > 0.05 ? ' text-emerald-600' : v < -0.05 ? ' text-rose-600' : ''}">${Number(v).toFixed(1)}%</td>`;
+        const renderMargin = v =>
+          v == null
+            ? '<td class="p-2 text-right text-slate-400">—</td>'
+            : `<td class="p-2 text-right font-medium${
+                v > 0.05 ? ' text-emerald-600' : v < -0.05 ? ' text-rose-600' : ' text-slate-500'
+              }">${Number(v).toFixed(1)}%</td>`;
 
         html += renderMargin(calcMargin(priorRev, priorCost));
         year1Rev.forEach((_, i) => html += renderMargin(calcMargin(year1Rev[i], year1Cost[i])));
@@ -272,6 +324,7 @@ async function refreshPL() {
           priorCost + year1Cost.reduce((a,b)=>a+b,0) + year2Cost.reduce((a,b)=>a+b,0) + outerCost
         ));
       }
+
       html += '</tr>';
     });
 
