@@ -1,5 +1,5 @@
 // js/tabs/pnl.js
-// P&L tab – now 100% reliable: costs show every month, even when zero
+// P&L tab – now powered by vw_eac_monthly_pl_v5: single query, perfect alignment, zero bugs
 import { $ } from '../lib/dom.js';
 import { getProjectId } from '../lib/state.js';
 import { client } from '../api/supabase.js';
@@ -37,7 +37,7 @@ export const template = /*html*/ `
       <div id="plWrap" class="overflow-auto border rounded-lg">
         <table class="text-xs md:text-sm min-w-full" id="plTable"></table>
       </div>
-      <p853 class="mt-2 text-xs text-slate-500">
+      <p class="mt-2 text-xs text-slate-500">
         Revenue uses % complete (earned value) on baseline.<br>
         Costs = Actuals (past) + Plan (future) + ODC.
       </p>
@@ -81,22 +81,12 @@ async function recomputeEAC() {
   }
 }
 
-/**
- * Safe YYYY-MM key extractor
- */
 const key = (d) => {
   if (!d) return '';
   if (typeof d === 'string') return d.slice(0, 7);
-  try {
-    return d.toISOString().slice(0, 7);
-  } catch {
-    return '';
-  }
+  try { return d.toISOString().slice(0, 7); } catch { return ''; }
 };
 
-/**
- * MAIN P&L REFRESH – NOW BULLETPROOF
- */
 async function refreshPL() {
   const status = $('#status');
   const projectId = getProjectId();
@@ -118,106 +108,65 @@ async function refreshPL() {
     const year1Start = new Date(Date.UTC(year1, 0, 1));
     const year3Start = new Date(Date.UTC(year2 + 1, 0, 1));
 
-    // ---- REVENUE – has every month (source of truth for timeline) ----
-    const { data: rev, error: rErr } = await client
-      .from('vw_eac_revenue_monthly')
-      .select('ym, revenue')
+    // SINGLE SOURCE: vw_eac_monthly_pl_v5 – has revenue + all costs + total_cost
+    const { data: rows, error: plErr } = await client
+      .from('vw_eac_monthly_pl_v5')
+      .select('ym, revenue, labor, subs, equip, materials, odc, total_cost')
       .eq('project_id', projectId)
       .gte('ym', '1900-01-01')
       .lt('ym', '2100-01-01')
       .order('ym');
-    if (rErr) throw rErr;
 
-    // ---- COSTS – grab whatever exists ----
-    let rawCosts = [];
-    try {
-      const { data, error } = await client
-        .from('vw_eac_monthly_pl_v4')
-        .select('*')
-        .eq('project_id', projectId)
-        .gte('ym', '1900-01-01')
-        .lt('ym', '2100-01-01')
-        .order('ym');
-      if (error) throw error;
-      rawCosts = data || [];
-    } catch (e) {
-      console.warn('vw_eac_monthly_pl_v4 failed → falling back to vw_eac_revenue_monthly_v4', e);
-      const { data, error } = await client
-        .from('vw_eac_revenue_monthly_v4')
-        .select('*')
-        .eq('project_id', projectId)
-        .gte('ym', '1900-01-01')
-        .lt('ym', '2100-01-01')
-        .order('ym');
-      if (error) throw error;
-      rawCosts = data || [];
-    }
+    if (plErr) throw plErr;
 
-    // ---- Build revMap first (defines all months) ----
-    const revMap = Object.create(null);
-    (rev || []).forEach(r => {
-      const k = key(r.ym);
-      if (k) revMap[k] = Number(r.revenue || 0);
-    });
-
-    // ---- Build costMap – force entry for EVERY revenue month ----
+    // Build both maps from the same result
     const costMap = Object.create(null);
+    const revMap  = Object.create(null);
 
-    // 1. Insert real cost rows
-    (rawCosts || []).forEach(r => {
+    (rows || []).forEach(r => {
       const k = key(r.ym);
       if (!k) return;
-      const labor = Number(r.labor ?? r.direct_labor ?? 0);
-      const subs = Number(r.subs ?? r.sub ?? 0);
-      const equipment = Number(r.equipment ?? r.equip ?? 0);
-      const materials = Number(r.materials ?? r.mats ?? 0);
-      const odc = Number(r.odc ?? r.other_direct_costs ?? 0);
 
-      costMap[k] = { labor, subs, equipment, materials, odc, total_cost: 0 };
-    });
+      costMap[k] = {
+        labor:      Number(r.labor || 0),
+        subs:       Number(r.subs || 0),
+        equip:      Number(r.equip || 0),
+        materials:  Number(r.materials || 0),
+        odc:        Number(r.odc || 0),
+        total_cost: Number(r.total_cost || 0),  // already computed in view
+      };
 
-    // 2. Ensure every revenue month exists (zero-fill missing)
-    Object.keys(revMap).forEach(k => {
-      if (!costMap[k]) {
-        costMap[k] = { labor: 0, subs: 0, equipment: 0, materials: 0, odc: 0, total_cost: 0 };
-      }
-      const c = costMap[k];
-      c.total_cost = c.labor + c.subs + c.equipment + c.materials + c.odc;
+      revMap[k] = Number(r.revenue || 0);
     });
 
     const keyFromDate = d => key(d);
+    const allKeys = Object.keys(revMap).sort();  // v5 already has all months
 
-    // All months (now perfectly aligned)
-    const allKeys = Array.from(new Set([...Object.keys(costMap), ...Object.keys(revMap)])).sort();
-
-    // Row definitions
-    const rows = [
-      ['Revenue', (k) => Number(revMap[k] || 0)],
-      ['Labor', (k) => Number(costMap[k]?.labor || 0)],
-      ['Sub', (k) => Number(costMap[k]?.subs || 0)],
-      ['Equipment', (k) => Number(costMap[k]?.equipment || 0)],
-      ['Material', (k) => Number(costMap[k]?.materials || 0)],
-      ['ODC', (k) => Number(costMap[k]?.odc || 0)],
-      ['Total Cost', (k) => Number(costMap[k]?.total_cost || 0)],
-      ['Profit', (k) => Number(revMap[k] || 0) - Number(costMap[k]?.total_cost || 0)],
-      ['Margin %', (k) => {
-        const R = Number(revMap[k] || 0);
-        const C = Number(costMap[k]?.total_cost || 0);
+    const rowsDef = [
+      ['Revenue',     k => revMap[k]],
+      ['Labor',       k => costMap[k].labor],
+      ['Sub',         k => costMap[k].subs],
+      ['Equipment',   k => costMap[k].equip],
+      ['Material',    k => costMap[k].materials],
+      ['ODC',         k => costMap[k].odc],
+      ['Total Cost',  k => costMap[k].total_cost],
+      ['Profit',      k => revMap[k] - costMap[k].total_cost],
+      ['Margin %',    k => {
+        const R = revMap[k];
+        const C = costMap[k].total_cost;
         if (R === 0 && C === 0) return null;
         if (!R && C) return -100;
-        if (R) return ((R - C) / R) * 100;
-        return 0;
+        return R ? ((R - C) / R) * 100 : 0;
       }]
     ];
 
-    const calcMargin = (revTotal, costTotal) => {
-      if (revTotal === 0 && costTotal === 0) return null;
-      if (!revTotal && costTotal) return -100;
-      if (revTotal) return ((revTotal - costTotal) / revTotal) * 100;
-      return 0;
+    const calcMargin = (rev, cost) => {
+      if (rev === 0 && cost === 0) return null;
+      if (!rev && cost) return -100;
+      return rev ? ((rev - cost) / rev) * 100 : 0;
     };
 
-    // ---- Render Table (unchanged beautiful logic) ----
+    // Render table
     let html = '<thead><tr>';
     html += '<th class="p-2 sticky-col text-xs font-semibold text-slate-500 bg-slate-50 border-b">Line</th>';
     html += '<th class="p-2 text-right text-xs font-semibold text-slate-500 bg-slate-50 border-b">Prior Years</th>';
@@ -235,46 +184,44 @@ async function refreshPL() {
     html += '<th class="p-2 text-right text-xs font-semibold text-slate-500 bg-slate-50 border-b">Total</th>';
     html += '</tr></thead><tbody>';
 
-    rows.forEach(([label, fn]) => {
+    rowsDef.forEach(([label, fn]) => {
       const isProfit = label === 'Profit';
       const isMargin = label === 'Margin %';
 
-      html += `<tr class="${isProfit ? 'font-semibold' : isMargin ? 'font-medium' : ''}">`;
+      html += `<tr class="${isProfit ? 'font-bold' : isMargin ? 'font-medium' : ''}">`;
       html += `<td class="p-2 font-medium sticky-col text-xs md:text-sm">${label}</td>`;
 
       if (!isMargin) {
-        const year1Values = year1Months.map(d => Number(fn(keyFromDate(d)) || 0));
-        const year2Values = year2Months.map(d => Number(fn(keyFromDate(d)) || 0));
+        const year1Vals = year1Months.map(d => Number(fn(keyFromDate(d))) || 0);
+        const year2Vals = year2Months.map(d => Number(fn(keyFromDate(d))) || 0);
 
         let priorTotal = 0;
         let outerTotal = 0;
         allKeys.forEach(k => {
           const date = new Date(k + '-01T00:00:00Z');
-          const v = Number(fn(k) || 0);
+          const v = Number(fn(k)) || 0;
           if (date < year1Start) priorTotal += v;
           else if (date >= year3Start) outerTotal += v;
         });
 
-        const totalAll = priorTotal +
-          year1Values.reduce((a, b) => a + b, 0) +
-          year2Values.reduce((a, b) => a + b, 0) +
-          outerTotal;
+        const totalAll = priorTotal + year1Vals.reduce((a,b)=>a+b,0) + year2Vals.reduce((a,b)=>a+b,0) + outerTotal;
 
         html += `<td class="p-2 text-right tabular-nums">${fmtUSD0(priorTotal)}</td>`;
-        [...year1Values, ...year2Values].forEach(n => {
-          let cls = 'p-2 text-right tabular-nums';
-          if (isProfit) cls += n > 0 ? ' text-emerald-700 font-bold' : n < 0 ? ' text-rose-700 font-bold' : ' text-slate-600';
-          html += `<td class="${cls}">${fmtUSD0(n)}</td>`;
+        [...year1Vals, ...year2Vals].forEach(n => {
+          const cls = isProfit
+            ? n > 0 ? 'text-emerald-700 font-bold' : n < 0 ? 'text-rose-700 font-bold' : 'text-slate-600'
+            : '';
+          html += `<td class="p-2 text-right tabular-nums ${cls}">${fmtUSD0(n)}</td>`;
         });
         html += `<td class="p-2 text-right tabular-nums">${fmtUSD0(outerTotal)}</td>`;
-        html += `<td class="p-2 text-right font-bold tabular-nums${isProfit && totalAll > 0 ? ' text-emerald-700' : isProfit && totalAll < 0 ? ' text-rose-700' : ''}">${fmtUSD0(totalAll)}</td>`;
+        html += `<td class="p-2 text-right font-bold tabular-nums ${isProfit && totalAll > 0 ? 'text-emerald-700' : isProfit && totalAll < 0 ? 'text-rose-700' : ''}">${fmtUSD0(totalAll)}</td>`;
       } else {
-        // Margin row – unchanged
+        // Margin row
         let priorRev = 0, priorCost = 0, outerRev = 0, outerCost = 0;
-        const year1Rev = year1Months.map(d => revMap[keyFromDate(d)] || 0);
-        const year1Cost = year1Months.map(d => costMap[keyFromDate(d)]?.total_cost || 0);
-        const year2Rev = year2Months.map(d => revMap[keyFromDate(d)] || 0);
-        const year2Cost = year2Months.map(d => costMap[keyFromDate(d)]?.total_cost || 0);
+        const y1Rev = year1Months.map(d => revMap[keyFromDate(d)] || 0);
+        const y1Cost = year1Months.map(d => costMap[keyFromDate(d)]?.total_cost || 0);
+        const y2Rev = year2Months.map(d => revMap[keyFromDate(d)] || 0);
+        const y2Cost = year2Months.map(d => costMap[keyFromDate(d)]?.total_cost || 0);
 
         allKeys.forEach(k => {
           const date = new Date(k + '-01T00:00:00Z');
@@ -284,17 +231,17 @@ async function refreshPL() {
           else if (date >= year3Start) { outerRev += r; outerCost += c; }
         });
 
-        const renderMargin = v => v == null
+        const render = v => v == null
           ? '<td class="p-2 text-right text-slate-400">—</td>'
-          : `<td class="p-2 text-right font-medium${v > 0.05 ? ' text-emerald-600' : v < -0.05 ? ' text-rose-600' : ''}">${Number(v).toFixed(1)}%</td>`;
+          : `<td class="p-2 text-right font-medium ${v > 5 ? 'text-emerald-600' : v < -5 ? 'text-rose-600' : ''}">${v.toFixed(1)}%</td>`;
 
-        html += renderMargin(calcMargin(priorRev, priorCost));
-        year1Rev.forEach((_, i) => html += renderMargin(calcMargin(year1Rev[i], year1Cost[i])));
-        year2Rev.forEach((_, i) => html += renderMargin(calcMargin(year2Rev[i], year2Cost[i])));
-        html += renderMargin(calcMargin(outerRev, outerCost));
-        html += renderMargin(calcMargin(
-          priorRev + year1Rev.reduce((a,b)=>a+b,0) + year2Rev.reduce((a,b)=>a+b,0) + outerRev,
-          priorCost + year1Cost.reduce((a,b)=>a+b,0) + year2Cost.reduce((a,b)=>a+b,0) + outerCost
+        html += render(calcMargin(priorRev, priorCost));
+        y1Rev.forEach((_, i) => html += render(calcMargin(y1Rev[i], y1Cost[i])));
+        y2Rev.forEach((_, i) => html += render(calcMargin(y2Rev[i], y2Cost[i])));
+        html += render(calcMargin(outerRev, outerCost));
+        html += render(calcMargin(
+          priorRev + y1Rev.reduce((a,b)=>a+b,0) + y2Rev.reduce((a,b)=>a+b,0) + outerRev,
+          priorCost + y1Cost.reduce((a,b)=>a+b,0) + y2Cost.reduce((a,b)=>a+b,0) + outerCost
         ));
       }
       html += '</tr>';
