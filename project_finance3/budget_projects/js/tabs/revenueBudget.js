@@ -38,27 +38,29 @@ export const revenueBudgetTab = {
   template,
   async init({ root, client }) {
     const msg = $("#revMessage", root);
-    const projectId = getSelectedProjectId();
     const ctx = getPlanContext();
+    const projectId = getSelectedProjectId();
 
-    // Critical checks — use shared context only
+    // ---- VALIDATION --------------------------------------------------------
     if (!projectId) {
-      msg && (msg.textContent = "No project selected. Please go to the Projects tab.");
+      msg.textContent = "No project selected. Please go to the Projects tab.";
       renderRevenue(root, null);
       return;
     }
 
     if (!ctx.year || !ctx.versionId) {
-      msg && (msg.textContent = "Plan not fully selected. Please complete selection in the Projects tab.");
+      msg.textContent = "Plan not fully selected. Please complete selection in the Projects tab.";
       renderRevenue(root, null);
       return;
     }
 
-    // Auto-load — no filters, no local state
     await refreshRevenue(root, client);
   },
 };
 
+// ---------------------------------------------------------------------------
+//   LOAD REVENUE LINES
+// ---------------------------------------------------------------------------
 async function refreshRevenue(root, client) {
   const msg = $("#revMessage", root);
   const projectId = getSelectedProjectId();
@@ -69,11 +71,19 @@ async function refreshRevenue(root, client) {
     return;
   }
 
-  msg && (msg.textContent = "Loading revenue…");
+  msg.textContent = "Loading revenue…";
 
   const { data, error } = await client
     .from("planning_lines")
-    .select("id, entry_type_name, employee_name, vendor_name, description, jan, feb, mar, apr, may, jun, jul, aug, sep, oct, nov, dec")
+    .select(`
+      id,
+      entry_type_name,
+      employee_name,
+      vendor_name,
+      description,
+      jan, feb, mar, apr, may, jun,
+      jul, aug, sep, oct, nov, dec
+    `)
     .eq("project_id", projectId)
     .eq("plan_year", ctx.year)
     .eq("plan_version_id", ctx.versionId)
@@ -82,16 +92,19 @@ async function refreshRevenue(root, client) {
     .order("entry_type_name");
 
   if (error) {
-    console.error(error);
-    msg && (msg.textContent = "Error loading revenue.");
+    console.error("[Revenue] Load error", error);
+    msg.textContent = "Error loading revenue.";
     renderRevenue(root, null);
     return;
   }
 
+  msg.textContent = data?.length ? "" : "No revenue lines found.";
   renderRevenue(root, data || []);
-  msg && (msg.textContent = data?.length === 0 ? "No revenue lines found." : "");
 }
 
+// ---------------------------------------------------------------------------
+//   RENDER TABLE
+// ---------------------------------------------------------------------------
 function renderRevenue(root, rows) {
   const tbody = $("#revBody", root);
   if (!tbody) return;
@@ -105,10 +118,12 @@ function renderRevenue(root, rows) {
   const fmt = v => typeof v === "number" ? v.toLocaleString() : "";
 
   tbody.innerHTML = "";
+
   rows.forEach((r, i) => {
     const who = r.employee_name || r.vendor_name || "";
     let total = 0;
-    const cells = months.map(m => {
+
+    const monthCells = months.map(m => {
       const val = Number(r[m] || 0);
       total += val;
       return `<td class="num">${fmt(val)}</td>`;
@@ -120,9 +135,10 @@ function renderRevenue(root, rows) {
       <td>${r.entry_type_name || ""}</td>
       <td>${who}</td>
       <td>${r.description || ""}</td>
-      ${cells}
+      ${monthCells}
       <td class="num font-semibold">${fmt(total)}</td>
     `;
+
     tbody.appendChild(tr);
   });
 }
