@@ -9,8 +9,7 @@ export const template = /*html*/ `
       Build revenue for the selected project.
     </p>
 
-    <section id="revMessage"
-             style="min-height:1.25rem; font-size:0.9rem; color:#64748b; margin-bottom:0.75rem;"></section>
+    <section id="revMessage" style="min-height:1.25rem; font-size:0.9rem; color:#64748b; margin-bottom:0.75rem;"></section>
 
     <section style="margin-top:0.5rem;">
       <div class="scroll-x">
@@ -40,20 +39,19 @@ export const revenueBudgetTab = {
   async init({ root, client }) {
     const msg = $("#revMessage", root);
     const ctx = getPlanContext();
-
     const projectId = ctx.projectId;
 
     console.log("[Revenue:init] projectId:", projectId);
     console.log("[Revenue:init] planContext:", ctx);
 
     if (!projectId) {
-      msg.textContent = "No project selected. Please go to the Projects tab.";
+      msg && (msg.textContent = "No project selected. Please go to the Projects tab.");
       renderRevenue(root, null);
       return;
     }
 
     if (!ctx.year || !ctx.versionId) {
-      msg.textContent = "Plan not fully selected. Please complete selection in the Projects tab.";
+      msg && (msg.textContent = "Plan not fully selected. Please complete selection in the Projects tab.");
       renderRevenue(root, null);
       return;
     }
@@ -62,9 +60,6 @@ export const revenueBudgetTab = {
   },
 };
 
-// ---------------------------------------------------------------------------
-// LOAD REVENUE LINES — simplified & safer
-// ---------------------------------------------------------------------------
 async function refreshRevenue(root, client) {
   const msg = $("#revMessage", root);
   const ctx = getPlanContext();
@@ -75,16 +70,35 @@ async function refreshRevenue(root, client) {
     return;
   }
 
-  msg.textContent = "Loading revenue…";
+  msg && (msg.textContent = "Loading revenue…");
 
-  // SIMPLER, SAFER, MORE RELIABLE
   const { data, error } = await client
     .from("planning_lines")
-    .select("*")  // Grab everything — no risk of missing columns
+    .select(`
+      id,
+      is_revenue,
+      resource_name,
+      description,
+      amt_jan,
+      amt_feb,
+      amt_mar,
+      amt_apr,
+      amt_may,
+      amt_jun,
+      amt_jul,
+      amt_aug,
+      amt_sep,
+      amt_oct,
+      amt_nov,
+      amt_dec
+    `)
     .eq("project_id", projectId)
     .eq("plan_year", ctx.year)
-    .eq("plan_version_id", ctx.versionId);
-    // Removed: plan_type, is_revenue, order — all handled in render if needed
+    .eq("plan_version_id", ctx.versionId)
+    .eq("plan_type", ctx.planType || "Working")
+    .eq("is_revenue", true);
+
+  console.log("[Revenue] rows:", data, "error:", error);
 
   if (error) {
     console.error("[Revenue] Load error:", error);
@@ -93,16 +107,10 @@ async function refreshRevenue(root, client) {
     return;
   }
 
-  // Optional: filter in JS if you still want only revenue lines
-  const revenueLines = data?.filter(line => line.is_revenue === true) || [];
-
-  msg.textContent = revenueLines.length ? "" : "No revenue lines found.";
-  renderRevenue(root, revenueLines);
+  renderRevenue(root, data || []);
+  msg && (msg.textContent = data?.length === 0 ? "No revenue lines found for this project and plan." : "");
 }
 
-// ---------------------------------------------------------------------------
-// RENDER TABLE
-// ---------------------------------------------------------------------------
 function renderRevenue(root, rows) {
   const tbody = $("#revBody", root);
   if (!tbody) return;
@@ -112,20 +120,20 @@ function renderRevenue(root, rows) {
     return;
   }
 
-  const months = ["jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"];
+  const monthCols = [
+    "amt_jan","amt_feb","amt_mar","amt_apr","amt_may","amt_jun",
+    "amt_jul","amt_aug","amt_sep","amt_oct","amt_nov","amt_dec"
+  ];
   const fmt = v => typeof v === "number" ? v.toLocaleString() : "";
 
   tbody.innerHTML = "";
-
-  // Optional: sort in JS (if you removed .order() from query)
-  rows.sort((a, b) => (a.entry_type_name || "").localeCompare(b.entry_type_name || ""));
-
   rows.forEach((r, i) => {
-    const who = r.employee_name || r.vendor_name || "";
+    const who = r.resource_name || "";
+    const type = r.is_revenue ? "Revenue" : ""; // placeholder until you join entry_types
     let total = 0;
 
-    const monthCells = months.map(m => {
-      const val = Number(r[m] || 0);
+    const cells = monthCols.map(col => {
+      const val = Number(r[col] || 0);
       total += val;
       return `<td class="num">${fmt(val)}</td>`;
     }).join("");
@@ -133,13 +141,12 @@ function renderRevenue(root, rows) {
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${i + 1}</td>
-      <td>${r.entry_type_name || ""}</td>
+      <td>${type}</td>
       <td>${who}</td>
       <td>${r.description || ""}</td>
-      ${monthCells}
+      ${cells}
       <td class="num font-semibold">${fmt(total)}</td>
     `;
-
     tbody.appendChild(tr);
   });
 }
