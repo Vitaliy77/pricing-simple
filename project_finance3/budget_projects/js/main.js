@@ -9,6 +9,7 @@ import { summaryPlanTab } from "./tabs/summaryPlan.js";
 import { revenueBudgetTab } from "./tabs/revenueBudget.js";
 import { costBudgetTab } from "./tabs/costBudget.js";
 import { adminTab } from "./tabs/admin.js";
+import { pnlTab } from "./tabs/pnl.js";
 
 const tabs = {
   auth: authTab,
