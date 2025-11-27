@@ -1,40 +1,54 @@
-/* =====================================================
-   MAIN LAYOUT – FULL VERTICAL STACK
-   ===================================================== */
+/* Basic page typography */
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+}
+
+/* Main layout: vertical only (no side-by-side panels) */
 .main {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
 }
 
-/* =====================================================
-   TAB BAR – HEAVY BLUE STRIP WITH WHITE BUTTONS
-   ===================================================== */
+/* Tab content area */
+.tab-content {
+  flex: 1;
+  width: 100%;
+}
+
+/* Make articles just normal blocks */
+.tab-content > article {
+  display: block;
+  max-width: 100%;
+}
+
+/* --- TOP TAB BAR --- */
+
+/* Blue strip across the top */
 .tab-bar {
   width: 100%;
-  background: #1d4ed8;                    /* Rich blue background */
-  padding: 0.35rem 0.5rem;                /* Thin blue padding top/bottom */
+  background: #1d4ed8;           /* heavy blue */
   border-bottom: 1px solid #1d4ed8;
-  display: flex;
-  gap: 0.5rem;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: thin;
 }
 
-/* Base button style – white pills on blue */
-.tab-bar .tab-btn {
-  flex: 1 1 0;
-  min-width: 110px;
-  padding: 0.55rem 0.75rem;
-  border-radius: 0.45rem;                 /* Soft rounded corners */
+/* Inner container is already flex via Tailwind (flex space-x-1 ...) */
+/* We just want some gap between buttons */
+.tab-bar .flex {
+  gap: 0.5rem;
+}
+
+/* Base button style: white, slightly rounded, outlined */
+.tab-btn {
+  border-radius: 0.45rem;        /* lightly rounded edges */
   border: 1px solid #ffffff;
   background: #ffffff;
-  color: #1e293b;                         /* Dark readable text */
+  color: #1e293b;                /* dark text */
   font-size: 0.9rem;
   font-weight: 500;
   text-align: center;
   white-space: nowrap;
+  padding: 0.55rem 0.75rem;
   cursor: pointer;
   transition:
     background-color 0.15s ease,
@@ -43,36 +57,22 @@
     box-shadow 0.15s ease;
 }
 
-/* Hover – subtle lift */
-.tab-bar .tab-btn:hover {
-  border-color: #e2e8f0;
-  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.25);
-  background: #f8fafc;
+/* Hover: subtle shadow + slightly darker border */
+.tab-btn:hover {
+  border-color: #d1d5db;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.25);
 }
 
-/* Active tab – inverted: dark navy background, white text */
-.tab-bar .tab-btn.tab-active {
-  background: #0f172a;                    /* Almost black navy */
+/* Active tab: inverted (blue button, white text) */
+.tab-btn.tab-active {
+  background: #0f172a;           /* very dark navy/blue */
   color: #f9fafb;
   border-color: #0f172a;
-  box-shadow: 0 3px 8px rgba(15, 23, 42, 0.5);
-  font-weight: 600;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.5);
 }
 
-/* Keyboard accessibility */
-.tab-bar .tab-btn:focus-visible {
+/* Keyboard focus outline */
+.tab-btn:focus {
   outline: 2px solid #bfdbfe;
   outline-offset: 2px;
-}
-
-/* Optional: hide scrollbar but keep functionality (clean look) */
-.tab-bar::-webkit-scrollbar {
-  height: 6px;
-}
-.tab-bar::-webkit-scrollbar-track {
-  background: transparent;
-}
-.tab-bar::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.3);
-  border-radius: 3px;
 }
