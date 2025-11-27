@@ -148,9 +148,13 @@ async function loadPlanVersions(root) {
   sel.innerHTML = `<option value="">Loading…</option>`;
 
   const { data, error } = await client
-    .from("plan_versions")
-    .select("id, code, description")
-    .order("sort_order", { ascending: true });
+    .from("projects")
+    .select("id, project_code, name, revenue_formula, pop_start, pop_end, funding")
+    .like("project_code", `${parent.project_code}.%`)
+    .order("project_code");
+
+  console.log("[DEBUG] Child projects raw:", data);
+
 
   if (error || !data) {
     sel.innerHTML = `<option value="">Error loading versions</option>`;
