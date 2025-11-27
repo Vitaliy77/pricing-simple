@@ -2,42 +2,37 @@
 
 body {
   margin: 0;
-  min-height: 100vh;
-  background: #f1f5f9; /* slate-100-ish */
-  color: #0f172a;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
     sans-serif;
+  background: #f1f5f9; /* slate-100-ish */
+  color: #0f172a;
 }
 
+/* We keep main as a normal block container */
 .main {
-  display: flex;
-  flex-direction: column;
-  flex: 1 1 auto;
+  width: 100%;
 }
 
-/* --- TOP BLUE TAB BAR --- */
+/* --- TOP MENU (ONE LINE) --- */
 
 .top-menu {
   background: #1d4ed8;            /* natural blue */
   border-bottom: 1px solid #1e40af;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.2);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.25);
 }
 
 .tab-bar {
   display: flex;
   gap: 0.5rem;
-  padding: 0.75rem 1rem;
+  padding: 0.6rem 1rem;
   overflow-x: auto;
 }
 
-/* Scrollbar can stay default; you can fancy it later */
-
-/* Tab buttons (menu items) */
+/* Menu buttons: white pills on blue */
 .tab-btn {
-  flex: 1 1 0;
-  min-width: max-content;
-  padding: 0.6rem 1.25rem;
-  border-radius: 0.75rem;
+  flex: 0 0 auto;                 /* don't stretch crazy tall */
+  padding: 0.55rem 1.25rem;
+  border-radius: 999px;
   border: 1px solid #ffffff;
   background: #ffffff;
   color: #0f172a;
@@ -50,9 +45,8 @@ body {
     background-color 0.15s ease,
     color 0.15s ease,
     border-color 0.15s ease,
-    box-shadow 0.15s ease,
-    transform 0.05s ease;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.15);
+    box-shadow 0.15s ease;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.18);
 }
 
 .tab-btn:hover {
@@ -63,32 +57,31 @@ body {
 
 /* Active tab */
 .tab-btn.tab-active {
-  background: #020617;          /* deep navy */
+  background: #020617;            /* dark navy */
   color: #f9fafb;
   border-color: #020617;
   box-shadow: 0 3px 6px rgba(15, 23, 42, 0.5);
 }
 
-/* Focus outline for keyboard users */
+/* Focus */
 .tab-btn:focus {
   outline: 2px solid #bfdbfe;
   outline-offset: 2px;
 }
 
-/* --- APP HEADER (SECOND LINE) --- */
+/* --- APP HEADER (second line: title + user) --- */
 
 .app-header {
   background: #ffffff;
   border-bottom: 1px solid #e5e7eb;
-  padding: 0.75rem 1rem;
+  padding: 0.75rem 1.25rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
 }
 
 .app-title {
-  font-size: 1.1rem;
+  font-size: 1.05rem;
   font-weight: 700;
   color: #0f172a;
 }
@@ -103,18 +96,68 @@ body {
   color: #1d4ed8;
 }
 
-/* --- CONTENT AREA --- */
+/* --- MAIN CONTENT AREA (forms/tables under the menu) --- */
 
 .tab-content {
-  flex: 1 1 auto;
-  padding: 1.5rem;
-  max-width: 1120px;
   width: 100%;
-  margin: 0 auto 2rem;
+  max-width: 1120px;
+  margin: 1.5rem auto 2.5rem;
+  padding: 0 1.25rem;
 }
 
-/* --- TABLES --- */
+/* Make each tab article a normal block, not flex row */
+#appMain > article {
+  max-width: 720px;
+}
 
+/* --- FORMS & TABLES (Tailwind-ish styling) --- */
+
+input,
+select,
+textarea {
+  width: 100%;
+  padding: 0.45rem 0.6rem;
+  border-radius: 0.5rem;
+  border: 1px solid #d1d5db;
+  font-size: 0.9rem;
+  color: #111827;
+  box-sizing: border-box;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 1px #2563eb33;
+}
+
+button:not(.tab-btn) {
+  padding: 0.45rem 1.1rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: #2563eb;
+  color: #ffffff;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.2);
+  transition:
+    background-color 0.12s ease,
+    box-shadow 0.12s ease,
+    transform 0.05s ease;
+}
+
+button:not(.tab-btn):hover {
+  background: #1d4ed8;
+  box-shadow: 0 2px 4px rgba(15, 23, 42, 0.3);
+}
+
+button:not(.tab-btn):active {
+  transform: translateY(1px);
+}
+
+/* Simple table look */
 .data-grid {
   width: 100%;
   border-collapse: collapse;
@@ -150,82 +193,4 @@ body {
 .data-grid .num {
   text-align: right;
   font-variant-numeric: tabular-nums;
-}
-
-/* --- FORM CONTROLS (INPUTS, SELECTS, BUTTONS) --- */
-
-input,
-select,
-textarea {
-  width: 100%;
-  padding: 0.45rem 0.6rem;
-  border-radius: 0.5rem;
-  border: 1px solid #d1d5db;
-  font-size: 0.9rem;
-  color: #111827;
-  box-sizing: border-box;
-}
-
-input:focus,
-select:focus,
-textarea:focus {
-  outline: none;
-  border-color: #2563eb;
-  box-shadow: 0 0 0 1px #2563eb33;
-}
-
-/* Generic buttons (not menu buttons) */
-button:not(.tab-btn) {
-  padding: 0.45rem 1.1rem;
-  border-radius: 999px;
-  border: 1px solid transparent;
-  background: #2563eb;
-  color: #ffffff;
-  font-size: 0.9rem;
-  font-weight: 500;
-  cursor: pointer;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.2);
-  transition:
-    background-color 0.12s ease,
-    box-shadow 0.12s ease,
-    transform 0.05s ease;
-}
-
-button:not(.tab-btn):hover {
-  background: #1d4ed8;
-  box-shadow: 0 2px 4px rgba(15, 23, 42, 0.3);
-}
-
-button:not(.tab-btn):active {
-  transform: translateY(1px);
-}
-
-/* Secondary style example */
-button.secondary {
-  background: #ffffff;
-  color: #111827;
-  border-color: #d1d5db;
-}
-
-button.secondary:hover {
-  background: #f9fafb;
-}
-
-/* --- PRINT --- */
-
-@media print {
-  .top-menu,
-  .app-header {
-    display: none !important;
-  }
-
-  body {
-    background: #ffffff;
-  }
-
-  .tab-content {
-    margin: 0;
-    padding: 0.5rem;
-    max-width: none;
-  }
 }
