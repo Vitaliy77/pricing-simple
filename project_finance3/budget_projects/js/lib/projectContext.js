@@ -11,6 +11,10 @@ let _planContext = {
   level1ProjectId: null,
   level1ProjectCode: null,
   level1ProjectName: null,
+
+  // ← NEW: Keep lowest-level project in context too (for extra safety)
+  projectId: null,
+  projectName: "",
 };
 
 // ────────────────────────────────────────────────────────────────
@@ -21,7 +25,7 @@ function updateProjectHeader() {
   if (!el) return;
 
   if (!_selectedProject) {
-    el.textContent = "";                 // ← Clean, no "No project selected"
+    el.textContent = "";
     return;
   }
 
@@ -61,7 +65,22 @@ function updatePlanContextHeader() {
 export function setSelectedProject(project) {
   _selectedProject = project || null;
 
-  // Always keep both headers in sync
+  // Extract ID and name defensively
+  const id = project?.id ?? project?.project_id ?? null;
+  const name = project?.name ?? project?.project_name ?? project?.code ?? "";
+
+  // Keep planContext in sync (this is the key improvement)
+  if (id) {
+    _planContext.projectId = id;
+    _planContext.projectName = name;
+  } else {
+    _planContext.projectId = null;
+    _planContext.projectName = "";
+  }
+
+  console.log("[projectContext] setSelectedProject →", { project, id, name, _planContext });
+
+  // Always update both headers
   updateProjectHeader();
   updatePlanContextHeader();
 }
@@ -71,19 +90,18 @@ export function getSelectedProject() {
 }
 
 /**
- * Smart & defensive project ID getter
- * Works whether you pass { id }, { project_id }, or even old data shapes
+ * Ultra-robust project ID getter
+ * Works no matter how the data comes in
  */
 export function getSelectedProjectId() {
-  if (!_selectedProject) return null;
+  // 1. Direct from selected project
+  if (_selectedProject?.id) return _selectedProject.id;
+  if (_selectedProject?.project_id) return _selectedProject.project_id;
 
-  // Most common cases
-  if (_selectedProject.id) return _selectedProject.id;
-  if (_selectedProject.project_id) return _selectedProject.project_id;
-
-  // Fallback: maybe someone stored it directly in context (legacy)
+  // 2. From planContext (backup)
   if (_planContext.projectId) return _planContext.projectId;
 
+  // 3. Nothing
   return null;
 }
 
@@ -93,5 +111,5 @@ export function setPlanContext(partial) {
 }
 
 export function getPlanContext() {
-  return { ..._planContext }; // immutable shallow copy
+  return { ..._planContext }; // immutable copy
 }
