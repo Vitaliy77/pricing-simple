@@ -6,13 +6,13 @@ let _planContext = {
   year: null,
   versionId: null,
   versionCode: null,
-  versionLabel: null,           // e.g. "BUDGET – Annual Budget"
+  versionLabel: null,
   planType: "Working",
   level1ProjectId: null,
   level1ProjectCode: null,
   level1ProjectName: null,
 
-  // ← NEW: Keep lowest-level project in context too (for extra safety)
+  // Lowest-level selected project (for Revenue/Cost/P&L)
   projectId: null,
   projectName: "",
 };
@@ -65,22 +65,27 @@ function updatePlanContextHeader() {
 export function setSelectedProject(project) {
   _selectedProject = project || null;
 
-  // Extract ID and name defensively
-  const id = project?.id ?? project?.project_id ?? null;
-  const name = project?.name ?? project?.project_name ?? project?.code ?? "";
+  const id =
+    project && ("id" in project
+      ? project.id
+      : "project_id" in project
+      ? project.project_id
+      : null);
 
-  // Keep planContext in sync (this is the key improvement)
-  if (id) {
-    _planContext.projectId = id;
-    _planContext.projectName = name;
-  } else {
-    _planContext.projectId = null;
-    _planContext.projectName = "";
-  }
+  const name =
+    project?.name ??
+    project?.project_name ??
+    project?.code ??
+    project?.project_code ??
+    "";
 
-  console.log("[projectContext] setSelectedProject →", { project, id, name, _planContext });
+  _planContext.projectId = id;
+  _planContext.projectName = name;
 
-  // Always update both headers
+  console.log("[projectContext] AFTER setSelectedProject planContext =", 
+    JSON.stringify(_planContext)
+  );
+
   updateProjectHeader();
   updatePlanContextHeader();
 }
@@ -90,18 +95,12 @@ export function getSelectedProject() {
 }
 
 /**
- * Ultra-robust project ID getter
- * Works no matter how the data comes in
+ * Ultra-robust — works even if _selectedProject is stale
  */
 export function getSelectedProjectId() {
-  // 1. Direct from selected project
   if (_selectedProject?.id) return _selectedProject.id;
   if (_selectedProject?.project_id) return _selectedProject.project_id;
-
-  // 2. From planContext (backup)
   if (_planContext.projectId) return _planContext.projectId;
-
-  // 3. Nothing
   return null;
 }
 
@@ -111,5 +110,5 @@ export function setPlanContext(partial) {
 }
 
 export function getPlanContext() {
-  return { ..._planContext }; // immutable copy
+  return { ..._planContext };
 }
