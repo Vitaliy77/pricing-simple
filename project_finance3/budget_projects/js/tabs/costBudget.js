@@ -1,6 +1,11 @@
 // js/tabs/costBudget.js
 import { $, h } from "../lib/dom.js";
-import { getSelectedProject, getSelectedProjectId } from "../lib/projectContext.js";
+import {
+  getSelectedProject,
+  getSelectedProjectId,
+  getPlanContext,
+  setPlanContext,
+} from "../lib/projectContext.js";
 
 export const template = /*html*/ `
   <article>
@@ -12,7 +17,7 @@ export const template = /*html*/ `
     </p>
 
     <!-- Selected project -->
-    <section id="costProjectInfo" style="font-size:0.9rem;font-weight:500;margin-bottom:0.5rem;"></section>
+    <section id="costProjectInfo" style="font-size:0.9rem;font-weight:500;margin-bottom:0.5rem;color:#1d4ed8;"></section>
 
     <!-- Filters -->
     <section style="display:flex;flex-wrap:wrap;gap:0.75rem;margin-bottom:0.75rem;">
@@ -41,7 +46,7 @@ export const template = /*html*/ `
       </label>
     </section>
 
-    <section id="costMessage" style="min-height:1.25rem;font-size:0.9rem;"></section>
+    <section id="costMessage" style="min-height:1.25rem;font-size:0.9rem;color:#64748b;"></section>
 
     <!-- Cost table -->
     <section style="margin-top:0.75rem;">
@@ -83,42 +88,66 @@ export const costBudgetTab = {
     const msg = $("#costMessage", root);
     const projInfo = $("#costProjectInfo", root);
 
+    // Show current project
     const project = getSelectedProject();
     const projectId = getSelectedProjectId();
 
     if (!project || !projectId) {
-      if (projInfo) projInfo.textContent = "";
-      if (msg) msg.textContent = "Select a project on the Projects tab first.";
+      projInfo && (projInfo.textContent = "No project selected");
+      msg && (msg.textContent = "Please select a project on the Projects tab first.");
       renderCost(root, null);
       return;
     }
 
-    // Show project in this tab as well
-    if (projInfo) {
-      const code = project.project_code || "";
-      const name = project.name || "";
-      projInfo.textContent = `Project: ${code} ${name}`.trim();
-    }
+    projInfo && (projInfo.textContent = `Project: ${project.project_code} – ${project.name}`);
 
-    // Load plan versions
+    // DOM references
+    const yearSel = $("#costYearSelect", root);
+    const verSel  = $("#costVersionSelect", root);
+    const typeSel = $("#costTypeSelect", root);
+
+    // Load versions first (needed for pre-fill)
     await loadPlanVersions(root, client);
 
-    // Wire filters
-    ["costYearSelect", "costVersionSelect", "costTypeSelect"].forEach((id) => {
-      const el = $(`#${id}`, root);
-      if (!el) return;
-      el.addEventListener("change", () => refreshCost(root, client));
+    // PRE-FILL FROM SHARED CONTEXT
+    const ctx = getPlanContext();
+    if (ctx.year && yearSel) yearSel.value = String(ctx.year);
+    if (ctx.planType && typeSel) typeSel.value = ctx.planType;
+    if (ctx.versionId && verSel) verSel.value = ctx.versionId;
+
+    // WIRE EVENTS: Update context + refresh data
+    yearSel?.addEventListener("change", () => {
+      const year = yearSel.value ? parseInt(yearSel.value, 10) : null;
+      setPlanContext({ year });
+      refreshCost(root, client);
     });
 
-    if (msg) msg.textContent = "Select year, version, and plan type to view costs.";
+    typeSel?.addEventListener("change", () => {
+      const planType = typeSel.value || "Working";
+      setPlanContext({ planType });
+      refreshCost(root, client);
+    });
 
-    // Optionally auto-load with default filter combination
-    await refreshCost(root, client);
+    verSel?.addEventListener("change", () => {
+      const versionId = verSel.value || null;
+      const versionText = verSel.selectedOptions[0]?.textContent || null;
+      setPlanContext({ 
+        versionId, 
+        versionCode: versionText?.split(" – ")[0] 
+      });
+      refreshCost(root, client);
+    });
+
+    // Auto-load if context is complete
+    if (ctx.year && ctx.versionId && ctx.planType) {
+      await refreshCost(root, client);
+    } else {
+      msg && (msg.textContent = "Select year, version, and plan type to load costs.");
+    }
   },
 };
 
-// ---------- helpers ----------
-
+// Load plan versions with dataset.code
 async function loadPlanVersions(root, client) {
   const sel = $("#costVersionSelect", root);
   if (!sel) return;
@@ -130,19 +159,19 @@ async function loadPlanVersions(root, client) {
     .select("id, code, description")
     .order("sort_order", { ascending: true });
 
-  if (error) {
-    console.error(error);
+  if (error || !data) {
     sel.innerHTML = `<option value="">Error loading versions</option>`;
-    return;
+    return console.error(error);
   }
 
   sel.innerHTML = `<option value="">— Select version —</option>`;
-  for (const pv of data) {
+  data.forEach(pv => {
     const opt = document.createElement("option");
     opt.value = pv.id;
     opt.textContent = `${pv.code} – ${pv.description}`;
+    opt.dataset.code = pv.code;
     sel.appendChild(opt);
-  }
+  });
 }
 
 async function refreshCost(root, client) {
@@ -150,99 +179,81 @@ async function refreshCost(root, client) {
   const yearSel = $("#costYearSelect", root);
   const verSel  = $("#costVersionSelect", root);
   const typeSel = $("#costTypeSelect", root);
-
   const projectId = getSelectedProjectId();
 
   if (!projectId) {
-    if (msg) msg.textContent = "Select a project on the Projects tab first.";
+    msg && (msg.textContent = "No project selected.");
     renderCost(root, null);
     return;
   }
 
-  const plan_year  = yearSel?.value ? parseInt(yearSel.value, 10) : null;
+  const plan_year = yearSel?.value ? parseInt(yearSel.value, 10) : null;
   const version_id = verSel?.value || null;
-  const plan_type  = typeSel?.value || null;
+  const plan_type = typeSel?.value || "Working";
 
-  if (!plan_year || !version_id || !plan_type) {
-    if (msg) msg.textContent = "Please select year, version, and plan type.";
+  if (!plan_year || !version_id) {
+    msg && (msg.textContent = "Please select year and version.");
     renderCost(root, null);
     return;
   }
 
-  if (msg) msg.textContent = "Loading costs…";
+  msg && (msg.textContent = "Loading costs…");
 
-  // Adjust column names if your planning_lines schema differs
   const { data, error } = await client
     .from("planning_lines")
     .select(
-      "id, entry_type_name, employee_name, vendor_name, description, is_revenue, " +
+      "id, entry_type_name, employee_name, vendor_name, description, " +
       "jan, feb, mar, apr, may, jun, jul, aug, sep, oct, nov, dec"
     )
     .eq("project_id", projectId)
     .eq("plan_year", plan_year)
-    .eq("plan_type", plan_type)
     .eq("plan_version_id", version_id)
-    .eq("is_revenue", false)               // 🔴 cost lines only
-    .order("entry_type_name", { ascending: true });
+    .eq("plan_type", plan_type)
+    .eq("is_revenue", false)  // Only cost lines
+    .order("entry_type_name");
 
   if (error) {
     console.error(error);
-    if (msg) msg.textContent = "Error loading cost lines.";
+    msg && (msg.textContent = "Error loading cost lines.");
     renderCost(root, null);
     return;
   }
 
   renderCost(root, data || []);
-  if (msg) msg.textContent = "";
+  msg && (msg.textContent = data?.length ? "" : "No cost lines found.");
 }
 
 function renderCost(root, rows) {
   const tbody = $("#costBody", root);
   if (!tbody) return;
 
-  if (!rows || rows.length === 0) {
+  if (!rows?.length) {
     tbody.innerHTML = `<tr><td colspan="17">No cost lines for the selected filters.</td></tr>`;
     return;
   }
 
-  const months = [
-    "jan","feb","mar","apr","may","jun",
-    "jul","aug","sep","oct","nov","dec",
-  ];
-
-  const fmt = (v) =>
-    typeof v === "number"
-      ? v.toLocaleString(undefined, { maximumFractionDigits: 0 })
-      : (v ? String(v) : "");
+  const months = ["jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"];
+  const fmt = v => typeof v === "number" ? v.toLocaleString(undefined, { maximumFractionDigits: 0 }) : "";
 
   tbody.innerHTML = "";
-
-  rows.forEach((r, idx) => {
-    const tr = document.createElement("tr");
-
-    const who =
-      r.employee_name ||
-      r.vendor_name ||
-      "";
-
+  rows.forEach((r, i) => {
+    const who = r.employee_name || r.vendor_name || "";
     let total = 0;
-    const monthTds = months
-      .map((m) => {
-        const val = Number(r[m] || 0);
-        total += val;
-        return `<td class="num">${fmt(val)}</td>`;
-      })
-      .join("");
+    const cells = months.map(m => {
+      const val = Number(r[m] || 0);
+      total += val;
+      return `<td class="num">${fmt(val)}</td>`;
+    }).join("");
 
+    const tr = document.createElement("tr");
     tr.innerHTML = `
-      <td>${idx + 1}</td>
+      <td>${i + 1}</td>
       <td>${r.entry_type_name || ""}</td>
       <td>${who}</td>
       <td>${r.description || ""}</td>
-      ${monthTds}
-      <td class="num">${fmt(total)}</td>
+      ${cells}
+      <td class="num font-semibold">${fmt(total)}</td>
     `;
-
     tbody.appendChild(tr);
   });
 }
