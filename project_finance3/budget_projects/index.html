@@ -10,32 +10,34 @@
   <link rel="stylesheet" href="./css/app.css">
 </head>
 
-<body class="min-h-screen bg-slate-50 flex flex-col">
-  <!-- TOP MENU BAR – Heavy blue with white pill buttons -->
-  <section class="top-menu">
-    <div class="tab-bar">
-      <button data-tab="auth" class="tab-btn">Sign In</button>
-      <button data-tab="projectSelect" class="tab-btn">Projects</button>
-      <button data-tab="newProjects" class="tab-btn">New Project</button>
-      <button data-tab="summaryPlan" class="tab-btn">Summary Plan</button>
-      <button data-tab="revenueBudget" class="tab-btn">Revenue Budget</button>
-      <button data-tab="costBudget" class="tab-btn">Cost Budget</button>
-      <button data-tab="pnl" class="tab-btn">P&L</button>
-      <button data-tab="admin" class="tab-btn">Admin</button>
+<body>
+  <!-- Top dark navigation bar -->
+  <header class="top-nav">
+    <div class="top-nav-inner">
+      <div class="nav-title">
+        Project Planning App
+      </div>
+      <nav class="nav-links">
+        <button data-tab="auth"          class="nav-link">Sign In</button>
+        <button data-tab="projectSelect" class="nav-link">Projects</button>
+        <button data-tab="newProjects"   class="nav-link">New Project</button>
+        <button data-tab="summaryPlan"   class="nav-link">Summary Plan</button>
+        <button data-tab="revenueBudget" class="nav-link">Revenue Budget</button>
+        <button data-tab="costBudget"    class="nav-link">Cost Budget</button>
+        <button data-tab="pnl"           class="nav-link">P&L</button>
+        <button data-tab="admin"         class="nav-link">Admin</button>
+      </nav>
     </div>
+  </header>
+
+  <!-- Small line under the menu for signed-in user -->
+  <section class="user-strip">
+    Signed in: <span id="currentUser">Not signed in</span>
   </section>
 
-  <!-- SECOND LINE: App name + current user -->
-  <section class="app-header">
-    <div class="app-title">Project Planning App</div>
-    <div class="app-user">
-      <span id="currentUser">Not signed in</span>
-    </div>
-  </section>
-
-  <!-- MAIN CONTENT -->
-  <main class="main flex-1 flex flex-col">
-    <section id="appMain" class="tab-content flex-1 p-4 md:p-6 lg:p-8 max-w-7xl mx-auto w-full">
+  <!-- Main content area -->
+  <main class="app-main">
+    <section id="appMain">
       <!-- main.js injects tab templates here -->
     </section>
   </main>
@@ -61,4 +63,5 @@
   <!-- Your App Entry Point -->
   <script type="module" src="./js/main.js"></script>
 </body>
+
 </html>
