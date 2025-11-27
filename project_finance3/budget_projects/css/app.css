@@ -106,6 +106,21 @@ body {
   color: #1d4ed8;
 }
 
+.app-plan-context {
+  margin-top: 0.15rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #475569; /* slate-600 */
+}
+
+.app-project {
+  margin-top: 0.1rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #1d4ed8; /* blue for specific project */
+}
+
+
 /* --- MAIN CONTENT AREA (forms/tables under the menu) --- */
 
 .tab-content {
