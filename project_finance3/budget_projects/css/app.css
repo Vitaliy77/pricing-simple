@@ -1,20 +1,36 @@
-/* TAB BAR – heavy blue strip with white buttons */
-.tab-bar {
+/* =====================================================
+   MAIN LAYOUT – FULL VERTICAL STACK
+   ===================================================== */
+.main {
   display: flex;
-  width: 100%;
-  background: #1d4ed8;          /* heavy blue background */
-  padding: 0.35rem 0.5rem;      /* blue padding around the buttons */
-  gap: 0.5rem;                  /* space between buttons */
+  flex-direction: column;
+  min-height: 100vh;
 }
 
-/* Base button style: white, slightly rounded, outlined */
-.tab-bar button {
+/* =====================================================
+   TAB BAR – HEAVY BLUE STRIP WITH WHITE BUTTONS
+   ===================================================== */
+.tab-bar {
+  width: 100%;
+  background: #1d4ed8;                    /* Rich blue background */
+  padding: 0.35rem 0.5rem;                /* Thin blue padding top/bottom */
+  border-bottom: 1px solid #1d4ed8;
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+
+/* Base button style – white pills on blue */
+.tab-bar .tab-btn {
   flex: 1 1 0;
+  min-width: 110px;
   padding: 0.55rem 0.75rem;
-  border-radius: 0.45rem;       /* lightly rounded edges */
+  border-radius: 0.45rem;                 /* Soft rounded corners */
   border: 1px solid #ffffff;
   background: #ffffff;
-  color: #1e293b;               /* dark text */
+  color: #1e293b;                         /* Dark readable text */
   font-size: 0.9rem;
   font-weight: 500;
   text-align: center;
@@ -27,22 +43,36 @@
     box-shadow 0.15s ease;
 }
 
-/* Hover: subtle shadow + slightly darker border */
-.tab-bar button:hover {
-  border-color: #d1d5db;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.25);
+/* Hover – subtle lift */
+.tab-bar .tab-btn:hover {
+  border-color: #e2e8f0;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.25);
+  background: #f8fafc;
 }
 
-/* Active tab: inverted (blue button, white text) */
-.tab-bar button.tab-active {
-  background: #0f172a;          /* very dark navy/blue */
+/* Active tab – inverted: dark navy background, white text */
+.tab-bar .tab-btn.tab-active {
+  background: #0f172a;                    /* Almost black navy */
   color: #f9fafb;
   border-color: #0f172a;
-  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.5);
+  box-shadow: 0 3px 8px rgba(15, 23, 42, 0.5);
+  font-weight: 600;
 }
 
-/* Keyboard focus outline */
-.tab-bar button:focus {
+/* Keyboard accessibility */
+.tab-bar .tab-btn:focus-visible {
   outline: 2px solid #bfdbfe;
   outline-offset: 2px;
+}
+
+/* Optional: hide scrollbar but keep functionality (clean look) */
+.tab-bar::-webkit-scrollbar {
+  height: 6px;
+}
+.tab-bar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.tab-bar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 3px;
 }
