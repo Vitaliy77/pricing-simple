@@ -41,6 +41,9 @@ export const revenueBudgetTab = {
     const ctx = getPlanContext();
     const projectId = getSelectedProjectId();
 
+    console.log("[Revenue:init] projectId:", getSelectedProjectId());
+    console.log("[Revenue:init] planContext:", getPlanContext());
+
     // ---- VALIDATION --------------------------------------------------------
     if (!projectId) {
       msg.textContent = "No project selected. Please go to the Projects tab.";
