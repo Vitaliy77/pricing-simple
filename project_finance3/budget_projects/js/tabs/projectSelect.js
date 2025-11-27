@@ -81,13 +81,13 @@ export const projectSelectTab = {
     const typeSel = $("#planTypeSelect", root);
     const lvl1Sel = $("#level1ProjectSelect", root);
 
-    // Load data
+    // Load dropdown data
     await Promise.all([
       loadPlanVersions(root),
       loadLevel1Projects(root),
     ]);
 
-    // Restore previous context
+    // Restore previous context into controls
     const ctx = getPlanContext();
     if (ctx.year) yearSel.value = String(ctx.year);
     if (ctx.planType) typeSel.value = ctx.planType;
@@ -125,12 +125,14 @@ export const projectSelectTab = {
         level1ProjectName: name,
       });
 
-      setSelectedProject(null); // Clear previous child selection
+      // Clear previous lowest-level project selection
+      setSelectedProject(null);
 
       if (id) {
         await loadChildProjects(root, id);
       } else {
-        $("#childProjectsBody", root).innerHTML = `<tr><td colspan="5">Select a Level 1 project above.</td></tr>`;
+        $("#childProjectsBody", root).innerHTML =
+          `<tr><td colspan="5">Select a Level 1 project above.</td></tr>`;
       }
     });
 
@@ -138,7 +140,9 @@ export const projectSelectTab = {
   },
 };
 
+// ────────────────────────────────────────────────────────────────
 // Load Plan Versions
+// ────────────────────────────────────────────────────────────────
 async function loadPlanVersions(root) {
   const sel = $("#planVersionSelect", root);
   sel.innerHTML = `<option value="">Loading…</option>`;
@@ -164,7 +168,9 @@ async function loadPlanVersions(root) {
   });
 }
 
+// ────────────────────────────────────────────────────────────────
 // Load Level 1 Projects
+// ────────────────────────────────────────────────────────────────
 async function loadLevel1Projects(root) {
   const sel = $("#level1ProjectSelect", root);
   sel.innerHTML = `<option value="">Loading…</option>`;
@@ -193,7 +199,9 @@ async function loadLevel1Projects(root) {
   });
 }
 
+// ────────────────────────────────────────────────────────────────
 // Load Child Projects + CRITICAL: setSelectedProject() on click
+// ────────────────────────────────────────────────────────────────
 async function loadChildProjects(root, level1ProjectId) {
   const tbody = $("#childProjectsBody", root);
   if (!tbody || !level1ProjectId) {
@@ -203,13 +211,14 @@ async function loadChildProjects(root, level1ProjectId) {
 
   tbody.innerHTML = `<tr><td colspan="5">Loading child projects…</td></tr>`;
 
-  const { data: parent } = await client
+  const { data: parent, error: parentError } = await client
     .from("projects")
     .select("project_code")
     .eq("id", level1ProjectId)
     .single();
 
-  if (!parent) {
+  if (parentError || !parent) {
+    console.error("[ProjectSelect] Error loading parent project:", parentError);
     tbody.innerHTML = `<tr><td colspan="5">Parent project not found.</td></tr>`;
     return;
   }
@@ -221,6 +230,7 @@ async function loadChildProjects(root, level1ProjectId) {
     .order("project_code");
 
   if (error || !data?.length) {
+    console.error("[ProjectSelect] Error or no data loading child projects:", error);
     tbody.innerHTML = `<tr><td colspan="5">No child projects found.</td></tr>`;
     return;
   }
@@ -231,9 +241,12 @@ async function loadChildProjects(root, level1ProjectId) {
     tr.style.cursor = "pointer";
     tr.classList.add("hover:bg-blue-50", "transition-colors");
 
-    const pop = proj.pop_start && proj.pop_end
-      ? `${new Date(proj.pop_start).toLocaleDateString()} – ${new Date(proj.pop_end).toLocaleDateString()}`
-      : "";
+    const pop =
+      proj.pop_start && proj.pop_end
+        ? `${new Date(proj.pop_start).toLocaleDateString()} – ${new Date(
+            proj.pop_end
+          ).toLocaleDateString()}`
+        : "";
 
     const funding = proj.funding ? Number(proj.funding).toLocaleString() : "";
 
@@ -246,17 +259,28 @@ async function loadChildProjects(root, level1ProjectId) {
     `;
 
     tr.addEventListener("click", () => {
-      console.log("[ProjectSelect] Setting selected project:", proj);
+      console.log("[ProjectSelect] Setting selected project (full row):", proj);
 
-      setSelectedProject({
-        id: proj.id,
-        project_code: proj.project_code,
-        name: proj.name,
+      // 1️⃣ Save full project into shared context
+      setSelectedProject(proj);
+
+      // 2️⃣ Be explicit: also update planContext
+      setPlanContext({
+        projectId: proj.id,
+        projectName: proj.name,
       });
 
-      // Visual feedback
-      tbody.querySelectorAll("tr").forEach(r => r.classList.remove("bg-blue-100"));
+      // 3️⃣ Visual feedback
+      tbody.querySelectorAll("tr").forEach(r =>
+        r.classList.remove("bg-blue-100", "font-medium")
+      );
       tr.classList.add("bg-blue-100", "font-medium");
+
+      // (optional) message update
+      const msg = $("#projMessage", root);
+      if (msg) {
+        msg.textContent = `Selected project: ${proj.project_code} – ${proj.name}`;
+      }
     });
 
     tbody.appendChild(tr);
