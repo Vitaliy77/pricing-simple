@@ -1,5 +1,6 @@
 // js/tabs/projectSelect.js
 import { $, h } from "../lib/dom.js";
+import { setSelectedProject } from "../lib/projectContext.js";
 
 export const template = /*html*/ `
   <article>
