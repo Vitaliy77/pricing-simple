@@ -1,14 +1,11 @@
 // js/api/supabase.js
+// Official Supabase client from CDN (safe + always up-to-date)
+import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2";
 
-// Supabase v2 client from CDN (no bundler needed)
-import { createClient } from "https://mzdomznhlvuejnazzsif.supabase.co";
+// Your real project URL and anon key
+const SUPABASE_URL = "https://mzdomznhlvuejnazzsif.supabase.co";
+const SUPABASE_ANON_KEY =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im16ZG9tem5obHZ1ZWpuYXp6c2lmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQyNTU5OTksImV4cCI6MjA3OTgzMTk5OX0.FI_2sG3WVGP2A_OXetzKlAxN0AjIX8WWnSFQssLCckg";
 
-// 🔴 REPLACE this with your actual project URL from Supabase
-// It looks like: https://xxxxxxxxxxxx.supabase.co
-const SUPABASE_URL = "https://YOUR-PROJECT-ID.supabase.co";
-
-// ✅ Use your publishable key here
-const SUPABASE_KEY = "sb_publishable_Hz8nV_-6RUK4y1R4uTS3xA_leHoje73";
-
-// Create a single shared client for the whole app
-export const client = createClient(SUPABASE_URL, SUPABASE_KEY);
+// Single shared client for the entire app
+export const client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
