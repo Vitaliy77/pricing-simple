@@ -101,6 +101,12 @@ export const projectSelectTab = {
       }
     }
 
+        // If year was never set, default it from the dropdown
+    if (!ctx.year && yearSel.value) {
+      setPlanContext({ year: parseInt(yearSel.value, 10) });
+    }
+
+
     // Event Listeners
     yearSel?.addEventListener("change", () => {
       setPlanContext({ year: yearSel.value ? parseInt(yearSel.value, 10) : null });
