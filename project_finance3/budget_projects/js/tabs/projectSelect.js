@@ -12,7 +12,6 @@ export const template = /*html*/ `
       to the other tabs (Revenue, Cost, P&L).
     </p>
 
-    <!-- Filters -->
     <section style="display:flex;flex-wrap:wrap;gap:0.75rem;margin-bottom:0.75rem;">
       <label>
         Plan Year
@@ -48,7 +47,6 @@ export const template = /*html*/ `
 
     <section id="projMessage" style="min-height:1.25rem;font-size:0.9rem;color:#64748b;"></section>
 
-    <!-- Child projects table -->
     <section style="margin-top:0.75rem;">
       <h4 style="margin-bottom:0.35rem;font-size:0.95rem;">Child Projects (click to select)</h4>
       <div class="scroll-x">
@@ -80,39 +78,42 @@ export const projectSelectTab = {
     const typeSel = $("#planTypeSelect", root);
     const lvl1Sel = $("#level1ProjectSelect", root);
 
-    // Load data
     await Promise.all([
       loadPlanVersions(root),
-      loadLevel1Projects(root),  // now safe – no .eq("level", 1)
+      loadLevel1Projects(root),
     ]);
 
-    // Restore previous context
     const ctx = getPlanContext();
-    if (ctx.year && yearSel) yearSel.value = String(ctx.year);
-    if (ctx.planType && typeSel) typeSel.value = ctx.planType;
-    if (ctx.versionId && verSel) verSel.value = ctx.versionId;
-    if (ctx.level1ProjectId && lvl1Sel) {
+    if (ctx.year) yearSel.value = String(ctx.year);
+    if (ctx.planType) typeSel.value = ctx.planType;
+    if (ctx.versionId) verSel.value = ctx.versionId;
+    if (ctx.level1ProjectId) {
       lvl1Sel.value = ctx.level1ProjectId;
       await loadChildProjects(root, ctx.level1ProjectId);
     }
 
-    // Wire events
+    // YEAR
     yearSel?.addEventListener("change", () => {
       setPlanContext({ year: yearSel.value ? parseInt(yearSel.value, 10) : null });
     });
 
+    // VERSION — now captures full label!
     verSel?.addEventListener("change", () => {
-      const versionId = verSel.value || null;
-      const versionCode = verSel.selectedOptions[0]?.dataset?.code || null;
-      setPlanContext({ versionId, versionCode });
+      const versionId    = verSel.value || null;
+      const versionCode  = verSel.selectedOptions[0]?.dataset?.code || null;
+      const versionLabel = verSel.selectedOptions[0]?.textContent || null; // "BUDGET – Annual Budget"
+
+      setPlanContext({ versionId, versionCode, versionLabel });
     });
 
+    // PLAN TYPE
     typeSel?.addEventListener("change", () => {
       setPlanContext({ planType: typeSel.value || "Working" });
     });
 
+    // LEVEL 1 PROJECT
     lvl1Sel?.addEventListener("change", async () => {
-      const id = lvl1Sel.value || null;
+      const id   = lvl1Sel.value || null;
       const code = lvl1Sel.selectedOptions[0]?.dataset?.code || null;
       const name = lvl1Sel.selectedOptions[0]?.dataset?.name || null;
 
@@ -122,7 +123,7 @@ export const projectSelectTab = {
         level1ProjectName: name,
       });
 
-      setSelectedProject(null); // clear previous selection
+      setSelectedProject(null);
       if (id) {
         await loadChildProjects(root, id);
       } else {
@@ -134,7 +135,6 @@ export const projectSelectTab = {
   },
 };
 
-// Load plan versions
 async function loadPlanVersions(root) {
   const sel = $("#planVersionSelect", root);
   if (!sel) return;
@@ -146,10 +146,9 @@ async function loadPlanVersions(root) {
     .select("id, code, description")
     .order("sort_order", { ascending: true });
 
-  if (error) {
-    console.error("Plan versions error:", error);
+  if (error || !data) {
     sel.innerHTML = `<option value="">Error loading versions</option>`;
-    return;
+    return console.error(error);
   }
 
   sel.innerHTML = `<option value="">— Select version —</option>`;
@@ -162,7 +161,6 @@ async function loadPlanVersions(root) {
   });
 }
 
-// FIXED: No more .eq("level", 1) → works even without level column
 async function loadLevel1Projects(root) {
   const sel = $("#level1ProjectSelect", root);
   if (!sel) return;
@@ -174,17 +172,15 @@ async function loadLevel1Projects(root) {
     .select("id, project_code, name")
     .order("project_code", { ascending: true });
 
-  if (error) {
-    console.error("Error loading projects:", error);
+  if (error || !data) {
     sel.innerHTML = `<option value="">Error loading projects</option>`;
-    return;
+    return console.error(error);
   }
 
-  // Filter Level 1 projects by project_code: those with no dot in code (e.g. "ABC" but not "ABC.01")
-  const level1Projects = data.filter(p => !p.project_code.includes("."));
+  const level1 = data.filter(p => !p.project_code.includes("."));
 
   sel.innerHTML = `<option value="">— Select a Level 1 project —</option>`;
-  level1Projects.forEach(p => {
+  level1.forEach(p => {
     const opt = document.createElement("option");
     opt.value = p.id;
     opt.dataset.code = p.project_code;
@@ -196,28 +192,25 @@ async function loadLevel1Projects(root) {
 
 async function loadChildProjects(root, level1ProjectId) {
   const tbody = $("#childProjectsBody", root);
-  if (!tbody) return;
+  if (!tbody || !level1ProjectId) {
+    tbody && (tbody.innerHTML = `<tr><td colspan="5">Select a Level 1 project.</td></tr>`);
+    return;
+  }
 
   tbody.innerHTML = `<tr><td colspan="5">Loading…</td></tr>`;
 
-  // Get the parent project_code first
   const { data: parent } = await client
     .from("projects")
     .select("project_code")
     .eq("id", level1ProjectId)
     .single();
 
-  if (!parent) {
-    tbody.innerHTML = `<tr><td colspan="5">Parent project not found.</td></tr>`;
-    return;
-  }
-
-  const prefix = `${parent.project_code}.`;
+  if (!parent) return;
 
   const { data, error } = await client
     .from("projects")
     .select("id, project_code, name, revenue_formula, pop_start, pop_end, funding")
-    .like("project_code", `${prefix}%`)
+    .like("project_code", `${parent.project_code}.%`)
     .order("project_code");
 
   if (error || !data?.length) {
@@ -235,9 +228,7 @@ async function loadChildProjects(root, level1ProjectId) {
       ? `${new Date(proj.pop_start).toLocaleDateString()} – ${new Date(proj.pop_end).toLocaleDateString()}`
       : "";
 
-    const funding = proj.funding != null
-      ? Number(proj.funding).toLocaleString()
-      : "";
+    const funding = proj.funding ? Number(proj.funding).toLocaleString() : "";
 
     tr.innerHTML = `
       <td><strong>${proj.project_code}</strong></td>
@@ -254,9 +245,8 @@ async function loadChildProjects(root, level1ProjectId) {
         name: proj.name,
       });
 
-      // Visual feedback
       tbody.querySelectorAll("tr").forEach(r => r.classList.remove("bg-blue-100"));
-      tr.classList.add("bg-blue-100", "font-medium");
+      tr.classList.add("bg-blue-100");
     });
 
     tbody.appendChild(tr);
