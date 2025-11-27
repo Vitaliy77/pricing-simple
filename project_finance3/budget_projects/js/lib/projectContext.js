@@ -1,38 +1,39 @@
 // js/lib/projectContext.js
+let _selectedProject = null;
 
-let _selectedProject = null;   // lowest-level project the user is working on
 let _planContext = {
-  year: null,                  // 2026 / 2027 / 2028
-  versionId: null,             // plan_versions.id
-  versionCode: null,           // e.g. "BUDGET"
-  versionLabel: null,          // e.g. "BUDGET – Annual Budget"
-  planType: "Working",         // "Working" or "Final"
+  year: null,
+  versionId: null,
+  versionCode: null,
+  versionLabel: null,        // e.g. "BUDGET – Annual Budget"
+  planType: "Working",
   level1ProjectId: null,
   level1ProjectCode: null,
   level1ProjectName: null,
 };
 
+// Update main project header (lowest-level project)
 function updateProjectHeader() {
   const el = document.getElementById("currentProject");
   if (!el) return;
 
   if (!_selectedProject) {
-    el.textContent = "";
+    el.textContent = "No project selected";
     return;
   }
 
-  const code = _selectedProject.project_code || _selectedProject.code || "";
+  const code = _selectedProject.project_code || "";
   const name = _selectedProject.name || "";
-  el.textContent = `${code} ${name}`.trim();
+  el.textContent = `${code} – ${name}`.trim();
 }
 
+// Update plan context header (version + type + L1 project)
 function updatePlanContextHeader() {
   const el = document.getElementById("planContextHeader");
   if (!el) return;
 
   const parts = [];
 
-  // Example: "BUDGET – Annual Budget"
   if (_planContext.versionLabel) {
     parts.push(_planContext.versionLabel);
   } else if (_planContext.versionCode) {
@@ -49,15 +50,13 @@ function updatePlanContextHeader() {
     parts.push(l1);
   }
 
-  el.textContent = parts.join(" · ");
+  el.textContent = parts.length ? parts.join(" · ") : "No plan selected";
 }
 
-/**
- * project: { id, project_code, name }
- */
 export function setSelectedProject(project) {
   _selectedProject = project || null;
   updateProjectHeader();
+  updatePlanContextHeader();
 }
 
 export function getSelectedProject() {
@@ -68,21 +67,11 @@ export function getSelectedProjectId() {
   return _selectedProject?.id ?? null;
 }
 
-/**
- * Update plan context (you can pass partials)
- * e.g. setPlanContext({ year: 2026, versionId: "uuid", planType: "Working" })
- */
 export function setPlanContext(partial) {
-  _planContext = {
-    ..._planContext,
-    ...partial,
-  };
+  _planContext = { ..._planContext, ...partial };
   updatePlanContextHeader();
 }
 
-/**
- * Read the whole plan context object
- */
 export function getPlanContext() {
-  return _planContext;
+  return { ..._planContext }; // immutable copy
 }
