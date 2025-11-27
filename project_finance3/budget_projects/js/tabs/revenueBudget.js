@@ -1,6 +1,6 @@
 // js/tabs/revenueBudget.js
 import { $, h } from "../lib/dom.js";
-import { getSelectedProjectId, getPlanContext } from "../lib/projectContext.js";
+import { getPlanContext } from "../lib/projectContext.js";
 
 export const template = /*html*/ `
   <article>
@@ -9,7 +9,7 @@ export const template = /*html*/ `
       Build revenue for the selected project.
     </p>
 
-    <section id="revMessage" 
+    <section id="revMessage"
              style="min-height:1.25rem; font-size:0.9rem; color:#64748b; margin-bottom:0.75rem;"></section>
 
     <section style="margin-top:0.5rem;">
@@ -41,8 +41,8 @@ export const revenueBudgetTab = {
     const msg = $("#revMessage", root);
     const ctx = getPlanContext();
 
-    // CRITICAL FIX: Double source of truth — never fail
-    const projectId = getSelectedProjectId() || ctx.projectId;
+    // ONLY use planContext.projectId — single source of truth
+    const projectId = ctx.projectId;
 
     console.log("[Revenue:init] projectId:", projectId);
     console.log("[Revenue:init] planContext:", ctx);
@@ -64,14 +64,13 @@ export const revenueBudgetTab = {
 };
 
 // ---------------------------------------------------------------------------
-//   LOAD REVENUE LINES (with fallback)
+// LOAD REVENUE LINES — uses only ctx.projectId
 // ---------------------------------------------------------------------------
 async function refreshRevenue(root, client) {
   const msg = $("#revMessage", root);
   const ctx = getPlanContext();
 
-  // Same double-check here — bulletproof
-  const projectId = getSelectedProjectId() || ctx.projectId;
+  const projectId = ctx.projectId;  // Only this — clean and reliable
 
   if (!projectId || !ctx.year || !ctx.versionId) {
     renderRevenue(root, null);
@@ -110,7 +109,7 @@ async function refreshRevenue(root, client) {
 }
 
 // ---------------------------------------------------------------------------
-//   RENDER TABLE
+// RENDER TABLE
 // ---------------------------------------------------------------------------
 function renderRevenue(root, rows) {
   const tbody = $("#revBody", root);
