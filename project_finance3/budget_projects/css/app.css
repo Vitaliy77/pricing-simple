@@ -8,6 +8,10 @@ body {
   color: #0f172a;
 }
 
+.selected-row {
+  background: #eff6ff !important;
+}
+
 /* We keep main as a normal block container */
 .main {
   width: 100%;
