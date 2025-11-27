@@ -1,0 +1,206 @@
+/* css/styles.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Base styles */
+@layer base {
+  body {
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    @apply bg-slate-100 text-slate-900 text-[13px] leading-tight;
+  }
+}
+
+/* Components */
+@layer components {
+  /* Layout */
+  .app-shell {
+    @apply min-h-screen flex flex-col;
+  }
+
+  .container-max {
+    @apply max-w-6xl mx-auto px-3 sm:px-4 lg:px-6;
+  }
+
+    /* Top nav */
+  .nav-bar {
+    @apply bg-slate-900 text-slate-100 shadow-sm;
+  }
+
+  .nav-inner {
+    @apply container-max flex items-center justify-between h-12;
+  }
+
+  .nav-brand {
+    @apply flex items-center gap-2 text-[11px] font-semibold tracking-[0.18em] uppercase text-slate-300;
+  }
+
+  .nav-tabs {
+    @apply flex items-center gap-1 bg-slate-800/80 rounded-full px-1 py-1 border border-slate-700;
+  }
+
+  .nav-tab {
+    @apply inline-flex items-center px-3 py-1.5 rounded-full
+           text-[11px] font-medium
+           text-slate-200/80
+           hover:text-white hover:bg-slate-600
+           transition-colors duration-150;
+  }
+
+  .nav-tab-active {
+    @apply bg-white text-slate-900 shadow-sm;
+  }
+
+
+  /* Card */
+  .card {
+    @apply bg-white rounded-xl shadow-sm border border-slate-200 p-4 sm:p-5;
+  }
+
+  .card-header {
+    @apply mb-3 flex items-center justify-between gap-3;
+  }
+
+  .card-title {
+    @apply text-sm font-semibold text-slate-900;
+  }
+
+  .card-subtitle {
+    @apply text-[11px] text-slate-500;
+  }
+
+  /* Buttons */
+  .btn {
+    @apply inline-flex items-center justify-center gap-1 rounded-full border border-transparent
+           px-3 py-1 text-[11px] font-medium shadow-sm
+           bg-blue-600 text-white
+           hover:bg-blue-700
+           focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply bg-white text-slate-700 border-slate-200 hover:bg-slate-50;
+  }
+
+  .btn-ghost {
+    @apply bg-transparent shadow-none border-transparent text-slate-600 hover:bg-slate-100;
+  }
+
+  .btn-sm {
+    @apply h-7 px-2.5 text-[11px];
+  }
+
+  .btn-icon {
+    @apply inline-flex items-center justify-center rounded-full h-7 w-7
+           border border-slate-200 bg-white text-slate-500 hover:bg-slate-50;
+  }
+
+  /* Inputs */
+  .label {
+    @apply block text-[11px] font-medium text-slate-600 mb-0.5;
+  }
+
+  .input,
+  .select,
+  .textarea {
+    @apply w-full border border-slate-300 rounded-lg bg-white
+           px-2 py-1 text-[11px] text-slate-900 placeholder-slate-400
+           focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500;
+  }
+
+  .input-sm {
+    @apply text-[11px] py-0.5;
+  }
+
+  .form-row {
+    @apply flex flex-wrap items-end gap-3 mb-2;
+  }
+
+  .form-field {
+    @apply min-w-[160px];
+  }
+
+  .form-actions {
+    @apply mt-3 flex justify-end gap-2;
+  }
+
+  /* Badges / chips */
+  .badge {
+    @apply inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium;
+  }
+
+  .badge-green  { @apply bg-emerald-50 text-emerald-700; }
+  .badge-yellow { @apply bg-amber-50 text-amber-700; }
+  .badge-red    { @apply bg-rose-50 text-rose-700; }
+  .badge-blue   { @apply bg-blue-50 text-blue-700; }
+
+  .pill {
+    @apply inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-600;
+  }
+
+  /* Tables */
+  .table-shell {
+    @apply overflow-auto rounded-xl border border-slate-200 bg-white;
+  }
+
+  .data-table {
+    @apply min-w-full text-[11px] border-collapse;
+  }
+
+  .data-table thead {
+    @apply bg-slate-50;
+  }
+
+  .data-table th {
+    @apply sticky top-0 z-10 bg-slate-50 text-left font-semibold text-slate-600
+           border-b border-slate-200 px-2 py-1;
+  }
+
+  .data-table td {
+    @apply border-b border-slate-100 px-2 py-1 align-middle;
+  }
+
+  .data-table tbody tr:nth-child(odd) {
+    @apply bg-slate-50/40;
+  }
+
+  .data-table tbody tr:hover {
+    @apply bg-blue-50;
+  }
+
+  .table-number {
+    @apply text-right tabular-nums;
+  }
+
+  .section-title {
+    @apply text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 mb-2;
+  }
+}
+
+/* Utilities */
+@layer utilities {
+  .scroll-x {
+    @apply overflow-x-auto;
+  }
+}
+
+/* Print tweaks */
+@media print {
+  @page {
+    margin: 10mm;
+  }
+
+  body {
+    @apply bg-white;
+  }
+
+  .nav-bar,
+  .no-print {
+    display: none !important;
+  }
+
+  .card {
+    @apply shadow-none border border-slate-300;
+  }
+}
