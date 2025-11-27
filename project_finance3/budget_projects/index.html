@@ -27,13 +27,35 @@
   <header class="app-header">
     <div class="app-title">
       Project Planning App
-      <div id="planContextHeader" class="app-plan-context"></div>
-      <div id="currentProject" class="app-project"></div>
+  
+      <!-- Plan context: version, type, level 1 project -->
+      <div
+        id="planContextHeader"
+        style="
+          font-size:0.95rem;
+          color:#1e40af;
+          margin-top:0.25rem;
+          font-weight:500;
+        "
+      ></div>
+  
+      <!-- Selected lowest-level project -->
+      <div
+        id="currentProject"
+        style="
+          font-size:1.1rem;
+          font-weight:600;
+          color:#1e293b;
+          margin-top:0.1rem;
+        "
+      ></div>
     </div>
+  
     <div class="app-user">
       <span id="currentUser">Not signed in</span>
     </div>
   </header>
+
   
   <!-- MAIN CONTENT -->
   <main class="main">
