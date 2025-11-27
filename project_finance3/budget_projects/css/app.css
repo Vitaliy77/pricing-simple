@@ -1,287 +1,48 @@
-/* =====================================================
-   GLOBAL RESET & TYPOGRAPHY
-   ===================================================== */
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-}
-
-html {
-  font-size: 16px;
-}
-
-body {
-  margin: 0;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  font-size: 1rem;
-  line-height: 1.5;
-  color: #0f172a;
-  background: #f8fafc;
-  min-height: 100vh;
-}
-
-#app {
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-}
-
-/* =====================================================
-   TOP NAVIGATION – DARK & CLEAN
-   ===================================================== */
-.nav {
-  position: sticky;
-  top: 0;
-  z-index: 30;
-  background: #020617;
-  color: #f9fafb;
-  border-bottom: 1px solid #1e293b;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.nav-container {
-  max-width: 1200px;
-  margin: 0 auto;
-  height: 3.5rem;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 1rem;
-}
-
-.nav-container > div:first-child {
-  font-size: 1.15rem;
-  font-weight: 600;
-  letter-spacing: -0.015em;
-}
-
-.nav-user {
-  font-size: 0.9rem;
-  color: #cbd5e1;
-}
-
-/* =====================================================
-   TAB BAR – FULL WIDTH, EQUAL BUTTONS
-   ===================================================== */
+/* TAB BAR – heavy blue strip with white buttons */
 .tab-bar {
   display: flex;
   width: 100%;
-  background: #ffffff;
-  border-bottom: 1px solid #e2e8f0;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
+  background: #1d4ed8;          /* heavy blue background */
+  padding: 0.35rem 0.5rem;      /* blue padding around the buttons */
+  gap: 0.5rem;                  /* space between buttons */
 }
 
+/* Base button style: white, slightly rounded, outlined */
 .tab-bar button {
   flex: 1 1 0;
-  min-width: 120px;
-  padding: 0.75rem 0.5rem;
-  border: none;
-  background: transparent;
-  color: #475569;
-  font-size: 0.875rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: 0.45rem;       /* lightly rounded edges */
+  border: 1px solid #ffffff;
+  background: #ffffff;
+  color: #1e293b;               /* dark text */
+  font-size: 0.9rem;
   font-weight: 500;
   text-align: center;
   white-space: nowrap;
   cursor: pointer;
-  transition: all 180ms ease;
-  position: relative;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
+/* Hover: subtle shadow + slightly darker border */
 .tab-bar button:hover {
-  background: #f1f5f9;
-  color: #1e293b;
+  border-color: #d1d5db;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.25);
 }
 
+/* Active tab: inverted (blue button, white text) */
 .tab-bar button.tab-active {
-  background: #111827;
-  color: #ffffff;
-  font-weight: 600;
+  background: #0f172a;          /* very dark navy/blue */
+  color: #f9fafb;
+  border-color: #0f172a;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.5);
 }
 
-.tab-bar button.tab-active::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 3px;
-  background: #3b82f6;
+/* Keyboard focus outline */
+.tab-bar button:focus {
+  outline: 2px solid #bfdbfe;
+  outline-offset: 2px;
 }
-
-/* Keyboard focus */
-.tab-bar button:focus-visible {
-  outline: 2px solid #3b82f6;
-  outline-offset: -2px;
-}
-
-/* =====================================================
-   MAIN CONTENT AREA
-   ===================================================== */
-.tab-content {
-  flex: 1;
-  background: #f8fafc;
-  padding: 1.5rem 1rem;
-}
-
-@media (min-width: 768px) {
-  .tab-content {
-    padding: 2rem;
-  }
-}
-
-@media (min-width: 1024px) {
-  .tab-content {
-    padding: 2.5rem 3rem;
-  }
-}
-
-/* =====================================================
-   HEADINGS & TEXT
-   ===================================================== */
-article h3 {
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: #1e293b;
-  margin-bottom: 1rem;
-}
-
-article h4 {
-  font-size: 1.125rem;
-  font-weight: 600;
-  color: #334155;
-  margin: 1.5rem 0 0.75rem;
-}
-
-article p,
-#app p {
-  font-size: 1rem;
-  line-height: 1.6;
-  color: #475569;
-}
-
-/* =====================================================
-   TABLES – CLEAN & READABLE
-   ===================================================== */
-#app table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.925rem;
-  background: white;
-  border-radius: 0.75rem;
-  overflow: hidden;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-}
-
-#app table thead th {
-  background: #f8fafc;
-  padding: 0.75rem 1rem;
-  text-align: left;
-  font-weight: 600;
-  font-size: 0.825rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: #64748b;
-  border-bottom: 1px solid #e2e8f0;
-}
-
-#app table tbody td {
-  padding: 0.75rem 1rem;
-  border-bottom: 1px solid #f1f5f9;
-}
-
-#app table tbody tr:hover {
-  background: #f8fafc;
-}
-
-#app .data-grid .num {
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
-
-/* =====================================================
-   INPUTS & FORMS
-   ===================================================== */
-#app input,
-#app select,
-#app textarea {
-  font-size: 1rem;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid #cbd5e1;
-  border-radius: 0.5rem;
-  background: white;
-  width: 100%;
-  transition: border-color 150ms ease;
-}
-
-#app input:focus,
-#app select:focus,
-#app textarea:focus {
-  outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-}
-
-#app label {
-  display: block;
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: #374151;
-  margin-bottom: 0.375rem;
-}
-
-/* =====================================================
-   BUTTONS
-   ===================================================== */
-#app button {
-  font-size: 0.875rem;
-  font-weight: 500;
-  padding: 0.5rem 1rem;
-  border-radius: 0.5rem;
-  cursor: pointer;
-  transition: all 150ms ease;
-}
-
-#app button:not(.tab-bar button) {
-  background: #3b82f6;
-  color: white;
-  border: none;
-}
-
-#app button:not(.tab-bar button):hover {
-  background: #2563eb;
-}
-
-#app button.secondary {
-  background: white;
-  color: #374151;
-  border: 1px solid #cbd5e1;
-}
-
-/* =====================================================
-   PRINT STYLES
-   ===================================================== */
-@media print {
-  .nav,
-  .tab-bar,
-  .no-print {
-    display: none !important;
-  }
-  body, .tab-content {
-    background: white;
-  }
-  table {
-    box-shadow: none;
-  }
-}
-
-/* =====================================================
-   UTILITIES
-   ===================================================== */
-.scroll-x {
-  overflow-x: auto;
-}
-.text-right { text-align: right; }
-.font-medium { font-weight: 500; }
-.font-semibold { font-weight: 600; }
