@@ -9,7 +9,8 @@ export const template = /*html*/ `
       Build revenue for the selected project.
     </p>
 
-    <section id="revMessage" style="min-height:1.25rem; font-size:0.9rem; color:#64748b; margin-bottom:0.75rem;"></section>
+    <section id="revMessage" 
+             style="min-height:1.25rem; font-size:0.9rem; color:#64748b; margin-bottom:0.75rem;"></section>
 
     <section style="margin-top:0.5rem;">
       <div class="scroll-x">
@@ -39,12 +40,13 @@ export const revenueBudgetTab = {
   async init({ root, client }) {
     const msg = $("#revMessage", root);
     const ctx = getPlanContext();
-    const projectId = getSelectedProjectId();
 
-    console.log("[Revenue:init] projectId:", getSelectedProjectId());
-    console.log("[Revenue:init] planContext:", getPlanContext());
+    // CRITICAL FIX: Double source of truth — never fail
+    const projectId = getSelectedProjectId() || ctx.projectId;
 
-    // ---- VALIDATION --------------------------------------------------------
+    console.log("[Revenue:init] projectId:", projectId);
+    console.log("[Revenue:init] planContext:", ctx);
+
     if (!projectId) {
       msg.textContent = "No project selected. Please go to the Projects tab.";
       renderRevenue(root, null);
@@ -62,12 +64,14 @@ export const revenueBudgetTab = {
 };
 
 // ---------------------------------------------------------------------------
-//   LOAD REVENUE LINES
+//   LOAD REVENUE LINES (with fallback)
 // ---------------------------------------------------------------------------
 async function refreshRevenue(root, client) {
   const msg = $("#revMessage", root);
-  const projectId = getSelectedProjectId();
   const ctx = getPlanContext();
+
+  // Same double-check here — bulletproof
+  const projectId = getSelectedProjectId() || ctx.projectId;
 
   if (!projectId || !ctx.year || !ctx.versionId) {
     renderRevenue(root, null);
@@ -95,7 +99,7 @@ async function refreshRevenue(root, client) {
     .order("entry_type_name");
 
   if (error) {
-    console.error("[Revenue] Load error", error);
+    console.error("[Revenue] Load error:", error);
     msg.textContent = "Error loading revenue.";
     renderRevenue(root, null);
     return;
