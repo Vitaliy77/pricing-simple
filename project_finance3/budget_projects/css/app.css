@@ -1,0 +1,382 @@
+/* =====================================================
+   GLOBAL TYPOGRAPHY – UNIFIED BASE SIZE
+   ===================================================== */
+html {
+  font-size: 16px;
+}
+
+body {
+  font-size: 1rem;                     /* 16px base */
+  line-height: 1.5;
+  color: #0f172a;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont,
+               "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+#app {
+  font-size: 1rem;                     /* keep everything aligned */
+  min-height: 100vh;
+}
+
+/* Cards (summary panels, current grant, etc.) – no extra scaling */
+#app .card {
+  font-size: 1rem;
+}
+
+/* Headings */
+article h3 {
+  font-size: 1.35rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+  color: #1e293b;
+}
+
+article h4 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: #334155;
+}
+
+/* =====================================================
+   TABLE TYPOGRAPHY
+   ===================================================== */
+#app table {
+  font-size: 0.95rem;                  /* slightly smaller, but consistent */
+}
+
+#app table thead th {
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+#app table tbody td {
+  font-size: 0.95rem;
+}
+
+/* =====================================================
+   NORMALIZE TEXT ACROSS ALL TABS
+   ===================================================== */
+#app p,
+#app small,
+#app li,
+#app label,
+#app .help-text,
+#app .muted,
+#app .description,
+#app article > p {
+  font-size: 1rem !important;
+  line-height: 1.5;
+}
+
+/* Captions – used e.g. for current grant details; should NOT be tiny */
+#app .caption {
+  font-size: 1rem !important;          /* same as body so it's readable */
+  line-height: 1.5;
+}
+
+/* =====================================================
+   FINANCIAL SUMMARY – SAME BASE, SLIGHT EMPHASIS
+   ===================================================== */
+#app #summaryContent {
+  font-size: 1rem !important;          /* same as rest of the app */
+  line-height: 1.5;
+  font-weight: 400;
+}
+
+/* Children inherit without shrinking/growing */
+#app #summaryContent * {
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+/* Big numbers: just a bit larger and bolder */
+#app #summaryContent .text-2xl,
+#app #summaryContent .font-bold {
+  font-size: 1.15rem !important;
+  font-weight: 600;
+}
+
+/* =====================================================
+   FULL-WIDTH LAYOUT
+   ===================================================== */
+html, body, #app, .app-root {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+main.wrap {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0 1rem;
+  box-sizing: border-box;
+}
+
+.scroll-x {
+  overflow-x: auto;
+  width: 100%;
+}
+
+/* =====================================================
+   UNIFIED INPUTS
+   ===================================================== */
+#app .grant-select,
+#app .budget-select,
+#app .budget-text,
+#app .budget-rate,
+#app .budget-cell,
+#app input,
+#app select,
+#app textarea {
+  font-size: 1rem !important;          /* same as base text */
+  padding: 0.4rem 0.6rem !important;
+  height: 2.4rem !important;
+  line-height: 1 !important;
+  box-sizing: border-box !important;
+  vertical-align: middle;
+}
+
+#app .budget-cell,
+#app .budget-rate {
+  min-width: 6.5rem;
+  max-width: 7.5rem;
+  text-align: right;
+}
+
+.no-spin::-webkit-outer-spin-button,
+.no-spin::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.no-spin {
+  -moz-appearance: textfield;
+}
+
+/* =====================================================
+   STICKY COLUMNS
+   ===================================================== */
+.sticky-col-1 {
+  position: sticky;
+  left: 0;
+  background: #ffffff;
+  z-index: 10;
+  min-width: 26ch;
+  box-shadow: 2px 0 2px rgba(0,0,0,0.05);
+}
+
+.sticky-col-2 {
+  position: sticky;
+  left: calc(26ch + 2rem);
+  background: #ffffff;
+  z-index: 10;
+  min-width: 26ch;
+  box-shadow: 2px 0 2px rgba(0,0,0,0.05);
+}
+
+#laborBody td,
+#directBody td {
+  vertical-align: middle;
+  padding: 0.4rem 0.6rem;
+}
+
+#laborBody input,
+#directBody input,
+#laborBody select,
+#directBody select {
+  padding: 0 !important;
+}
+
+/* =====================================================
+   UNIFIED BUTTON STYLING
+   ===================================================== */
+#app button {
+  font-size: 0.9rem;
+  font-weight: 500;
+  padding: 0.4rem 0.9rem;
+  border-radius: 9999px;
+  border: 1px solid #1d4ed8;
+  background: #ffffff;
+  color: #1d4ed8;
+  cursor: pointer;
+  transition: all 150ms ease;
+}
+
+#app button.secondary {
+  border-color: #64748b;
+  color: #334155;
+}
+
+#app button:hover {
+  background: #1d4ed8;
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(15,23,42,0.18);
+}
+
+#app button.secondary:hover {
+  background: #64748b;
+  color: #ffffff;
+}
+
+#app button:active {
+  transform: translateY(1px);
+}
+
+#app button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+#app button:focus-visible {
+  outline: 2px solid #0ea5e9;
+  outline-offset: 2px;
+}
+
+/* =====================================================
+   TOP NAVIGATION BAR
+   ===================================================== */
+.nav {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: #0f172a;
+  color: #e5e7eb;
+  border-bottom: 1px solid #1f2937;
+}
+
+.nav-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  height: 3.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1.5rem;
+}
+
+.nav-container > div:first-child {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.nav-container > div:last-child {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.nav-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.4rem 0.9rem;
+  border-radius: 9999px;
+  border: 1px solid transparent;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #e5e7eb;
+  text-decoration: none;
+  transition: all 150ms ease;
+}
+
+.nav-link:hover {
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(15,23,42,0.35);
+}
+
+.nav-link.active {
+  background: #2563eb;
+  border-color: #93c5fd;
+  color: #ffffff;
+  font-weight: 600;
+  transform: translateY(-1px) scale(1.06);
+  box-shadow: 0 3px 10px rgba(15,23,42,0.4);
+}
+
+/* =====================================================
+   PRINT STYLES
+   ===================================================== */
+@media print {
+  .nav,
+  .no-print {
+    display: none !important;
+  }
+  .card {
+    box-shadow: none;
+    border: 1px solid #ddd;
+  }
+  body {
+    background: white;
+  }
+}
+
+/* Full-width data tables */
+#app .data-grid {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;       /* columns share space evenly */
+}
+
+/* Allow long grant names to wrap instead of forcing horizontal scroll too early */
+#app .data-grid th,
+#app .data-grid td {
+  padding: 0.4rem 0.6rem;
+  vertical-align: middle;
+  word-wrap: break-word;
+  white-space: normal;
+}
+
+/* =====================================================
+   BUDGET TAB – OVERRIDE GLOBAL DATA-GRID BEHAVIOR
+   ===================================================== */
+#app #budgetTable {
+  table-layout: auto !important;          /* allow natural column widths */
+}
+
+#app #budgetTable th,
+#app #budgetTable td {
+  white-space: nowrap !important;         /* keep cells on one line */
+  word-wrap: normal !important;           /* don't break inside words */
+}
+
+
+/* =====================================================
+   DATA GRID ENHANCEMENTS (PORTFOLIO, GRANTS, ETC.)
+   ===================================================== */
+
+/* Right-align numeric columns */
+#app .data-grid .num {
+  text-align: right;
+}
+
+/* Header row styling */
+#app .data-grid thead th {
+  background: #f9fafb;
+  border-bottom: 2px solid #cbd5f5;
+}
+
+/* Row separators */
+#app .data-grid tbody tr {
+  border-bottom: 1px solid #e5e7eb;
+}
+
+/* Zebra striping (exclude totals row) */
+#app .data-grid tbody tr:nth-child(even):not(.totals-row) {
+  background: #f9fafb;
+}
+
+/* Hover highlight */
+#app .data-grid tbody tr:hover {
+  background: #eef2ff;
+}
+
+/* Totals row at the bottom */
+#app .data-grid tr.totals-row {
+  background: #fefce8;
+  font-weight: 600;
+}
