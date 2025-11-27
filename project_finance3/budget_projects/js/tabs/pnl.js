@@ -1,5 +1,6 @@
 // js/tabs/pnl.js
 import { $, h } from "../lib/dom.js";
+import { getSelectedProjectId } from "../lib/projectContext.js";
 
 /*
   P&L tab:
