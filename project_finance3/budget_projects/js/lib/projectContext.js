@@ -1,33 +1,35 @@
 // js/lib/projectContext.js
+
 let _selectedProject = null;
 
 let _planContext = {
   year: null,
   versionId: null,
   versionCode: null,
-  versionLabel: null,        // e.g. "BUDGET – Annual Budget"
+  versionLabel: null,           // e.g. "BUDGET – Annual Budget"
   planType: "Working",
   level1ProjectId: null,
   level1ProjectCode: null,
   level1ProjectName: null,
 };
 
-// Update main project header (lowest-level project)
+// ────────────────────────────────────────────────────────────────
+// Header Updates
+// ────────────────────────────────────────────────────────────────
 function updateProjectHeader() {
   const el = document.getElementById("currentProject");
   if (!el) return;
 
   if (!_selectedProject) {
-    el.textContent = "No project selected";
+    el.textContent = "";                 // ← Clean, no "No project selected"
     return;
   }
 
-  const code = _selectedProject.project_code || "";
-  const name = _selectedProject.name || "";
+  const code = _selectedProject.project_code || _selectedProject.code || "";
+  const name = _selectedProject.name || _selectedProject.project_name || "";
   el.textContent = `${code} – ${name}`.trim();
 }
 
-// Update plan context header (version + type + L1 project)
 function updatePlanContextHeader() {
   const el = document.getElementById("planContextHeader");
   if (!el) return;
@@ -50,11 +52,16 @@ function updatePlanContextHeader() {
     parts.push(l1);
   }
 
-  el.textContent = parts.length ? parts.join(" · ") : "No plan selected";
+  el.textContent = parts.length ? parts.join(" · ") : "";
 }
 
+// ────────────────────────────────────────────────────────────────
+// Public API
+// ────────────────────────────────────────────────────────────────
 export function setSelectedProject(project) {
   _selectedProject = project || null;
+
+  // Always keep both headers in sync
   updateProjectHeader();
   updatePlanContextHeader();
 }
@@ -63,8 +70,21 @@ export function getSelectedProject() {
   return _selectedProject;
 }
 
+/**
+ * Smart & defensive project ID getter
+ * Works whether you pass { id }, { project_id }, or even old data shapes
+ */
 export function getSelectedProjectId() {
-  return _selectedProject?.id ?? null;
+  if (!_selectedProject) return null;
+
+  // Most common cases
+  if (_selectedProject.id) return _selectedProject.id;
+  if (_selectedProject.project_id) return _selectedProject.project_id;
+
+  // Fallback: maybe someone stored it directly in context (legacy)
+  if (_planContext.projectId) return _planContext.projectId;
+
+  return null;
 }
 
 export function setPlanContext(partial) {
@@ -73,5 +93,5 @@ export function setPlanContext(partial) {
 }
 
 export function getPlanContext() {
-  return { ..._planContext }; // immutable copy
+  return { ..._planContext }; // immutable shallow copy
 }
