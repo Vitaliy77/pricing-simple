@@ -19,6 +19,7 @@ const tabs = {
   revenueBudget: revenueBudgetTab,
   costBudget: costBudgetTab,
   admin: adminTab,
+  pnl: pnlTab,    
 };
 
 let currentSession = null;
