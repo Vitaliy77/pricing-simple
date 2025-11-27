@@ -5,11 +5,11 @@ import { client } from "../api/supabase.js";
 
 export const template = /*html*/ `
   <article>
-    <h3 style="margin-bottom:0.5rem;">Select Budget &amp; Project</h3>
+    <h3 style="margin-bottom:0.5rem;">Select Budget & Project</h3>
     <p style="font-size:0.9rem;margin-bottom:0.75rem;">
       Choose a plan year, version, plan type, and a level 1 project. Then pick a
       specific lowest-level project to work with. Your selections will carry over
-      to the other tabs (Revenue, Cost, P&amp;L).
+      to the other tabs (Revenue, Cost, P&L).
     </p>
 
     <!-- Filters -->
@@ -38,7 +38,7 @@ export const template = /*html*/ `
         </select>
       </label>
 
-      <label>
+      <label style="min-width:320px;">
         Level 1 Project
         <select id="level1ProjectSelect">
           <option value="">Loading…</option>
@@ -46,11 +46,11 @@ export const template = /*html*/ `
       </label>
     </section>
 
-    <section id="projMessage" style="min-height:1.25rem;font-size:0.9rem;"></section>
+    <section id="projMessage" style="min-height:1.25rem;font-size:0.9rem;color:#64748b;"></section>
 
     <!-- Child projects table -->
     <section style="margin-top:0.75rem;">
-      <h4 style="margin-bottom:0.35rem;font-size:0.95rem;">Child Projects (select one)</h4>
+      <h4 style="margin-bottom:0.35rem;font-size:0.95rem;">Child Projects (click to select)</h4>
       <div class="scroll-x">
         <table class="data-grid">
           <thead>
@@ -63,7 +63,7 @@ export const template = /*html*/ `
             </tr>
           </thead>
           <tbody id="childProjectsBody">
-            <tr><td colspan="5">Select a Level 1 project to view child projects.</td></tr>
+            <tr><td colspan="5">Select a Level 1 project above.</td></tr>
           </tbody>
         </table>
       </div>
@@ -80,68 +80,61 @@ export const projectSelectTab = {
     const typeSel = $("#planTypeSelect", root);
     const lvl1Sel = $("#level1ProjectSelect", root);
 
-    // 1) Load plan versions & level 1 projects
+    // Load data
     await Promise.all([
       loadPlanVersions(root),
-      loadLevel1Projects(root),
+      loadLevel1Projects(root),  // now safe – no .eq("level", 1)
     ]);
 
-    // 2) Pre-fill from existing context, if any
+    // Restore previous context
     const ctx = getPlanContext();
-    if (ctx.year && yearSel) {
-      yearSel.value = String(ctx.year);
-    }
-    if (ctx.planType && typeSel) {
-      typeSel.value = ctx.planType;
-    }
+    if (ctx.year && yearSel) yearSel.value = String(ctx.year);
+    if (ctx.planType && typeSel) typeSel.value = ctx.planType;
+    if (ctx.versionId && verSel) verSel.value = ctx.versionId;
     if (ctx.level1ProjectId && lvl1Sel) {
       lvl1Sel.value = ctx.level1ProjectId;
-      // also load children for this L1 project
       await loadChildProjects(root, ctx.level1ProjectId);
     }
 
-    if (ctx.versionId && verSel) {
-      verSel.value = ctx.versionId;
-    }
-
-    // 3) Wire event handlers to update context + reload children
+    // Wire events
     yearSel?.addEventListener("change", () => {
-      const year = yearSel.value ? parseInt(yearSel.value, 10) : null;
-      setPlanContext({ year });
+      setPlanContext({ year: yearSel.value ? parseInt(yearSel.value, 10) : null });
     });
 
     verSel?.addEventListener("change", () => {
-      const versionId   = verSel.value || null;
+      const versionId = verSel.value || null;
       const versionCode = verSel.selectedOptions[0]?.dataset?.code || null;
       setPlanContext({ versionId, versionCode });
     });
 
     typeSel?.addEventListener("change", () => {
-      const planType = typeSel.value || "Working";
-      setPlanContext({ planType });
+      setPlanContext({ planType: typeSel.value || "Working" });
     });
 
     lvl1Sel?.addEventListener("change", async () => {
-      const level1ProjectId   = lvl1Sel.value || null;
-      const level1ProjectCode = lvl1Sel.selectedOptions[0]?.dataset?.code || null;
-      const level1ProjectName = lvl1Sel.selectedOptions[0]?.dataset?.name || null;
+      const id = lvl1Sel.value || null;
+      const code = lvl1Sel.selectedOptions[0]?.dataset?.code || null;
+      const name = lvl1Sel.selectedOptions[0]?.dataset?.name || null;
 
       setPlanContext({
-        level1ProjectId,
-        level1ProjectCode,
-        level1ProjectName,
+        level1ProjectId: id,
+        level1ProjectCode: code,
+        level1ProjectName: name,
       });
 
-      setSelectedProject(null);   // clear previous low-level selection
-      await loadChildProjects(root, level1ProjectId);
+      setSelectedProject(null); // clear previous selection
+      if (id) {
+        await loadChildProjects(root, id);
+      } else {
+        $("#childProjectsBody", root).innerHTML = `<tr><td colspan="5">Select a Level 1 project above.</td></tr>`;
+      }
     });
 
-    if (msg) msg.textContent = "Select filters and a project to work with.";
+    msg && (msg.textContent = "Ready – select a project to begin.");
   },
 };
 
-// ---------- helpers ----------
-
+// Load plan versions
 async function loadPlanVersions(root) {
   const sel = $("#planVersionSelect", root);
   if (!sel) return;
@@ -150,25 +143,26 @@ async function loadPlanVersions(root) {
 
   const { data, error } = await client
     .from("plan_versions")
-    .select("id, code, description, sort_order")
+    .select("id, code, description")
     .order("sort_order", { ascending: true });
 
   if (error) {
-    console.error(error);
+    console.error("Plan versions error:", error);
     sel.innerHTML = `<option value="">Error loading versions</option>`;
     return;
   }
 
   sel.innerHTML = `<option value="">— Select version —</option>`;
-  for (const pv of data) {
+  data.forEach(pv => {
     const opt = document.createElement("option");
     opt.value = pv.id;
     opt.dataset.code = pv.code;
     opt.textContent = `${pv.code} – ${pv.description}`;
     sel.appendChild(opt);
-  }
+  });
 }
 
+// FIXED: No more .eq("level", 1) → works even without level column
 async function loadLevel1Projects(root) {
   const sel = $("#level1ProjectSelect", root);
   if (!sel) return;
@@ -178,71 +172,75 @@ async function loadLevel1Projects(root) {
   const { data, error } = await client
     .from("projects")
     .select("id, project_code, name")
-    .eq("level", 1)
     .order("project_code", { ascending: true });
 
   if (error) {
-    console.error(error);
+    console.error("Error loading projects:", error);
     sel.innerHTML = `<option value="">Error loading projects</option>`;
     return;
   }
 
-  sel.innerHTML = `<option value="">— Select a level 1 project —</option>`;
-  for (const p of data) {
+  // Filter Level 1 projects by project_code: those with no dot in code (e.g. "ABC" but not "ABC.01")
+  const level1Projects = data.filter(p => !p.project_code.includes("."));
+
+  sel.innerHTML = `<option value="">— Select a Level 1 project —</option>`;
+  level1Projects.forEach(p => {
     const opt = document.createElement("option");
     opt.value = p.id;
     opt.dataset.code = p.project_code;
     opt.dataset.name = p.name;
     opt.textContent = `${p.project_code} – ${p.name}`;
     sel.appendChild(opt);
-  }
+  });
 }
 
 async function loadChildProjects(root, level1ProjectId) {
   const tbody = $("#childProjectsBody", root);
   if (!tbody) return;
 
-  if (!level1ProjectId) {
-    tbody.innerHTML = `<tr><td colspan="5">Select a Level 1 project to view child projects.</td></tr>`;
+  tbody.innerHTML = `<tr><td colspan="5">Loading…</td></tr>`;
+
+  // Get the parent project_code first
+  const { data: parent } = await client
+    .from("projects")
+    .select("project_code")
+    .eq("id", level1ProjectId)
+    .single();
+
+  if (!parent) {
+    tbody.innerHTML = `<tr><td colspan="5">Parent project not found.</td></tr>`;
     return;
   }
 
-  tbody.innerHTML = `<tr><td colspan="5">Loading child projects…</td></tr>`;
+  const prefix = `${parent.project_code}.`;
 
   const { data, error } = await client
     .from("projects")
-    .select("id, project_code, name, revenue_formula, pop_start, pop_end, funding, parent_project_id, level")
-    .eq("parent_project_id", level1ProjectId)
-    .order("project_code", { ascending: true });
+    .select("id, project_code, name, revenue_formula, pop_start, pop_end, funding")
+    .like("project_code", `${prefix}%`)
+    .order("project_code");
 
-  if (error) {
-    console.error(error);
-    tbody.innerHTML = `<tr><td colspan="5">Error loading child projects.</td></tr>`;
-    return;
-  }
-
-  if (!data || data.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="5">No child projects found for this Level 1 project.</td></tr>`;
+  if (error || !data?.length) {
+    tbody.innerHTML = `<tr><td colspan="5">No child projects found.</td></tr>`;
     return;
   }
 
   tbody.innerHTML = "";
-
-  for (const proj of data) {
+  data.forEach(proj => {
     const tr = document.createElement("tr");
     tr.style.cursor = "pointer";
+    tr.classList.add("hover:bg-blue-50", "transition-colors");
 
-    const pop =
-      (proj.pop_start || "") && (proj.pop_end || "")
-        ? `${proj.pop_start} – ${proj.pop_end}`
-        : "";
+    const pop = proj.pop_start && proj.pop_end
+      ? `${new Date(proj.pop_start).toLocaleDateString()} – ${new Date(proj.pop_end).toLocaleDateString()}`
+      : "";
 
     const funding = proj.funding != null
-      ? proj.funding.toLocaleString(undefined, { maximumFractionDigits: 0 })
+      ? Number(proj.funding).toLocaleString()
       : "";
 
     tr.innerHTML = `
-      <td>${proj.project_code}</td>
+      <td><strong>${proj.project_code}</strong></td>
       <td>${proj.name}</td>
       <td>${proj.revenue_formula || ""}</td>
       <td>${pop}</td>
@@ -250,20 +248,17 @@ async function loadChildProjects(root, level1ProjectId) {
     `;
 
     tr.addEventListener("click", () => {
-      // 🔵 This is the key: set selected project in shared context & header
       setSelectedProject({
         id: proj.id,
         project_code: proj.project_code,
         name: proj.name,
       });
 
-      // highlight the selected row
-      Array.from(tbody.querySelectorAll("tr")).forEach((row) => {
-        row.classList.remove("selected-row");
-      });
-      tr.classList.add("selected-row");
+      // Visual feedback
+      tbody.querySelectorAll("tr").forEach(r => r.classList.remove("bg-blue-100"));
+      tr.classList.add("bg-blue-100", "font-medium");
     });
 
     tbody.appendChild(tr);
-  }
+  });
 }
