@@ -1,6 +1,11 @@
 // js/tabs/revenueBudget.js
 import { $, h } from "../lib/dom.js";
-import { getSelectedProject, getSelectedProjectId } from "../lib/projectContext.js";
+import {
+  getSelectedProject,
+  getSelectedProjectId,
+  getPlanContext,
+  setPlanContext,
+} from "../lib/projectContext.js";
 
 export const template = /*html*/ `
   <article>
@@ -11,7 +16,7 @@ export const template = /*html*/ `
     </p>
 
     <!-- Selected project -->
-    <section id="revProjectInfo" style="font-size:0.9rem;font-weight:500;margin-bottom:0.5rem;"></section>
+    <section id="revProjectInfo" style="font-size:0.9rem;font-weight:500;margin-bottom:0.5rem;color:#1d4ed8;"></section>
 
     <!-- Filters -->
     <section style="display:flex;flex-wrap:wrap;gap:0.75rem;margin-bottom:0.75rem;">
@@ -40,7 +45,7 @@ export const template = /*html*/ `
       </label>
     </section>
 
-    <section id="revMessage" style="min-height:1.25rem;font-size:0.9rem;"></section>
+    <section id="revMessage" style="min-height:1.25rem;font-size:0.9rem;color:#64748b;"></section>
 
     <!-- Revenue table -->
     <section style="margin-top:0.75rem;">
@@ -82,42 +87,63 @@ export const revenueBudgetTab = {
     const msg = $("#revMessage", root);
     const projInfo = $("#revProjectInfo", root);
 
+    // Show current project
     const project = getSelectedProject();
     const projectId = getSelectedProjectId();
 
     if (!project || !projectId) {
-      if (projInfo) projInfo.textContent = "";
-      if (msg) msg.textContent = "Select a project on the Projects tab first.";
+      projInfo && (projInfo.textContent = "No project selected");
+      msg && (msg.textContent = "Please select a project on the Projects tab first.");
       renderRevenue(root, null);
       return;
     }
 
-    // Show project in this tab as well
-    if (projInfo) {
-      const code = project.project_code || "";
-      const name = project.name || "";
-      projInfo.textContent = `Project: ${code} ${name}`.trim();
-    }
+    projInfo && (projInfo.textContent = `Project: ${project.project_code} – ${project.name}`);
 
-    // Load plan versions for the version dropdown
+    // DOM references
+    const yearSel = $("#revYearSelect", root);
+    const verSel  = $("#revVersionSelect", root);
+    const typeSel = $("#revTypeSelect", root);
+
+    // Load versions first (needed for pre-fill)
     await loadPlanVersions(root, client);
 
-    // Wire filters
-    ["revYearSelect", "revVersionSelect", "revTypeSelect"].forEach((id) => {
-      const el = $(`#${id}`, root);
-      if (!el) return;
-      el.addEventListener("change", () => refreshRevenue(root, client));
+    // PRE-FILL FROM CONTEXT
+    const ctx = getPlanContext();
+    if (ctx.year && yearSel) yearSel.value = String(ctx.year);
+    if (ctx.planType && typeSel) typeSel.value = ctx.planType;
+    if (ctx.versionId && verSel) verSel.value = ctx.versionId;
+
+    // WIRE EVENTS: Update context + refresh data
+    yearSel?.addEventListener("change", () => {
+      const year = yearSel.value ? parseInt(yearSel.value, 10) : null;
+      setPlanContext({ year });
+      refreshRevenue(root, client);
     });
 
-    if (msg) msg.textContent = "Select year, version, and plan type to view revenue.";
+    typeSel?.addEventListener("change", () => {
+      const planType = typeSel.value || "Working";
+      setPlanContext({ planType });
+      refreshRevenue(root, client);
+    });
 
-    // Optionally: auto-load with default filters
-    await refreshRevenue(root, client);
+    verSel?.addEventListener("change", () => {
+      const versionId = verSel.value || null;
+      const versionText = verSel.selectedOptions[0]?.textContent || null;
+      setPlanContext({ versionId, versionCode: versionText?.split(" – ")[0] });
+      refreshRevenue(root, client);
+    });
+
+    // Auto-load if we have full context
+    if (ctx.year && ctx.versionId && ctx.planType) {
+      await refreshRevenue(root, client);
+    } else {
+      msg && (msg.textContent = "Select year, version, and plan type to load revenue.");
+    }
   },
 };
 
-// -------- helpers --------
-
+// Load plan versions (with data-code for context)
 async function loadPlanVersions(root, client) {
   const sel = $("#revVersionSelect", root);
   if (!sel) return;
@@ -129,19 +155,19 @@ async function loadPlanVersions(root, client) {
     .select("id, code, description")
     .order("sort_order", { ascending: true });
 
-  if (error) {
-    console.error(error);
+  if (error || !data) {
     sel.innerHTML = `<option value="">Error loading versions</option>`;
-    return;
+    return console.error(error);
   }
 
   sel.innerHTML = `<option value="">— Select version —</option>`;
-  for (const pv of data) {
+  data.forEach(pv => {
     const opt = document.createElement("option");
     opt.value = pv.id;
     opt.textContent = `${pv.code} – ${pv.description}`;
+    opt.dataset.code = pv.code;
     sel.appendChild(opt);
-  }
+  });
 }
 
 async function refreshRevenue(root, client) {
@@ -149,29 +175,26 @@ async function refreshRevenue(root, client) {
   const yearSel = $("#revYearSelect", root);
   const verSel  = $("#revVersionSelect", root);
   const typeSel = $("#revTypeSelect", root);
-
   const projectId = getSelectedProjectId();
 
   if (!projectId) {
-    if (msg) msg.textContent = "Select a project on the Projects tab first.";
+    msg && (msg.textContent = "No project selected.");
     renderRevenue(root, null);
     return;
   }
 
-  const plan_year  = yearSel?.value ? parseInt(yearSel.value, 10) : null;
+  const plan_year = yearSel?.value ? parseInt(yearSel.value, 10) : null;
   const version_id = verSel?.value || null;
-  const plan_type  = typeSel?.value || null;
+  const plan_type = typeSel?.value || "Working";
 
-  if (!plan_year || !version_id || !plan_type) {
-    if (msg) msg.textContent = "Please select year, version, and plan type.";
+  if (!plan_year || !version_id) {
+    msg && (msg.textContent = "Please select year and version.");
     renderRevenue(root, null);
     return;
   }
 
-  if (msg) msg.textContent = "Loading revenue…";
+  msg && (msg.textContent = "Loading revenue…");
 
-  // NOTE: column names here follow the planning_lines structure we designed earlier.
-  // If you named them slightly differently, adjust the select() list.
   const { data, error } = await client
     .from("planning_lines")
     .select(
@@ -180,69 +203,53 @@ async function refreshRevenue(root, client) {
     )
     .eq("project_id", projectId)
     .eq("plan_year", plan_year)
-    .eq("plan_type", plan_type)
     .eq("plan_version_id", version_id)
+    .eq("plan_type", plan_type)
     .eq("is_revenue", true)
-    .order("entry_type_name", { ascending: true });
+    .order("entry_type_name");
 
   if (error) {
     console.error(error);
-    if (msg) msg.textContent = "Error loading revenue lines.";
+    msg && (msg.textContent = "Error loading revenue.");
     renderRevenue(root, null);
     return;
   }
 
   renderRevenue(root, data || []);
-  if (msg) msg.textContent = "";
+  msg && (msg.textContent = data?.length ? "" : "No revenue lines found.");
 }
 
 function renderRevenue(root, rows) {
   const tbody = $("#revBody", root);
   if (!tbody) return;
 
-  if (!rows || rows.length === 0) {
+  if (!rows?.length) {
     tbody.innerHTML = `<tr><td colspan="17">No revenue lines for the selected filters.</td></tr>`;
     return;
   }
 
-  const months = [
-    "jan","feb","mar","apr","may","jun",
-    "jul","aug","sep","oct","nov","dec",
-  ];
-
-  const fmt = (v) =>
-    typeof v === "number"
-      ? v.toLocaleString(undefined, { maximumFractionDigits: 0 })
-      : (v ? String(v) : "");
+  const months = ["jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"];
+  const fmt = v => typeof v === "number" ? v.toLocaleString(undefined, { maximumFractionDigits: 0 }) : "";
 
   tbody.innerHTML = "";
-
-  rows.forEach((r, idx) => {
-    const tr = document.createElement("tr");
-
-    const who =
-      r.employee_name ||
-      r.vendor_name ||
-      "";
-
+  rows.forEach((r, i) => {
+    const who = r.employee_name || r.vendor_name || "";
     let total = 0;
-    const monthTds = months
-      .map((m) => {
-        const val = Number(r[m] || 0);
-        total += val;
-        return `<td class="num">${fmt(val)}</td>`;
-      })
-      .join("");
+    const cells = months.map(m => {
+      const val = Number(r[m] || 0);
+      total += val;
+      return `<td class="num">${fmt(val)}</td>`;
+    }).join("");
 
+    const tr = document.createElement("tr");
     tr.innerHTML = `
-      <td>${idx + 1}</td>
+      <td>${i + 1}</td>
       <td>${r.entry_type_name || ""}</td>
       <td>${who}</td>
       <td>${r.description || ""}</td>
-      ${monthTds}
-      <td class="num">${fmt(total)}</td>
+      ${cells}
+      <td class="num font-semibold">${fmt(total)}</td>
     `;
-
     tbody.appendChild(tr);
   });
 }
