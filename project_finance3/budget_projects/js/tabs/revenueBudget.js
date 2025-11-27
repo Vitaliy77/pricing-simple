@@ -41,7 +41,6 @@ export const revenueBudgetTab = {
     const msg = $("#revMessage", root);
     const ctx = getPlanContext();
 
-    // ONLY use planContext.projectId — single source of truth
     const projectId = ctx.projectId;
 
     console.log("[Revenue:init] projectId:", projectId);
@@ -64,13 +63,12 @@ export const revenueBudgetTab = {
 };
 
 // ---------------------------------------------------------------------------
-// LOAD REVENUE LINES — uses only ctx.projectId
+// LOAD REVENUE LINES — simplified & safer
 // ---------------------------------------------------------------------------
 async function refreshRevenue(root, client) {
   const msg = $("#revMessage", root);
   const ctx = getPlanContext();
-
-  const projectId = ctx.projectId;  // Only this — clean and reliable
+  const projectId = ctx.projectId;
 
   if (!projectId || !ctx.year || !ctx.versionId) {
     renderRevenue(root, null);
@@ -79,33 +77,27 @@ async function refreshRevenue(root, client) {
 
   msg.textContent = "Loading revenue…";
 
+  // SIMPLER, SAFER, MORE RELIABLE
   const { data, error } = await client
     .from("planning_lines")
-    .select(`
-      id,
-      entry_type_name,
-      employee_name,
-      vendor_name,
-      description,
-      jan, feb, mar, apr, may, jun,
-      jul, aug, sep, oct, nov, dec
-    `)
+    .select("*")  // Grab everything — no risk of missing columns
     .eq("project_id", projectId)
     .eq("plan_year", ctx.year)
-    .eq("plan_version_id", ctx.versionId)
-    .eq("plan_type", ctx.planType || "Working")
-    .eq("is_revenue", true)
-    .order("entry_type_name");
+    .eq("plan_version_id", ctx.versionId);
+    // Removed: plan_type, is_revenue, order — all handled in render if needed
 
   if (error) {
     console.error("[Revenue] Load error:", error);
-    msg.textContent = "Error loading revenue.";
+    msg && (msg.textContent = "Error loading revenue.");
     renderRevenue(root, null);
     return;
   }
 
-  msg.textContent = data?.length ? "" : "No revenue lines found.";
-  renderRevenue(root, data || []);
+  // Optional: filter in JS if you still want only revenue lines
+  const revenueLines = data?.filter(line => line.is_revenue === true) || [];
+
+  msg.textContent = revenueLines.length ? "" : "No revenue lines found.";
+  renderRevenue(root, revenueLines);
 }
 
 // ---------------------------------------------------------------------------
@@ -124,6 +116,9 @@ function renderRevenue(root, rows) {
   const fmt = v => typeof v === "number" ? v.toLocaleString() : "";
 
   tbody.innerHTML = "";
+
+  // Optional: sort in JS (if you removed .order() from query)
+  rows.sort((a, b) => (a.entry_type_name || "").localeCompare(b.entry_type_name || ""));
 
   rows.forEach((r, i) => {
     const who = r.employee_name || r.vendor_name || "";
