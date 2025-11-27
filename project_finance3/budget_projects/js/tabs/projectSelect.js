@@ -94,7 +94,11 @@ export const projectSelectTab = {
     if (ctx.versionId) verSel.value = ctx.versionId;
     if (ctx.level1ProjectId) {
       lvl1Sel.value = ctx.level1ProjectId;
-      await loadChildProjects(root, ctx.level1ProjectId);
+      const opt = lvl1Sel.selectedOptions[0];
+      const lvl1Code = opt?.dataset?.code || ctx.level1ProjectCode || null;
+      if (lvl1Code) {
+        await loadChildProjects(root, ctx.level1ProjectId, lvl1Code);
+      }
     }
 
     // Event Listeners
@@ -106,7 +110,6 @@ export const projectSelectTab = {
       const versionId = verSel.value || null;
       const versionLabel = verSel.selectedOptions[0]?.textContent || null;
       const versionCode = verSel.selectedOptions[0]?.dataset?.code || null;
-
       setPlanContext({ versionId, versionLabel, versionCode });
     });
 
@@ -128,8 +131,8 @@ export const projectSelectTab = {
       // Clear previous lowest-level project selection
       setSelectedProject(null);
 
-      if (id) {
-        await loadChildProjects(root, id);
+      if (id && code) {
+        await loadChildProjects(root, id, code);
       } else {
         $("#childProjectsBody", root).innerHTML =
           `<tr><td colspan="5">Select a Level 1 project above.</td></tr>`;
@@ -148,13 +151,9 @@ async function loadPlanVersions(root) {
   sel.innerHTML = `<option value="">Loading…</option>`;
 
   const { data, error } = await client
-    .from("projects")
-    .select("id, project_code, name, revenue_formula, pop_start, pop_end, funding")
-    .like("project_code", `${parent.project_code}.%`)
-    .order("project_code");
-
-  console.log("[DEBUG] Child projects raw:", data);
-
+    .from("plan_versions")
+    .select("id, code, description")
+    .order("sort_order", { ascending: true });
 
   if (error || !data) {
     sel.innerHTML = `<option value="">Error loading versions</option>`;
@@ -204,34 +203,24 @@ async function loadLevel1Projects(root) {
 }
 
 // ────────────────────────────────────────────────────────────────
-// Load Child Projects + CRITICAL: setSelectedProject() on click
+// Load Child Projects + setSelectedProject() on click
 // ────────────────────────────────────────────────────────────────
-async function loadChildProjects(root, level1ProjectId) {
+async function loadChildProjects(root, level1ProjectId, level1ProjectCode) {
   const tbody = $("#childProjectsBody", root);
-  if (!tbody || !level1ProjectId) {
+  if (!tbody || !level1ProjectId || !level1ProjectCode) {
     tbody && (tbody.innerHTML = `<tr><td colspan="5">Select a Level 1 project above.</td></tr>`);
     return;
   }
 
   tbody.innerHTML = `<tr><td colspan="5">Loading child projects…</td></tr>`;
 
-  const { data: parent, error: parentError } = await client
-    .from("projects")
-    .select("project_code")
-    .eq("id", level1ProjectId)
-    .single();
-
-  if (parentError || !parent) {
-    console.error("[ProjectSelect] Error loading parent project:", parentError);
-    tbody.innerHTML = `<tr><td colspan="5">Parent project not found.</td></tr>`;
-    return;
-  }
-
   const { data, error } = await client
     .from("projects")
     .select("id, project_code, name, revenue_formula, pop_start, pop_end, funding")
-    .like("project_code", `${parent.project_code}.%`)
+    .like("project_code", `${level1ProjectCode}.%`)
     .order("project_code");
+
+  console.log("[DEBUG] Child projects raw:", data);
 
   if (error || !data?.length) {
     console.error("[ProjectSelect] Error or no data loading child projects:", error);
@@ -268,7 +257,7 @@ async function loadChildProjects(root, level1ProjectId) {
       // 1️⃣ Save full project into shared context
       setSelectedProject(proj);
 
-      // 2️⃣ Be explicit: also update planContext
+      // 2️⃣ Explicit: also update planContext
       setPlanContext({
         projectId: proj.id,
         projectName: proj.name,
@@ -280,7 +269,6 @@ async function loadChildProjects(root, level1ProjectId) {
       );
       tr.classList.add("bg-blue-100", "font-medium");
 
-      // (optional) message update
       const msg = $("#projMessage", root);
       if (msg) {
         msg.textContent = `Selected project: ${proj.project_code} – ${proj.name}`;
