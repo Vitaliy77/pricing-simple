@@ -4,44 +4,37 @@
   <meta charset="utf-8" />
   <title>Project Planning App</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  
+ 
   <!-- Tailwind + your app styles -->
   <link rel="stylesheet" href="./css/tailwind.css">
   <link rel="stylesheet" href="./css/app.css">
 </head>
 
 <body class="min-h-screen bg-slate-50 flex flex-col">
-  <!-- Modern Top Navigation -->
-  <header class="nav bg-white shadow-sm border-b border-slate-200">
-    <nav class="nav-container max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-      <div class="text-xl font-bold text-slate-800">
-        Project Planning App
-      </div>
-      <div class="nav-user text-sm text-slate-600">
-        <span id="currentUser">Not signed in</span>
-      </div>
-    </nav>
-  </header>
+  <!-- TOP MENU BAR – Heavy blue with white pill buttons -->
+  <section class="top-menu">
+    <div class="tab-bar">
+      <button data-tab="auth" class="tab-btn">Sign In</button>
+      <button data-tab="projectSelect" class="tab-btn">Projects</button>
+      <button data-tab="newProjects" class="tab-btn">New Project</button>
+      <button data-tab="summaryPlan" class="tab-btn">Summary Plan</button>
+      <button data-tab="revenueBudget" class="tab-btn">Revenue Budget</button>
+      <button data-tab="costBudget" class="tab-btn">Cost Budget</button>
+      <button data-tab="pnl" class="tab-btn">P&L</button>
+      <button data-tab="admin" class="tab-btn">Admin</button>
+    </div>
+  </section>
 
-  <!-- Main Content Area -->
+  <!-- SECOND LINE: App name + current user -->
+  <section class="app-header">
+    <div class="app-title">Project Planning App</div>
+    <div class="app-user">
+      <span id="currentUser">Not signed in</span>
+    </div>
+  </section>
+
+  <!-- MAIN CONTENT -->
   <main class="main flex-1 flex flex-col">
-    <!-- Tab Bar – Clean, responsive, accessible -->
-    <section class="tab-bar bg-white border-b border-slate-200 sticky top-0 z-10 shadow-sm">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="flex space-x-1 overflow-x-auto py-2">
-          <button data-tab="auth"          class="tab-btn">Sign In</button>
-          <button data-tab="projectSelect" class="tab-btn">Projects</button>
-          <button data-tab="newProjects"   class="tab-btn">New Project</button>
-          <button data-tab="summaryPlan"   class="tab-btn">Summary Plan</button>
-          <button data-tab="revenueBudget" class="tab-btn">Revenue Budget</button>
-          <button data-tab="costBudget"    class="tab-btn">Cost Budget</button>
-          <button data-tab="pnl"           class="tab-btn">P&L</button>
-          <button data-tab="admin"         class="tab-btn">Admin</button>
-        </div>
-      </div>
-    </section>
-
-    <!-- Tab Content Area -->
     <section id="appMain" class="tab-content flex-1 p-4 md:p-6 lg:p-8 max-w-7xl mx-auto w-full">
       <!-- main.js injects tab templates here -->
     </section>
