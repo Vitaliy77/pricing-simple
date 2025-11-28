@@ -6,32 +6,26 @@ let _costProjectIds = [];
 const _entryTypeIds = {};
 
 export const template = /*html*/ `
-  <article class="full-width-card text-[12px] flex flex-col">
-    <!-- TOP AREA: TITLE + CONTROLS (NON-SCROLLING) -->
-    <div class="px-4 pt-3 pb-2 border-b border-slate-200">
-      <!-- Title + description on ONE line (wrap if needed) -->
-      <div class="flex flex-wrap items-baseline justify-between gap-2 mb-2">
-        <h3 class="font-semibold text-slate-900">Cost Budget</h3>
-        <p class="text-slate-600">
-          Build costs for all projects under the selected Level 1 project — direct labor, subcontractors, and other direct costs.
-        </p>
-      </div>
+  <article class="full-width-card">
+    <div class="px-6 pt-4 pb-4">
+      <h3 class="text-base font-semibold text-slate-900 mb-1">
+        Cost Budget
+      </h3>
+      
+      <p class="text-xs text-slate-600 mb-3 leading-snug">
+        Build costs for all projects under the selected Level 1 project — direct labor, subcontractors, and other direct costs.
+      </p>
 
-      <!-- Message line -->
-      <div id="costMessage" class="text-[12px] text-slate-600 mb-2 min-h-[1.2rem]"></div>
+      <div id="costMessage" class="text-xs text-slate-600 mb-3 min-h-[1.25rem]"></div>
 
-      <!-- Add Cost Lines row: label + dropdown + 3 buttons on one line (wrap on small screens) -->
-      <section>
-        <div class="flex flex-wrap items-end gap-2">
-          <span class="text-[12px] font-semibold text-slate-700">
-            Add cost lines:
-          </span>
-
+      <!-- ADD COST LINES -->
+      <section class="mb-3">
+        <div class="flex flex-wrap items-end gap-3">
           <label class="flex-1 min-w-[220px]">
-            <span class="block text-[11px] font-medium text-slate-600 mb-0.5">Project</span>
+            <span class="block text-xs font-medium text-slate-700 mb-1">Project</span>
             <select
               id="costProjectSelect"
-              class="w-full border border-slate-300 rounded-md px-2 py-1 text-[12px]
+              class="w-full px-2 py-1 border border-slate-300 rounded-md text-xs
                      focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
               <option value="">— Select project —</option>
@@ -41,22 +35,22 @@ export const template = /*html*/ `
           <div class="flex flex-wrap gap-2">
             <button
               id="addEmployeesBtn"
-              class="h-8 px-3 rounded-md bg-blue-600 hover:bg-blue-700 text-white
-                     font-medium text-[12px] shadow-sm transition"
+              class="px-3 py-1.5 text-xs font-medium rounded-md shadow-sm
+                     bg-blue-600 hover:bg-blue-700 text-white"
             >
               + Add Employees
             </button>
             <button
               id="addSubsBtn"
-              class="h-8 px-3 rounded-md bg-blue-600 hover:bg-blue-700 text-white
-                     font-medium text-[12px] shadow-sm transition"
+              class="px-3 py-1.5 text-xs font-medium rounded-md shadow-sm
+                     bg-blue-600 hover:bg-blue-700 text-white"
             >
               + Add Subcontractors
             </button>
             <button
               id="addOdcBtn"
-              class="h-8 px-3 rounded-md bg-blue-600 hover:bg-blue-700 text-white
-                     font-medium text-[12px] shadow-sm transition"
+              class="px-3 py-1.5 text-xs font-medium rounded-md shadow-sm
+                     bg-blue-600 hover:bg-blue-700 text-white"
             >
               + Add ODC
             </button>
@@ -65,48 +59,52 @@ export const template = /*html*/ `
       </section>
     </div>
 
-    <!-- TABLE AREA: ONLY THIS PART SCROLLS -->
-    <div class="flex-1 overflow-x-auto overflow-y-auto max-h-[65vh]">
-      <div class="inline-block min-w-full align-middle">
-        <table id="costTable" class="min-w-full border-collapse">
+    <!-- TABLE WRAPPER: fixed height, only grid scrolls -->
+    <div class="border-t border-slate-200">
+      <div class="max-h-[520px] overflow-auto overflow-x-auto">
+        <table id="costTable" class="min-w-full text-xs">
           <thead class="bg-slate-50">
             <tr>
               <th
-                class="cost-grid-sticky cost-col-1 text-left text-[11px] font-semibold text-slate-700 uppercase tracking-wide
-                       px-2 py-1.5 border-b border-slate-200 bg-slate-50"
+                class="cost-grid-sticky cost-col-1 sticky top-0 z-30 bg-slate-50
+                       text-left text-[11px] font-semibold text-slate-700 uppercase tracking-wider
+                       px-3 py-1.5"
               >
                 Project
               </th>
               <th
-                class="cost-grid-sticky cost-col-2 text-left text-[11px] font-semibold text-slate-700 uppercase tracking-wide
-                       px-2 py-1.5 border-b border-slate-200 bg-slate-50"
+                class="cost-grid-sticky cost-col-2 sticky top-0 z-30 bg-slate-50
+                       text-left text-[11px] font-semibold text-slate-700 uppercase tracking-wider
+                       px-3 py-1.5"
               >
                 Person / Vendor / Category
               </th>
               <th
-                class="cost-grid-sticky cost-col-3 text-left text-[11px] font-semibold text-slate-700 uppercase tracking-wide
-                       px-2 py-1.5 border-b border-slate-200 bg-slate-50"
+                class="cost-grid-sticky cost-col-3 sticky top-0 z-30 bg-slate-50
+                       text-left text-[11px] font-semibold text-slate-700 uppercase tracking-wider
+                       px-3 py-1.5"
               >
                 Role / Description
               </th>
-
               ${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
                 .map(
                   m => `
-                    <th class="px-2 py-1.5 text-right text-[11px] font-semibold text-slate-700 uppercase tracking-wide border-b border-slate-200">
-                      ${m}
-                    </th>`
+              <th class="sticky top-0 z-20 bg-slate-50 px-3 py-1.5 text-right text-[11px] font-semibold text-slate-700 uppercase tracking-wider">
+                ${m}
+              </th>`
                 )
                 .join("")}
-              <th class="px-2 py-1.5 text-right text-[11px] font-semibold text-slate-700 uppercase tracking-wide border-b border-slate-200">
+              <th class="sticky top-0 z-20 bg-slate-50 px-3 py-1.5 text-right text-[11px] font-semibold text-slate-700 uppercase tracking-wider">
                 Total
               </th>
             </tr>
           </thead>
-
-          <tbody id="costBody" class="bg-white">
+          <tbody
+            id="costBody"
+            class="bg-white divide-y divide-slate-100"
+          >
             <tr>
-              <td colspan="16" class="text-center py-4 text-slate-500 text-[12px]">
+              <td colspan="16" class="text-center py-10 text-slate-500 text-xs">
                 Loading…
               </td>
             </tr>
@@ -147,20 +145,14 @@ export const costBudgetTab = {
 };
 
 // ─────────────────────────────────────────────
-// RENDER COST GRID (compact rows + stripes)
+// RENDER COST GRID
 // ─────────────────────────────────────────────
 function renderCost(root, rows) {
   const tbody = $("#costBody", root);
   if (!tbody) return;
 
   if (!rows?.length) {
-    tbody.innerHTML = `
-      <tr>
-        <td colspan="16" class="text-center py-4 text-slate-500 text-[12px]">
-          No cost lines found for this project and plan.
-        </td>
-      </tr>
-    `;
+    tbody.innerHTML = `<tr><td colspan="16" class="text-center py-10 text-slate-500 text-xs">No cost lines found for this project and plan.</td></tr>`;
     return;
   }
 
@@ -168,38 +160,35 @@ function renderCost(root, rows) {
     "amt_jan","amt_feb","amt_mar","amt_apr","amt_may","amt_jun",
     "amt_jul","amt_aug","amt_sep","amt_oct","amt_nov","amt_dec"
   ];
-  const fmt = v => (typeof v === "number" && !Number.isNaN(v)) ? v.toLocaleString() : "";
+  const fmt = v => typeof v === "number" ? v.toLocaleString() : "";
 
   tbody.innerHTML = "";
-  rows.forEach((r, idx) => {
+  rows.forEach(r => {
     const who = r.resource_name || "";
     const desc = r.department_name || r.description || "";
     let total = 0;
 
-    const monthCells = months
-      .map(m => {
-        const val = Number(r[m] || 0);
-        total += val;
-        return `<td class="px-2 py-0.5 text-right text-[12px] text-slate-900">${fmt(val)}</td>`;
-      })
-      .join("");
+    const monthCells = months.map(m => {
+      const val = Number(r[m] || 0);
+      total += val;
+      return `<td class="px-3 py-1 text-right text-[11px] text-slate-900">${fmt(val)}</td>`;
+    }).join("");
 
     const tr = document.createElement("tr");
-    // zebra stripes + hover
-    tr.className = `${idx % 2 === 0 ? "bg-slate-50/70" : "bg-white"} hover:bg-blue-50 transition`;
+    tr.className = "hover:bg-slate-50 transition";
 
     tr.innerHTML = `
-      <td class="cost-grid-sticky cost-col-1 px-2 py-0.5 text-[12px] font-medium text-slate-900 border-r border-slate-200">
+      <td class="cost-grid-sticky cost-col-1 px-3 py-1 text-[11px] font-medium text-slate-900">
         ${r.project_name || ""}
       </td>
-      <td class="cost-grid-sticky cost-col-2 px-2 py-0.5 text-[12px] font-medium text-slate-800 border-r border-slate-200">
+      <td class="cost-grid-sticky cost-col-2 px-3 py-1 text-[11px] font-medium text-slate-800">
         ${who}
       </td>
-      <td class="cost-grid-sticky cost-col-3 px-2 py-0.5 text-[12px] text-slate-600 border-r border-slate-200">
+      <td class="cost-grid-sticky cost-col-3 px-3 py-1 text-[11px] text-slate-600 italic">
         ${desc}
       </td>
       ${monthCells}
-      <td class="px-2 py-0.5 text-right text-[12px] font-semibold text-slate-900 bg-slate-50">
+      <td class="px-3 py-1 text-right text-[11px] font-bold text-slate-900 bg-slate-50">
         ${fmt(total)}
       </td>
     `;
