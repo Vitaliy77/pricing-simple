@@ -19,11 +19,11 @@ export const template = /*html*/ `
       <button id="btnAddOdcCost" class="btn-secondary">Add ODC</button>
     </section>
 
-    <!-- Mapped employees overview -->
+    <!-- Mapped employees overview (single selected project) -->
     <section id="mappedEmployeesSection" style="margin-bottom:0.75rem;">
-      <h4 style="margin-bottom:0.25rem; font-size:0.9rem;">Mapped Employees (staffing)</h4>
-      <div class="scroll-x">
-        <table class="data-grid">
+      <h4 style="margin-bottom:0.25rem; font-size:0.9rem;">Mapped Employees (staffing for selected project)</h4>
+      <div class="scroll-x" style="width:100%;overflow-x:auto;">
+        <table class="data-grid" style="width:100%;min-width:100%;">
           <thead>
             <tr>
               <th>Employee</th>
@@ -40,13 +40,14 @@ export const template = /*html*/ `
       </div>
     </section>
 
-    <!-- Cost planning grid -->
+    <!-- Cost planning grid: ALL projects under selected Level 1 -->
     <section style="margin-top:0.5rem;">
-      <h4 style="margin-bottom:0.25rem; font-size:0.9rem;">Cost Lines</h4>
-      <div class="scroll-x">
-        <table class="data-grid">
+      <h4 style="margin-bottom:0.25rem; font-size:0.9rem;">Cost Lines (all projects under selected Level 1)</h4>
+      <div class="scroll-x" style="width:100%;overflow-x:auto;">
+        <table class="data-grid" style="width:100%;min-width:100%;">
           <thead>
             <tr>
+              <th>Project</th>
               <th>Line</th>
               <th>Entry Type</th>
               <th>Person / Vendor</th>
@@ -57,7 +58,7 @@ export const template = /*html*/ `
             </tr>
           </thead>
           <tbody id="costBody">
-            <tr><td colspan="17">Loading…</td></tr>
+            <tr><td colspan="18">Loading…</td></tr>
           </tbody>
         </table>
       </div>
@@ -71,6 +72,7 @@ export const costBudgetTab = {
     const msg = $("#costMessage", root);
     const ctx = getPlanContext();
     const projectId = ctx.projectId;
+    const level1Code = ctx.level1ProjectCode;
 
     console.log("[Cost:init] projectId:", projectId);
     console.log("[Cost:init] planContext:", ctx);
@@ -82,14 +84,14 @@ export const costBudgetTab = {
       return;
     }
 
-    if (!ctx.year || !ctx.versionId) {
+    if (!ctx.year || !ctx.versionId || !level1Code) {
       msg && (msg.textContent = "Plan not fully selected. Please complete selection in the Projects tab.");
       renderCost(root, null);
       renderMappedEmployees(root, null);
       return;
     }
 
-    // Wire buttons (placeholders for now)
+    // Buttons (still placeholders)
     const btnEmp = $("#btnAddEmpCost", root);
     const btnSub = $("#btnAddSubCost", root);
     const btnOdc = $("#btnAddOdcCost", root);
@@ -104,16 +106,15 @@ export const costBudgetTab = {
       alert("Add ODC cost line – implementation to be added.");
     });
 
-    // Load mapped employees + cost lines
     await Promise.all([
-      refreshMappedEmployees(root, client),
-      refreshCost(root, client),
+      refreshMappedEmployees(root, client),   // single project
+      refreshCost(root, client),             // ALL projects under Level 1
     ]);
   },
 };
 
 // ────────────────────────────────────────────────────────────────
-// Mapped employees (from project_employee_assignments + employees)
+// Mapped employees (for selected child project)
 // ────────────────────────────────────────────────────────────────
 async function refreshMappedEmployees(root, client) {
   const tbody = $("#mappedEmployeesBody", root);
@@ -129,7 +130,6 @@ async function refreshMappedEmployees(root, client) {
 
   tbody.innerHTML = `<tr><td colspan="5">Loading mapped employees…</td></tr>`;
 
-  // 1) Get assignments
   const { data: assigns, error: assignErr } = await client
     .from("project_employee_assignments")
     .select("employee_id, allocation_pct, start_date, end_date")
@@ -152,7 +152,6 @@ async function refreshMappedEmployees(root, client) {
     return;
   }
 
-  // 2) Get employee details
   const { data: emps, error: empErr } = await client
     .from("employees")
     .select("id, full_name, department_code, department_name")
@@ -208,24 +207,49 @@ function renderMappedEmployees(root, rows) {
 }
 
 // ────────────────────────────────────────────────────────────────
-// Cost planning lines from planning_lines (is_revenue = false)
+// Cost planning lines from ALL projects under selected Level 1
 // ────────────────────────────────────────────────────────────────
 async function refreshCost(root, client) {
   const msg = $("#costMessage", root);
   const ctx = getPlanContext();
-  const projectId = ctx.projectId;
+  const level1Code = ctx.level1ProjectCode;
 
-  if (!projectId || !ctx.year || !ctx.versionId) {
+  if (!level1Code || !ctx.year || !ctx.versionId) {
     renderCost(root, null);
     return;
   }
 
   msg && (msg.textContent = "Loading costs…");
 
+  // 1) Get all project IDs under this Level 1 (L3/L4/L5, etc.)
+  const { data: projects, error: projErr } = await client
+    .from("projects")
+    .select("id, project_code, name")
+    .like("project_code", `${level1Code}.%`);
+
+  if (projErr) {
+    console.error("[Cost] Error loading projects for Level 1:", projErr);
+    msg && (msg.textContent = "Error loading cost data.");
+    renderCost(root, null);
+    return;
+  }
+
+  if (!projects || projects.length === 0) {
+    renderCost(root, []);
+    msg && (msg.textContent = "No child projects found for this Level 1.");
+    return;
+  }
+
+  const idList = projects.map(p => p.id);
+  const projById = new Map(projects.map(p => [p.id, p]));
+
+  // 2) Get planning lines for ALL those projects
   const { data, error } = await client
     .from("planning_lines")
     .select(`
       id,
+      project_id,
+      project_name,
       is_revenue,
       resource_name,
       description,
@@ -242,7 +266,7 @@ async function refreshCost(root, client) {
       amt_nov,
       amt_dec
     `)
-    .eq("project_id", projectId)
+    .in("project_id", idList)
     .eq("plan_year", ctx.year)
     .eq("plan_version_id", ctx.versionId)
     .eq("plan_type", ctx.planType || "Working")
@@ -257,8 +281,13 @@ async function refreshCost(root, client) {
     return;
   }
 
-  renderCost(root, data || []);
-  msg && (msg.textContent = data?.length === 0 ? "No cost lines found." : "");
+  const rowsWithCodes = (data || []).map(r => ({
+    ...r,
+    project_code: projById.get(r.project_id)?.project_code || "",
+  }));
+
+  renderCost(root, rowsWithCodes);
+  msg && (msg.textContent = rowsWithCodes.length === 0 ? "No cost lines found." : "");
 }
 
 function renderCost(root, rows) {
@@ -266,7 +295,7 @@ function renderCost(root, rows) {
   if (!tbody) return;
 
   if (!rows?.length) {
-    tbody.innerHTML = `<tr><td colspan="17">No cost lines found for this project and plan.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="18">No cost lines found for this project and plan.</td></tr>`;
     return;
   }
 
@@ -282,7 +311,7 @@ function renderCost(root, rows) {
   tbody.innerHTML = "";
   rows.forEach((r, i) => {
     const who = r.resource_name || "";
-    const entryType = r.is_revenue ? "Revenue" : "Cost"; // placeholder until you join entry_types
+    const entryType = r.is_revenue ? "Revenue" : "Cost"; // placeholder until join
     let total = 0;
 
     const monthCells = monthCols.map(col => {
@@ -293,6 +322,7 @@ function renderCost(root, rows) {
 
     const tr = document.createElement("tr");
     tr.innerHTML = `
+      <td>${r.project_code || ""}</td>
       <td>${i + 1}</td>
       <td>${entryType}</td>
       <td>${who}</td>
