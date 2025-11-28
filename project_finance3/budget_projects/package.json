@@ -6,7 +6,8 @@
   "type": "commonjs",
   "scripts": {
     "build:css": "tailwindcss -i ./css/input.css -o ./css/tailwind.css --minify",
-    "dev:css": "tailwindcss -i ./css/input.css -o ./css/tailwind.css --watch"
+    "dev:css": "tailwindcss -i ./css/input.css -o ./css/tailwind.css --watch",
+    "build": "npm run build:css && rm -rf dist && mkdir dist && cp index.html dist/index.html && cp -R js dist/js && cp -R css dist/css"
   },
   "keywords": [],
   "author": "",
