@@ -4,19 +4,18 @@
   <meta charset="utf-8" />
   <title>Project Planning App</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- Tailwind CSS (your compiled version) -->
+  <link rel="stylesheet" href="./css/tailwind.css" />
   
-  <!-- Tailwind CSS (compiled & minified) -->
-  <link rel="stylesheet" href="./css/tailwind.css">
-  
-  <!-- Your custom overrides (optional) -->
-  <link rel="stylesheet" href="./css/app.css">
+  <!-- Your custom app styles (includes sticky columns, full-width-card, etc.) -->
+  <link rel="stylesheet" href="./css/styles.css" />
 </head>
 
 <body class="min-h-screen bg-slate-50 antialiased">
-
-  <!-- TOP BLUE TAB BAR -->
+  <!-- TOP TAB BAR -->
   <section class="top-menu bg-blue-700 shadow-lg sticky top-0 z-50">
-    <div class="tab-bar flex overflow-x-auto">
+    <div class="flex overflow-x-auto px-4 py-3">
       <button data-tab="auth"          class="tab-btn">Sign In</button>
       <button data-tab="projectSelect" class="tab-btn">Projects</button>
       <button data-tab="newProjects"   class="tab-btn">New Project</button>
@@ -29,25 +28,21 @@
   </section>
 
   <!-- APP HEADER -->
-  <header class="app-header bg-white border-b border-slate-200 px-6 py-4">
+  <header class="bg-white border-b border-slate-200 px-6 py-5">
     <div class="flex justify-between items-start">
       <div class="app-title">
         <h1 class="text-2xl font-bold text-slate-900">Project Planning App</h1>
-
-        <!-- Plan context: version, type, level 1 project -->
-        <div id="planContextHeader"
-             class="text-sm font-medium text-blue-700 mt-1">
-          <!-- Filled by projectContext.js -->
+        
+        <div id="planContextHeader" class="text-sm font-medium text-blue-700 mt-1">
+          <!-- e.g. "2025 • Working Plan • ACME-001 – Acme Corp HQ" -->
         </div>
-
-        <!-- Selected lowest-level project -->
-        <div id="currentProject"
-             class="text-lg font-semibold text-slate-800 mt-1">
-          <!-- Filled by projectContext.js -->
+        
+        <div id="currentProject" class="text-lg font-semibold text-slate-800 mt-2">
+          <!-- e.g. "P-101.003 – Server Room Upgrade" -->
         </div>
       </div>
 
-      <div class="app-user text-right">
+      <div class="text-right">
         <span id="currentUser" class="text-sm font-medium text-slate-600">
           Not signed in
         </span>
@@ -56,28 +51,36 @@
   </header>
 
   <!-- MAIN CONTENT -->
-  <main class="main container mx-auto px-4 py-6 max-w-screen-2xl">
-    <section id="appMain" class="tab-content bg-white rounded-lg shadow-sm border border-slate-200 min-h-screen">
-      <!-- Tab content loads here -->
+  <main class="container mx-auto px-4 py-8 max-w-screen-2xl">
+    <section id="appMain" class="tab-content">
+      <!-- All tabs load here dynamically -->
     </section>
   </main>
 
-  <!-- Scripts -->
+  <!-- Scripts — ORDER MATTERS! -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+  <!-- Chart.js + plugin -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+
+  <!-- SAFE Chart.js defaults — runs AFTER Chart.js is loaded -->
   <script>
-    if (window.Chart) {
-      Chart.defaults.font.size = 14;
-      Chart.defaults.font.family = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
-      Chart.defaults.plugins.legend.labels.font.size = 14;
-      Chart.defaults.plugins.tooltip.bodyFont.size = 14;
-      Chart.defaults.plugins.tooltip.titleFont.size = 14;
-      if (Chart.defaults.plugins.datalabels) {
-        Chart.defaults.plugins.datalabels.font = { size: 13, weight: 'bold' };
-      }
+    // This now runs safely because Chart.js is already defined
+    Chart.defaults.font.family = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+    Chart.defaults.font.size = 13;
+
+    Chart.defaults.plugins.legend.labels.font.size = 12;
+    Chart.defaults.plugins.tooltip.bodyFont.size = 13;
+    Chart.defaults.plugins.tooltip.titleFont.size = 13;
+
+    if (Chart.defaults.plugins.datalabels) {
+      Chart.defaults.plugins.datalabels.font = { size: 12, weight: '600' };
+      Chart.defaults.plugins.datalabels.color = '#1e293b';
     }
   </script>
+
+  <!-- Your app entry point -->
   <script type="module" src="./js/main.js"></script>
 </body>
 </html>
