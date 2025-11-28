@@ -2,7 +2,8 @@
 import { $, h } from "../lib/dom.js";
 import { getPlanContext } from "../lib/projectContext.js";
 
-let _costProjectIds = []; // all projects under current level-1
+let _costProjectIds = [];        // all projects under current level-1
+const _entryTypeIds = {};        // cache: { DIR_LAB_COST: uuid, SUBC_COST: uuid, ODC_COST: uuid }
 
 export const template = /*html*/ `
   <article>
@@ -15,59 +16,53 @@ export const template = /*html*/ `
              style="min-height:1.25rem; font-size:0.9rem; color:#64748b; margin-bottom:0.75rem;"></section>
 
     <!-- Controls: pick project + add cost lines -->
-    <section style="margin-bottom:0.75rem;">
+    <section style="margin-bottom:0.75rem; width:100%;">
       <h4 style="margin-bottom:0.35rem;font-size:0.9rem;">Add Cost Lines</h4>
       <div style="display:flex;flex-wrap:wrap;gap:0.75rem;align-items:flex-end;">
         <label style="min-width:260px;">
           Project
-          <select id="costProjectSelect">
+          <select id="costProjectSelect" style="min-width:260px;">
             <option value="">— Select project —</option>
           </select>
         </label>
 
-        <button id="costAddEmpBtn" class="btn btn-sm">
+        <button id="costAddEmpBtn" class="btn-sm">
           + Add Employees
         </button>
-        <button id="costAddSubBtn" class="btn btn-sm">
+        <button id="costAddSubBtn" class="btn-sm">
           + Add Subcontractors
         </button>
-        <button id="costAddOdcBtn" class="btn btn-sm">
+        <button id="costAddOdcBtn" class="btn-sm">
           + Add ODC
         </button>
       </div>
       <p style="font-size:0.8rem;color:#6b7280;margin-top:0.25rem;">
-        Pick any project under the Level 1 tree, then use these buttons to add or adjust cost lines
+        Pick any project under the Level 1 tree, then use these buttons to add cost lines
         (employees, subs, ODC) for that specific project.
       </p>
     </section>
 
-    <section style="margin-top:0.25rem;">
-      <div class="scroll-x">
-        <table id="costTable" class="data-grid">
+    <section style="margin-top:0.25rem; width:100%;">
+      <div style="width:100%; overflow-x:auto;">
+        <table id="costTable" class="data-grid" style="width:100%; border-collapse:collapse;">
           <thead>
             <tr>
-              <th class="sticky-col-1 col-person">Person / Vendor / Category</th>
-              <th class="sticky-col-2 col-role">Role / Description</th>
-              <th>Project</th>
-              <th>Entry Type</th>
+              <th class="sticky-col-1 col-project">Project</th>
+              <th class="sticky-col-2 col-person">Person / Vendor / Category</th>
+              <th class="sticky-col-3 col-role">Role / Description</th>
               <th>Jan</th><th>Feb</th><th>Mar</th><th>Apr</th><th>May</th><th>Jun</th>
               <th>Jul</th><th>Aug</th><th>Sep</th><th>Oct</th><th>Nov</th><th>Dec</th>
               <th>Total</th>
             </tr>
           </thead>
           <tbody id="costBody">
-            <tr><td colspan="18">Loading…</td></tr>
+            <tr><td colspan="16">Loading…</td></tr>
           </tbody>
         </table>
       </div>
     </section>
 
     <style>
-      #costTable {
-        border-collapse: collapse;
-        width: 100%;
-      }
-
       #costTable th,
       #costTable td {
         border: 1px solid #ddd;
@@ -83,28 +78,42 @@ export const template = /*html*/ `
         line-height: 1.3;
         position: sticky;
         top: 0;
-        z-index: 15;
+        z-index: 20;
       }
 
+      /* Sticky columns: widths & offsets are cumulative */
       .sticky-col-1 {
         position: sticky;
         left: 0;
         background: #ffffff;
-        z-index: 12;
-        min-width: 220px;
+        z-index: 18;
+        min-width: 180px;
       }
 
       .sticky-col-2 {
         position: sticky;
-        left: 220px; /* match sticky-col-1 width */
+        left: 180px;
         background: #ffffff;
-        z-index: 11;
+        z-index: 17;
+        min-width: 220px;
+      }
+
+      .sticky-col-3 {
+        position: sticky;
+        left: 400px; /* 180 + 220 */
+        background: #ffffff;
+        z-index: 16;
         min-width: 260px;
       }
 
       #costTable tbody .sticky-col-1,
-      #costTable tbody .sticky-col-2 {
+      #costTable tbody .sticky-col-2,
+      #costTable tbody .sticky-col-3 {
         background: #ffffff;
+      }
+
+      .col-project {
+        font-weight: 500;
       }
 
       .col-person {
@@ -123,16 +132,17 @@ export const template = /*html*/ `
         font-weight: 600;
       }
 
-      .btn.btn-sm {
-        padding: 0.3rem 0.6rem;
+      .btn-sm {
+        padding: 0.3rem 0.7rem;
         border-radius: 4px;
         border: 1px solid #cbd5e1;
         background:#e5e7eb;
         font-size:0.8rem;
         cursor:pointer;
+        white-space: nowrap;
       }
 
-      .btn.btn-sm:hover {
+      .btn-sm:hover {
         background:#d1d5db;
       }
     </style>
@@ -162,26 +172,27 @@ export const costBudgetTab = {
     // Load all projects under the selected Level 1 and populate dropdown
     await loadProjectsUnderLevel1(root, client, ctx.level1ProjectId);
 
-    // Wire buttons (stub behavior for now)
     const projSel = $("#costProjectSelect", root);
-    $("#costAddEmpBtn", root)?.addEventListener("click", () => {
-      console.log("[Cost] Add Employees clicked for project:", projSel?.value || "(none)");
-      // TODO: open employee picker / create lines for selected project
+
+    // Wire buttons to actually create lines
+    $("#costAddEmpBtn", root)?.addEventListener("click", async () => {
+      await handleAddLines(root, client, projSel, "DIR_LAB_COST", "New employee cost line");
     });
-    $("#costAddSubBtn", root)?.addEventListener("click", () => {
-      console.log("[Cost] Add Subcontractors clicked for project:", projSel?.value || "(none)");
-      // TODO: open subcontractor picker / create lines for selected project
+    $("#costAddSubBtn", root)?.addEventListener("click", async () => {
+      await handleAddLines(root, client, projSel, "SUBC_COST", "New subcontractor cost line");
     });
-    $("#costAddOdcBtn", root)?.addEventListener("click", () => {
-      console.log("[Cost] Add ODC clicked for project:", projSel?.value || "(none)");
-      // TODO: open ODC picker / create lines for selected project
+    $("#costAddOdcBtn", root)?.addEventListener("click", async () => {
+      await handleAddLines(root, client, projSel, "ODC_COST", "New ODC cost line");
     });
 
     await refreshCost(root, client);
   },
 };
 
-// Load all projects under a given Level 1 project, populate dropdown, and cache ids
+// ────────────────────────────────────────────────────────────────
+// Helpers
+// ────────────────────────────────────────────────────────────────
+
 async function loadProjectsUnderLevel1(root, client, level1ProjectId) {
   const msg = $("#costMessage", root);
   const projSel = $("#costProjectSelect", root);
@@ -233,6 +244,95 @@ async function loadProjectsUnderLevel1(root, client, level1ProjectId) {
   console.log("[Cost] Projects under Level 1:", all.length);
 }
 
+// Fetch entry_type.id by code and cache it
+async function getEntryTypeId(client, code) {
+  if (_entryTypeIds[code]) return _entryTypeIds[code];
+
+  const { data, error } = await client
+    .from("entry_types")
+    .select("id, code")
+    .eq("code", code)
+    .single();
+
+  if (error || !data) {
+    console.error("[Cost] Unable to load entry_type for code:", code, error);
+    throw new Error("Missing entry type " + code);
+  }
+
+  _entryTypeIds[code] = data.id;
+  return data.id;
+}
+
+// Handle "+ Add ..." buttons – create a new blank planning_lines row
+async function handleAddLines(root, client, projSel, entryCode, defaultDescription) {
+  const msg = $("#costMessage", root);
+  const ctx = getPlanContext();
+
+  if (!projSel || !projSel.value) {
+    msg && (msg.textContent = "Please select a project from the dropdown first.");
+    return;
+  }
+
+  if (!ctx.year || !ctx.versionId) {
+    msg && (msg.textContent = "Plan not fully selected. Please complete selection in the Projects tab.");
+    return;
+  }
+
+  const projectId = projSel.value;
+  const projectText = projSel.selectedOptions[0]?.textContent || "";
+  const dashIdx = projectText.indexOf(" – ");
+  const projectName = dashIdx >= 0 ? projectText.slice(dashIdx + 3) : projectText;
+
+  let entryTypeId;
+  try {
+    entryTypeId = await getEntryTypeId(client, entryCode);
+  } catch (err) {
+    msg && (msg.textContent = "Error loading entry type. See console for details.");
+    console.error(err);
+    return;
+  }
+
+  const newLine = {
+    project_id: projectId,
+    project_name: projectName,
+    entry_type_id: entryTypeId,
+    is_revenue: false,
+    employee_id: null,
+    new_hire_id: null,
+    vendor_id: null,
+    resource_name: "",
+    department_code: null,
+    department_name: null,
+    description: defaultDescription,
+    plan_version_id: ctx.versionId,
+    plan_year: ctx.year,
+    plan_type: ctx.planType || "Working",
+    amt_jan: 0,
+    amt_feb: 0,
+    amt_mar: 0,
+    amt_apr: 0,
+    amt_may: 0,
+    amt_jun: 0,
+    amt_jul: 0,
+    amt_aug: 0,
+    amt_sep: 0,
+    amt_oct: 0,
+    amt_nov: 0,
+    amt_dec: 0,
+  };
+
+  const { error } = await client.from("planning_lines").insert(newLine);
+
+  if (error) {
+    console.error("[Cost] Error inserting planning line:", error);
+    msg && (msg.textContent = "Error adding cost line.");
+    return;
+  }
+
+  msg && (msg.textContent = "New cost line added.");
+  await refreshCost(root, client);
+}
+
 async function refreshCost(root, client) {
   const msg = $("#costMessage", root);
   const ctx = getPlanContext();
@@ -250,7 +350,6 @@ async function refreshCost(root, client) {
       id,
       project_id,
       project_name,
-      entry_type_id,
       resource_name,
       department_name,
       description,
@@ -281,7 +380,7 @@ function renderCost(root, rows) {
   if (!tbody) return;
 
   if (!rows?.length) {
-    tbody.innerHTML = `<tr><td colspan="18">No cost lines found for this Level 1 project and plan.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="16">No cost lines found for this Level 1 project and plan.</td></tr>`;
     return;
   }
 
@@ -309,10 +408,9 @@ function renderCost(root, rows) {
 
     const tr = document.createElement("tr");
     tr.innerHTML = `
-      <td class="sticky-col-1 col-person">${who}</td>
-      <td class="sticky-col-2 col-role">${roleOrDesc}</td>
-      <td>${r.project_name || ""}</td>
-      <td>${r.entry_type_id || ""}</td>
+      <td class="sticky-col-1 col-project">${r.project_name || ""}</td>
+      <td class="sticky-col-2 col-person">${who}</td>
+      <td class="sticky-col-3 col-role">${roleOrDesc}</td>
       ${monthCells}
       <td class="num row-total">${fmt(total)}</td>
     `;
