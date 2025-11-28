@@ -6,130 +6,73 @@ let _costProjectIds = [];
 const _entryTypeIds = {};
 
 export const template = /*html*/ `
-  <article>
-    <h3 style="margin-bottom:0.5rem;">Cost Budget</h3>
-    <p style="font-size:0.9rem; margin-bottom:1rem; color:#475569;">
+  <article class="p-6 bg-white rounded-xl shadow-sm border border-slate-200">
+    <h3 class="text-2xl font-bold text-slate-900 mb-4">Cost Budget</h3>
+    
+    <p class="text-sm text-slate-600 mb-6 leading-relaxed">
       Build costs for all projects under the selected Level 1 project — direct labor, subcontractors, and other direct costs.
     </p>
 
-    <section id="costMessage"
-             style="min-height:1.25rem; font-size:0.9rem; color:#64748b; margin-bottom:0.75rem;"></section>
+    <div id="costMessage" class="text-sm text-slate-600 mb-6 min-h-6"></div>
 
-    <!-- CLEAN, MODERN "ADD COST LINES" SECTION -->
-    <section style="margin-bottom:0.75rem;">
-      <h4 style="margin-bottom:0.35rem;font-size:0.95rem;">Add Cost Lines</h4>
-      <div
-        style="
-          display:flex;
-          flex-wrap:wrap;
-          gap:0.75rem;
-          align-items:flex-end;
-          width:100%;
-        "
-      >
-        <label style="flex:1 1 320px; min-width:260px;">
-          Project
-          <select id="costProjectSelect" style="width:100%;">
+    <!-- ADD COST LINES — CLEAN & MODERN -->
+    <section class="mb-8">
+      <h4 class="text-lg font-semibold text-slate-800 mb-3">Add Cost Lines</h4>
+      
+      <div class="flex flex-wrap gap-4 items-end">
+        <label class="flex-1 min-w-64">
+          <span class="block text-sm font-medium text-slate-700 mb-1">Project</span>
+          <select id="costProjectSelect" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm">
             <option value="">— Select project —</option>
           </select>
         </label>
 
-        <button id="addEmployeesBtn" class="btn-primary">
+        <button id="addEmployeesBtn" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-sm transition">
           + Add Employees
         </button>
-
-        <button id="addSubsBtn" class="btn-primary">
+        <button id="addSubsBtn" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-sm transition">
           + Add Subcontractors
         </button>
-
-        <button id="addOdcBtn" class="btn-primary">
+        <button id="addOdcBtn" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-sm transition">
           + Add ODC
         </button>
       </div>
 
-      <p style="font-size:0.8rem; color:#64748b; margin-top:0.25rem;">
+      <p class="text-xs text-slate-500 mt-3">
         Pick any project under the Level 1 tree, then use these buttons to add cost lines (employees, subs, ODC) for that specific project.
       </p>
     </section>
 
-    <!-- FULL-WIDTH COST GRID -->
-    <section style="margin-top:1rem; width:100%;">
-      <div style="width:100%; overflow-x:auto;">
-        <table
-          id="costTable"
-          class="data-grid"
-          style="width:100%; min-width:1400px; border-collapse:collapse;"
-        >
-          <thead>
+    <!-- FULL-WIDTH RESPONSIVE TABLE -->
+    <div class="overflow-x-auto -mx-6">
+      <div class="inline-block min-w-full align-middle">
+        <table id="costTable" class="min-w-full divide-y divide-slate-200">
+          <thead class="bg-slate-50">
             <tr>
-              <th class="sticky-col-1 col-project">Project</th>
-              <th class="sticky-col-2 col-person">Person / Vendor / Category</th>
-              <th class="sticky-col-3 col-role">Role / Description</th>
-              <th>Jan</th><th>Feb</th><th>Mar</th><th>Apr</th><th>May</th><th>Jun</th>
-              <th>Jul</th><th>Aug</th><th>Sep</th><th>Oct</th><th>Nov</th><th>Dec</th>
-              <th>Total</th>
+              <th class="sticky left-0 z-20 bg-slate-50 px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Project</th>
+              <th class="sticky left-48 z-20 bg-slate-50 px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Person / Vendor / Category</th>
+              <th class="sticky left-96 z-20 bg-slate-50 px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Role / Description</th>
+              <th class="px-4 py-3 text-right text-xs font-semibold text-slate-700 uppercase tracking-wider">Jan</th>
+              <th class="px-4 py-3 text-right text-xs font-semibold text-slate-700 uppercase tracking-wider">Feb</th>
+              <th class="px-4 py-3 text-right text-xs font-semibold text-slate-700 uppercase tracking-wider">Mar</th>
+              <th class="px-4 py-3 text-right text-xs font-semibold text-slate-700 uppercase tracking-wider">Apr</th>
+              <th class="px-4 py-3 text-right text-xs font-semibold text-slate-700 uppercase tracking-wider">May</th>
+              <th class="px-4 py-3 text-right text-xs font-semibold text-slate-700 uppercase tracking-wider">Jun</th>
+              <th class="px-4 py-3 text-right text-xs font-semibold text-slate-700 uppercase tracking-wider">Jul</th>
+              <th class="px-4 py-3 text-right text-xs font-semibold text-slate-700 uppercase tracking-wider">Aug</th>
+              <th class="px-4 py-3 text-right text-xs font-semibold text-slate-700 uppercase tracking-wider">Sep</th>
+              <th class="px-4 py-3 text-right text-xs font-semibold text-slate-700 uppercase tracking-wider">Oct</th>
+              <th class="px-4 py-3 text-right text-xs font-semibold text-slate-700 uppercase tracking-wider">Nov</th>
+              <th class="px-4 py-3 text-right text-xs font-semibold text-slate-700 uppercase tracking-wider">Dec</th>
+              <th class="px-4 py-3 text-right text-xs font-semibold text-slate-700 uppercase tracking-wider">Total</th>
             </tr>
           </thead>
-          <tbody id="costBody">
-            <tr><td colspan="16">Loading…</td></tr>
+          <tbody id="costBody" class="bg-white divide-y divide-slate-200">
+            <tr><td colspan="16" class="text-center py-8 text-slate-500">Loading…</td></tr>
           </tbody>
         </table>
       </div>
-    </section>
-
-    <style>
-      #costTable th,
-      #costTable td {
-        border: 1px solid #ddd;
-        padding: 0.35rem 0.5rem;
-        white-space: nowrap;
-        font-size: 0.85rem;
-      }
-
-      #costTable thead th {
-        background: #f8fafc;
-        font-weight: 600;
-        font-size: 0.82rem;
-        position: sticky;
-        top: 0;
-        z-index: 20;
-        box-shadow: 0 2px 4px -2px rgba(0,0,0,0.1);
-      }
-
-      .sticky-col-1 { position: sticky; left: 0;    background: #fff; z-index: 18; min-width: 180px; }
-      .sticky-col-2 { position: sticky; left: 180px; background: #fff; z-index: 17; min-width: 220px; }
-      .sticky-col-3 { position: sticky; left: 400px; background: #fff; z-index: 16; min-width: 280px; }
-
-      #costTable tbody .sticky-col-1,
-      #costTable tbody .sticky-col-2,
-      #costTable tbody .sticky-col-3 {
-        background: #fff;
-        box-shadow: 2px 0 6px -2px rgba(0,0,0,0.15);
-      }
-
-      .col-project { font-weight: 600; }
-      .col-person  { font-weight: 500; }
-      .col-role    { color: #4b5563; font-style: italic; }
-
-      .num { text-align: right; }
-      .row-total { font-weight: 700; background: #f1f5f9 !important; }
-
-      /* Primary buttons — clean, bold, professional */
-      .btn-primary {
-        padding: 0.5rem 1rem;
-        border-radius: 6px;
-        border: none;
-        background: #3b82f6;
-        color: white;
-        font-size: 0.875rem;
-        font-weight: 600;
-        cursor: pointer;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-      }
-      .btn-primary:hover {
-        background: #2563eb;
-      }
-    </style>
+    </div>
   </article>
 `;
 
@@ -157,15 +100,12 @@ export const costBudgetTab = {
 
     const projSelect = $("#costProjectSelect", root);
 
-    // Updated button IDs — now perfectly wired
     $("#addEmployeesBtn", root)?.addEventListener("click", async () => {
       await handleAddLines(root, client, projSelect, "DIR_LAB_COST", "New employee cost line");
     });
-
     $("#addSubsBtn", root)?.addEventListener("click", async () => {
       await handleAddLines(root, client, projSelect, "SUBC_COST", "New subcontractor cost line");
     });
-
     $("#addOdcBtn", root)?.addEventListener("click", async () => {
       await handleAddLines(root, client, projSelect, "ODC_COST", "New ODC cost line");
     });
@@ -175,7 +115,7 @@ export const costBudgetTab = {
 };
 
 // ————————————————————————————————————————
-// All your existing perfect functions below
+// All functions below — unchanged & perfect
 // ————————————————————————————————————————
 
 async function loadProjectsUnderLevel1(root, client, level1ProjectId) {
@@ -185,23 +125,10 @@ async function loadProjectsUnderLevel1(root, client, level1ProjectId) {
   _costProjectIds = [];
   projSel && (projSel.innerHTML = `<option value="">— Select project —</option>`);
 
-  const { data: parent } = await client
-    .from("projects")
-    .select("id, project_code, name")
-    .eq("id", level1ProjectId)
-    .single();
+  const { data: parent } = await client.from("projects").select("id, project_code, name").eq("id", level1ProjectId).single();
+  if (!parent) { msg && (msg.textContent = "Error loading Level 1 project."); return; }
 
-  if (!parent) {
-    msg && (msg.textContent = "Error loading Level 1 project.");
-    return;
-  }
-
-  const { data: children } = await client
-    .from("projects")
-    .select("id, project_code, name")
-    .like("project_code", `${parent.project_code}.%`)
-    .order("project_code");
-
+  const { data: children } = await client.from("projects").select("id, project_code, name").like("project_code", `${parent.project_code}.%`).order("project_code");
   const all = [parent, ...(children || [])];
   _costProjectIds = all.map(p => p.id);
 
@@ -224,14 +151,10 @@ async function handleAddLines(root, client, projSel, entryCode, defaultDescripti
   const msg = $("#costMessage", root);
   const ctx = getPlanContext();
 
-  if (!projSel?.value) {
-    msg && (msg.textContent = "Please select a project first.");
-    return;
-  }
+  if (!projSel?.value) { msg && (msg.textContent = "Please select a project first."); return; }
 
   const projectId = projSel.value;
   const projectName = projSel.selectedOptions[0]?.textContent.split(" – ")[1] || "";
-
   const entryTypeId = await getEntryTypeId(client, entryCode);
 
   const newLine = {
@@ -272,11 +195,7 @@ async function refreshCost(root, client) {
 
   const { data, error } = await client
     .from("planning_lines")
-    .select(`
-      id, project_id, project_name, resource_name, department_name, description,
-      amt_jan, amt_feb, amt_mar, amt_apr, amt_may, amt_jun,
-      amt_jul, amt_aug, amt_sep, amt_oct, amt_nov, amt_dec
-    `)
+    .select("id, project_id, project_name, resource_name, department_name, description, amt_jan, amt_feb, amt_mar, amt_apr, amt_may, amt_jun, amt_jul, amt_aug, amt_sep, amt_oct, amt_nov, amt_dec")
     .in("project_id", _costProjectIds)
     .eq("plan_year", ctx.year)
     .eq("plan_version_id", ctx.versionId)
@@ -299,12 +218,11 @@ function renderCost(root, rows) {
   if (!tbody) return;
 
   if (!rows?.length) {
-    tbody.innerHTML = `<tr><td colspan="16">No cost lines found for this Level 1 project and plan.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="16" class="text-center py-12 text-slate-500 text-sm">No cost lines found for this Level 1 project and plan.</td></tr>`;
     return;
   }
 
-  const months = ["amt_jan","amt_feb","amt_mar","amt_apr","amt_may","amt_jun",
-                  "amt_jul","amt_aug","amt_sep","amt_oct","amt_nov","amt_dec"];
+  const months = ["amt_jan","amt_feb","amt_mar","amt_apr","amt_may","amt_jun","amt_jul","amt_aug","amt_sep","amt_oct","amt_nov","amt_dec"];
   const fmt = v => typeof v === "number" ? v.toLocaleString(undefined, { maximumFractionDigits: 0 }) : "";
 
   tbody.innerHTML = "";
@@ -316,16 +234,17 @@ function renderCost(root, rows) {
     const monthCells = months.map(m => {
       const val = Number(r[m] || 0);
       total += val;
-      return `<td class="num">${fmt(val)}</td>`;
+      return `<td class="px-4 py-3 text-right text-sm text-slate-900">${fmt(val)}</td>`;
     }).join("");
 
     const tr = document.createElement("tr");
+    tr.className = "hover:bg-slate-50 transition";
     tr.innerHTML = `
-      <td class="sticky-col-1 col-project">${r.project_name || ""}</td>
-      <td class="sticky-col-2 col-person">${who}</td>
-      <td class="sticky-col-3 col-role">${desc}</td>
+      <td class="sticky left-0 z-10 bg-white px-4 py-3 text-sm font-medium text-slate-900 border-r border-slate-200">${r.project_name || ""}</td>
+      <td class="sticky left-48 z-10 bg-white px-4 py-3 text-sm font-medium text-slate-800 border-r border-slate-200">${who}</td>
+      <td class="sticky left-96 z-10 bg-white px-4 py-3 text-sm text-slate-600 italic border-r border-slate-200">${desc}</td>
       ${monthCells}
-      <td class="num row-total">${fmt(total)}</td>
+      <td class="px-4 py-3 text-right text-sm font-bold text-slate-900 bg-slate-50">${fmt(total)}</td>
     `;
     tbody.appendChild(tr);
   });
