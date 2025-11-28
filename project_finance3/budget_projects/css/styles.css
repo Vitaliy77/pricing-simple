@@ -3,7 +3,9 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Base styles */
+/* ────────────────────────────── */
+/* Base styles                    */
+/* ────────────────────────────── */
 @layer base {
   body {
     font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -11,29 +13,214 @@
   }
 }
 
-/* Components */
+/* ────────────────────────────── */
+/* Components                     */
+/* ────────────────────────────── */
 @layer components {
   /* Layout */
-  .app-shell { @apply min-h-screen flex flex-col; }
-  .container-max { @apply max-w-6xl mx-auto px-3 sm:px-4 lg:px-6; }
+  .app-shell {
+    @apply min-h-screen flex flex-col;
+  }
 
-  /* Full-width breakout cards */
+  .container-max {
+    @apply max-w-6xl mx-auto px-3 sm:px-4 lg:px-6;
+  }
+
+  /* Full-width breakout cards (good for tables/charts) */
   .full-width-card {
     @apply w-full max-w-none -mx-4 sm:-mx-6 lg:-mx-8 xl:-mx-12 2xl:-mx-0;
-    @apply mt-8 mb-12;
+    @apply mt-4 mb-6;
     @apply bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden;
   }
 
   .full-width-card-padded {
     @apply w-full max-w-none -mx-4 sm:-mx-6 lg:-mx-0;
-    @apply mt-8 mb-12 px-4 sm:px-6 lg:px-8;
+    @apply mt-4 mb-6 px-4 sm:px-6 lg:px-8;
     @apply bg-white rounded-xl shadow-md border border-slate-200;
   }
 
-  /* Top nav, cards, buttons, inputs, etc. — unchanged */
-  /* ... (all your existing .nav-bar, .card, .btn, .input, etc.) ... */
+  /* ──────────────────────────── */
+  /* Top nav + tab buttons       */
+  /* ──────────────────────────── */
 
-  /* REUSABLE STICKY COLUMNS FOR COST & REVENUE GRIDS */
+  /* Optional nav-bar if used elsewhere */
+  .nav-bar {
+    @apply bg-slate-900 text-slate-100 shadow-sm;
+  }
+
+  .nav-inner {
+    @apply container-max flex items-center justify-between h-12;
+  }
+
+  .nav-brand {
+    @apply flex items-center gap-2 text-[11px] font-semibold tracking-[0.18em] uppercase text-slate-300;
+  }
+
+  /* Tab buttons in the blue top strip (index.html) */
+  .tab-btn {
+    @apply inline-flex items-center justify-center
+           px-3 sm:px-4 py-1.5
+           mr-2
+           text-[12px] font-medium
+           rounded-full
+           bg-blue-600 text-white
+           border border-blue-500
+           shadow-sm
+           whitespace-nowrap
+           hover:bg-blue-500 hover:border-blue-400
+           focus:outline-none focus:ring-2 focus:ring-blue-300
+           transition;
+  }
+
+  .tab-btn-active {
+    @apply bg-white text-blue-700 border-white
+           shadow
+           hover:bg-slate-50;
+  }
+
+  /* ──────────────────────────── */
+  /* Cards                        */
+  /* ──────────────────────────── */
+  .card {
+    @apply bg-white rounded-xl shadow-sm border border-slate-200 p-4 sm:p-5;
+  }
+
+  .card-header {
+    @apply mb-3 flex items-center justify-between gap-3;
+  }
+
+  .card-title {
+    @apply text-sm font-semibold text-slate-900;
+  }
+
+  .card-subtitle {
+    @apply text-[11px] text-slate-500;
+  }
+
+  /* ──────────────────────────── */
+  /* Buttons                      */
+  /* ──────────────────────────── */
+  .btn {
+    @apply inline-flex items-center justify-center gap-1
+           rounded-full border border-transparent
+           px-3 py-1 text-[11px] font-medium shadow-sm
+           bg-blue-600 text-white
+           hover:bg-blue-700
+           focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply bg-white text-slate-700 border-slate-200 hover:bg-slate-50;
+  }
+
+  .btn-ghost {
+    @apply bg-transparent shadow-none border-transparent text-slate-600 hover:bg-slate-100;
+  }
+
+  .btn-sm {
+    @apply h-7 px-2.5 text-[11px];
+  }
+
+  .btn-icon {
+    @apply inline-flex items-center justify-center rounded-full h-7 w-7
+           border border-slate-200 bg-white text-slate-500 hover:bg-slate-50;
+  }
+
+  /* ──────────────────────────── */
+  /* Inputs                       */
+  /* ──────────────────────────── */
+  .label {
+    @apply block text-[11px] font-medium text-slate-600 mb-0.5;
+  }
+
+  .input,
+  .select,
+  .textarea {
+    @apply w-full border border-slate-300 rounded-lg bg-white
+           px-2 py-1 text-[11px] text-slate-900 placeholder-slate-400
+           focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500;
+  }
+
+  .input-sm {
+    @apply text-[11px] py-0.5;
+  }
+
+  .form-row {
+    @apply flex flex-wrap items-end gap-3 mb-2;
+  }
+
+  .form-field {
+    @apply min-w-[160px];
+  }
+
+  .form-actions {
+    @apply mt-3 flex justify-end gap-2;
+  }
+
+  /* ──────────────────────────── */
+  /* Badges / chips               */
+  /* ──────────────────────────── */
+  .badge {
+    @apply inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium;
+  }
+
+  .badge-green  { @apply bg-emerald-50 text-emerald-700; }
+  .badge-yellow { @apply bg-amber-50 text-amber-700; }
+  .badge-red    { @apply bg-rose-50 text-rose-700; }
+  .badge-blue   { @apply bg-blue-50 text-blue-700; }
+
+  .pill {
+    @apply inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-600;
+  }
+
+  /* ──────────────────────────── */
+  /* Generic tables               */
+  /* ──────────────────────────── */
+  .table-shell {
+    @apply overflow-auto rounded-xl border border-slate-200 bg-white;
+  }
+
+  .data-table {
+    @apply min-w-full text-[11px] border-collapse;
+  }
+
+  .data-table thead {
+    @apply bg-slate-50;
+  }
+
+  .data-table th {
+    @apply sticky top-0 z-10 bg-slate-50
+           text-left font-semibold text-slate-600
+           border-b border-slate-200
+           px-2 py-1;
+  }
+
+  .data-table td {
+    @apply border-b border-slate-100 px-2 py-1 align-middle;
+  }
+
+  .data-table tbody tr:nth-child(odd) {
+    @apply bg-slate-50/40;
+  }
+
+  .data-table tbody tr:hover {
+    @apply bg-blue-50;
+  }
+
+  .table-number {
+    @apply text-right tabular-nums;
+  }
+
+  .section-title {
+    @apply text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 mb-2;
+  }
+
+  /* ──────────────────────────── */
+  /* Sticky columns (Cost grid)   */
+  /* ──────────────────────────── */
+
+  /* For costBudget.js table: first 3 columns sticky with pixel-perfect offsets */
   .cost-grid-sticky {
     position: sticky;
     background: #ffffff;
@@ -41,70 +228,80 @@
     border-right: 1px solid #e2e8f0; /* slate-200 */
   }
 
-  /* Exact pixel-perfect offsets */
   .cost-col-1 {
     left: 0;
     min-width: 160px;
     width: 160px;
   }
+
   .cost-col-2 {
-    left: 160px;     /* 160 + 0 = 160 */
+    left: 160px; /* after col 1 */
     min-width: 220px;
     width: 220px;
   }
+
   .cost-col-3 {
-    left: 380px;     /* 160 + 220 = 380 */
+    left: 380px; /* 160 + 220 */
     min-width: 260px;
     width: 260px;
   }
 
-  /* Z-index stacking order */
   .cost-grid-sticky.cost-col-1 { z-index: 30; }
   .cost-grid-sticky.cost-col-2 { z-index: 29; }
   .cost-grid-sticky.cost-col-3 { z-index: 28; }
 
-  /* Header-specific background */
-  .cost-grid-sticky.bg-slate-50 { background: #f8fafc; }
-
-  /* Rest of your components (card, btn, input, table, etc.) */
-  .card { @apply bg-white rounded-xl shadow-sm border border-slate-200 p-4 sm:p-5; }
-  .card-header { @apply mb-3 flex items-center justify-between gap-3; }
-  .card-title { @apply text-sm font-semibold text-slate-900; }
-  .card-subtitle { @apply text-[11px] text-slate-500; }
-
-  .btn { @apply inline-flex items-center justify-center gap-1 rounded-full border border-transparent px-3 py-1 text-[11px] font-medium shadow-sm bg-blue-600 text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed; }
-  .btn-secondary { @apply bg-white text-slate-700 border-slate-200 hover:bg-slate-50; }
-  .btn-ghost { @apply bg-transparent shadow-none border-transparent text-slate-600 hover:bg-slate-100; }
-  .btn-sm { @apply h-7 px-2.5 text-[11px]; }
-
-  .input, .select, .textarea {
-    @apply w-full border border-slate-300 rounded-lg bg-white px-2 py-1 text-[11px] text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500;
+  /* header variant */
+  .cost-grid-sticky.bg-slate-50 {
+    background: #f8fafc;
   }
 
-  /* Tables */
-  .table-shell { @apply overflow-auto rounded-xl border border-slate-200 bg-white; }
-  .data-table { @apply min-w-full text-[11px] border-collapse; }
-  .data-table thead { @apply bg-slate-50; }
-  .data-table th {
-    @apply sticky top-0 z-10 bg-slate-50 text-left font-semibold text-slate-600 border-b border-slate-200 px-2 py-1;
+  /* Tighter rows + striping specifically for Cost Budget table */
+  #costTable th,
+  #costTable td {
+    padding-top: 2px;
+    padding-bottom: 2px;
+    line-height: 1.2;
+    font-size: 12px;
   }
-  .data-table td { @apply border-b border-slate-100 px-2 py-1 align-middle; }
-  .data-table tbody tr:nth-child(odd) { @apply bg-slate-50/40; }
-  .data-table tbody tr:hover { @apply bg-blue-50; }
-  .table-number { @apply text-right tabular-nums; }
 
-  .section-title { @apply text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 mb-2; }
+  #costTable tbody tr:nth-child(even) {
+    background-color: #f8fafc; /* slate-50 */
+  }
+
+  #costTable tbody tr:hover {
+    background-color: #e0f2fe; /* light blue */
+  }
 }
 
-/* Utilities */
+/* ────────────────────────────── */
+/* Utilities                      */
+/* ────────────────────────────── */
 @layer utilities {
-  .scroll-x { @apply overflow-x-auto; }
+  .scroll-x {
+    @apply overflow-x-auto;
+  }
 }
 
-/* Print tweaks */
+/* ────────────────────────────── */
+/* Print tweaks                   */
+/* ────────────────────────────── */
 @media print {
-  @page { margin: 10mm; }
-  body { @apply bg-white; }
-  .nav-bar, .no-print { display: none !important; }
-  .card, .full-width-card { @apply shadow-none border border-slate-300 mt-4; }
+  @page {
+    margin: 10mm;
+  }
+
+  body {
+    @apply bg-white;
+  }
+
+  .nav-bar,
+  .top-menu,
+  .no-print {
+    display: none !important;
+  }
+
+  .card,
+  .full-width-card {
+    @apply shadow-none border border-slate-300 mt-4;
+  }
 }
