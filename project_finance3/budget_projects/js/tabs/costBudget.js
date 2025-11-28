@@ -26,17 +26,16 @@ export const template = /*html*/ `
             </tr>
           </thead>
           <tbody id="costBody">
-            <tr><td colspan="15">Loading…</td></tr>
+            <tr><td colspan="16">Loading…</td></tr>
           </tbody>
         </table>
       </div>
     </section>
 
-    <!-- Local layout styles for this tab -->
     <style>
       #costTable {
         border-collapse: collapse;
-        width: 100%; /* full page width */
+        width: 100%;
       }
 
       #costTable th,
@@ -57,7 +56,6 @@ export const template = /*html*/ `
         z-index: 15;
       }
 
-      /* Sticky first two columns (similar pattern as budget.js) */
       .sticky-col-1 {
         position: sticky;
         left: 0;
@@ -68,7 +66,7 @@ export const template = /*html*/ `
 
       .sticky-col-2 {
         position: sticky;
-        left: 220px; /* match sticky-col-1 width */
+        left: 220px;
         background: #ffffff;
         z-index: 11;
         min-width: 260px;
@@ -107,7 +105,6 @@ export const costBudgetTab = {
 
     console.log("[Cost:init] projectId:", projectId, "planContext:", ctx);
 
-    // ——— Guard checks ———
     if (!projectId) {
       msg && (msg.textContent = "No project selected. Please go to the Projects tab.");
       renderCost(root, null);
@@ -140,7 +137,7 @@ async function refreshCost(root, client) {
     .from("planning_lines")
     .select(`
       id,
-      entry_type_name,
+      entry_type_id,
       resource_name,
       department_name,
       description,
@@ -152,7 +149,7 @@ async function refreshCost(root, client) {
     .eq("plan_version_id", ctx.versionId)
     .eq("plan_type", ctx.planType || "Working")
     .eq("is_revenue", false)
-    .order("entry_type_name");
+    .order("resource_name", { ascending: true });
 
   if (error) {
     console.error("Cost load error:", error);
@@ -170,7 +167,7 @@ function renderCost(root, rows) {
   if (!tbody) return;
 
   if (!rows?.length) {
-    tbody.innerHTML = `<tr><td colspan="15">No cost lines found for this project and plan.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="16">No cost lines found for this project and plan.</td></tr>`;
     return;
   }
 
@@ -186,7 +183,7 @@ function renderCost(root, rows) {
 
   tbody.innerHTML = "";
   rows.forEach((r) => {
-    const who = r.resource_name || ""; // covers employees, subs, ODC category label, etc.
+    const who = r.resource_name || "";
     const roleOrDesc = r.department_name || r.description || "";
     let total = 0;
 
@@ -200,7 +197,7 @@ function renderCost(root, rows) {
     tr.innerHTML = `
       <td class="sticky-col-1 col-person">${who}</td>
       <td class="sticky-col-2 col-role">${roleOrDesc}</td>
-      <td>${r.entry_type_name || ""}</td>
+      <td>${r.entry_type_id || ""}</td>
       ${monthCells}
       <td class="num row-total">${fmt(total)}</td>
     `;
