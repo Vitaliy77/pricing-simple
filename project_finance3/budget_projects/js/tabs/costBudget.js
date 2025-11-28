@@ -1,24 +1,54 @@
 // js/tabs/costBudget.js
 import { $, h } from "../lib/dom.js";
-import { getSelectedProjectId, getPlanContext } from "../lib/projectContext.js";
+import { getPlanContext } from "../lib/projectContext.js";
+
+let _costProjectIds = []; // all projects under current level-1
 
 export const template = /*html*/ `
   <article>
     <h3 style="margin-bottom:0.5rem;">Cost Budget</h3>
     <p style="font-size:0.9rem; margin-bottom:1rem; color:#475569;">
-      Build costs for the selected project — direct labor, subcontractors, and other direct costs.
+      Build costs for all projects under the selected Level 1 project — direct labor, subcontractors, and other direct costs.
     </p>
 
-    <section id="costMessage" 
+    <section id="costMessage"
              style="min-height:1.25rem; font-size:0.9rem; color:#64748b; margin-bottom:0.75rem;"></section>
 
-    <section style="margin-top:0.5rem;">
+    <!-- Controls: pick project + add cost lines -->
+    <section style="margin-bottom:0.75rem;">
+      <h4 style="margin-bottom:0.35rem;font-size:0.9rem;">Add Cost Lines</h4>
+      <div style="display:flex;flex-wrap:wrap;gap:0.75rem;align-items:flex-end;">
+        <label style="min-width:260px;">
+          Project
+          <select id="costProjectSelect">
+            <option value="">— Select project —</option>
+          </select>
+        </label>
+
+        <button id="costAddEmpBtn" class="btn btn-sm">
+          + Add Employees
+        </button>
+        <button id="costAddSubBtn" class="btn btn-sm">
+          + Add Subcontractors
+        </button>
+        <button id="costAddOdcBtn" class="btn btn-sm">
+          + Add ODC
+        </button>
+      </div>
+      <p style="font-size:0.8rem;color:#6b7280;margin-top:0.25rem;">
+        Pick any project under the Level 1 tree, then use these buttons to add or adjust cost lines
+        (employees, subs, ODC) for that specific project.
+      </p>
+    </section>
+
+    <section style="margin-top:0.25rem;">
       <div class="scroll-x">
         <table id="costTable" class="data-grid">
           <thead>
             <tr>
               <th class="sticky-col-1 col-person">Person / Vendor / Category</th>
               <th class="sticky-col-2 col-role">Role / Description</th>
+              <th>Project</th>
               <th>Entry Type</th>
               <th>Jan</th><th>Feb</th><th>Mar</th><th>Apr</th><th>May</th><th>Jun</th>
               <th>Jul</th><th>Aug</th><th>Sep</th><th>Oct</th><th>Nov</th><th>Dec</th>
@@ -26,7 +56,7 @@ export const template = /*html*/ `
             </tr>
           </thead>
           <tbody id="costBody">
-            <tr><td colspan="16">Loading…</td></tr>
+            <tr><td colspan="18">Loading…</td></tr>
           </tbody>
         </table>
       </div>
@@ -66,7 +96,7 @@ export const template = /*html*/ `
 
       .sticky-col-2 {
         position: sticky;
-        left: 220px;
+        left: 220px; /* match sticky-col-1 width */
         background: #ffffff;
         z-index: 11;
         min-width: 260px;
@@ -92,6 +122,19 @@ export const template = /*html*/ `
       .row-total {
         font-weight: 600;
       }
+
+      .btn.btn-sm {
+        padding: 0.3rem 0.6rem;
+        border-radius: 4px;
+        border: 1px solid #cbd5e1;
+        background:#e5e7eb;
+        font-size:0.8rem;
+        cursor:pointer;
+      }
+
+      .btn.btn-sm:hover {
+        background:#d1d5db;
+      }
     </style>
   </article>
 `;
@@ -100,13 +143,12 @@ export const costBudgetTab = {
   template,
   async init({ root, client }) {
     const msg = $("#costMessage", root);
-    const projectId = getSelectedProjectId();
     const ctx = getPlanContext();
 
-    console.log("[Cost:init] projectId:", projectId, "planContext:", ctx);
+    console.log("[Cost:init] planContext:", ctx);
 
-    if (!projectId) {
-      msg && (msg.textContent = "No project selected. Please go to the Projects tab.");
+    if (!ctx.level1ProjectId) {
+      msg && (msg.textContent = "No Level 1 project selected. Please go to the Projects tab and pick a Level 1 project.");
       renderCost(root, null);
       return;
     }
@@ -117,16 +159,85 @@ export const costBudgetTab = {
       return;
     }
 
+    // Load all projects under the selected Level 1 and populate dropdown
+    await loadProjectsUnderLevel1(root, client, ctx.level1ProjectId);
+
+    // Wire buttons (stub behavior for now)
+    const projSel = $("#costProjectSelect", root);
+    $("#costAddEmpBtn", root)?.addEventListener("click", () => {
+      console.log("[Cost] Add Employees clicked for project:", projSel?.value || "(none)");
+      // TODO: open employee picker / create lines for selected project
+    });
+    $("#costAddSubBtn", root)?.addEventListener("click", () => {
+      console.log("[Cost] Add Subcontractors clicked for project:", projSel?.value || "(none)");
+      // TODO: open subcontractor picker / create lines for selected project
+    });
+    $("#costAddOdcBtn", root)?.addEventListener("click", () => {
+      console.log("[Cost] Add ODC clicked for project:", projSel?.value || "(none)");
+      // TODO: open ODC picker / create lines for selected project
+    });
+
     await refreshCost(root, client);
   },
 };
 
+// Load all projects under a given Level 1 project, populate dropdown, and cache ids
+async function loadProjectsUnderLevel1(root, client, level1ProjectId) {
+  const msg = $("#costMessage", root);
+  const projSel = $("#costProjectSelect", root);
+
+  _costProjectIds = [];
+  if (projSel) {
+    projSel.innerHTML = `<option value="">— Select project —</option>`;
+  }
+
+  // 1) Get the Level 1 project
+  const { data: parent, error: parentError } = await client
+    .from("projects")
+    .select("id, project_code, name")
+    .eq("id", level1ProjectId)
+    .single();
+
+  if (parentError || !parent) {
+    console.error("[Cost] Error loading Level 1 project:", parentError);
+    msg && (msg.textContent = "Error loading Level 1 project.");
+    return;
+  }
+
+  // 2) Get all descendants under that Level 1
+  const { data: children, error } = await client
+    .from("projects")
+    .select("id, project_code, name")
+    .like("project_code", `${parent.project_code}.%`)
+    .order("project_code");
+
+  if (error) {
+    console.error("[Cost] Error loading child projects:", error);
+    msg && (msg.textContent = "Error loading child projects.");
+    return;
+  }
+
+  const all = [parent, ...(children || [])];
+  _costProjectIds = all.map(p => p.id);
+
+  // Populate dropdown with all levels
+  if (projSel) {
+    all.forEach(p => {
+      const opt = document.createElement("option");
+      opt.value = p.id;
+      opt.textContent = `${p.project_code} – ${p.name}`;
+      projSel.appendChild(opt);
+    });
+  }
+
+  console.log("[Cost] Projects under Level 1:", all.length);
+}
+
 async function refreshCost(root, client) {
   const msg = $("#costMessage", root);
-  const projectId = getSelectedProjectId();
   const ctx = getPlanContext();
 
-  if (!projectId || !ctx.year || !ctx.versionId) {
+  if (!_costProjectIds.length || !ctx.year || !ctx.versionId) {
     renderCost(root, null);
     return;
   }
@@ -137,6 +248,8 @@ async function refreshCost(root, client) {
     .from("planning_lines")
     .select(`
       id,
+      project_id,
+      project_name,
       entry_type_id,
       resource_name,
       department_name,
@@ -144,11 +257,12 @@ async function refreshCost(root, client) {
       amt_jan, amt_feb, amt_mar, amt_apr, amt_may, amt_jun,
       amt_jul, amt_aug, amt_sep, amt_oct, amt_nov, amt_dec
     `)
-    .eq("project_id", projectId)
+    .in("project_id", _costProjectIds)
     .eq("plan_year", ctx.year)
     .eq("plan_version_id", ctx.versionId)
     .eq("plan_type", ctx.planType || "Working")
     .eq("is_revenue", false)
+    .order("project_name", { ascending: true })
     .order("resource_name", { ascending: true });
 
   if (error) {
@@ -159,7 +273,7 @@ async function refreshCost(root, client) {
   }
 
   renderCost(root, data || []);
-  msg && (msg.textContent = data?.length === 0 ? "No cost lines found for this project and plan." : "");
+  msg && (msg.textContent = data?.length === 0 ? "No cost lines found for this Level 1 project and plan." : "");
 }
 
 function renderCost(root, rows) {
@@ -167,7 +281,7 @@ function renderCost(root, rows) {
   if (!tbody) return;
 
   if (!rows?.length) {
-    tbody.innerHTML = `<tr><td colspan="16">No cost lines found for this project and plan.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="18">No cost lines found for this Level 1 project and plan.</td></tr>`;
     return;
   }
 
@@ -197,6 +311,7 @@ function renderCost(root, rows) {
     tr.innerHTML = `
       <td class="sticky-col-1 col-person">${who}</td>
       <td class="sticky-col-2 col-role">${roleOrDesc}</td>
+      <td>${r.project_name || ""}</td>
       <td>${r.entry_type_id || ""}</td>
       ${monthCells}
       <td class="num row-total">${fmt(total)}</td>
