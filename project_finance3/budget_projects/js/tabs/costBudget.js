@@ -6,71 +6,110 @@ let _costProjectIds = [];
 const _entryTypeIds = {};
 
 export const template = /*html*/ `
-  <article class="full-width-card">
-    <div class="px-6 pt-8 pb-6">
-      <h3 class="text-2xl font-bold text-slate-900 mb-2">Cost Budget</h3>
-      
-      <p class="text-sm text-slate-600 mb-6 leading-relaxed">
-        Build costs for all projects under the selected Level 1 project — direct labor, subcontractors, and other direct costs.
-      </p>
+  <article class="full-width-card text-[12px] flex flex-col">
+    <!-- TOP AREA: TITLE + CONTROLS (NON-SCROLLING) -->
+    <div class="px-4 pt-3 pb-2 border-b border-slate-200">
+      <!-- Title + description on ONE line (wrap if needed) -->
+      <div class="flex flex-wrap items-baseline justify-between gap-2 mb-2">
+        <h3 class="font-semibold text-slate-900">Cost Budget</h3>
+        <p class="text-slate-600">
+          Build costs for all projects under the selected Level 1 project — direct labor, subcontractors, and other direct costs.
+        </p>
+      </div>
 
-      <div id="costMessage" class="text-sm text-slate-600 mb-6 min-h-6"></div>
+      <!-- Message line -->
+      <div id="costMessage" class="text-[12px] text-slate-600 mb-2 min-h-[1.2rem]"></div>
 
-      <!-- ADD COST LINES -->
-      <section class="mb-8">
-        <h4 class="text-lg font-semibold text-slate-800 mb-4">Add Cost Lines</h4>
-        
-        <div class="flex flex-wrap gap-4 items-end">
-          <label class="flex-1 min-w-64">
-            <span class="block text-sm font-medium text-slate-700 mb-1">Project</span>
-            <select id="costProjectSelect" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm">
+      <!-- Add Cost Lines row: label + dropdown + 3 buttons on one line (wrap on small screens) -->
+      <section>
+        <div class="flex flex-wrap items-end gap-2">
+          <span class="text-[12px] font-semibold text-slate-700">
+            Add cost lines:
+          </span>
+
+          <label class="flex-1 min-w-[220px]">
+            <span class="block text-[11px] font-medium text-slate-600 mb-0.5">Project</span>
+            <select
+              id="costProjectSelect"
+              class="w-full border border-slate-300 rounded-md px-2 py-1 text-[12px]
+                     focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
               <option value="">— Select project —</option>
             </select>
           </label>
 
-          <button id="addEmployeesBtn" class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-sm transition">
-            + Add Employees
-          </button>
-          <button id="addSubsBtn" class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-sm transition">
-            + Add Subcontractors
-          </button>
-          <button id="addOdcBtn" class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-sm transition">
-            + Add ODC
-          </button>
+          <div class="flex flex-wrap gap-2">
+            <button
+              id="addEmployeesBtn"
+              class="h-8 px-3 rounded-md bg-blue-600 hover:bg-blue-700 text-white
+                     font-medium text-[12px] shadow-sm transition"
+            >
+              + Add Employees
+            </button>
+            <button
+              id="addSubsBtn"
+              class="h-8 px-3 rounded-md bg-blue-600 hover:bg-blue-700 text-white
+                     font-medium text-[12px] shadow-sm transition"
+            >
+              + Add Subcontractors
+            </button>
+            <button
+              id="addOdcBtn"
+              class="h-8 px-3 rounded-md bg-blue-600 hover:bg-blue-700 text-white
+                     font-medium text-[12px] shadow-sm transition"
+            >
+              + Add ODC
+            </button>
+          </div>
         </div>
-
-        <p class="text-xs text-slate-500 mt-4">
-          Pick any project under the Level 1 tree, then use these buttons to add cost lines.
-        </p>
       </section>
     </div>
 
-    <!-- FULL-WIDTH RESPONSIVE TABLE WITH REUSABLE STICKY CLASSES -->
-    <div class="overflow-x-auto">
+    <!-- TABLE AREA: ONLY THIS PART SCROLLS -->
+    <div class="flex-1 overflow-x-auto overflow-y-auto max-h-[65vh]">
       <div class="inline-block min-w-full align-middle">
-        <table id="costTable" class="min-w-full divide-y divide-slate-200">
+        <table id="costTable" class="min-w-full border-collapse">
           <thead class="bg-slate-50">
             <tr>
-              <th class="cost-grid-sticky cost-col-1 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider px-4 py-3">Project</th>
-              <th class="cost-grid-sticky cost-col-2 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider px-4 py-3">Person / Vendor / Category</th>
-              <th class="cost-grid-sticky cost-col-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider px-4 py-3">Role / Description</th>
-              <th class="px-4 py-3 text-right text-xs font-semibold text-slate-700 uppercase tracking-wider">Jan</th>
-              <th class="px-4 py-3 text-right text-xs font-semibold text-slate-700 uppercase tracking-wider">Feb</th>
-              <th class="px-4 py-3 text-right text-xs font-semibold text-slate-700 uppercase tracking-wider">Mar</th>
-              <th class="px-4 py-3 text-right text-xs font-semibold text-slate-700 uppercase tracking-wider">Apr</th>
-              <th class="px-4 py-3 text-right text-xs font-semibold text-slate-700 uppercase tracking-wider">May</th>
-              <th class="px-4 py-3 text-right text-xs font-semibold text-slate-700 uppercase tracking-wider">Jun</th>
-              <th class="px-4 py-3 text-right text-xs font-semibold text-slate-700 uppercase tracking-wider">Jul</th>
-              <th class="px-4 py-3 text-right text-xs font-semibold text-slate-700 uppercase tracking-wider">Aug</th>
-              <th class="px-4 py-3 text-right text-xs font-semibold text-slate-700 uppercase tracking-wider">Sep</th>
-              <th class="px-4 py-3 text-right text-xs font-semibold text-slate-700 uppercase tracking-wider">Oct</th>
-              <th class="px-4 py-3 text-right text-xs font-semibold text-slate-700 uppercase tracking-wider">Nov</th>
-              <th class="px-4 py-3 text-right text-xs font-semibold text-slate-700 uppercase tracking-wider">Dec</th>
-              <th class="px-4 py-3 text-right text-xs font-semibold text-slate-700 uppercase tracking-wider">Total</th>
+              <th
+                class="cost-grid-sticky cost-col-1 text-left text-[11px] font-semibold text-slate-700 uppercase tracking-wide
+                       px-2 py-1.5 border-b border-slate-200 bg-slate-50"
+              >
+                Project
+              </th>
+              <th
+                class="cost-grid-sticky cost-col-2 text-left text-[11px] font-semibold text-slate-700 uppercase tracking-wide
+                       px-2 py-1.5 border-b border-slate-200 bg-slate-50"
+              >
+                Person / Vendor / Category
+              </th>
+              <th
+                class="cost-grid-sticky cost-col-3 text-left text-[11px] font-semibold text-slate-700 uppercase tracking-wide
+                       px-2 py-1.5 border-b border-slate-200 bg-slate-50"
+              >
+                Role / Description
+              </th>
+
+              ${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
+                .map(
+                  m => `
+                    <th class="px-2 py-1.5 text-right text-[11px] font-semibold text-slate-700 uppercase tracking-wide border-b border-slate-200">
+                      ${m}
+                    </th>`
+                )
+                .join("")}
+              <th class="px-2 py-1.5 text-right text-[11px] font-semibold text-slate-700 uppercase tracking-wide border-b border-slate-200">
+                Total
+              </th>
             </tr>
           </thead>
-          <tbody id="costBody" class="bg-white divide-y divide-slate-200">
-            <tr><td colspan="16" class="text-center py-12 text-slate-500 text-sm">Loading…</td></tr>
+
+          <tbody id="costBody" class="bg-white">
+            <tr>
+              <td colspan="16" class="text-center py-4 text-slate-500 text-[12px]">
+                Loading…
+              </td>
+            </tr>
           </tbody>
         </table>
       </div>
@@ -108,14 +147,20 @@ export const costBudgetTab = {
 };
 
 // ─────────────────────────────────────────────
-// RENDER COST GRID
+// RENDER COST GRID (compact rows + stripes)
 // ─────────────────────────────────────────────
 function renderCost(root, rows) {
   const tbody = $("#costBody", root);
   if (!tbody) return;
 
   if (!rows?.length) {
-    tbody.innerHTML = `<tr><td colspan="16" class="text-center py-16 text-slate-500">No cost lines found for this project and plan.</td></tr>`;
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="16" class="text-center py-4 text-slate-500 text-[12px]">
+          No cost lines found for this project and plan.
+        </td>
+      </tr>
+    `;
     return;
   }
 
@@ -123,29 +168,40 @@ function renderCost(root, rows) {
     "amt_jan","amt_feb","amt_mar","amt_apr","amt_may","amt_jun",
     "amt_jul","amt_aug","amt_sep","amt_oct","amt_nov","amt_dec"
   ];
-  const fmt = v => typeof v === "number" ? v.toLocaleString() : "";
+  const fmt = v => (typeof v === "number" && !Number.isNaN(v)) ? v.toLocaleString() : "";
 
   tbody.innerHTML = "";
-  rows.forEach(r => {
+  rows.forEach((r, idx) => {
     const who = r.resource_name || "";
     const desc = r.department_name || r.description || "";
     let total = 0;
 
-    const monthCells = months.map(m => {
-      const val = Number(r[m] || 0);
-      total += val;
-      return `<td class="px-4 py-3 text-right text-sm text-slate-900">${fmt(val)}</td>`;
-    }).join("");
+    const monthCells = months
+      .map(m => {
+        const val = Number(r[m] || 0);
+        total += val;
+        return `<td class="px-2 py-0.5 text-right text-[12px] text-slate-900">${fmt(val)}</td>`;
+      })
+      .join("");
 
     const tr = document.createElement("tr");
-    tr.className = "hover:bg-slate-50 transition";
+    // zebra stripes + hover
+    tr.className = `${idx % 2 === 0 ? "bg-slate-50/70" : "bg-white"} hover:bg-blue-50 transition`;
 
     tr.innerHTML = `
-      <td class="cost-grid-sticky cost-col-1 px-4 py-3 text-sm font-medium text-slate-900">${r.project_name || ""}</td>
-      <td class="cost-grid-sticky cost-col-2 px-4 py-3 text-sm font-medium text-slate-800">${who}</td>
-      <td class="cost-grid-sticky cost-col-3 px-4 py-3 text-sm text-slate-600 italic">${desc}</td>
+      <td class="cost-grid-sticky cost-col-1 px-2 py-0.5 text-[12px] font-medium text-slate-900 border-r border-slate-200">
+        ${r.project_name || ""}
+      </td>
+      <td class="cost-grid-sticky cost-col-2 px-2 py-0.5 text-[12px] font-medium text-slate-800 border-r border-slate-200">
+        ${who}
+      </td>
+      <td class="cost-grid-sticky cost-col-3 px-2 py-0.5 text-[12px] text-slate-600 border-r border-slate-200">
+        ${desc}
+      </td>
       ${monthCells}
-      <td class="px-4 py-3 text-right text-sm font-bold text-slate-900 bg-slate-50">${fmt(total)}</td>
+      <td class="px-2 py-0.5 text-right text-[12px] font-semibold text-slate-900 bg-slate-50">
+        ${fmt(total)}
+      </td>
     `;
     tbody.appendChild(tr);
   });
@@ -279,7 +335,11 @@ async function refreshCost(root, client) {
 
   const { data, error } = await client
     .from("planning_lines")
-    .select("id, project_name, resource_name, department_name, description, amt_jan, amt_feb, amt_mar, amt_apr, amt_may, amt_jun, amt_jul, amt_aug, amt_sep, amt_oct, amt_nov, amt_dec")
+    .select(
+      "id, project_name, resource_name, department_name, description, " +
+      "amt_jan, amt_feb, amt_mar, amt_apr, amt_may, amt_jun, " +
+      "amt_jul, amt_aug, amt_sep, amt_oct, amt_nov, amt_dec"
+    )
     .in("project_id", _costProjectIds)
     .eq("plan_year", ctx.year)
     .eq("plan_version_id", ctx.versionId)
