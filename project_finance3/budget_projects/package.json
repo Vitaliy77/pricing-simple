@@ -5,8 +5,8 @@
   "main": "index.js",
   "type": "commonjs",
   "scripts": {
-    "build:css": "tailwindcss -i ./css/styles.css -o ./css/tailwind.css --minify",
-    "dev:css": "tailwindcss -i ./css/styles.css -o ./css/tailwind.css --watch"
+    "build:css": "tailwindcss -i ./css/input.css -o ./css/tailwind.css --minify",
+    "dev:css": "tailwindcss -i ./css/input.css -o ./css/tailwind.css --watch"
   },
   "keywords": [],
   "author": "",
@@ -15,8 +15,4 @@
   "devDependencies": {
     "tailwindcss": "^3.4.18"
   }
-}
-
-"scripts": {
-  "build:css": "tailwindcss -i ./css/input.css -o ./css/tailwind.css --minify"
 }
