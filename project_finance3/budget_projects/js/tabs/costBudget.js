@@ -1,78 +1,100 @@
 // js/tabs/costBudget.js
 import { $, h } from "../lib/dom.js";
-import { getPlanContext } from "../lib/projectContext.js";
-
-let level1ProjectsCache = []; // all projects under selected Level 1 for this tab
+import { getSelectedProjectId, getPlanContext } from "../lib/projectContext.js";
 
 export const template = /*html*/ `
   <article>
     <h3 style="margin-bottom:0.5rem;">Cost Budget</h3>
-    <p style="font-size:0.9rem; margin-bottom:0.75rem; color:#475569;">
+    <p style="font-size:0.9rem; margin-bottom:1rem; color:#475569;">
       Build costs for the selected project — direct labor, subcontractors, and other direct costs.
     </p>
 
-    <section id="costMessage"
-             style="min-height:1.25rem; font-size:0.9rem; color:#64748b; margin-bottom:0.5rem;"></section>
+    <section id="costMessage" 
+             style="min-height:1.25rem; font-size:0.9rem; color:#64748b; margin-bottom:0.75rem;"></section>
 
-    <!-- Toolbar: project selector for new lines + action buttons -->
-    <section style="margin-bottom:0.75rem; display:flex; flex-wrap:wrap; gap:0.5rem; align-items:flex-end;">
-      <label style="min-width:260px;">
-        Project for new line
-        <select id="costProjectSelect" style="min-width:260px;">
-          <option value="">— Select project —</option>
-        </select>
-      </label>
-      <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
-        <button id="btnAddEmpCost" class="btn-primary">Add Employee</button>
-        <button id="btnAddSubCost" class="btn-secondary">Add Sub</button>
-        <button id="btnAddOdcCost" class="btn-secondary">Add ODC</button>
-      </div>
-    </section>
-
-    <!-- Mapped employees overview (selected child project) -->
-    <section id="mappedEmployeesSection" style="margin-bottom:0.75rem;">
-      <h4 style="margin-bottom:0.25rem; font-size:0.9rem;">Mapped Employees (staffing for selected project)</h4>
-      <div class="scroll-x" style="width:100%;overflow-x:auto;">
-        <table class="data-grid" style="width:100%;min-width:100%;">
-          <thead>
-            <tr>
-              <th>Employee</th>
-              <th>Department</th>
-              <th>Allocation %</th>
-              <th>Start</th>
-              <th>End</th>
-            </tr>
-          </thead>
-          <tbody id="mappedEmployeesBody">
-            <tr><td colspan="5">Loading mapped employees…</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
-
-    <!-- Cost planning grid: ALL projects under selected Level 1 -->
     <section style="margin-top:0.5rem;">
-      <h4 style="margin-bottom:0.25rem; font-size:0.9rem;">Cost Lines (all projects under selected Level 1)</h4>
-      <div class="scroll-x" style="width:100%;overflow-x:auto;">
-        <table class="data-grid" style="width:100%;min-width:100%;">
+      <div class="scroll-x">
+        <table id="costTable" class="data-grid">
           <thead>
             <tr>
-              <th>Project</th>
-              <th>Line</th>
+              <th class="sticky-col-1 col-person">Person / Vendor / Category</th>
+              <th class="sticky-col-2 col-role">Role / Description</th>
               <th>Entry Type</th>
-              <th>Person / Vendor</th>
-              <th>Description</th>
               <th>Jan</th><th>Feb</th><th>Mar</th><th>Apr</th><th>May</th><th>Jun</th>
               <th>Jul</th><th>Aug</th><th>Sep</th><th>Oct</th><th>Nov</th><th>Dec</th>
               <th>Total</th>
             </tr>
           </thead>
           <tbody id="costBody">
-            <tr><td colspan="18">Loading…</td></tr>
+            <tr><td colspan="15">Loading…</td></tr>
           </tbody>
         </table>
       </div>
     </section>
+
+    <!-- Local layout styles for this tab -->
+    <style>
+      #costTable {
+        border-collapse: collapse;
+        width: 100%; /* full page width */
+      }
+
+      #costTable th,
+      #costTable td {
+        border: 1px solid #ddd;
+        padding: 0.25rem 0.35rem;
+        white-space: nowrap;
+        line-height: 1.2;
+        font-size: 0.85rem;
+      }
+
+      #costTable thead th {
+        background: #f3f4f6;
+        font-size: 0.8rem;
+        line-height: 1.3;
+        position: sticky;
+        top: 0;
+        z-index: 15;
+      }
+
+      /* Sticky first two columns (similar pattern as budget.js) */
+      .sticky-col-1 {
+        position: sticky;
+        left: 0;
+        background: #ffffff;
+        z-index: 12;
+        min-width: 220px;
+      }
+
+      .sticky-col-2 {
+        position: sticky;
+        left: 220px; /* match sticky-col-1 width */
+        background: #ffffff;
+        z-index: 11;
+        min-width: 260px;
+      }
+
+      #costTable tbody .sticky-col-1,
+      #costTable tbody .sticky-col-2 {
+        background: #ffffff;
+      }
+
+      .col-person {
+        font-weight: 500;
+      }
+
+      .col-role {
+        color: #4b5563;
+      }
+
+      .num {
+        text-align: right;
+      }
+
+      .row-total {
+        font-weight: 600;
+      }
+    </style>
   </article>
 `;
 
@@ -80,268 +102,57 @@ export const costBudgetTab = {
   template,
   async init({ root, client }) {
     const msg = $("#costMessage", root);
+    const projectId = getSelectedProjectId();
     const ctx = getPlanContext();
-    const projectId = ctx.projectId;
-    const level1Code = ctx.level1ProjectCode;
 
-    console.log("[Cost:init] projectId:", projectId);
-    console.log("[Cost:init] planContext:", ctx);
+    console.log("[Cost:init] projectId:", projectId, "planContext:", ctx);
 
+    // ——— Guard checks ———
     if (!projectId) {
       msg && (msg.textContent = "No project selected. Please go to the Projects tab.");
       renderCost(root, null);
-      renderMappedEmployees(root, null);
       return;
     }
 
-    if (!ctx.year || !ctx.versionId || !level1Code) {
+    if (!ctx.year || !ctx.versionId) {
       msg && (msg.textContent = "Plan not fully selected. Please complete selection in the Projects tab.");
       renderCost(root, null);
-      renderMappedEmployees(root, null);
       return;
     }
 
-    // Button handlers: require a project from dropdown
-    const btnEmp = $("#btnAddEmpCost", root);
-    const btnSub = $("#btnAddSubCost", root);
-    const btnOdc = $("#btnAddOdcCost", root);
-
-    const requireProjectForNewLine = () => {
-      const proj = getSelectedCostProject(root);
-      if (!proj) {
-        alert("Please select a project from the dropdown before adding a new line.");
-        return null;
-      }
-      return proj;
-    };
-
-    btnEmp?.addEventListener("click", () => {
-      const proj = requireProjectForNewLine();
-      if (!proj) return;
-      alert(`Add Employee cost line for ${proj.project_code || ""} – ${proj.name || ""}`);
-      // TODO: implement insert into planning_lines using proj.id
-    });
-
-    btnSub?.addEventListener("click", () => {
-      const proj = requireProjectForNewLine();
-      if (!proj) return;
-      alert(`Add Subcontractor cost line for ${proj.project_code || ""} – ${proj.name || ""}`);
-      // TODO: implement insert into planning_lines using proj.id
-    });
-
-    btnOdc?.addEventListener("click", () => {
-      const proj = requireProjectForNewLine();
-      if (!proj) return;
-      alert(`Add ODC cost line for ${proj.project_code || ""} – ${proj.name || ""}`);
-      // TODO: implement insert into planning_lines using proj.id
-    });
-
-    await Promise.all([
-      refreshMappedEmployees(root, client),   // staffing for selected child project
-      refreshCost(root, client),             // cost lines + fill project dropdown
-    ]);
+    await refreshCost(root, client);
   },
 };
 
-// ────────────────────────────────────────────────────────────────
-// Helpers
-// ────────────────────────────────────────────────────────────────
-function getSelectedCostProject(root) {
-  const sel = $("#costProjectSelect", root);
-  if (!sel) return null;
-  const id = sel.value || null;
-  if (!id) return null;
-  const proj = level1ProjectsCache.find(p => p.id === id);
-  return proj || { id };
-}
-
-function populateCostProjectSelect(root, projects, ctx) {
-  const sel = $("#costProjectSelect", root);
-  if (!sel) return;
-
-  sel.innerHTML = "";
-  const placeholder = document.createElement("option");
-  placeholder.value = "";
-  placeholder.textContent = "— Select project —";
-  sel.appendChild(placeholder);
-
-  projects.forEach(p => {
-    const opt = document.createElement("option");
-    opt.value = p.id;
-    opt.textContent = `${p.project_code} – ${p.name}`;
-    // default to the currently selected child project if present
-    if (ctx.projectId && ctx.projectId === p.id) {
-      opt.selected = true;
-    }
-    sel.appendChild(opt);
-  });
-}
-
-// ────────────────────────────────────────────────────────────────
-// Mapped employees (for selected child project)
-// ────────────────────────────────────────────────────────────────
-async function refreshMappedEmployees(root, client) {
-  const tbody = $("#mappedEmployeesBody", root);
-  const ctx = getPlanContext();
-  const projectId = ctx.projectId;
-
-  if (!tbody) return;
-
-  if (!projectId) {
-    tbody.innerHTML = `<tr><td colspan="5">No project selected.</td></tr>`;
-    return;
-  }
-
-  tbody.innerHTML = `<tr><td colspan="5">Loading mapped employees…</td></tr>`;
-
-  const { data: assigns, error: assignErr } = await client
-    .from("project_employee_assignments")
-    .select("employee_id, allocation_pct, start_date, end_date")
-    .eq("project_id", projectId);
-
-  if (assignErr) {
-    console.error("[Cost] Error loading assignments:", assignErr);
-    tbody.innerHTML = `<tr><td colspan="5">Error loading mapped employees.</td></tr>`;
-    return;
-  }
-
-  if (!assigns || assigns.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="5">No employees mapped to this project.</td></tr>`;
-    return;
-  }
-
-  const employeeIds = [...new Set(assigns.map(a => a.employee_id).filter(Boolean))];
-  if (employeeIds.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="5">No employees mapped to this project.</td></tr>`;
-    return;
-  }
-
-  const { data: emps, error: empErr } = await client
-    .from("employees")
-    .select("id, full_name, department_code, department_name")
-    .in("id", employeeIds);
-
-  if (empErr) {
-    console.error("[Cost] Error loading employees:", empErr);
-    tbody.innerHTML = `<tr><td colspan="5">Error loading mapped employees.</td></tr>`;
-    return;
-  }
-
-  const empById = new Map((emps || []).map(e => [e.id, e]));
-
-  const rows = assigns.map(a => {
-    const e = empById.get(a.employee_id) || {};
-    return {
-      full_name: e.full_name || "(unknown)",
-      dept: e.department_name || e.department_code || "",
-      allocation_pct: a.allocation_pct,
-      start_date: a.start_date,
-      end_date: a.end_date,
-    };
-  });
-
-  renderMappedEmployees(root, rows);
-}
-
-function renderMappedEmployees(root, rows) {
-  const tbody = $("#mappedEmployeesBody", root);
-  if (!tbody) return;
-
-  if (!rows || rows.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="5">No employees mapped to this project.</td></tr>`;
-    return;
-  }
-
-  const fmtDate = d => (d ? new Date(d).toLocaleDateString() : "");
-  const fmtPct = v =>
-    typeof v === "number" ? `${v.toFixed(0)}%` : (v ? `${Number(v).toFixed(0)}%` : "");
-
-  tbody.innerHTML = "";
-  rows.forEach(r => {
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td>${r.full_name}</td>
-      <td>${r.dept || ""}</td>
-      <td class="num">${fmtPct(r.allocation_pct)}</td>
-      <td>${fmtDate(r.start_date)}</td>
-      <td>${fmtDate(r.end_date)}</td>
-    `;
-    tbody.appendChild(tr);
-  });
-}
-
-// ────────────────────────────────────────────────────────────────
-// Cost planning lines from ALL projects under selected Level 1
-// ────────────────────────────────────────────────────────────────
 async function refreshCost(root, client) {
   const msg = $("#costMessage", root);
+  const projectId = getSelectedProjectId();
   const ctx = getPlanContext();
-  const level1Code = ctx.level1ProjectCode;
 
-  if (!level1Code || !ctx.year || !ctx.versionId) {
+  if (!projectId || !ctx.year || !ctx.versionId) {
     renderCost(root, null);
     return;
   }
 
   msg && (msg.textContent = "Loading costs…");
 
-  // 1) Get all project IDs under this Level 1
-  const { data: projects, error: projErr } = await client
-    .from("projects")
-    .select("id, project_code, name")
-    .like("project_code", `${level1Code}.%`);
-
-  if (projErr) {
-    console.error("[Cost] Error loading projects for Level 1:", projErr);
-    msg && (msg.textContent = "Error loading cost data.");
-    renderCost(root, null);
-    return;
-  }
-
-  if (!projects || projects.length === 0) {
-    level1ProjectsCache = [];
-    populateCostProjectSelect(root, [], ctx);
-    renderCost(root, []);
-    msg && (msg.textContent = "No child projects found for this Level 1.");
-    return;
-  }
-
-  level1ProjectsCache = projects;
-  populateCostProjectSelect(root, projects, ctx);
-
-  const idList = projects.map(p => p.id);
-  const projById = new Map(projects.map(p => [p.id, p]));
-
-  // 2) Get planning lines for ALL those projects
   const { data, error } = await client
     .from("planning_lines")
     .select(`
       id,
-      project_id,
-      project_name,
-      is_revenue,
+      entry_type_name,
       resource_name,
+      department_name,
       description,
-      amt_jan,
-      amt_feb,
-      amt_mar,
-      amt_apr,
-      amt_may,
-      amt_jun,
-      amt_jul,
-      amt_aug,
-      amt_sep,
-      amt_oct,
-      amt_nov,
-      amt_dec
+      amt_jan, amt_feb, amt_mar, amt_apr, amt_may, amt_jun,
+      amt_jul, amt_aug, amt_sep, amt_oct, amt_nov, amt_dec
     `)
-    .in("project_id", idList)
+    .eq("project_id", projectId)
     .eq("plan_year", ctx.year)
     .eq("plan_version_id", ctx.versionId)
     .eq("plan_type", ctx.planType || "Working")
-    .eq("is_revenue", false);
-
-  console.log("[Cost] rows:", data, "error:", error);
+    .eq("is_revenue", false)
+    .order("entry_type_name");
 
   if (error) {
     console.error("Cost load error:", error);
@@ -350,13 +161,8 @@ async function refreshCost(root, client) {
     return;
   }
 
-  const rowsWithCodes = (data || []).map(r => ({
-    ...r,
-    project_code: projById.get(r.project_id)?.project_code || "",
-  }));
-
-  renderCost(root, rowsWithCodes);
-  msg && (msg.textContent = rowsWithCodes.length === 0 ? "No cost lines found." : "");
+  renderCost(root, data || []);
+  msg && (msg.textContent = data?.length === 0 ? "No cost lines found for this project and plan." : "");
 }
 
 function renderCost(root, rows) {
@@ -364,40 +170,39 @@ function renderCost(root, rows) {
   if (!tbody) return;
 
   if (!rows?.length) {
-    tbody.innerHTML = `<tr><td colspan="18">No cost lines found for this project and plan.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="15">No cost lines found for this project and plan.</td></tr>`;
     return;
   }
 
-  const monthCols = [
+  const months = [
     "amt_jan","amt_feb","amt_mar","amt_apr","amt_may","amt_jun",
     "amt_jul","amt_aug","amt_sep","amt_oct","amt_nov","amt_dec"
   ];
+
   const fmt = v =>
     typeof v === "number"
       ? v.toLocaleString(undefined, { maximumFractionDigits: 0 })
       : "";
 
   tbody.innerHTML = "";
-  rows.forEach((r, i) => {
-    const who = r.resource_name || "";
-    const entryType = r.is_revenue ? "Revenue" : "Cost"; // placeholder until join
+  rows.forEach((r) => {
+    const who = r.resource_name || ""; // covers employees, subs, ODC category label, etc.
+    const roleOrDesc = r.department_name || r.description || "";
     let total = 0;
 
-    const monthCells = monthCols.map(col => {
-      const val = Number(r[col] || 0);
+    const monthCells = months.map(m => {
+      const val = Number(r[m] || 0);
       total += val;
       return `<td class="num">${fmt(val)}</td>`;
     }).join("");
 
     const tr = document.createElement("tr");
     tr.innerHTML = `
-      <td>${r.project_code || ""}</td>
-      <td>${i + 1}</td>
-      <td>${entryType}</td>
-      <td>${who}</td>
-      <td>${r.description || ""}</td>
+      <td class="sticky-col-1 col-person">${who}</td>
+      <td class="sticky-col-2 col-role">${roleOrDesc}</td>
+      <td>${r.entry_type_name || ""}</td>
       ${monthCells}
-      <td class="num font-semibold">${fmt(total)}</td>
+      <td class="num row-total">${fmt(total)}</td>
     `;
     tbody.appendChild(tr);
   });
