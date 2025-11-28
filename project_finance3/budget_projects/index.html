@@ -5,10 +5,10 @@
   <title>Project Planning App</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <!-- Tailwind CSS (your compiled version) -->
+  <!-- Tailwind CSS (compiled) -->
   <link rel="stylesheet" href="./css/tailwind.css" />
   
-  <!-- Your custom app styles (includes sticky columns, full-width-card, etc.) -->
+  <!-- Your custom design system (sticky columns, full-width-card, etc.) -->
   <link rel="stylesheet" href="./css/styles.css" />
 </head>
 
@@ -34,11 +34,11 @@
         <h1 class="text-2xl font-bold text-slate-900">Project Planning App</h1>
         
         <div id="planContextHeader" class="text-sm font-medium text-blue-700 mt-1">
-          <!-- e.g. "2025 • Working Plan • ACME-001 – Acme Corp HQ" -->
+          <!-- Filled dynamically -->
         </div>
         
         <div id="currentProject" class="text-lg font-semibold text-slate-800 mt-2">
-          <!-- e.g. "P-101.003 – Server Room Upgrade" -->
+          <!-- Filled dynamically -->
         </div>
       </div>
 
@@ -53,34 +53,51 @@
   <!-- MAIN CONTENT -->
   <main class="container mx-auto px-4 py-8 max-w-screen-2xl">
     <section id="appMain" class="tab-content">
-      <!-- All tabs load here dynamically -->
+      <!-- All tabs load here -->
     </section>
   </main>
 
-  <!-- Scripts — ORDER MATTERS! -->
+  <!-- Scripts — ORDER + SAFETY FIRST -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
-  <!-- Chart.js + plugin -->
+  <!-- Chart.js + datalabels plugin -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
 
-  <!-- SAFE Chart.js defaults — runs AFTER Chart.js is loaded -->
+  <!-- ULTRA-SAFE Chart.js Configuration — NO MORE "Cannot set properties of undefined" -->
   <script>
-    // This now runs safely because Chart.js is already defined
-    Chart.defaults.font.family = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
-    Chart.defaults.font.size = 13;
+    if (window.Chart && Chart.defaults) {
+      // Global font
+      Chart.defaults.font = Chart.defaults.font || {};
+      Chart.defaults.font.family = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+      Chart.defaults.font.size = 13;
 
-    Chart.defaults.plugins.legend.labels.font.size = 12;
-    Chart.defaults.plugins.tooltip.bodyFont.size = 13;
-    Chart.defaults.plugins.tooltip.titleFont.size = 13;
+      if (Chart.defaults.plugins) {
+        // Legend
+        if (Chart.defaults.plugins.legend && Chart.defaults.plugins.legend.labels) {
+          Chart.defaults.plugins.legend.labels.font = Chart.defaults.plugins.legend.labels.font || {};
+          Chart.defaults.plugins.legend.labels.font.size = 12;
+        }
 
-    if (Chart.defaults.plugins.datalabels) {
-      Chart.defaults.plugins.datalabels.font = { size: 12, weight: '600' };
-      Chart.defaults.plugins.datalabels.color = '#1e293b';
+        // Tooltip
+        if (Chart.defaults.plugins.tooltip) {
+          Chart.defaults.plugins.tooltip.titleFont = Chart.defaults.plugins.tooltip.titleFont || {};
+          Chart.defaults.plugins.tooltip.titleFont.size = 13;
+
+          Chart.defaults.plugins.tooltip.bodyFont = Chart.defaults.plugins.tooltip.bodyFont || {};
+          Chart.defaults.plugins.tooltip.bodyFont.size = 13;
+        }
+
+        // Datalabels plugin (only if loaded)
+        if (Chart.defaults.plugins.datalabels) {
+          Chart.defaults.plugins.datalabels.font = { size: 12, weight: '600' };
+          Chart.defaults.plugins.datalabels.color = '#1e293b';
+        }
+      }
     }
   </script>
 
-  <!-- Your app entry point -->
+  <!-- Your app -->
   <script type="module" src="./js/main.js"></script>
 </body>
 </html>
