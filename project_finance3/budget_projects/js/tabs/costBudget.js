@@ -78,30 +78,6 @@ export const template = /*html*/ `
   </article>
 `;
 
-// Add these reusable sticky column classes to your css/styles.css (if not already there)
-const STICKY_CLASSES_CSS = `
-  .cost-grid-sticky {
-    position: sticky;
-    z-index: 10;
-    background: white;
-    border-right: 1px solid #e2e8f0;
-  }
-  .cost-col-1 { left: 0; }
-  .cost-col-2 { left: 12rem; }     /* 192px ≈ 12rem */
-  .cost-col-3 { left: 24rem; }     /* 384px ≈ 24rem */
-  .cost-grid-sticky.cost-col-1 { z-index: 20; }
-  .cost-grid-sticky.cost-col-2 { z-index: 19; }
-  .cost-grid-sticky.cost-col-3 { z-index: 18; }
-`;
-
-// Inject once if needed (optional — better to put in your main CSS)
-if (!document.getElementById('cost-grid-styles')) {
-  const style = document.createElement('style');
-  style.id = 'cost-grid-styles';
-  style.textContent = STICKY_CLASSES_CSS;
-  document.head.appendChild(style);
-}
-
 export const costBudgetTab = {
   template,
   async init({ root, client }) {
@@ -115,19 +91,25 @@ export const costBudgetTab = {
     }
 
     await loadProjectsUnderLevel1(root, client, ctx.level1ProjectId);
-    const projSelect = $("#costProjectSelect", root);
 
-    $("#addEmployeesBtn", root)?.addEventListener("click", () => handleAddLines(root, client, projSelect, "DIR_LAB_COST", "New employee cost line"));
-    $("#addSubsBtn", root)?.addEventListener("click", () => handleAddLines(root, client, projSelect, "SUBC_COST", "New subcontractor cost line"));
-    $("#addOdcBtn", root)?.addEventListener("click", () => handleAddLines(root, client, projSelect, "ODC_COST", "New ODC cost line"));
+    const projSelect = $("#costProjectSelect", root);
+    $("#addEmployeesBtn", root)?.addEventListener("click", () =>
+      handleAddLines(root, client, projSelect, "DIR_LAB_COST", "New employee cost line")
+    );
+    $("#addSubsBtn", root)?.addEventListener("click", () =>
+      handleAddLines(root, client, projSelect, "SUBC_COST", "New subcontractor cost line")
+    );
+    $("#addOdcBtn", root)?.addEventListener("click", () =>
+      handleAddLines(root, client, projSelect, "ODC_COST", "New ODC cost line")
+    );
 
     await refreshCost(root, client);
   },
 };
 
-// ————————————————————————————————————————
-// Render function — now using your clean sticky classes
-// ————————————————————————————————————————
+// ─────────────────────────────────────────────
+// RENDER COST GRID
+// ─────────────────────────────────────────────
 function renderCost(root, rows) {
   const tbody = $("#costBody", root);
   if (!tbody) return;
@@ -137,8 +119,10 @@ function renderCost(root, rows) {
     return;
   }
 
-  const months = ["amt_jan","amt_feb","amt_mar","amt_apr","amt_may","amt_jun",
-                  "amt_jul","amt_aug","amt_sep","amt_oct","amt_nov","amt_dec"];
+  const months = [
+    "amt_jan","amt_feb","amt_mar","amt_apr","amt_may","amt_jun",
+    "amt_jul","amt_aug","amt_sep","amt_oct","amt_nov","amt_dec"
+  ];
   const fmt = v => typeof v === "number" ? v.toLocaleString() : "";
 
   tbody.innerHTML = "";
@@ -155,6 +139,7 @@ function renderCost(root, rows) {
 
     const tr = document.createElement("tr");
     tr.className = "hover:bg-slate-50 transition";
+
     tr.innerHTML = `
       <td class="cost-grid-sticky cost-col-1 px-4 py-3 text-sm font-medium text-slate-900">${r.project_name || ""}</td>
       <td class="cost-grid-sticky cost-col-2 px-4 py-3 text-sm font-medium text-slate-800">${who}</td>
@@ -166,10 +151,149 @@ function renderCost(root, rows) {
   });
 }
 
-// ————————————————————————————————————————
-// All other functions unchanged (perfect as-is)
-// ————————————————————————————————————————
-async function loadProjectsUnderLevel1(root, client, level1ProjectId) { /* ... unchanged ... */ }
-async function getEntryTypeId(client, code) { /* ... unchanged ... */ }
-async function handleAddLines(root, client, projSel, entryCode, defaultDescription) { /* ... unchanged ... */ }
-async function refreshCost(root, client) { /* ... unchanged ... */ }
+// ─────────────────────────────────────────────
+// LOAD ALL PROJECTS UNDER LEVEL 1
+// ─────────────────────────────────────────────
+async function loadProjectsUnderLevel1(root, client, level1ProjectId) {
+  const sel = $("#costProjectSelect", root);
+  const msg = $("#costMessage", root);
+  if (!sel) return;
+
+  sel.innerHTML = `<option value="">— Select project —</option>`;
+  _costProjectIds = [];
+
+  const { data: parent, error: parentError } = await client
+    .from("projects")
+    .select("id, project_code, name")
+    .eq("id", level1ProjectId)
+    .single();
+
+  if (parentError || !parent) {
+    console.error("[CostBudget] Error loading parent project", parentError);
+    msg && (msg.textContent = "Error loading Level 1 project.");
+    return;
+  }
+
+  const { data: children, error } = await client
+    .from("projects")
+    .select("id, project_code, name")
+    .like("project_code", `${parent.project_code}.%`)
+    .order("project_code");
+
+  if (error) {
+    console.error("[CostBudget] Error loading child projects", error);
+    msg && (msg.textContent = "Error loading child projects.");
+    return;
+  }
+
+  const all = [parent, ...(children || [])];
+  _costProjectIds = all.map(p => p.id);
+
+  all.forEach(p => {
+    const opt = document.createElement("option");
+    opt.value = p.id;
+    opt.textContent = `${p.project_code} – ${p.name}`;
+    sel.appendChild(opt);
+  });
+}
+
+// ─────────────────────────────────────────────
+// ENTRY TYPE ID CACHE
+// ─────────────────────────────────────────────
+async function getEntryTypeId(client, code) {
+  if (_entryTypeIds[code]) return _entryTypeIds[code];
+
+  const { data, error } = await client
+    .from("entry_types")
+    .select("id")
+    .eq("code", code)
+    .single();
+
+  if (error || !data) {
+    console.error("[CostBudget] Error loading entry_type", code, error);
+    throw error || new Error("entry_type not found");
+  }
+
+  _entryTypeIds[code] = data.id;
+  return data.id;
+}
+
+// ─────────────────────────────────────────────
+// ADD LINES (EMPLOYEES / SUBS / ODC)
+// ─────────────────────────────────────────────
+async function handleAddLines(root, client, projSel, entryCode, defaultDescription) {
+  const ctx = getPlanContext();
+  const msg = $("#costMessage", root);
+
+  const projectId = projSel?.value || null;
+  const projectLabel = projSel?.selectedOptions[0]?.textContent || "";
+  const projectName = projectLabel.split(" – ").slice(1).join(" – ") || projectLabel;
+
+  if (!projectId) {
+    msg && (msg.textContent = "Please pick a project from the dropdown first.");
+    return;
+  }
+
+  try {
+    const entryTypeId = await getEntryTypeId(client, entryCode);
+
+    const payload = {
+      project_id: projectId,
+      project_name: projectName,
+      entry_type_id: entryTypeId,
+      is_revenue: false,
+      resource_name: defaultDescription,
+      description: defaultDescription,
+      plan_year: ctx.year,
+      plan_version_id: ctx.versionId,
+      plan_type: ctx.planType || "Working",
+      amt_jan: 0, amt_feb: 0, amt_mar: 0, amt_apr: 0,
+      amt_may: 0, amt_jun: 0, amt_jul: 0, amt_aug: 0,
+      amt_sep: 0, amt_oct: 0, amt_nov: 0, amt_dec: 0,
+    };
+
+    const { error } = await client.from("planning_lines").insert(payload);
+    if (error) throw error;
+
+    msg && (msg.textContent = "New cost line added.");
+    await refreshCost(root, client);
+  } catch (err) {
+    console.error("[CostBudget] handleAddLines error", err);
+    msg && (msg.textContent = "Error adding cost line.");
+  }
+}
+
+// ─────────────────────────────────────────────
+// REFRESH GRID
+// ─────────────────────────────────────────────
+async function refreshCost(root, client) {
+  const msg = $("#costMessage", root);
+  const ctx = getPlanContext();
+
+  if (!_costProjectIds.length || !ctx.year || !ctx.versionId) {
+    renderCost(root, null);
+    return;
+  }
+
+  msg && (msg.textContent = "Loading costs…");
+
+  const { data, error } = await client
+    .from("planning_lines")
+    .select("id, project_name, resource_name, department_name, description, amt_jan, amt_feb, amt_mar, amt_apr, amt_may, amt_jun, amt_jul, amt_aug, amt_sep, amt_oct, amt_nov, amt_dec")
+    .in("project_id", _costProjectIds)
+    .eq("plan_year", ctx.year)
+    .eq("plan_version_id", ctx.versionId)
+    .eq("plan_type", ctx.planType || "Working")
+    .eq("is_revenue", false)
+    .order("project_name", { ascending: true });
+
+  if (error) {
+    console.error("[CostBudget] Cost load error", error);
+    msg && (msg.textContent = "Error loading cost data.");
+    renderCost(root, null);
+    return;
+  }
+
+  renderCost(root, data || []);
+  msg && (msg.textContent = data?.length ? "" : "No cost lines found.");
+}
