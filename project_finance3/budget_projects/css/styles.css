@@ -22,7 +22,21 @@
     @apply max-w-6xl mx-auto px-3 sm:px-4 lg:px-6;
   }
 
-    /* Top nav */
+  /* Full-width card — breaks out of container, perfect for tables & charts */
+  .full-width-card {
+    @apply w-full max-w-none -mx-4 sm:-mx-6 lg:-mx-8 xl:-mx-12 2xl:-mx-0;
+    @apply mt-8 mb-12;
+    @apply bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden;
+  }
+
+  /* Optional variant: subtle full-width with padding */
+  .full-width-card-padded {
+    @apply w-full max-w-none -mx-4 sm:-mx-6 lg:-mx-0;
+    @apply mt-8 mb-12 px-4 sm:px-6 lg:px-8;
+    @apply bg-white rounded-xl shadow-md border border-slate-200;
+  }
+
+  /* Top nav */
   .nav-bar {
     @apply bg-slate-900 text-slate-100 shadow-sm;
   }
@@ -50,7 +64,6 @@
   .nav-tab-active {
     @apply bg-white text-slate-900 shadow-sm;
   }
-
 
   /* Card */
   .card {
@@ -200,7 +213,8 @@
     display: none !important;
   }
 
-  .card {
-    @apply shadow-none border border-slate-300;
+  .card,
+  .full-width-card {
+    @apply shadow-none border border-slate-300 mt-4;
   }
 }
