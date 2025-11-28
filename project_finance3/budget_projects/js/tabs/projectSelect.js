@@ -75,9 +75,9 @@ export const template = /*html*/ `
 export const projectSelectTab = {
   template,
   async init({ root }) {
-    const msg = $("#projMessage", root);
+    const msg   = $("#projMessage", root);
     const yearSel = $("#planYearSelect", root);
-    const verSel = $("#planVersionSelect", root);
+    const verSel  = $("#planVersionSelect", root);
     const typeSel = $("#planTypeSelect", root);
     const lvl1Sel = $("#level1ProjectSelect", root);
 
@@ -87,25 +87,60 @@ export const projectSelectTab = {
       loadLevel1Projects(root),
     ]);
 
-    // Restore previous context into controls
     const ctx = getPlanContext();
-    if (ctx.year) yearSel.value = String(ctx.year);
-    if (ctx.planType) typeSel.value = ctx.planType;
-    if (ctx.versionId) verSel.value = ctx.versionId;
-    if (ctx.level1ProjectId) {
-      lvl1Sel.value = ctx.level1ProjectId;
-      const opt = lvl1Sel.selectedOptions[0];
-      const lvl1Code = opt?.dataset?.code || ctx.level1ProjectCode || null;
-      if (lvl1Code) {
-        await loadChildProjects(root, ctx.level1ProjectId, lvl1Code);
-      }
-    }
 
-        // If year was never set, default it from the dropdown
-    if (!ctx.year && yearSel.value) {
+    // ---- Plan Year default ----
+    if (ctx.year) {
+      yearSel.value = String(ctx.year);
+    } else if (yearSel.options.length > 0) {
+      yearSel.selectedIndex = 0;
       setPlanContext({ year: parseInt(yearSel.value, 10) });
     }
 
+    // ---- Plan Type default ----
+    if (ctx.planType) {
+      typeSel.value = ctx.planType;
+    } else {
+      typeSel.value = "Working";
+      setPlanContext({ planType: "Working" });
+    }
+
+    // ---- Plan Version default (first non-empty option) ----
+    if (ctx.versionId) {
+      verSel.value = ctx.versionId;
+    } else {
+      const firstReal = Array.from(verSel.options).find(o => o.value);
+      if (firstReal) {
+        firstReal.selected = true;
+        setPlanContext({
+          versionId: firstReal.value,
+          versionLabel: firstReal.textContent,
+          versionCode: firstReal.dataset.code || null,
+        });
+      }
+    }
+
+    // ---- Level 1 Project default (first non-empty option) ----
+    if (ctx.level1ProjectId) {
+      lvl1Sel.value = ctx.level1ProjectId;
+      await loadChildProjects(root, ctx.level1ProjectId);
+    } else {
+      const firstL1 = Array.from(lvl1Sel.options).find(o => o.value);
+      if (firstL1) {
+        firstL1.selected = true;
+        const id   = firstL1.value;
+        const code = firstL1.dataset.code || null;
+        const name = firstL1.dataset.name || null;
+
+        setPlanContext({
+          level1ProjectId: id,
+          level1ProjectCode: code,
+          level1ProjectName: name,
+        });
+
+        await loadChildProjects(root, id);
+      }
+    }
 
     // Event Listeners
     yearSel?.addEventListener("change", () => {
@@ -114,8 +149,10 @@ export const projectSelectTab = {
 
     verSel?.addEventListener("change", () => {
       const versionId = verSel.value || null;
-      const versionLabel = verSel.selectedOptions[0]?.textContent || null;
-      const versionCode = verSel.selectedOptions[0]?.dataset?.code || null;
+      const opt = verSel.selectedOptions[0];
+      const versionLabel = opt?.textContent || null;
+      const versionCode  = opt?.dataset?.code || null;
+
       setPlanContext({ versionId, versionLabel, versionCode });
     });
 
@@ -124,9 +161,10 @@ export const projectSelectTab = {
     });
 
     lvl1Sel?.addEventListener("change", async () => {
-      const id = lvl1Sel.value || null;
-      const code = lvl1Sel.selectedOptions[0]?.dataset?.code || null;
-      const name = lvl1Sel.selectedOptions[0]?.dataset?.name || null;
+      const opt  = lvl1Sel.selectedOptions[0];
+      const id   = opt?.value || null;
+      const code = opt?.dataset?.code || null;
+      const name = opt?.dataset?.name || null;
 
       setPlanContext({
         level1ProjectId: id,
@@ -134,11 +172,10 @@ export const projectSelectTab = {
         level1ProjectName: name,
       });
 
-      // Clear previous lowest-level project selection
-      setSelectedProject(null);
+      setSelectedProject(null); // clear previous child selection
 
-      if (id && code) {
-        await loadChildProjects(root, id, code);
+      if (id) {
+        await loadChildProjects(root, id);
       } else {
         $("#childProjectsBody", root).innerHTML =
           `<tr><td colspan="5">Select a Level 1 project above.</td></tr>`;
@@ -167,7 +204,7 @@ async function loadPlanVersions(root) {
     return;
   }
 
-  sel.innerHTML = `<option value="">— Select version —</option>`;
+  sel.innerHTML = "";
   data.forEach(pv => {
     const opt = document.createElement("option");
     opt.value = pv.id;
@@ -197,7 +234,7 @@ async function loadLevel1Projects(root) {
 
   const level1 = data.filter(p => !p.project_code.includes("."));
 
-  sel.innerHTML = `<option value="">— Select Level 1 Project —</option>`;
+  sel.innerHTML = "";
   level1.forEach(p => {
     const opt = document.createElement("option");
     opt.value = p.id;
@@ -211,22 +248,32 @@ async function loadLevel1Projects(root) {
 // ────────────────────────────────────────────────────────────────
 // Load Child Projects + setSelectedProject() on click
 // ────────────────────────────────────────────────────────────────
-async function loadChildProjects(root, level1ProjectId, level1ProjectCode) {
+async function loadChildProjects(root, level1ProjectId) {
   const tbody = $("#childProjectsBody", root);
-  if (!tbody || !level1ProjectId || !level1ProjectCode) {
+  if (!tbody || !level1ProjectId) {
     tbody && (tbody.innerHTML = `<tr><td colspan="5">Select a Level 1 project above.</td></tr>`);
     return;
   }
 
   tbody.innerHTML = `<tr><td colspan="5">Loading child projects…</td></tr>`;
 
+  const { data: parent, error: parentError } = await client
+    .from("projects")
+    .select("project_code")
+    .eq("id", level1ProjectId)
+    .single();
+
+  if (parentError || !parent) {
+    console.error("[ProjectSelect] Error loading parent project:", parentError);
+    tbody.innerHTML = `<tr><td colspan="5">Parent project not found.</td></tr>`;
+    return;
+  }
+
   const { data, error } = await client
     .from("projects")
     .select("id, project_code, name, revenue_formula, pop_start, pop_end, funding")
-    .like("project_code", `${level1ProjectCode}.%`)
+    .like("project_code", `${parent.project_code}.%`)
     .order("project_code");
-
-  console.log("[DEBUG] Child projects raw:", data);
 
   if (error || !data?.length) {
     console.error("[ProjectSelect] Error or no data loading child projects:", error);
@@ -260,16 +307,12 @@ async function loadChildProjects(root, level1ProjectId, level1ProjectCode) {
     tr.addEventListener("click", () => {
       console.log("[ProjectSelect] Setting selected project (full row):", proj);
 
-      // 1️⃣ Save full project into shared context
       setSelectedProject(proj);
-
-      // 2️⃣ Explicit: also update planContext
       setPlanContext({
         projectId: proj.id,
         projectName: proj.name,
       });
 
-      // 3️⃣ Visual feedback
       tbody.querySelectorAll("tr").forEach(r =>
         r.classList.remove("bg-blue-100", "font-medium")
       );
