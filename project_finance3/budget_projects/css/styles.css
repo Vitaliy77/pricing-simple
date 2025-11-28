@@ -1,320 +1,240 @@
-/* css/styles.css */
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
 /* ────────────────────────────── */
 /* Base styles                    */
 /* ────────────────────────────── */
-@layer base {
-  body {
-    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    @apply bg-slate-100 text-slate-900 text-[13px] leading-tight;
-  }
+
+body {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  font-size: 13px;
+  line-height: 1.4;
+  background-color: #f1f5f9; /* slate-100 */
+  color: #0f172a;           /* slate-900 */
 }
 
 /* ────────────────────────────── */
-/* Components                     */
+/* Top menu & tab buttons         */
 /* ────────────────────────────── */
-@layer components {
-  /* Layout */
-  .app-shell {
-    @apply min-h-screen flex flex-col;
 
-      /* Top menu bar + tab buttons */
-  .top-menu {
-    @apply bg-blue-700 shadow-lg sticky top-0 z-50;
-  }
+.top-menu {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
 
-  .tab-btn {
-    @apply inline-flex items-center justify-center
-           rounded-md
-           px-3 py-1.5 mr-2
-           text-xs font-medium
-           text-slate-100
-           bg-blue-600/80
-           hover:bg-blue-500 hover:text-white
-           whitespace-nowrap
-           transition;
-  }
+/* Generic top nav tab button */
+.tab-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.375rem 0.75rem;   /* px-3 py-1.5 */
+  margin-right: 0.5rem;        /* mr-2 */
+  border-radius: 9999px;       /* rounded-full */
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  border: 1px solid #2563eb;   /* blue-600 */
+  background-color: #2563eb;   /* blue-600 */
+  color: #ffffff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.15);
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease,
+    color 0.15s ease, box-shadow 0.15s ease;
+}
 
-  /* Active tab state (main.js usually adds .active) */
-  .tab-btn.active {
-    @apply bg-white text-blue-700 shadow;
-  }
+.tab-btn:hover {
+  background-color: #1d4ed8; /* blue-700 */
+  border-color: #1d4ed8;
+}
 
-  }
+/* Active tab – support both "active" and "tab-btn-active" */
+.tab-btn.active,
+.tab-btn-active {
+  background-color: #ffffff;
+  color: #1d4ed8;
+  border-color: #ffffff;
+  box-shadow: 0 2px 4px rgba(15, 23, 42, 0.18);
+}
 
-  .container-max {
-    @apply max-w-6xl mx-auto px-3 sm:px-4 lg:px-6;
-  }
+/* ────────────────────────────── */
+/* Layout cards / containers      */
+/* ────────────────────────────── */
 
-  /* Full-width breakout cards (good for tables/charts) */
+/* Full-width breakout card: used by Cost Budget tab */
+.full-width-card {
+  width: 100%;
+  max-width: none;
+  margin-top: 1rem;
+  margin-bottom: 1.5rem;
+  margin-left: -1rem;  /* approximate -mx-4 */
+  margin-right: -1rem;
+  background-color: #ffffff;
+  border-radius: 0.75rem;
+  border: 1px solid #e2e8f0; /* slate-200 */
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
+  overflow: hidden;
+}
+
+@media (min-width: 640px) {
   .full-width-card {
-    @apply w-full max-w-none -mx-4 sm:-mx-6 lg:-mx-8 xl:-mx-12 2xl:-mx-0;
-    @apply mt-4 mb-6;
-    @apply bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden;
+    margin-left: -1.5rem; /* -mx-6 */
+    margin-right: -1.5rem;
   }
-
-  .full-width-card-padded {
-    @apply w-full max-w-none -mx-4 sm:-mx-6 lg:-mx-0;
-    @apply mt-4 mb-6 px-4 sm:px-6 lg:px-8;
-    @apply bg-white rounded-xl shadow-md border border-slate-200;
-  }
-
-  /* ──────────────────────────── */
-  /* Top nav + tab buttons       */
-  /* ──────────────────────────── */
-
-  /* Optional nav-bar if used elsewhere */
-  .nav-bar {
-    @apply bg-slate-900 text-slate-100 shadow-sm;
-  }
-
-  .nav-inner {
-    @apply container-max flex items-center justify-between h-12;
-  }
-
-  .nav-brand {
-    @apply flex items-center gap-2 text-[11px] font-semibold tracking-[0.18em] uppercase text-slate-300;
-  }
-
-  /* Tab buttons in the blue top strip (index.html) */
-  .tab-btn {
-    @apply inline-flex items-center justify-center
-           px-3 sm:px-4 py-1.5
-           mr-2
-           text-[12px] font-medium
-           rounded-full
-           bg-blue-600 text-white
-           border border-blue-500
-           shadow-sm
-           whitespace-nowrap
-           hover:bg-blue-500 hover:border-blue-400
-           focus:outline-none focus:ring-2 focus:ring-blue-300
-           transition;
-  }
-
-  .tab-btn-active {
-    @apply bg-white text-blue-700 border-white
-           shadow
-           hover:bg-slate-50;
-  }
-
-  /* ──────────────────────────── */
-  /* Cards                        */
-  /* ──────────────────────────── */
-  .card {
-    @apply bg-white rounded-xl shadow-sm border border-slate-200 p-4 sm:p-5;
-  }
-
-  .card-header {
-    @apply mb-3 flex items-center justify-between gap-3;
-  }
-
-  .card-title {
-    @apply text-sm font-semibold text-slate-900;
-  }
-
-  .card-subtitle {
-    @apply text-[11px] text-slate-500;
-  }
-
-  /* ──────────────────────────── */
-  /* Buttons                      */
-  /* ──────────────────────────── */
-  .btn {
-    @apply inline-flex items-center justify-center gap-1
-           rounded-full border border-transparent
-           px-3 py-1 text-[11px] font-medium shadow-sm
-           bg-blue-600 text-white
-           hover:bg-blue-700
-           focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1
-           disabled:opacity-50 disabled:cursor-not-allowed;
-  }
-
-  .btn-secondary {
-    @apply bg-white text-slate-700 border-slate-200 hover:bg-slate-50;
-  }
-
-  .btn-ghost {
-    @apply bg-transparent shadow-none border-transparent text-slate-600 hover:bg-slate-100;
-  }
-
-  .btn-sm {
-    @apply h-7 px-2.5 text-[11px];
-  }
-
-  .btn-icon {
-    @apply inline-flex items-center justify-center rounded-full h-7 w-7
-           border border-slate-200 bg-white text-slate-500 hover:bg-slate-50;
-  }
-
-  /* ──────────────────────────── */
-  /* Inputs                       */
-  /* ──────────────────────────── */
-  .label {
-    @apply block text-[11px] font-medium text-slate-600 mb-0.5;
-  }
-
-  .input,
-  .select,
-  .textarea {
-    @apply w-full border border-slate-300 rounded-lg bg-white
-           px-2 py-1 text-[11px] text-slate-900 placeholder-slate-400
-           focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500;
-  }
-
-  .input-sm {
-    @apply text-[11px] py-0.5;
-  }
-
-  .form-row {
-    @apply flex flex-wrap items-end gap-3 mb-2;
-  }
-
-  .form-field {
-    @apply min-w-[160px];
-  }
-
-  .form-actions {
-    @apply mt-3 flex justify-end gap-2;
-  }
-
-  /* ──────────────────────────── */
-  /* Badges / chips               */
-  /* ──────────────────────────── */
-  .badge {
-    @apply inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium;
-  }
-
-  .badge-green  { @apply bg-emerald-50 text-emerald-700; }
-  .badge-yellow { @apply bg-amber-50 text-amber-700; }
-  .badge-red    { @apply bg-rose-50 text-rose-700; }
-  .badge-blue   { @apply bg-blue-50 text-blue-700; }
-
-  .pill {
-    @apply inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-600;
-  }
-
-  /* ──────────────────────────── */
-  /* Generic tables               */
-  /* ──────────────────────────── */
-  .table-shell {
-    @apply overflow-auto rounded-xl border border-slate-200 bg-white;
-  }
-
-  .data-table {
-    @apply min-w-full text-[11px] border-collapse;
-  }
-
-  .data-table thead {
-    @apply bg-slate-50;
-  }
-
-  .data-table th {
-    @apply sticky top-0 z-10 bg-slate-50
-           text-left font-semibold text-slate-600
-           border-b border-slate-200
-           px-2 py-1;
-  }
-
-  .data-table td {
-    @apply border-b border-slate-100 px-2 py-1 align-middle;
-  }
-
-  .data-table tbody tr:nth-child(odd) {
-    @apply bg-slate-50/40;
-  }
-
-  .data-table tbody tr:hover {
-    @apply bg-blue-50;
-  }
-
-  .table-number {
-    @apply text-right tabular-nums;
-  }
-
-  .section-title {
-    @apply text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 mb-2;
-  }
-
-  /* ──────────────────────────── */
-  /* Sticky columns (Cost grid)   */
-  /* ──────────────────────────── */
-
-  /* For costBudget.js table: first 3 columns sticky with pixel-perfect offsets */
-  .cost-grid-sticky {
-    position: sticky;
-    background: #ffffff;
-    z-index: 10;
-    border-right: 1px solid #e2e8f0; /* slate-200 */
-  }
-
-  .cost-col-1 {
-    left: 0;
-    min-width: 160px;
-    width: 160px;
-  }
-
-  .cost-col-2 {
-    left: 160px; /* after col 1 */
-    min-width: 220px;
-    width: 220px;
-  }
-
-  .cost-col-3 {
-    left: 380px; /* 160 + 220 */
-    min-width: 260px;
-    width: 260px;
-  }
-
-  .cost-grid-sticky.cost-col-1 { z-index: 30; }
-  .cost-grid-sticky.cost-col-2 { z-index: 29; }
-  .cost-grid-sticky.cost-col-3 { z-index: 28; }
-
-  /* header variant */
-  .cost-grid-sticky.bg-slate-50 {
-    background: #f8fafc;
-  }
-
-  /* Tighter rows + striping specifically for Cost Budget table */
-  #costTable th,
-  #costTable td {
-    padding-top: 2px;
-    padding-bottom: 2px;
-    line-height: 1.2;
-    font-size: 12px;
-  }
-
-  #costTable tbody tr:nth-child(even) {
-    background-color: #f8fafc; /* slate-50 */
-  }
-
-  #costTable tbody tr:hover {
-    background-color: #e0f2fe; /* light blue */
+}
+@media (min-width: 1024px) {
+  .full-width-card {
+    margin-left: -2rem; /* -mx-8 */
+    margin-right: -2rem;
   }
 }
 
+/* Padded variant if you ever need it */
+.full-width-card-padded {
+  width: 100%;
+  max-width: none;
+  margin-top: 1rem;
+  margin-bottom: 1.5rem;
+  margin-left: -1rem;
+  margin-right: -1rem;
+  padding: 1rem 1.5rem;
+  background-color: #ffffff;
+  border-radius: 0.75rem;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+}
+
 /* ────────────────────────────── */
-/* Utilities                      */
+/* Generic table styling          */
 /* ────────────────────────────── */
-@layer utilities {
-  .scroll-x {
-    @apply overflow-x-auto;
-  }
+
+.table-shell {
+  overflow: auto;
+  border-radius: 0.75rem;
+  border: 1px solid #e2e8f0;
+  background-color: #ffffff;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+
+.data-table thead {
+  background-color: #f8fafc; /* slate-50 */
+}
+
+.data-table th {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background-color: #f8fafc;
+  font-weight: 600;
+  color: #475569; /* slate-600 */
+  border-bottom: 1px solid #e2e8f0;
+  padding: 0.25rem 0.5rem;
+  text-align: left;
+}
+
+.data-table td {
+  border-bottom: 1px solid #f1f5f9;
+  padding: 0.25rem 0.5rem;
+  vertical-align: middle;
+}
+
+.data-table tbody tr:nth-child(odd) {
+  background-color: rgba(248, 250, 252, 0.7);
+}
+
+.data-table tbody tr:hover {
+  background-color: #eff6ff; /* blue-50 */
+}
+
+.table-number {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ────────────────────────────── */
+/* Sticky columns for Cost Budget */
+/* ────────────────────────────── */
+
+.cost-grid-sticky {
+  position: sticky;
+  background-color: #ffffff;
+  z-index: 10;
+  border-right: 1px solid #e2e8f0; /* slate-200 */
+}
+
+/* NOTE: these widths/offsets must match your first 3 column widths */
+.cost-col-1 {
+  left: 0;
+  min-width: 160px;
+  width: 160px;
+}
+
+.cost-col-2 {
+  left: 160px; /* after col 1 */
+  min-width: 220px;
+  width: 220px;
+}
+
+.cost-col-3 {
+  left: 380px; /* 160 + 220 */
+  min-width: 260px;
+  width: 260px;
+}
+
+/* Stacking order so they layer correctly */
+.cost-grid-sticky.cost-col-1 { z-index: 30; }
+.cost-grid-sticky.cost-col-2 { z-index: 29; }
+.cost-grid-sticky.cost-col-3 { z-index: 28; }
+
+/* Header variant – slightly tinted */
+.cost-grid-sticky.bg-slate-50 {
+  background-color: #f8fafc;
+}
+
+/* ────────────────────────────── */
+/* Cost Budget table tweaks       */
+/* ────────────────────────────── */
+
+#costTable th,
+#costTable td {
+  padding-top: 2px;
+  padding-bottom: 2px;
+  line-height: 1.2;
+  font-size: 12px;
+}
+
+/* Zebra striping */
+#costTable tbody tr:nth-child(even) {
+  background-color: #f8fafc; /* slate-50 */
+}
+
+/* Hover */
+#costTable tbody tr:hover {
+  background-color: #e0f2fe; /* light blue */
+}
+
+/* ────────────────────────────── */
+/* Utility: horizontal scroll     */
+/* ────────────────────────────── */
+
+.scroll-x {
+  overflow-x: auto;
 }
 
 /* ────────────────────────────── */
 /* Print tweaks                   */
 /* ────────────────────────────── */
+
 @media print {
   @page {
     margin: 10mm;
   }
 
   body {
-    @apply bg-white;
+    background-color: #ffffff;
   }
 
   .nav-bar,
@@ -325,6 +245,8 @@
 
   .card,
   .full-width-card {
-    @apply shadow-none border border-slate-300 mt-4;
+    box-shadow: none;
+    border: 1px solid #cbd5e1;
+    margin-top: 1rem;
   }
 }
