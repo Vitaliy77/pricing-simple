@@ -218,3 +218,17 @@
     @apply shadow-none border border-slate-300 mt-4;
   }
 }
+
+/* Reusable sticky columns for cost/revenue grids */
+.cost-grid-sticky {
+  position: sticky;
+  z-index: 10;
+  background: white;
+  border-right: 1px solid #e2e8f0;
+}
+.cost-col-1 { left: 0; }
+.cost-col-2 { left: 12rem; }   /* ≈192px */
+.cost-col-3 { left: 24rem; }   /* ≈384px */
+.cost-grid-sticky.cost-col-1 { z-index: 20; }
+.cost-grid-sticky.cost-col-2 { z-index: 19; }
+.cost-grid-sticky.cost-col-3 { z-index: 18; }
