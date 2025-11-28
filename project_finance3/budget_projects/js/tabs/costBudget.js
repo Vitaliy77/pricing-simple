@@ -2,6 +2,8 @@
 import { $, h } from "../lib/dom.js";
 import { getPlanContext } from "../lib/projectContext.js";
 
+let level1ProjectsCache = []; // all projects under selected Level 1 for this tab
+
 export const template = /*html*/ `
   <article>
     <h3 style="margin-bottom:0.5rem;">Cost Budget</h3>
@@ -12,14 +14,22 @@ export const template = /*html*/ `
     <section id="costMessage"
              style="min-height:1.25rem; font-size:0.9rem; color:#64748b; margin-bottom:0.5rem;"></section>
 
-    <!-- Toolbar -->
-    <section style="margin-bottom:0.75rem; display:flex; flex-wrap:wrap; gap:0.5rem;">
-      <button id="btnAddEmpCost" class="btn-primary">Add Employee</button>
-      <button id="btnAddSubCost" class="btn-secondary">Add Sub</button>
-      <button id="btnAddOdcCost" class="btn-secondary">Add ODC</button>
+    <!-- Toolbar: project selector for new lines + action buttons -->
+    <section style="margin-bottom:0.75rem; display:flex; flex-wrap:wrap; gap:0.5rem; align-items:flex-end;">
+      <label style="min-width:260px;">
+        Project for new line
+        <select id="costProjectSelect" style="min-width:260px;">
+          <option value="">— Select project —</option>
+        </select>
+      </label>
+      <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+        <button id="btnAddEmpCost" class="btn-primary">Add Employee</button>
+        <button id="btnAddSubCost" class="btn-secondary">Add Sub</button>
+        <button id="btnAddOdcCost" class="btn-secondary">Add ODC</button>
+      </div>
     </section>
 
-    <!-- Mapped employees overview (single selected project) -->
+    <!-- Mapped employees overview (selected child project) -->
     <section id="mappedEmployeesSection" style="margin-bottom:0.75rem;">
       <h4 style="margin-bottom:0.25rem; font-size:0.9rem;">Mapped Employees (staffing for selected project)</h4>
       <div class="scroll-x" style="width:100%;overflow-x:auto;">
@@ -91,27 +101,81 @@ export const costBudgetTab = {
       return;
     }
 
-    // Buttons (still placeholders)
+    // Button handlers: require a project from dropdown
     const btnEmp = $("#btnAddEmpCost", root);
     const btnSub = $("#btnAddSubCost", root);
     const btnOdc = $("#btnAddOdcCost", root);
 
+    const requireProjectForNewLine = () => {
+      const proj = getSelectedCostProject(root);
+      if (!proj) {
+        alert("Please select a project from the dropdown before adding a new line.");
+        return null;
+      }
+      return proj;
+    };
+
     btnEmp?.addEventListener("click", () => {
-      alert("Add Employee cost line – implementation to be added.");
+      const proj = requireProjectForNewLine();
+      if (!proj) return;
+      alert(`Add Employee cost line for ${proj.project_code || ""} – ${proj.name || ""}`);
+      // TODO: implement insert into planning_lines using proj.id
     });
+
     btnSub?.addEventListener("click", () => {
-      alert("Add Subcontractor cost line – implementation to be added.");
+      const proj = requireProjectForNewLine();
+      if (!proj) return;
+      alert(`Add Subcontractor cost line for ${proj.project_code || ""} – ${proj.name || ""}`);
+      // TODO: implement insert into planning_lines using proj.id
     });
+
     btnOdc?.addEventListener("click", () => {
-      alert("Add ODC cost line – implementation to be added.");
+      const proj = requireProjectForNewLine();
+      if (!proj) return;
+      alert(`Add ODC cost line for ${proj.project_code || ""} – ${proj.name || ""}`);
+      // TODO: implement insert into planning_lines using proj.id
     });
 
     await Promise.all([
-      refreshMappedEmployees(root, client),   // single project
-      refreshCost(root, client),             // ALL projects under Level 1
+      refreshMappedEmployees(root, client),   // staffing for selected child project
+      refreshCost(root, client),             // cost lines + fill project dropdown
     ]);
   },
 };
+
+// ────────────────────────────────────────────────────────────────
+// Helpers
+// ────────────────────────────────────────────────────────────────
+function getSelectedCostProject(root) {
+  const sel = $("#costProjectSelect", root);
+  if (!sel) return null;
+  const id = sel.value || null;
+  if (!id) return null;
+  const proj = level1ProjectsCache.find(p => p.id === id);
+  return proj || { id };
+}
+
+function populateCostProjectSelect(root, projects, ctx) {
+  const sel = $("#costProjectSelect", root);
+  if (!sel) return;
+
+  sel.innerHTML = "";
+  const placeholder = document.createElement("option");
+  placeholder.value = "";
+  placeholder.textContent = "— Select project —";
+  sel.appendChild(placeholder);
+
+  projects.forEach(p => {
+    const opt = document.createElement("option");
+    opt.value = p.id;
+    opt.textContent = `${p.project_code} – ${p.name}`;
+    // default to the currently selected child project if present
+    if (ctx.projectId && ctx.projectId === p.id) {
+      opt.selected = true;
+    }
+    sel.appendChild(opt);
+  });
+}
 
 // ────────────────────────────────────────────────────────────────
 // Mapped employees (for selected child project)
@@ -221,7 +285,7 @@ async function refreshCost(root, client) {
 
   msg && (msg.textContent = "Loading costs…");
 
-  // 1) Get all project IDs under this Level 1 (L3/L4/L5, etc.)
+  // 1) Get all project IDs under this Level 1
   const { data: projects, error: projErr } = await client
     .from("projects")
     .select("id, project_code, name")
@@ -235,10 +299,15 @@ async function refreshCost(root, client) {
   }
 
   if (!projects || projects.length === 0) {
+    level1ProjectsCache = [];
+    populateCostProjectSelect(root, [], ctx);
     renderCost(root, []);
     msg && (msg.textContent = "No child projects found for this Level 1.");
     return;
   }
+
+  level1ProjectsCache = projects;
+  populateCostProjectSelect(root, projects, ctx);
 
   const idList = projects.map(p => p.id);
   const projById = new Map(projects.map(p => [p.id, p]));
