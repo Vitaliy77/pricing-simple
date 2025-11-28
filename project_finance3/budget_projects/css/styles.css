@@ -20,6 +20,29 @@
   /* Layout */
   .app-shell {
     @apply min-h-screen flex flex-col;
+
+      /* Top menu bar + tab buttons */
+  .top-menu {
+    @apply bg-blue-700 shadow-lg sticky top-0 z-50;
+  }
+
+  .tab-btn {
+    @apply inline-flex items-center justify-center
+           rounded-md
+           px-3 py-1.5 mr-2
+           text-xs font-medium
+           text-slate-100
+           bg-blue-600/80
+           hover:bg-blue-500 hover:text-white
+           whitespace-nowrap
+           transition;
+  }
+
+  /* Active tab state (main.js usually adds .active) */
+  .tab-btn.active {
+    @apply bg-white text-blue-700 shadow;
+  }
+
   }
 
   .container-max {
