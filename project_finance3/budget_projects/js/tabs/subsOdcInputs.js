@@ -63,7 +63,9 @@ async function fetchSubsOdcLines(client, projectIds, ctx) {
     .select(`
       id,
       project_id,
+      project_name,
       vendor_id,
+      resource_name,
       description,
       amt_jan, amt_feb, amt_mar, amt_apr, amt_may, amt_jun,
       amt_jul, amt_aug, amt_sep, amt_oct, amt_nov, amt_dec,
@@ -132,8 +134,6 @@ export const template = /*html*/ `
       .subs-sticky-3 { left: 16rem; }
       .subs-sticky-4 { left: 27rem; }
 
-      }
-
       .subs-row-striped:nth-child(odd)  { background-color: #eff6ff; }
       .subs-row-striped:nth-child(even) { background-color: #ffffff; }
       .subs-row-striped:hover           { background-color: #dbeafe; }
@@ -161,7 +161,18 @@ export const template = /*html*/ `
     </div>
 
     <section id="subsOdcSection" class="border-t border-slate-200" style="display:none;">
-      <div class="px-4 py-2 flex flex-wrap gap-2 text-xs">
+      <div class="px-4 py-2 flex flex-wrap items-end gap-3 text-xs">
+        <label class="flex flex-col">
+          <span class="mb-0.5 text-[11px] text-slate-700">Project</span>
+          <select
+            id="subsProjectSelect"
+            class="min-w-[220px] px-2 py-1 border border-slate-300 rounded-md text-xs
+                   focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="">— Select project —</option>
+          </select>
+        </label>
+
         <button id="addSubsLineBtn" class="px-3 py-1.5 font-medium rounded-md shadow-sm bg-blue-600 hover:bg-blue-700 text-white">
           + Add Subs Line
         </button>
@@ -227,7 +238,7 @@ function renderLines(root) {
     const typeLabel = line.entry_types?.code === "SUBC_COST" ? "Subs" : "ODC";
     const total = computeRowTotal(line);
 
-    const projectOptions = projectScope.map(p => 
+    const projectOptions = projectScope.map(p =>
       `<option value="${p.id}" ${p.id === line.project_id ? "selected" : ""}>${p.project_code} – ${p.name}</option>`
     ).join("");
 
@@ -318,22 +329,44 @@ function updateSubsTotals(root) {
 // ─────────────────────────────────────────────
 // DATA MUTATIONS
 // ─────────────────────────────────────────────
-async function addNewSubsOdcLine(client, ctx, typeCode) {
-  const entryTypeId = (await client.from("entry_types").select("id").eq("code", typeCode).single()).data?.id;
-  if (!entryTypeId || !projectScope.length) return;
+async function addNewSubsOdcLine(client, ctx, typeCode, projectId) {
+  if (!projectId) return null;
+
+  const { data: et, error: etErr } = await client
+    .from("entry_types")
+    .select("id")
+    .eq("code", typeCode)
+    .single();
+
+  if (etErr || !et) {
+    console.error("[SubsOdcInputs] entry_type lookup error", etErr);
+    return null;
+  }
+
+  const entryTypeId = et.id;
+  const proj = projectScope.find(p => p.id === projectId);
 
   const payload = {
-    project_id: projectScope[0].id,
+    project_id: projectId,
+    project_name: proj?.name || null,
     entry_type_id: entryTypeId,
     plan_year: ctx.year,
     plan_version_id: ctx.versionId,
     plan_type: ctx.planType || "Working",
     description: "",
   };
-  MONTH_COLS.forEach(c => payload[c] = 0);
+  MONTH_COLS.forEach(c => { payload[c] = 0; });
 
-  const { data, error } = await client.from("planning_lines").insert(payload).select().single();
-  if (error) console.error("[SubsOdcInputs] insert error", error);
+  const { data, error } = await client
+    .from("planning_lines")
+    .insert(payload)
+    .select()
+    .single();
+
+  if (error) {
+    console.error("[SubsOdcInputs] insert error", error);
+    return null;
+  }
   return data;
 }
 
@@ -381,7 +414,7 @@ export const subsOdcInputsTab = {
     const section = $("#subsOdcSection", root);
     const ctx = getPlanContext();
 
-    // Header labels – same logic as laborHours
+    // Header labels – same logic as laborHours style
     $("#subsInlinePlan", root).textContent =
       ctx?.planLabel || (ctx?.year ? `BUDGET – ${ctx.year} · ${ctx.planType || "Working"}` : "Subs & ODC");
     if (ctx?.level1ProjectCode && ctx?.level1ProjectName) {
@@ -404,6 +437,18 @@ export const subsOdcInputsTab = {
     vendors = await loadVendors(client);
     const projectIds = projectScope.map(p => p.id);
 
+    // Fill project dropdown
+    const projSel = $("#subsProjectSelect", root);
+    if (projSel) {
+      projSel.innerHTML = `<option value="">— Select project —</option>`;
+      projectScope.forEach(p => {
+        const opt = document.createElement("option");
+        opt.value = p.id;
+        opt.textContent = `${p.project_code} – ${p.name}`;
+        projSel.appendChild(opt);
+      });
+    }
+
     lines = await fetchSubsOdcLines(client, projectIds, ctx);
 
     renderLines(root);
@@ -412,14 +457,24 @@ export const subsOdcInputsTab = {
 
     // Add buttons
     $("#addSubsLineBtn", root)?.addEventListener("click", async () => {
-      await addNewSubsOdcLine(client, ctx, "SUBC_COST");
+      const projId = $("#subsProjectSelect", root)?.value || "";
+      if (!projId) {
+        msg.textContent = "Please select a project before adding a Subs line.";
+        return;
+      }
+      await addNewSubsOdcLine(client, ctx, "SUBC_COST", projId);
       lines = await fetchSubsOdcLines(client, projectIds, ctx);
       renderLines(root);
       updateSubsTotals(root);
     });
 
     $("#addOdcLineBtn", root)?.addEventListener("click", async () => {
-      await addNewSubsOdcLine(client, ctx, "ODC_COST");
+      const projId = $("#subsProjectSelect", root)?.value || "";
+      if (!projId) {
+        msg.textContent = "Please select a project before adding an ODC line.";
+        return;
+      }
+      await addNewSubsOdcLine(client, ctx, "ODC_COST", projId);
       lines = await fetchSubsOdcLines(client, projectIds, ctx);
       renderLines(root);
       updateSubsTotals(root);
