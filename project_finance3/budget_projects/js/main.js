@@ -9,6 +9,8 @@ import { summaryPlanTab } from "./tabs/summaryPlan.js";
 import { revenueBudgetTab } from "./tabs/revenueBudget.js";
 import { costBudgetTab } from "./tabs/costBudget.js";
 import { costInputsTab } from "./tabs/costInputs.js";
+import { laborHoursTab } from "./tabs/laborHours.js";
+import { subsOdcInputsTab } from "./tabs/subsOdcInputs.js";
 import { adminTab } from "./tabs/admin.js";
 import { pnlTab } from "./tabs/pnl.js";
 
@@ -20,6 +22,8 @@ const tabs = {
   revenueBudget: revenueBudgetTab,
   costBudget: costBudgetTab,
   costInputs: costInputsTab,   // ← NEW
+  laborHours: laborHoursTab,        // NEW
+  subsOdcInputs: subsOdcInputsTab,  // NEW
   admin: adminTab,
   pnl: pnlTab,    
 };
