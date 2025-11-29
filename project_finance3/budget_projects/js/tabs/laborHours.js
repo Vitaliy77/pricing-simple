@@ -19,6 +19,57 @@ const MONTHS = [
 
 export const template = /*html*/ `
   <article class="full-width-card">
+    <!-- Local styles for this tab -->
+    <style>
+      /* compact table + narrow gaps */
+      .labor-table {
+        border-collapse: collapse;
+        width: 100%;
+      }
+      .labor-table th,
+      .labor-table td {
+        padding: 2px 4px; /* small – ~<1mm visually */
+        white-space: nowrap;
+      }
+
+      /* number inputs: no spinners, fixed min width for 100.00 / 1,000,000 */
+      .labor-cell-input {
+        min-width: 4.8rem; /* fits 1,000,000 comfortably */
+        text-align: right;
+      }
+      .no-spin::-webkit-inner-spin-button,
+      .no-spin::-webkit-outer-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+      }
+      .no-spin {
+        -moz-appearance: textfield;
+      }
+
+      /* striping + active row highlighting */
+      .labor-row-striped:nth-child(odd) {
+        background-color: #eff6ff; /* blue-50 */
+      }
+      .labor-row-striped:nth-child(even) {
+        background-color: #ffffff;
+      }
+      .labor-row-striped:hover {
+        background-color: #dbeafe; /* blue-100 */
+      }
+      .labor-row-active {
+        background-color: #bfdbfe !important; /* blue-200 */
+      }
+
+      /* summary row at bottom */
+      .labor-summary-row {
+        background-color: #e5e7eb; /* slate-200 */
+        font-weight: 600;
+        position: sticky;
+        bottom: 0;
+        z-index: 10;
+      }
+    </style>
+
     <!-- Compact inline header -->
     <div class="px-4 pt-3 pb-2 border-b border-slate-200">
       <div class="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-xs text-slate-700">
@@ -39,48 +90,48 @@ export const template = /*html*/ `
 
     <section id="laborHoursSection" class="border-t border-slate-200" style="display:none;">
       <div class="px-4 py-2">
-        <button id="addEmployeeRowBtn" class="px-3 py-1.5 text-xs font-medium rounded-md shadow-sm bg-blue-600 hover:bg-blue-700 text-white">
+        <button
+          id="addEmployeeRowBtn"
+          class="px-3 py-1.5 text-xs font-medium rounded-md shadow-sm bg-blue-600 hover:bg-blue-700 text-white"
+        >
           + Add Employee Row
         </button>
       </div>
 
       <div class="w-full max-h-[520px] overflow-auto overflow-x-auto">
-        <table class="min-w-full text-xs table-fixed">
+        <table class="labor-table min-w-full text-xs table-fixed">
           <thead class="bg-slate-50">
             <tr>
               <th
                 class="cost-grid-sticky cost-col-1 sticky top-0 z-30 bg-slate-50
-                       text-left text-[11px] font-semibold text-slate-700 uppercase tracking-wider
-                       px-3 py-1.5"
+                       text-left text-[11px] font-semibold text-slate-700 uppercase tracking-wider"
               >
                 Project
               </th>
               <th
                 class="cost-grid-sticky cost-col-2 sticky top-0 z-30 bg-slate-50
-                       text-left text-[11px] font-semibold text-slate-700 uppercase tracking-wider
-                       px-3 py-1.5"
+                       text-left text-[11px] font-semibold text-slate-700 uppercase tracking-wider"
               >
                 Employee
               </th>
               <th
                 class="cost-grid-sticky cost-col-3 sticky top-0 z-30 bg-slate-50
-                       text-left text-[11px] font-semibold text-slate-700 uppercase tracking-wider
-                       px-3 py-1.5"
+                       text-left text-[11px] font-semibold text-slate-700 uppercase tracking-wider"
               >
                 Department / Labor Category
               </th>
               ${MONTHS.map(
-                m => `
-              <th class="sticky top-0 z-20 bg-slate-50 px-3 py-1.5 text-right text-[11px] font-semibold text-slate-700 uppercase tracking-wider">
+                (m) => `
+              <th class="sticky top-0 z-20 bg-slate-50 text-right text-[11px] font-semibold text-slate-700 uppercase tracking-wider">
                 ${m.label}
               </th>`
               ).join("")}
-              <th class="sticky top-0 z-20 bg-slate-50 px-3 py-1.5 text-right text-[11px] font-semibold text-slate-700 uppercase tracking-wider">
+              <th class="sticky top-0 z-20 bg-slate-50 text-right text-[11px] font-semibold text-slate-700 uppercase tracking-wider">
                 Total Hrs
               </th>
             </tr>
           </thead>
-          <tbody id="laborHoursTbody" class="bg-white divide-y divide-slate-100">
+          <tbody id="laborHoursTbody" class="bg-white">
             <tr>
               <td colspan="16" class="text-center py-10 text-slate-500 text-xs">
                 Loading…
@@ -105,7 +156,7 @@ function fmtNum(v) {
   return num.toString();
 }
 
-function computeTotal(row) {
+function computeRowTotal(row) {
   return Object.values(row.months || {}).reduce((sum, v) => {
     const n = Number(v || 0);
     return sum + (Number.isNaN(n) ? 0 : n);
@@ -188,7 +239,6 @@ async function loadAvailableEmployees(client, projectIds) {
     });
   });
 
-  // Unique by (project_id, employee_id)
   const keyMap = new Map();
   list.forEach((e) => {
     keyMap.set(`${e.project_id}||${e.employee_id}`, e);
@@ -212,9 +262,6 @@ async function loadHours(client, projectIds, ctx) {
     .select(`
       project_id,
       employee_id,
-      plan_year,
-      plan_version_id,
-      plan_type,
       ym,
       hours,
       employees (
@@ -271,6 +318,42 @@ async function loadHours(client, projectIds, ctx) {
   return result;
 }
 
+function updateLaborTotals(root) {
+  const summaryRow = root.querySelector("tr[data-summary-row='labor']");
+  if (!summaryRow || !rows.length) return;
+
+  const monthTotals = {};
+  MONTHS.forEach((m) => (monthTotals[m.key] = 0));
+  let grand = 0;
+
+  rows.forEach((row) => {
+    MONTHS.forEach((m) => {
+      const ym = row.ymMap[m.key];
+      const val = Number(row.months[ym] || 0);
+      if (!Number.isNaN(val)) {
+        monthTotals[m.key] += val;
+        grand += val;
+      }
+    });
+  });
+
+  MONTHS.forEach((m) => {
+    const cell = summaryRow.querySelector(`[data-total-col="${m.key}"]`);
+    if (cell) {
+      cell.textContent = monthTotals[m.key].toLocaleString(undefined, {
+        maximumFractionDigits: 2,
+      });
+    }
+  });
+
+  const grandCell = summaryRow.querySelector('[data-total-col="all"]');
+  if (grandCell) {
+    grandCell.textContent = grand.toLocaleString(undefined, {
+      maximumFractionDigits: 2,
+    });
+  }
+}
+
 function renderRows(root) {
   const tbody = $("#laborHoursTbody", root);
   if (!tbody) return;
@@ -291,15 +374,17 @@ function renderRows(root) {
   rows.forEach((row, idx) => {
     const tr = document.createElement("tr");
     tr.dataset.rowIndex = idx.toString();
-    const total = computeTotal(row);
+    tr.className = "labor-row-striped";
+
+    const total = computeRowTotal(row);
 
     const monthCells = MONTHS.map((m) => {
       const ym = row.ymMap[m.key];
       const val = row.months[ym];
       return `
-        <td class="px-3 py-1 text-right">
+        <td>
           <input
-            class="cell-input cell-input-num w-full text-right border border-slate-200 rounded-sm px-1 py-0.5"
+            class="cell-input cell-input-num labor-cell-input no-spin border border-slate-200 rounded-sm px-1 py-0.5 text-[11px]"
             data-row="${idx}"
             data-month="${m.key}"
             type="number"
@@ -311,25 +396,47 @@ function renderRows(root) {
     }).join("");
 
     tr.innerHTML = `
-      <td class="cost-grid-sticky cost-col-1 px-3 py-1 text-[11px] font-medium text-slate-900">
+      <td class="cost-grid-sticky cost-col-1 text-[11px] font-medium text-slate-900">
         ${row.project_code || ""}
       </td>
-      <td class="cost-grid-sticky cost-col-2 px-3 py-1 text-[11px] text-slate-800">
+      <td class="cost-grid-sticky cost-col-2 text-[11px] text-slate-800">
         ${row.full_name || ""}
       </td>
-      <td class="cost-grid-sticky cost-col-3 px-3 py-1 text-[11px] text-slate-600">
+      <td class="cost-grid-sticky cost-col-3 text-[11px] text-slate-600">
         ${row.department_name || ""}${
           row.labor_category ? ` · ${row.labor_category}` : ""
         }
       </td>
       ${monthCells}
-      <td class="px-3 py-1 text-right text-[11px] font-semibold text-slate-900" data-total-row="${idx}">
+      <td class="text-right text-[11px] font-semibold text-slate-900" data-total-row="${idx}">
         ${total.toLocaleString(undefined, { maximumFractionDigits: 2 })}
       </td>
     `;
 
     tbody.appendChild(tr);
   });
+
+  // Summary row
+  const summaryTr = document.createElement("tr");
+  summaryTr.dataset.summaryRow = "labor";
+  summaryTr.className = "labor-summary-row";
+  const totalsLabel = `
+    <td class="text-[11px] font-semibold text-slate-900">Totals</td>
+    <td></td>
+    <td></td>
+  `;
+  const monthTotalsCells = MONTHS.map(
+    (m) => `
+      <td class="text-right text-[11px]" data-total-col="${m.key}"></td>
+    `
+  ).join("");
+  const grandTotalCell = `
+    <td class="text-right text-[11px] font-semibold" data-total-col="all"></td>
+  `;
+  summaryTr.innerHTML = totalsLabel + monthTotalsCells + grandTotalCell;
+  tbody.appendChild(summaryTr);
+
+  updateLaborTotals(root);
 }
 
 async function upsertHourCell(client, ctx, row, monthKey, hoursValue) {
@@ -357,6 +464,30 @@ async function upsertHourCell(client, ctx, row, monthKey, hoursValue) {
   if (error) {
     console.error("[laborHours] upsertHourCell error", error);
   }
+}
+
+function wireRowHighlight(root) {
+  const tbody = $("#laborHoursTbody", root);
+  if (!tbody) return;
+
+  const setActive = (tr) => {
+    tbody
+      .querySelectorAll("tr.labor-row-striped, tr.labor-summary-row")
+      .forEach((row) => row.classList.remove("labor-row-active"));
+    if (tr && tr.matches(".labor-row-striped")) {
+      tr.classList.add("labor-row-active");
+    }
+  };
+
+  tbody.addEventListener("focusin", (evt) => {
+    const tr = evt.target.closest("tr");
+    if (tr) setActive(tr);
+  });
+
+  tbody.addEventListener("click", (evt) => {
+    const tr = evt.target.closest("tr");
+    if (tr) setActive(tr);
+  });
 }
 
 export const laborHoursTab = {
@@ -394,7 +525,6 @@ export const laborHoursTab = {
 
     if (msgEl) msgEl.textContent = "Loading projects, employees, and hours…";
 
-    // Level-1 scope
     projectScope = await getProjectScope(client, ctx.level1ProjectId);
     const projectIds = projectScope.map((p) => p.id);
 
@@ -433,7 +563,7 @@ export const laborHoursTab = {
     renderRows(root);
     if (msgEl) msgEl.textContent = "";
 
-    // Add Employee Row: blank row (user can type hours, auto-saves per cell
+    // Add Employee Row: blank row
     $("#addEmployeeRowBtn", root).addEventListener("click", () => {
       if (!projectScope.length) return;
       const firstProj = projectScope[0];
@@ -476,12 +606,18 @@ export const laborHoursTab = {
         `[data-total-row="${rowIdx}"]`
       );
       if (totalCell) {
-        totalCell.textContent = computeTotal(row).toLocaleString(undefined, {
-          maximumFractionDigits: 2,
-        });
+        totalCell.textContent = computeRowTotal(row).toLocaleString(
+          undefined,
+          {
+            maximumFractionDigits: 2,
+          }
+        );
       }
 
+      updateLaborTotals(root);
       await upsertHourCell(client, ctx, row, monthKey, numVal);
     });
+
+    wireRowHighlight(root);
   },
 };
