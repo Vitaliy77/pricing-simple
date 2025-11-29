@@ -14,10 +14,11 @@ const MONTH_LABELS = [
 
 let entryTypeIdByCode = null; // { SUBC_COST: uuid, ODC_COST: uuid }
 let projectScope = []; // [{ id, project_code, name }]
-let lines = []; // global cache of subs/odc lines
+let vendors = [];      // [{ id, vendor_name }]
+let lines = [];        // planning_lines rows (SUBC/ODC only)
 
 export const template = /*html*/ `
-  <article class="full-width-card">
+  <article class="full-width-card w-full">
     <style>
       .subs-table {
         border-collapse: collapse;
@@ -25,12 +26,12 @@ export const template = /*html*/ `
       }
       .subs-table th,
       .subs-table td {
-        padding: 2px 4px; /* small gap */
+        padding: 2px 4px;
         white-space: nowrap;
       }
 
       .subs-cell-input-num {
-        min-width: 4.8rem; /* fits 1,000,000 */
+        min-width: 4.8rem;
         text-align: right;
       }
       .subs-cell-input-text {
@@ -46,25 +47,44 @@ export const template = /*html*/ `
         -moz-appearance: textfield;
       }
 
+      /* Sticky columns (Project, Type, Vendor, Description) */
+      .subs-sticky-1,
+      .subs-sticky-2,
+      .subs-sticky-3,
+      .subs-sticky-4 {
+        position: sticky;
+        z-index: 30;
+        background-color: inherit; /* keep striping */
+      }
+      .subs-sticky-1 { left: 0; }
+      .subs-sticky-2 { left: 8rem; }
+      .subs-sticky-3 { left: 16rem; }
+      .subs-sticky-4 { left: 28rem; }
+
+      .subs-col-project { min-width: 8rem; }
+      .subs-col-type { min-width: 8rem; }
+      .subs-col-vendor { min-width: 10rem; }
+      .subs-col-desc { min-width: 12rem; }
+
       .subs-row-striped:nth-child(odd) {
-        background-color: #eff6ff; /* blue-50 */
+        background-color: #eff6ff;
       }
       .subs-row-striped:nth-child(even) {
         background-color: #ffffff;
       }
       .subs-row-striped:hover {
-        background-color: #dbeafe; /* blue-100 */
+        background-color: #dbeafe;
       }
       .subs-row-active {
-        background-color: #bfdbfe !important; /* blue-200 */
+        background-color: #bfdbfe !important;
       }
 
       .subs-summary-row {
-        background-color: #e5e7eb; /* slate-200 */
+        background-color: #e5e7eb;
         font-weight: 600;
         position: sticky;
         bottom: 0;
-        z-index: 10;
+        z-index: 20;
       }
     </style>
 
@@ -77,7 +97,7 @@ export const template = /*html*/ `
           · Subs &amp; ODC Costs
         </span>
         <span class="text-[11px] text-slate-600 ml-1">
-          — Enter dollar costs per month for subcontractors and other direct costs under the selected Level 1 project.
+          — Enter dollar costs per month for subcontractors and other direct costs.
         </span>
       </div>
       <div
@@ -101,36 +121,36 @@ export const template = /*html*/ `
           <thead class="bg-slate-50">
             <tr>
               <th
-                class="cost-grid-sticky cost-col-1 sticky top-0 z-30 bg-slate-50
+                class="subs-sticky-1 subs-col-project sticky top-0 bg-slate-50
                        text-left text-[11px] font-semibold text-slate-700 uppercase tracking-wider"
               >
                 Project
               </th>
               <th
-                class="cost-grid-sticky cost-col-2 sticky top-0 z-30 bg-slate-50
+                class="subs-sticky-2 subs-col-type sticky top-0 bg-slate-50
                        text-left text-[11px] font-semibold text-slate-700 uppercase tracking-wider"
               >
                 Type
               </th>
               <th
-                class="cost-grid-sticky cost-col-3 sticky top-0 z-30 bg-slate-50
+                class="subs-sticky-3 subs-col-vendor sticky top-0 bg-slate-50
                        text-left text-[11px] font-semibold text-slate-700 uppercase tracking-wider"
               >
-                Vendor / Label
+                Vendor
               </th>
               <th
-                class="sticky top-0 z-30 bg-slate-50
+                class="subs-sticky-4 subs-col-desc sticky top-0 bg-slate-50
                        text-left text-[11px] font-semibold text-slate-700 uppercase tracking-wider"
               >
                 Description
               </th>
               ${MONTH_LABELS.map(
                 (m) => `
-              <th class="sticky top-0 z-20 bg-slate-50 text-right text-[11px] font-semibold text-slate-700 uppercase tracking-wider">
+              <th class="sticky top-0 bg-slate-50 text-right text-[11px] font-semibold text-slate-700 uppercase tracking-wider">
                 ${m}
               </th>`
               ).join("")}
-              <th class="sticky top-0 z-20 bg-slate-50 text-right text-[11px] font-semibold text-slate-700 uppercase tracking-wider">
+              <th class="sticky top-0 bg-slate-50 text-right text-[11px] font-semibold text-slate-700 uppercase tracking-wider">
                 Total $
               </th>
             </tr>
@@ -162,7 +182,10 @@ function computeRowTotal(line) {
   }, 0);
 }
 
-// Level-1 project scope
+// ─────────────────────────────────────────────
+// LOADERS
+// ─────────────────────────────────────────────
+
 async function getProjectScope(client, level1ProjectId) {
   const { data: parent, error: parentError } = await client
     .from("projects")
@@ -187,6 +210,20 @@ async function getProjectScope(client, level1ProjectId) {
   }
 
   return [parent, ...(children || [])];
+}
+
+async function loadVendors(client) {
+  const { data, error } = await client
+    .from("vendors")
+    .select("id, vendor_name, active")
+    .eq("active", true)
+    .order("vendor_name");
+
+  if (error) {
+    console.error("[subsOdc] loadVendors error", error);
+    return [];
+  }
+  return data || [];
 }
 
 async function ensureEntryTypeIds(client) {
@@ -215,6 +252,7 @@ async function fetchSubsOdcLines(client, projectIds, ctx) {
       id,
       project_id,
       project_name,
+      vendor_id,
       resource_name,
       description,
       amt_jan, amt_feb, amt_mar, amt_apr, amt_may, amt_jun,
@@ -254,6 +292,10 @@ function getTypeLabel(line) {
   if (code === "ODC_COST") return "ODC";
   return line.entry_types?.display_name || "Cost";
 }
+
+// ─────────────────────────────────────────────
+// RENDERING & TOTALS
+// ─────────────────────────────────────────────
 
 function updateSubsTotals(root) {
   const summaryRow = root.querySelector("tr[data-summary-row='subs']");
@@ -306,6 +348,7 @@ function renderLines(root) {
   }
 
   tbody.innerHTML = "";
+
   lines.forEach((line, idx) => {
     const tr = document.createElement("tr");
     tr.dataset.lineId = line.id;
@@ -314,6 +357,27 @@ function renderLines(root) {
 
     const typeLabel = getTypeLabel(line);
     const total = computeRowTotal(line);
+
+    const projectOptions = projectScope
+      .map(
+        (p) => `
+          <option value="${p.id}" ${
+          p.id === line.project_id ? "selected" : ""
+        }>
+            ${p.project_code} – ${p.name}
+          </option>`
+      )
+      .join("");
+
+    const vendorOptions = [
+      '<option value="">— Vendor —</option>',
+      ...vendors.map(
+        (v) => `
+        <option value="${v.id}" ${
+          v.id === line.vendor_id ? "selected" : ""
+        }>${v.vendor_name}</option>`
+      ),
+    ].join("");
 
     const monthCells = MONTH_COLS
       .map(
@@ -333,22 +397,28 @@ function renderLines(root) {
       .join("");
 
     tr.innerHTML = `
-      <td class="cost-grid-sticky cost-col-1 text-[11px] font-medium text-slate-900">
-        ${line.project_code || ""}
-      </td>
-      <td class="cost-grid-sticky cost-col-2 text-[11px] text-slate-800">
-        ${typeLabel}
-      </td>
-      <td class="cost-grid-sticky cost-col-3 text-[11px] text-slate-800">
-        <input
+      <td class="subs-sticky-1 subs-col-project text-[11px] font-medium text-slate-900">
+        <select
           class="cell-input subs-cell-input-text border border-slate-200 rounded-sm px-1 py-0.5 text-[11px]"
           data-row="${idx}"
-          data-field="resource_name"
-          type="text"
-          value="${line.resource_name || ""}"
-        />
+          data-field="project_id"
+        >
+          ${projectOptions}
+        </select>
       </td>
-      <td class="text-[11px] text-slate-700">
+      <td class="subs-sticky-2 subs-col-type text-[11px] text-slate-800">
+        ${typeLabel}
+      </td>
+      <td class="subs-sticky-3 subs-col-vendor text-[11px] text-slate-800">
+        <select
+          class="cell-input subs-cell-input-text border border-slate-200 rounded-sm px-1 py-0.5 text-[11px]"
+          data-row="${idx}"
+          data-field="vendor_id"
+        >
+          ${vendorOptions}
+        </select>
+      </td>
+      <td class="subs-sticky-4 subs-col-desc text-[11px] text-slate-700">
         <input
           class="cell-input subs-cell-input-text border border-slate-200 rounded-sm px-1 py-0.5 text-[11px]"
           data-row="${idx}"
@@ -389,6 +459,10 @@ function renderLines(root) {
   updateSubsTotals(root);
 }
 
+// ─────────────────────────────────────────────
+// UPSERTS
+// ─────────────────────────────────────────────
+
 async function addNewSubsOdcLine(client, ctx, typeCode) {
   await ensureEntryTypeIds(client);
   const entryTypeId = entryTypeIdByCode?.[typeCode];
@@ -405,6 +479,7 @@ async function addNewSubsOdcLine(client, ctx, typeCode) {
     project_name: firstProj.name,
     entry_type_id: entryTypeId,
     is_revenue: false,
+    vendor_id: null,
     resource_name: "",
     description: "",
     plan_year: ctx.year,
@@ -428,7 +503,7 @@ async function addNewSubsOdcLine(client, ctx, typeCode) {
   return data;
 }
 
-async function updateCell(client, lineId, field, value) {
+async function updateNumericCell(client, lineId, field, value) {
   const patch = {};
   patch[field] = value === "" ? 0 : Number(value);
 
@@ -438,7 +513,7 @@ async function updateCell(client, lineId, field, value) {
     .eq("id", lineId);
 
   if (error) {
-    console.error("[subsOdc] updateCell error", error);
+    console.error("[subsOdc] updateNumericCell error", error);
   }
 }
 
@@ -455,6 +530,42 @@ async function updateTextField(client, lineId, field, value) {
     console.error("[subsOdc] updateTextField error", error);
   }
 }
+
+async function updateProjectOnLine(client, lineId, projectId) {
+  const patch = { project_id: projectId };
+  const proj = projectScope.find((p) => p.id === projectId);
+  if (proj) {
+    patch.project_name = proj.name;
+  }
+  const { error } = await client
+    .from("planning_lines")
+    .update(patch)
+    .eq("id", lineId);
+
+  if (error) {
+    console.error("[subsOdc] updateProjectOnLine error", error);
+  }
+}
+
+async function updateVendorOnLine(client, lineId, vendorId) {
+  const patch = { vendor_id: vendorId || null };
+  const v = vendors.find((vv) => vv.id === vendorId);
+  if (v) {
+    patch.resource_name = v.vendor_name;
+  }
+  const { error } = await client
+    .from("planning_lines")
+    .update(patch)
+    .eq("id", lineId);
+
+  if (error) {
+    console.error("[subsOdc] updateVendorOnLine error", error);
+  }
+}
+
+// ─────────────────────────────────────────────
+// ROW HIGHLIGHT
+// ─────────────────────────────────────────────
 
 function wireSubsRowHighlight(root) {
   const tbody = $("#subsOdcTbody", root);
@@ -480,6 +591,10 @@ function wireSubsRowHighlight(root) {
   });
 }
 
+// ─────────────────────────────────────────────
+// TAB INIT
+// ─────────────────────────────────────────────
+
 export const subsOdcInputsTab = {
   template,
   async init({ root, client }) {
@@ -488,7 +603,7 @@ export const subsOdcInputsTab = {
     const tbody = $("#subsOdcTbody", root);
     const ctx = getPlanContext();
 
-    // Compact header from global header
+    // compact header from global header
     const globalPlan =
       document.querySelector("#planContextHeader")?.textContent?.trim() || "";
     const globalProject =
@@ -516,6 +631,7 @@ export const subsOdcInputsTab = {
     if (msgEl) msgEl.textContent = "Loading subs & ODC costs…";
 
     projectScope = await getProjectScope(client, ctx.level1ProjectId);
+    vendors = await loadVendors(client);
     const projectIds = projectScope.map((p) => p.id);
 
     lines = await fetchSubsOdcLines(client, projectIds, ctx);
@@ -540,7 +656,7 @@ export const subsOdcInputsTab = {
       }
     });
 
-    // Delegated change handling
+    // Delegated changes
     tbody.addEventListener("change", async (evt) => {
       const input = evt.target;
       if (!input.classList.contains("cell-input")) return;
@@ -555,7 +671,10 @@ export const subsOdcInputsTab = {
 
       if (MONTH_COLS.includes(field)) {
         line[field] = newVal === "" ? 0 : Number(newVal);
-        await updateCell(client, lineId, field, newVal);
+        // keep the value visible
+        input.value = fmtNum(line[field]);
+
+        await updateNumericCell(client, lineId, field, newVal);
 
         const totalCell = root.querySelector(`[data-total-row="${rowIdx}"]`);
         if (totalCell) {
@@ -565,9 +684,15 @@ export const subsOdcInputsTab = {
           );
         }
         updateSubsTotals(root);
-      } else if (field === "resource_name" || field === "description") {
+      } else if (field === "description") {
         line[field] = newVal;
         await updateTextField(client, lineId, field, newVal);
+      } else if (field === "project_id") {
+        line.project_id = newVal || null;
+        await updateProjectOnLine(client, lineId, newVal || null);
+      } else if (field === "vendor_id") {
+        line.vendor_id = newVal || null;
+        await updateVendorOnLine(client, lineId, newVal || null);
       }
     });
 
