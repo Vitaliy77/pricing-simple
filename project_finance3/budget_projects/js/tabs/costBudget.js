@@ -226,7 +226,6 @@ async function loadLaborCosts(client, projectIds, ctx) {
     const { data: emps, error: empErr } = await client
       .from("employees")
       .select("id, full_name, department_name, hourly_cost");
-      // you can add labor_category if you want to show it
 
     if (empErr) {
       console.error("[CostBudget] employees error", empErr);
@@ -270,25 +269,32 @@ async function loadLaborCosts(client, projectIds, ctx) {
 }
 
 // ─────────────────────────────────────────────
-// LOAD SUBS & ODC COSTS
-//   Assumes a table like: subs_odc_costs
-//   with columns: project_id, type, vendor_name, label, description, ym, amount,
-//   plan_year, plan_version_id, plan_type
-//   Adjust table / column names if your schema differs.
+// LOAD SUBS & ODC COSTS FROM planning_lines
+//   entry_types.code in ["SUBC_COST", "ODC_COST"]
+//   Uses monthly amt_* columns directly
 // ─────────────────────────────────────────────
 async function loadSubsOdcCosts(client, projectIds, ctx) {
   if (!projectIds.length) return [];
 
   const { data, error } = await client
-    .from("subs_odc_costs") // <-- rename if your table is named differently
-    .select("project_id, type, vendor_name, label, description, ym, amount")
+    .from("planning_lines")
+    .select(`
+      project_id,
+      project_name,
+      resource_name,
+      description,
+      amt_jan, amt_feb, amt_mar, amt_apr, amt_may, amt_jun,
+      amt_jul, amt_aug, amt_sep, amt_oct, amt_nov, amt_dec,
+      entry_types ( code )
+    `)
     .in("project_id", projectIds)
+    .in("entry_types.code", ["SUBC_COST", "ODC_COST"])
     .eq("plan_year", ctx.year)
     .eq("plan_version_id", ctx.versionId)
     .eq("plan_type", ctx.planType || "Working");
 
   if (error) {
-    console.error("[CostBudget] subs_odc_costs error", error);
+    console.error("[CostBudget] planning_lines (subs/odc) error", error);
     return [];
   }
 
@@ -296,21 +302,26 @@ async function loadSubsOdcCosts(client, projectIds, ctx) {
 
   const byKey = new Map();
 
-  for (const row of data) {
-    const projMeta = _projectMeta[row.project_id];
-    if (!projMeta) continue;
+  for (const line of data) {
+    const projMeta = _projectMeta[line.project_id];
+    const projectLabel = projMeta?.label || line.project_name || "(Project)";
 
-    const who = row.vendor_name || row.label || row.type || "(Vendor / ODC)";
-    const descParts = [];
-    if (row.type) descParts.push(row.type);
-    if (row.description) descParts.push(row.description);
-    const desc = descParts.join(" · ");
+    const typeCode = line.entry_types?.code;
+    const isSubs = typeCode === "SUBC_COST";
 
-    const key = `${row.project_id}::${who}::${desc}`;
+    const who =
+      line.resource_name ||
+      (isSubs ? "Subcontractor" : "ODC");
+
+    const desc =
+      line.description ||
+      (isSubs ? "Subcontractor cost" : "Other direct cost");
+
+    const key = `${line.project_id}::${who}::${desc}`;
     if (!byKey.has(key)) {
       const rec = {
-        source: "subs_odc",
-        project_label: projMeta.label,
+        source: isSubs ? "subs" : "odc",
+        project_label: projectLabel,
         who,
         desc,
       };
@@ -319,8 +330,13 @@ async function loadSubsOdcCosts(client, projectIds, ctx) {
     }
 
     const rec = byKey.get(key);
-    const amt = Number(row.amount || 0);
-    addToMonth(rec, row.ym, amt);
+
+    MONTH_FIELDS.forEach(({ col }) => {
+      const val = Number(line[col] || 0);
+      if (!Number.isNaN(val)) {
+        rec[col] += val;
+      }
+    });
   }
 
   return Array.from(byKey.values());
