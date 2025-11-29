@@ -8,14 +8,13 @@ const MONTH_COLS = [
 ];
 const MONTH_LABELS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
-let entryTypeIdByCode = null;
 let projectScope = [];
 let vendors = [];
 let lines = [];
 
 export const template = /*html*/ `
   <article class="full-width-card w-full">
-    <!-- PERFECT LOCAL STYLES — EXACTLY AS REQUESTED -->
+    <!-- EXACT SAME VISUAL LANGUAGE AS laborHours.js -->
     <style>
       .subs-table {
         border-collapse: collapse;
@@ -28,17 +27,13 @@ export const template = /*html*/ `
         white-space: nowrap;
       }
 
-      .subs-cell-input-num {
+      .subs-cell-input {
         min-width: 5.2rem;
         text-align: left;
-        color: #0f172a;
-        background-color: #ffffff;
-      }
-      .subs-cell-input-text {
-        min-width: 9rem;
-        text-align: left;
-        color: #0f172a;
-        background-color: #ffffff;
+        color: #0f172a !important;
+        background-color: #ffffff !important;
+        height: 1.5rem;
+        line-height: 1.5rem;
       }
 
       .no-spin::-webkit-inner-spin-button,
@@ -48,7 +43,7 @@ export const template = /*html*/ `
       }
       .no-spin { -moz-appearance: textfield; }
 
-      /* Fixed widths for perfect sticky alignment */
+      /* Sticky column widths — perfectly aligned */
       .subs-col-project { width: 9rem; }
       .subs-col-type    { width: 7rem; }
       .subs-col-vendor  { width: 11rem; }
@@ -62,10 +57,10 @@ export const template = /*html*/ `
         z-index: 30;
         background-color: inherit;
       }
-      .subs-sticky-1 { left: 0; }           /* Project */
-      .subs-sticky-2 { left: 9rem; }        /* +9 */
-      .subs-sticky-3 { left: 16rem; }       /* +7 */
-      .subs-sticky-4 { left: 27rem; }       /* +11 */
+      .subs-sticky-1 { left: 0; }
+      .subs-sticky-2 { left: 9rem; }
+      .subs-sticky-3 { left: 16rem; }
+      .subs-sticky-4 { left: 27rem; }
 
       .subs-row-striped:nth-child(odd)  { background-color: #eff6ff; }
       .subs-row-striped:nth-child(even) { background-color: #ffffff; }
@@ -81,7 +76,7 @@ export const template = /*html*/ `
       }
     </style>
 
-    <!-- Compact header -->
+    <!-- Identical header pattern -->
     <div class="px-4 pt-3 pb-2 border-b border-slate-200">
       <div class="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-xs text-slate-700">
         <span id="subsInlinePlan" class="font-medium"></span>
@@ -104,9 +99,8 @@ export const template = /*html*/ `
         </button>
       </div>
 
-      <div class="w-full max-h-[520px] overflow-auto">
-        <!-- REMOVED table-fixed → PERFECT HORIZONTAL SCROLL -->
-        <table class="subs-table min-w-full text-xs">
+      <div class="w-full max-h-[520px] overflow-y-auto overflow-x-auto">
+        <table class="subs-table text-xs">
           <thead class="bg-slate-50">
             <tr>
               <th class="subs-sticky-1 subs-col-project sticky top-0 bg-slate-50 text-left text-[11px] font-semibold text-slate-700 uppercase tracking-wider">Project</th>
@@ -128,9 +122,9 @@ export const template = /*html*/ `
   </article>
 `;
 
-// ————————————————————————————————————————
-// HELPERS & RENDERING
-// ————————————————————————————————————————
+// ─────────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────────
 function fmtNum(v) {
   if (v === null || v === undefined || v === "") return "";
   const num = Number(v);
@@ -146,7 +140,7 @@ function renderLines(root) {
   if (!tbody) return;
 
   if (!lines.length) {
-    tbody.innerHTML = `<tr><td colspan="17" class="text-center py-10 text-slate-500 text-xs">No subcontractor or ODC lines yet. Use the buttons above to add lines.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="17" class="text-center py-10 text-slate-500 text-xs">No lines yet. Use the buttons above to add.</td></tr>`;
     return;
   }
 
@@ -170,11 +164,10 @@ function renderLines(root) {
       ...vendors.map(v => `<option value="${v.id}" ${v.id === line.vendor_id ? "selected" : ""}>${v.vendor_name}</option>`)
     ].join("");
 
-    // PERFECT INPUTS — left-aligned, visible, consistent
     const monthCells = MONTH_COLS.map(key => `
       <td>
         <input
-          class="cell-input cell-input-num subs-cell-input-num no-spin border border-slate-200 rounded-sm px-1 py-0.5 text-[11px]"
+          class="cell-input cell-input-num subs-cell-input no-spin border border-slate-200 rounded-sm px-1 py-0.5 text-[11px]"
           data-row="${idx}"
           data-field="${key}"
           type="number"
@@ -186,20 +179,20 @@ function renderLines(root) {
 
     tr.innerHTML = `
       <td class="subs-sticky-1 subs-col-project">
-        <select class="cell-input subs-cell-input-text border border-slate-200 rounded-sm px-1 py-0.5 text-[11px]"
+        <select class="cell-input subs-cell-input border border-slate-200 rounded-sm px-1 py-0.5 text-[11px]"
                 data-row="${idx}" data-field="project_id">
           ${projectOptions}
         </select>
       </td>
       <td class="subs-sticky-2 subs-col-type text-[11px] text-slate-800">${typeLabel}</td>
       <td class="subs-sticky-3 subs-col-vendor">
-        <select class="cell-input subs-cell-input-text border border-slate-200 rounded-sm px-1 py-0.5 text-[11px]"
+        <select class="cell-input subs-cell-input border border-slate-200 rounded-sm px-1 py-0.5 text-[11px]"
                 data-row="${idx}" data-field="vendor_id">
           ${vendorOptions}
         </select>
       </td>
       <td class="subs-sticky-4 subs-col-desc">
-        <input class="cell-input subs-cell-input-text border border-slate-200 rounded-sm px-1 py-0.5 text-[11px]"
+        <input class="cell-input subs-cell-input border border-slate-200 rounded-sm px-1 py-0.5 text-[11px]"
                data-row="${idx}" data-field="description" type="text" value="${line.description || ""}" />
       </td>
       ${monthCells}
@@ -211,7 +204,7 @@ function renderLines(root) {
     tbody.appendChild(tr);
   });
 
-  // Summary row
+  // Summary row — identical pattern
   const summaryTr = document.createElement("tr");
   summaryTr.dataset.summaryRow = "subs";
   summaryTr.className = "subs-summary-row";
@@ -252,25 +245,96 @@ function updateSubsTotals(root) {
   if (grandCell) grandCell.textContent = grand.toLocaleString(undefined, { maximumFractionDigits: 0 });
 }
 
-// ————————————————————————————————————————
-// REST OF YOUR LOGIC (unchanged & perfect)
-// ————————————————————————————————————————
-async function getProjectScope(client, level1ProjectId) { /* unchanged */ }
-async function loadVendors(client) { /* unchanged */ }
-async function ensureEntryTypeIds(client) { /* unchanged */ }
-async function fetchSubsOdcLines(client, projectIds, ctx) { /* unchanged */ }
-async function addNewSubsOdcLine(client, ctx, typeCode) { /* unchanged */ }
-async function updateNumericCell(client, lineId, field, value) { /* unchanged */ }
-async function updateTextField(client, lineId, field, value) { /* unchanged */ }
-async function updateProjectOnLine(client, lineId, projectId) { /* unchanged */ }
-async function updateVendorOnLine(client, lineId, vendorId) { /* unchanged */ }
-function wireSubsRowHighlight(root) { /* unchanged */ }
-
+// ─────────────────────────────────────────────
+// INIT — matches laborHours.js exactly
+// ─────────────────────────────────────────────
 export const subsOdcInputsTab = {
   template,
   async init({ root, client }) {
-    // Your existing init logic — already perfect
-    // Includes auto-loading, add buttons, change handling, highlighting, etc.
-    // No changes needed — it works flawlessly with the new layout
+    const msg = $("#subsOdcMessage", root);
+    const section = $("#subsOdcSection", root);
+    const ctx = getPlanContext();
+
+    const planEl = $("#subsInlinePlan", root);
+    const projEl = $("#subsInlineProject", root);
+
+    planEl.textContent = ctx?.planLabel || (ctx?.year ? `BUDGET – ${ctx.year} · ${ctx.planType || "Working"}` : "Subs & ODC");
+    if (ctx?.level1ProjectCode && ctx?.level1ProjectName) {
+      planEl.textContent += ` · Level 1 Project: ${ctx.level1ProjectCode} – ${ctx.level1ProjectName}`;
+    }
+    if (ctx?.projectCode && ctx?.projectName) {
+      projEl.textContent = `, ${ctx.projectCode} – ${ctx.projectName}`;
+    }
+
+    if (!ctx.level1ProjectId || !ctx.year || !ctx.versionId) {
+      msg.textContent = "Please select a Level 1 project and plan first.";
+      section.style.display = "none";
+      return;
+    }
+
+    section.style.display = "block";
+    msg.textContent = "Loading subs & ODC lines…";
+
+    projectScope = await getProjectScope(client, ctx.level1ProjectId);
+    vendors = await loadVendors(client);
+    const projectIds = projectScope.map(p => p.id);
+
+    lines = await fetchSubsOdcLines(client, projectIds, ctx);
+
+    renderLines(root);
+    updateSubsTotals(root);
+
+    msg.textContent = lines.length ? "" : "No lines yet. Use the buttons above to add.";
+
+    // Add line buttons
+    $("#addSubsLineBtn", root)?.addEventListener("click", async () => {
+      await addNewSubsOdcLine(client, ctx, "SUBC_COST");
+      lines = await fetchSubsOdcLines(client, projectIds, ctx);
+      renderLines(root);
+      updateSubsTotals(root);
+    });
+
+    $("#addOdcLineBtn", root)?.addEventListener("click", async () => {
+      await addNewSubsOdcLine(client, ctx, "ODC_COST");
+      lines = await fetchSubsOdcLines(client, projectIds, ctx);
+      renderLines(root);
+      updateSubsTotals(root);
+    });
+
+    // Delegated input changes
+    $("#subsOdcTbody", root)?.addEventListener("change", async (e) => {
+      const input = e.target;
+      if (!input.classList.contains("cell-input")) return;
+      const idx = Number(input.dataset.row);
+      const field = input.dataset.field;
+      if (Number.isNaN(idx) || !field || !lines[idx]) return;
+
+      const line = lines[idx];
+      const val = input.value;
+
+      if (MONTH_COLS.includes(field)) {
+        line[field] = val === "" ? 0 : Number(val);
+        input.value = fmtNum(line[field]);
+        await updateNumericCell(client, line.id, field, line[field]);
+      } else if (field === "description") {
+        line.description = val;
+        await updateTextField(client, line.id, field, val);
+      } else if (field === "project_id") {
+        await updateProjectOnLine(client, line.id, val || null);
+      } else if (field === "vendor_id") {
+        await updateVendorOnLine(client, line.id, val || null);
+      }
+
+      renderLines(root); // re-render totals + row
+      updateSubsTotals(root);
+    });
+
+    // Row highlight (same as laborHours)
+    $("#subsOdcTbody", root)?.addEventListener("click", (e) => {
+      const tr = e.target.closest("tr.subs-row-striped");
+      if (!tr) return;
+      root.querySelectorAll("tr.subs-row-striped").forEach(r => r.classList.remove("subs-row-active"));
+      tr.classList.add("subs-row-active");
+    });
   },
 };
