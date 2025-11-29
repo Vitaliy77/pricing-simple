@@ -14,9 +14,60 @@ const MONTH_LABELS = [
 
 let entryTypeIdByCode = null; // { SUBC_COST: uuid, ODC_COST: uuid }
 let projectScope = []; // [{ id, project_code, name }]
+let lines = []; // global cache of subs/odc lines
 
 export const template = /*html*/ `
   <article class="full-width-card">
+    <style>
+      .subs-table {
+        border-collapse: collapse;
+        width: 100%;
+      }
+      .subs-table th,
+      .subs-table td {
+        padding: 2px 4px; /* small gap */
+        white-space: nowrap;
+      }
+
+      .subs-cell-input-num {
+        min-width: 4.8rem; /* fits 1,000,000 */
+        text-align: right;
+      }
+      .subs-cell-input-text {
+        min-width: 9rem;
+      }
+
+      .no-spin::-webkit-inner-spin-button,
+      .no-spin::-webkit-outer-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+      }
+      .no-spin {
+        -moz-appearance: textfield;
+      }
+
+      .subs-row-striped:nth-child(odd) {
+        background-color: #eff6ff; /* blue-50 */
+      }
+      .subs-row-striped:nth-child(even) {
+        background-color: #ffffff;
+      }
+      .subs-row-striped:hover {
+        background-color: #dbeafe; /* blue-100 */
+      }
+      .subs-row-active {
+        background-color: #bfdbfe !important; /* blue-200 */
+      }
+
+      .subs-summary-row {
+        background-color: #e5e7eb; /* slate-200 */
+        font-weight: 600;
+        position: sticky;
+        bottom: 0;
+        z-index: 10;
+      }
+    </style>
+
     <!-- Compact inline header -->
     <div class="px-4 pt-3 pb-2 border-b border-slate-200">
       <div class="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-xs text-slate-700">
@@ -46,49 +97,45 @@ export const template = /*html*/ `
       </div>
 
       <div class="w-full max-h-[520px] overflow-auto overflow-x-auto">
-        <table class="min-w-full text-xs table-fixed">
+        <table class="subs-table min-w-full text-xs table-fixed">
           <thead class="bg-slate-50">
             <tr>
               <th
                 class="cost-grid-sticky cost-col-1 sticky top-0 z-30 bg-slate-50
-                       text-left text-[11px] font-semibold text-slate-700 uppercase tracking-wider
-                       px-3 py-1.5"
+                       text-left text-[11px] font-semibold text-slate-700 uppercase tracking-wider"
               >
                 Project
               </th>
               <th
                 class="cost-grid-sticky cost-col-2 sticky top-0 z-30 bg-slate-50
-                       text-left text-[11px] font-semibold text-slate-700 uppercase tracking-wider
-                       px-3 py-1.5"
+                       text-left text-[11px] font-semibold text-slate-700 uppercase tracking-wider"
               >
                 Type
               </th>
               <th
                 class="cost-grid-sticky cost-col-3 sticky top-0 z-30 bg-slate-50
-                       text-left text-[11px] font-semibold text-slate-700 uppercase tracking-wider
-                       px-3 py-1.5"
+                       text-left text-[11px] font-semibold text-slate-700 uppercase tracking-wider"
               >
                 Vendor / Label
               </th>
               <th
                 class="sticky top-0 z-30 bg-slate-50
-                       text-left text-[11px] font-semibold text-slate-700 uppercase tracking-wider
-                       px-3 py-1.5"
+                       text-left text-[11px] font-semibold text-slate-700 uppercase tracking-wider"
               >
                 Description
               </th>
               ${MONTH_LABELS.map(
-                m => `
-              <th class="sticky top-0 z-20 bg-slate-50 px-3 py-1.5 text-right text-[11px] font-semibold text-slate-700 uppercase tracking-wider">
+                (m) => `
+              <th class="sticky top-0 z-20 bg-slate-50 text-right text-[11px] font-semibold text-slate-700 uppercase tracking-wider">
                 ${m}
               </th>`
               ).join("")}
-              <th class="sticky top-0 z-20 bg-slate-50 px-3 py-1.5 text-right text-[11px] font-semibold text-slate-700 uppercase tracking-wider">
+              <th class="sticky top-0 z-20 bg-slate-50 text-right text-[11px] font-semibold text-slate-700 uppercase tracking-wider">
                 Total $
               </th>
             </tr>
           </thead>
-          <tbody id="subsOdcTbody" class="bg-white divide-y divide-slate-100">
+          <tbody id="subsOdcTbody" class="bg-white">
             <tr>
               <td colspan="17" class="text-center py-10 text-slate-500 text-xs">
                 Loading…
@@ -108,7 +155,7 @@ function fmtNum(v) {
   return num.toString();
 }
 
-function computeTotal(line) {
+function computeRowTotal(line) {
   return MONTH_COLS.reduce((sum, key) => {
     const val = Number(line[key] || 0);
     return sum + (Number.isNaN(val) ? 0 : val);
@@ -189,14 +236,16 @@ async function fetchSubsOdcLines(client, projectIds, ctx) {
     return [];
   }
 
-  return (data || []).filter((r) => {
-    const code = r.entry_types?.code;
-    return code === "SUBC_COST" || code === "ODC_COST";
-  }).map((r) => ({
-    ...r,
-    project_code: r.projects?.project_code || "",
-    project_display_name: r.projects?.name || r.project_name || "",
-  }));
+  return (data || [])
+    .filter((r) => {
+      const code = r.entry_types?.code;
+      return code === "SUBC_COST" || code === "ODC_COST";
+    })
+    .map((r) => ({
+      ...r,
+      project_code: r.projects?.project_code || "",
+      project_display_name: r.projects?.name || r.project_name || "",
+    }));
 }
 
 function getTypeLabel(line) {
@@ -206,7 +255,42 @@ function getTypeLabel(line) {
   return line.entry_types?.display_name || "Cost";
 }
 
-function renderLines(root, lines) {
+function updateSubsTotals(root) {
+  const summaryRow = root.querySelector("tr[data-summary-row='subs']");
+  if (!summaryRow || !lines.length) return;
+
+  const colTotals = {};
+  MONTH_COLS.forEach((c) => (colTotals[c] = 0));
+  let grand = 0;
+
+  lines.forEach((line) => {
+    MONTH_COLS.forEach((c) => {
+      const val = Number(line[c] || 0);
+      if (!Number.isNaN(val)) {
+        colTotals[c] += val;
+        grand += val;
+      }
+    });
+  });
+
+  MONTH_COLS.forEach((c) => {
+    const cell = summaryRow.querySelector(`[data-total-col="${c}"]`);
+    if (cell) {
+      cell.textContent = colTotals[c].toLocaleString(undefined, {
+        maximumFractionDigits: 0,
+      });
+    }
+  });
+
+  const grandCell = summaryRow.querySelector('[data-total-col="all"]');
+  if (grandCell) {
+    grandCell.textContent = grand.toLocaleString(undefined, {
+      maximumFractionDigits: 0,
+    });
+  }
+}
+
+function renderLines(root) {
   const tbody = $("#subsOdcTbody", root);
   if (!tbody) return;
 
@@ -226,20 +310,21 @@ function renderLines(root, lines) {
     const tr = document.createElement("tr");
     tr.dataset.lineId = line.id;
     tr.dataset.index = idx.toString();
+    tr.className = "subs-row-striped";
 
     const typeLabel = getTypeLabel(line);
-    const total = computeTotal(line);
+    const total = computeRowTotal(line);
 
     const monthCells = MONTH_COLS
       .map(
         (key) => `
-        <td class="px-3 py-1 text-right">
+        <td>
           <input
-            class="cell-input cell-input-num w-full text-right border border-slate-200 rounded-sm px-1 py-0.5"
+            class="cell-input cell-input-num subs-cell-input-num no-spin border border-slate-200 rounded-sm px-1 py-0.5 text-[11px]"
             data-row="${idx}"
             data-field="${key}"
             type="number"
-            step="0.01"
+            step="1"
             value="${fmtNum(line[key])}"
           />
         </td>
@@ -248,24 +333,24 @@ function renderLines(root, lines) {
       .join("");
 
     tr.innerHTML = `
-      <td class="cost-grid-sticky cost-col-1 px-3 py-1 text-[11px] font-medium text-slate-900">
+      <td class="cost-grid-sticky cost-col-1 text-[11px] font-medium text-slate-900">
         ${line.project_code || ""}
       </td>
-      <td class="cost-grid-sticky cost-col-2 px-3 py-1 text-[11px] text-slate-800">
+      <td class="cost-grid-sticky cost-col-2 text-[11px] text-slate-800">
         ${typeLabel}
       </td>
-      <td class="cost-grid-sticky cost-col-3 px-3 py-1 text-[11px] text-slate-800">
+      <td class="cost-grid-sticky cost-col-3 text-[11px] text-slate-800">
         <input
-          class="cell-input w-full border border-slate-200 rounded-sm px-1 py-0.5"
+          class="cell-input subs-cell-input-text border border-slate-200 rounded-sm px-1 py-0.5 text-[11px]"
           data-row="${idx}"
           data-field="resource_name"
           type="text"
           value="${line.resource_name || ""}"
         />
       </td>
-      <td class="px-3 py-1 text-[11px] text-slate-700">
+      <td class="text-[11px] text-slate-700">
         <input
-          class="cell-input w-full border border-slate-200 rounded-sm px-1 py-0.5"
+          class="cell-input subs-cell-input-text border border-slate-200 rounded-sm px-1 py-0.5 text-[11px]"
           data-row="${idx}"
           data-field="description"
           type="text"
@@ -273,16 +358,38 @@ function renderLines(root, lines) {
         />
       </td>
       ${monthCells}
-      <td class="px-3 py-1 text-right text-[11px] font-semibold text-slate-900" data-total-row="${idx}">
-        ${total.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+      <td class="text-right text-[11px] font-semibold text-slate-900" data-total-row="${idx}">
+        ${total.toLocaleString(undefined, { maximumFractionDigits: 0 })}
       </td>
     `;
 
     tbody.appendChild(tr);
   });
+
+  // Summary row
+  const summaryTr = document.createElement("tr");
+  summaryTr.dataset.summaryRow = "subs";
+  summaryTr.className = "subs-summary-row";
+  const labelCells = `
+    <td class="text-[11px] font-semibold text-slate-900">Totals</td>
+    <td></td>
+    <td></td>
+    <td></td>
+  `;
+  const monthTotalsCells = MONTH_COLS.map(
+    (c) =>
+      `<td class="text-right text-[11px]" data-total-col="${c}"></td>`
+  ).join("");
+  const grandTotalCell = `
+    <td class="text-right text-[11px] font-semibold" data-total-col="all"></td>
+  `;
+  summaryTr.innerHTML = labelCells + monthTotalsCells + grandTotalCell;
+  tbody.appendChild(summaryTr);
+
+  updateSubsTotals(root);
 }
 
-async function addNewSubsOdcLine(client, projectIds, ctx, typeCode) {
+async function addNewSubsOdcLine(client, ctx, typeCode) {
   await ensureEntryTypeIds(client);
   const entryTypeId = entryTypeIdByCode?.[typeCode];
   if (!entryTypeId) {
@@ -349,6 +456,30 @@ async function updateTextField(client, lineId, field, value) {
   }
 }
 
+function wireSubsRowHighlight(root) {
+  const tbody = $("#subsOdcTbody", root);
+  if (!tbody) return;
+
+  const setActive = (tr) => {
+    tbody
+      .querySelectorAll("tr.subs-row-striped, tr.subs-summary-row")
+      .forEach((row) => row.classList.remove("subs-row-active"));
+    if (tr && tr.matches(".subs-row-striped")) {
+      tr.classList.add("subs-row-active");
+    }
+  };
+
+  tbody.addEventListener("focusin", (evt) => {
+    const tr = evt.target.closest("tr");
+    if (tr) setActive(tr);
+  });
+
+  tbody.addEventListener("click", (evt) => {
+    const tr = evt.target.closest("tr");
+    if (tr) setActive(tr);
+  });
+}
+
 export const subsOdcInputsTab = {
   template,
   async init({ root, client }) {
@@ -387,25 +518,25 @@ export const subsOdcInputsTab = {
     projectScope = await getProjectScope(client, ctx.level1ProjectId);
     const projectIds = projectScope.map((p) => p.id);
 
-    let lines = await fetchSubsOdcLines(client, projectIds, ctx);
+    lines = await fetchSubsOdcLines(client, projectIds, ctx);
 
     if (sectionEl) sectionEl.style.display = "block";
-    renderLines(root, lines);
+    renderLines(root);
     if (msgEl) msgEl.textContent = "";
 
     $("#addSubsLineBtn", root).addEventListener("click", async () => {
-      const newLine = await addNewSubsOdcLine(client, projectIds, ctx, "SUBC_COST");
+      const newLine = await addNewSubsOdcLine(client, ctx, "SUBC_COST");
       if (newLine) {
         lines = await fetchSubsOdcLines(client, projectIds, ctx);
-        renderLines(root, lines);
+        renderLines(root);
       }
     });
 
     $("#addOdcLineBtn", root).addEventListener("click", async () => {
-      const newLine = await addNewSubsOdcLine(client, projectIds, ctx, "ODC_COST");
+      const newLine = await addNewSubsOdcLine(client, ctx, "ODC_COST");
       if (newLine) {
         lines = await fetchSubsOdcLines(client, projectIds, ctx);
-        renderLines(root, lines);
+        renderLines(root);
       }
     });
 
@@ -428,14 +559,18 @@ export const subsOdcInputsTab = {
 
         const totalCell = root.querySelector(`[data-total-row="${rowIdx}"]`);
         if (totalCell) {
-          totalCell.textContent = computeTotal(line).toLocaleString(undefined, {
-            maximumFractionDigits: 2,
-          });
+          totalCell.textContent = computeRowTotal(line).toLocaleString(
+            undefined,
+            { maximumFractionDigits: 0 }
+          );
         }
+        updateSubsTotals(root);
       } else if (field === "resource_name" || field === "description") {
         line[field] = newVal;
         await updateTextField(client, lineId, field, newVal);
       }
     });
+
+    wireSubsRowHighlight(root);
   },
 };
