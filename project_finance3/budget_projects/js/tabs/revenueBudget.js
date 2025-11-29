@@ -35,6 +35,11 @@ let rows = []; // unified revenue rows
 //   months: { [key: string]: number }
 // }
 
+const _revEntryTypeCache = {};
+
+// ─────────────────────────────────────────────
+// TEMPLATE
+// ─────────────────────────────────────────────
 export const template = /*html*/ `
   <article class="full-width-card w-full">
     <style>
@@ -47,6 +52,7 @@ export const template = /*html*/ `
       .rev-table td {
         padding: 2px 4px;
         white-space: nowrap;
+        box-sizing: border-box;
       }
 
       .rev-cell-input {
@@ -69,16 +75,24 @@ export const template = /*html*/ `
       .rev-col-type    { width: 8rem; }
       .rev-col-desc    { width: 18rem; }
 
+      /* Sticky columns – explicit backgrounds so nothing "shows through" */
       .rev-sticky-1,
       .rev-sticky-2,
       .rev-sticky-3 {
         position: sticky;
-        z-index: 30;
-        background-color: inherit;
+        z-index: 25;
+        background-color: #ffffff;
       }
       .rev-sticky-1 { left: 0; }
       .rev-sticky-2 { left: 11rem; }
       .rev-sticky-3 { left: 19rem; }
+
+      .rev-table thead th.rev-sticky-1,
+      .rev-table thead th.rev-sticky-2,
+      .rev-table thead th.rev-sticky-3 {
+        background-color: #f8fafc;
+        z-index: 30;
+      }
 
       .rev-row-striped:nth-child(odd)  { background-color: #eff6ff; }
       .rev-row-striped:nth-child(even) { background-color: #ffffff; }
@@ -161,7 +175,9 @@ export const template = /*html*/ `
   </article>
 `;
 
+// ─────────────────────────────────────────────
 // UTILITIES
+// ─────────────────────────────────────────────
 function ensureMonthMap() {
   const obj = {};
   MONTHS.forEach(m => { obj[m.key] = 0; });
@@ -341,7 +357,7 @@ async function loadSubsOdcRevenue(client, ctx, projectIds) {
 }
 
 // ─────────────────────────────────────────────
-// MANUAL REVENUE (Fixed / Software / Unit)
+// MANUAL REVENUE (Fixed / Software / Unit) – read existing
 // ─────────────────────────────────────────────
 async function loadManualRevenue(client, ctx, projectIds) {
   if (!projectIds.length) return [];
@@ -397,6 +413,40 @@ async function loadManualRevenue(client, ctx, projectIds) {
 }
 
 // ─────────────────────────────────────────────
+// ENTRY TYPE FOR MANUAL REVENUE (best-effort)
+// ─────────────────────────────────────────────
+async function getRevenueEntryTypeId(client, typeLabel) {
+  // Best guess: try more specific codes first, then a generic one.
+  const codesToTry = [];
+  if (typeLabel === "Fixed") codesToTry.push("REV_FIXED");
+  if (typeLabel === "Software") codesToTry.push("REV_SOFTWARE");
+  if (typeLabel === "Unit") codesToTry.push("REV_UNIT");
+  codesToTry.push("REV_MANUAL");
+  codesToTry.push("REVENUE");
+
+  for (const code of codesToTry) {
+    if (_revEntryTypeCache[code]) return _revEntryTypeCache[code];
+
+    const { data, error } = await client
+      .from("entry_types")
+      .select("id")
+      .eq("code", code);
+
+    if (error) {
+      console.warn("[Revenue] entry_types lookup error for code", code, error);
+      continue;
+    }
+
+    if (data && data.length) {
+      _revEntryTypeCache[code] = data[0].id;
+      return data[0].id;
+    }
+  }
+
+  return null;
+}
+
+// ─────────────────────────────────────────────
 // DB UPDATE HELPERS FOR MANUAL REVENUE
 // ─────────────────────────────────────────────
 async function updateManualCell(client, lineId, monthKey, value) {
@@ -415,9 +465,21 @@ async function updateManualCell(client, lineId, monthKey, value) {
   if (error) console.error("[Revenue] update cell error", error);
 }
 
-async function insertManualRevenueLine(client, ctx, projectId, typeLabel) {
+async function insertManualRevenueLine(client, ctx, projectId, typeLabel, msgEl) {
   const meta = projectMeta[projectId];
-  if (!meta) return null;
+  if (!meta) {
+    msgEl && (msgEl.textContent = "Cannot add revenue line: unknown project.");
+    return null;
+  }
+
+  // Try to get an entry_type_id for revenue
+  const entryTypeId = await getRevenueEntryTypeId(client, typeLabel);
+  if (!entryTypeId) {
+    console.error("[Revenue] No suitable entry_types code found for manual revenue.");
+    msgEl && (msgEl.textContent =
+      "Cannot add revenue line: no revenue entry type found in entry_types table (e.g., REV_MANUAL). Please add one or adjust the code.");
+    return null;
+  }
 
   const desc = `${typeLabel} revenue`;
   const resource_name = `${typeLabel} revenue`;
@@ -425,6 +487,7 @@ async function insertManualRevenueLine(client, ctx, projectId, typeLabel) {
   const payload = {
     project_id: projectId,
     project_name: meta.name,
+    entry_type_id: entryTypeId,
     is_revenue: true,
     resource_name,
     description: desc,
@@ -443,6 +506,8 @@ async function insertManualRevenueLine(client, ctx, projectId, typeLabel) {
 
   if (error) {
     console.error("[Revenue] insert manual revenue error", error);
+    msgEl && (msgEl.textContent =
+      "Error adding revenue line. The planning_lines table may require additional fields; check constraints/NOT NULL columns.");
     return null;
   }
 
@@ -570,7 +635,9 @@ function renderRows(root) {
   summaryTr.dataset.summaryRow = "rev";
   summaryTr.className = "rev-summary-row";
   summaryTr.innerHTML = `
-    <td class="text-[11px] font-semibold text-slate-900" colspan="3">Totals</td>
+    <td class="rev-sticky-1 rev-col-project text-[11px] font-semibold text-slate-900">Totals</td>
+    <td class="rev-sticky-2 rev-col-type"></td>
+    <td class="rev-sticky-3 rev-col-desc"></td>
     ${MONTHS.map(m => `<td class="text-right text-[11px]" data-total-col="${m.key}"></td>`).join("")}
     <td class="text-right text-[11px] font-semibold" data-total-col="all"></td>
   `;
@@ -629,7 +696,7 @@ export const revenueBudgetTab = {
     const controls = $("#revControls", root);
     const ctx = getPlanContext();
 
-    // Header labels (same pattern as cost/labor/subs tabs)
+    // Header labels (same style as other tabs)
     const globalPlan =
       document.querySelector("#planContextHeader")?.textContent?.trim() || "";
     const globalProject =
@@ -697,19 +764,19 @@ export const revenueBudgetTab = {
       const typeLabel = $("#revTypeSelect", root)?.value || "Fixed";
 
       if (!projectId) {
-        if (msg) msg.textContent = "Please pick a project to add a revenue line.";
+        msg && (msg.textContent = "Please pick a project to add a revenue line.");
         return;
       }
 
-      const newRow = await insertManualRevenueLine(client, ctxNow, projectId, typeLabel);
+      const newRow = await insertManualRevenueLine(client, ctxNow, projectId, typeLabel, msg);
       if (!newRow) {
-        if (msg) msg.textContent = "Error adding revenue line.";
+        // insert failed; message already set
         return;
       }
 
       rows.push(newRow);
       renderRows(root);
-      if (msg) msg.textContent = "";
+      msg && (msg.textContent = "");
     });
 
     // Input change for manual rows
