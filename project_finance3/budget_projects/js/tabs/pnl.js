@@ -5,26 +5,33 @@ import { getSelectedProjectId, getPlanContext } from "../lib/projectContext.js";
 export const template = /*html*/ `
   <article>
     <h3 style="margin-bottom:0.5rem;">P&L Summary</h3>
-    <p style="font-size:0.9rem; margin-bottom:1rem; color:#475569;">
+    <p style="font-size:0.9rem; margin-bottom:0.75rem; color:#475569;">
       Monthly Revenue, Cost, and Profit for the selected project.
     </p>
 
-    <section id="pnlMessage" 
-             style="min-height:1.25rem; font-size:0.9rem; color:#64748b; margin-bottom:0.75rem;"></section>
+    <!-- Status / helper message -->
+    <p id="pnlMessage"
+       style="min-height:1.25rem; font-size:0.85rem; color:#64748b; margin-bottom:0.75rem;">
+    </p>
 
-    <section style="margin-top:0.5rem;">
-      <div class="scroll-x">
-        <table class="data-grid">
+    <!-- Main table card -->
+    <section class="full-width-card">
+      <div class="cost-table-wrapper">
+        <table class="cost-table">
           <thead>
             <tr>
-              <th>Line</th>
+              <th class="sticky-col">Line</th>
               <th>Jan</th><th>Feb</th><th>Mar</th><th>Apr</th><th>May</th><th>Jun</th>
               <th>Jul</th><th>Aug</th><th>Sep</th><th>Oct</th><th>Nov</th><th>Dec</th>
               <th>Total</th>
             </tr>
           </thead>
           <tbody id="pnlBody">
-            <tr><td colspan="14">Loading…</td></tr>
+            <tr>
+              <td colspan="14" style="text-align:left; font-size:0.9rem; color:#64748b;">
+                Loading…
+              </td>
+            </tr>
           </tbody>
         </table>
       </div>
@@ -39,20 +46,23 @@ export const pnlTab = {
     const projectId = getSelectedProjectId();
     const ctx = getPlanContext();
 
-    // ——— Single source of truth checks ———
     if (!projectId) {
-      msg && (msg.textContent = "No project selected. Please go to the Projects tab.");
+      if (msg) {
+        msg.textContent = "No project selected. Please go to the Projects tab.";
+      }
       renderPnl(root, null);
       return;
     }
 
     if (!ctx.year || !ctx.versionId) {
-      msg && (msg.textContent = "Plan not fully selected. Please complete selection in the Projects tab.");
+      if (msg) {
+        msg.textContent =
+          "Plan not fully selected. Please complete selection in the Projects tab.";
+      }
       renderPnl(root, null);
       return;
     }
 
-    // ——— Auto-load ———
     await refreshPnl(root, client);
   },
 };
@@ -67,7 +77,7 @@ async function refreshPnl(root, client) {
     return;
   }
 
-  msg && (msg.textContent = "Calculating P&L…");
+  if (msg) msg.textContent = "Calculating P&L…";
 
   const { data, error } = await client
     .from("planning_lines")
@@ -79,14 +89,14 @@ async function refreshPnl(root, client) {
 
   if (error) {
     console.error("P&L load error:", error);
-    msg && (msg.textContent = "Error loading data.");
+    if (msg) msg.textContent = "Error loading data.";
     renderPnl(root, null);
     return;
   }
 
   const summary = aggregatePnl(data || []);
   renderPnl(root, summary);
-  msg && (msg.textContent = "");
+  if (msg) msg.textContent = "";
 }
 
 function aggregatePnl(rows) {
@@ -119,21 +129,35 @@ function renderPnl(root, summary) {
   if (!tbody) return;
 
   if (!summary) {
-    tbody.innerHTML = `<tr><td colspan="14">No data available.</td></tr>`;
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="14" style="text-align:left; font-size:0.9rem; color:#64748b;">
+          No data available.
+        </td>
+      </tr>
+    `;
     return;
   }
 
   const { months, revenue, cost, profit, totals } = summary;
-  const fmt = v => typeof v === "number" ? v.toLocaleString(undefined, { maximumFractionDigits: 0 }) : "0";
+  const fmt = v =>
+    typeof v === "number"
+      ? v.toLocaleString(undefined, { maximumFractionDigits: 0 })
+      : "0";
 
   const row = (label, data, total, bold = false) => {
     const tr = document.createElement("tr");
     if (bold) tr.classList.add("font-bold", "bg-slate-100");
-    let html = `<td class="text-left ${bold ? "font-semibold" : ""}">${label}</td>`;
+
+    let html = `<td class="sticky-col text-left ${
+      bold ? "font-semibold" : ""
+    }">${label}</td>`;
+
     months.forEach(m => {
-      html += `<td class="num">${fmt(data[m])}</td>`;
+      html += `<td class="num text-right">${fmt(data[m])}</td>`;
     });
-    html += `<td class="num font-bold">${fmt(total)}</td>`;
+
+    html += `<td class="num text-right font-bold">${fmt(total)}</td>`;
     tr.innerHTML = html;
     return tr;
   };
