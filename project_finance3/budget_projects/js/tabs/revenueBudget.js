@@ -20,22 +20,20 @@ const MONTHS = [
 // STATE
 let projectScope = [];
 let projectMeta = {};
-let rows = []; // unified list of revenue rows
+let rows = []; // unified revenue rows
 
-/**
- * Row shape:
- * {
- *   kind: "TM_LABOR" | "SUBS_ODC" | "MANUAL",
- *   manualType?: "Fixed" | "Software" | "Unit",
- *   editable: boolean,
- *   project_id,
- *   project_label,
- *   typeLabel,
- *   desc,
- *   planning_line_id?: string,   // only for MANUAL
- *   months: { [key: string]: number } // keyed by MONTHS[i].key
- * }
- */
+// Row shape:
+// {
+//   kind: "TM_LABOR" | "SUBS_ODC" | "MANUAL",
+//   manualType?: "Fixed" | "Software" | "Unit",
+//   editable: boolean,
+//   project_id,
+//   project_label,
+//   typeLabel,
+//   desc,
+//   planning_line_id?: string,
+//   months: { [key: string]: number }
+// }
 
 export const template = /*html*/ `
   <article class="full-width-card w-full">
@@ -164,6 +162,12 @@ export const template = /*html*/ `
 `;
 
 // UTILITIES
+function ensureMonthMap() {
+  const obj = {};
+  MONTHS.forEach(m => { obj[m.key] = 0; });
+  return obj;
+}
+
 function fmtNum(v) {
   if (v === null || v === undefined || v === "") return "";
   const n = Number(v);
@@ -172,23 +176,17 @@ function fmtNum(v) {
     : n.toLocaleString(undefined, { maximumFractionDigits: 0 });
 }
 
-function ensureMonthMap() {
-  const obj = {};
-  MONTHS.forEach(m => { obj[m.key] = 0; });
-  return obj;
-}
-
 function dateToMonthKey(ymStr) {
   if (!ymStr) return null;
   const d = new Date(ymStr);
   if (Number.isNaN(d.getTime())) return null;
-  const idx = d.getUTCMonth(); // 0–11
+  const idx = d.getUTCMonth();
   const m = MONTHS.find(x => x.idx === idx);
   return m ? m.key : null;
 }
 
 // ─────────────────────────────────────────────
-// LOAD PROJECT SCOPE (Level 1 + children)
+// PROJECT SCOPE (Level 1 + children)
 // ─────────────────────────────────────────────
 async function loadProjectScope(client, level1ProjectId) {
   if (!level1ProjectId) return [];
@@ -219,7 +217,7 @@ async function loadProjectScope(client, level1ProjectId) {
 }
 
 // ─────────────────────────────────────────────
-// LOAD T&M LABOR REVENUE: labor_hours × rate
+// T&M LABOR REVENUE: labor_hours × employees.hourly_cost
 // ─────────────────────────────────────────────
 async function loadTmLaborRevenue(client, ctx, projectIds) {
   if (!projectIds.length) return [];
@@ -238,15 +236,13 @@ async function loadTmLaborRevenue(client, ctx, projectIds) {
   }
   if (!hours || !hours.length) return [];
 
-  const employeeIds = Array.from(
-    new Set(hours.map(r => r.employee_id).filter(Boolean))
-  );
+  const employeeIds = Array.from(new Set(hours.map(r => r.employee_id).filter(Boolean)));
 
   const empMap = new Map();
   if (employeeIds.length) {
     const { data: emps, error: eErr } = await client
       .from("employees")
-      .select("id, full_name, department_name, hourly_cost"); // add billing_rate in select if you add that column
+      .select("id, full_name, department_name, hourly_cost");
 
     if (eErr) {
       console.error("[Revenue] employees error", eErr);
@@ -262,9 +258,7 @@ async function loadTmLaborRevenue(client, ctx, projectIds) {
     if (!projMeta) continue;
 
     const emp = empMap.get(row.employee_id);
-    // If you add a billing_rate column, you can use it like:
-    // const rate = emp?.billing_rate ?? emp?.hourly_cost ?? 0;
-    const rate = emp?.hourly_cost || 0;
+    const rate = emp?.hourly_cost || 0; // later you can swap to billing_rate
     const hrs = Number(row.hours || 0);
     const amount = hrs * rate;
 
@@ -291,7 +285,7 @@ async function loadTmLaborRevenue(client, ctx, projectIds) {
 }
 
 // ─────────────────────────────────────────────
-// LOAD SUBS & ODC REVENUE (equal to cost)
+// SUBS & ODC REVENUE (equals cost)
 // ─────────────────────────────────────────────
 async function loadSubsOdcRevenue(client, ctx, projectIds) {
   if (!projectIds.length) return [];
@@ -339,9 +333,7 @@ async function loadSubsOdcRevenue(client, ctx, projectIds) {
 
     MONTHS.forEach(m => {
       const val = Number(line[m.col] || 0);
-      if (!Number.isNaN(val)) {
-        rec.months[m.key] += val;
-      }
+      if (!Number.isNaN(val)) rec.months[m.key] += val;
     });
   }
 
@@ -349,7 +341,7 @@ async function loadSubsOdcRevenue(client, ctx, projectIds) {
 }
 
 // ─────────────────────────────────────────────
-// LOAD MANUAL REVENUE (Fixed / Software / Unit)
+// MANUAL REVENUE (Fixed / Software / Unit)
 // ─────────────────────────────────────────────
 async function loadManualRevenue(client, ctx, projectIds) {
   if (!projectIds.length) return [];
@@ -381,15 +373,14 @@ async function loadManualRevenue(client, ctx, projectIds) {
   return data.map(line => {
     const projMeta = projectMeta[line.project_id];
     const projectLabel = projMeta?.label || line.project_name || "(Project)";
+
     const baseName = (line.resource_name || "").toLowerCase();
     let manualType = "Fixed";
     if (baseName.includes("software")) manualType = "Software";
     else if (baseName.includes("unit")) manualType = "Unit";
 
     const months = ensureMonthMap();
-    MONTHS.forEach(m => {
-      months[m.key] = Number(line[m.col] || 0);
-    });
+    MONTHS.forEach(m => { months[m.key] = Number(line[m.col] || 0); });
 
     return {
       kind: "MANUAL",
@@ -442,9 +433,7 @@ async function insertManualRevenueLine(client, ctx, projectId, typeLabel) {
     plan_type: ctx.planType || "Working",
   };
 
-  MONTHS.forEach(m => {
-    payload[m.col] = 0;
-  });
+  MONTHS.forEach(m => { payload[m.col] = 0; });
 
   const { data, error } = await client
     .from("planning_lines")
@@ -473,13 +462,40 @@ async function insertManualRevenueLine(client, ctx, projectId, typeLabel) {
 }
 
 // ─────────────────────────────────────────────
-// RENDERING
+// RENDER & TOTALS
 // ─────────────────────────────────────────────
 function computeRowTotal(row) {
   return Object.values(row.months || {}).reduce(
     (sum, v) => sum + (Number(v || 0) || 0),
     0
   );
+}
+
+function updateTotals(root) {
+  const summaryRow = root.querySelector("tr[data-summary-row='rev']");
+  if (!summaryRow || !rows.length) return;
+
+  const monthTotals = {};
+  MONTHS.forEach(m => { monthTotals[m.key] = 0; });
+  let grand = 0;
+
+  rows.forEach(row => {
+    MONTHS.forEach(m => {
+      const v = Number(row.months[m.key] || 0);
+      if (!Number.isNaN(v)) {
+        monthTotals[m.key] += v;
+        grand += v;
+      }
+    });
+  });
+
+  MONTHS.forEach(m => {
+    const cell = summaryRow.querySelector(`[data-total-col="${m.key}"]`);
+    if (cell) cell.textContent = fmtNum(monthTotals[m.key]);
+  });
+
+  const gCell = summaryRow.querySelector('[data-total-col="all"]');
+  if (gCell) gCell.textContent = fmtNum(grand);
 }
 
 function renderRows(root) {
@@ -550,7 +566,6 @@ function renderRows(root) {
     tbody.appendChild(tr);
   });
 
-  // Summary row
   const summaryTr = document.createElement("tr");
   summaryTr.dataset.summaryRow = "rev";
   summaryTr.className = "rev-summary-row";
@@ -564,35 +579,8 @@ function renderRows(root) {
   updateTotals(root);
 }
 
-function updateTotals(root) {
-  const summaryRow = root.querySelector("tr[data-summary-row='rev']");
-  if (!summaryRow || !rows.length) return;
-
-  const monthTotals = {};
-  MONTHS.forEach(m => { monthTotals[m.key] = 0; });
-  let grand = 0;
-
-  rows.forEach(row => {
-    MONTHS.forEach(m => {
-      const v = Number(row.months[m.key] || 0);
-      if (!Number.isNaN(v)) {
-        monthTotals[m.key] += v;
-        grand += v;
-      }
-    });
-  });
-
-  MONTHS.forEach(m => {
-    const cell = summaryRow.querySelector(`[data-total-col="${m.key}"]`);
-    if (cell) cell.textContent = fmtNum(monthTotals[m.key]);
-  });
-
-  const gCell = summaryRow.querySelector('[data-total-col="all"]');
-  if (gCell) gCell.textContent = fmtNum(grand);
-}
-
 // ─────────────────────────────────────────────
-// MAIN REFRESH
+// REFRESH
 // ─────────────────────────────────────────────
 async function refreshRevenue(root, client) {
   const msg = $("#revMessage", root);
@@ -641,7 +629,7 @@ export const revenueBudgetTab = {
     const controls = $("#revControls", root);
     const ctx = getPlanContext();
 
-    // Header labels (similar to labor/subs tabs)
+    // Header labels (same pattern as cost/labor/subs tabs)
     const globalPlan =
       document.querySelector("#planContextHeader")?.textContent?.trim() || "";
     const globalProject =
@@ -650,9 +638,11 @@ export const revenueBudgetTab = {
     const planSpan = $("#revInlinePlan", root);
     const projSpan = $("#revInlineProject", root);
 
-    if (planSpan) planSpan.textContent = globalPlan || (ctx?.year
-      ? `BUDGET – ${ctx.year} · ${ctx.planType || "Working"}`
-      : "Revenue");
+    if (planSpan) {
+      planSpan.textContent =
+        globalPlan ||
+        (ctx?.year ? `BUDGET – ${ctx.year} · ${ctx.planType || "Working"}` : "Revenue");
+    }
     if (projSpan) {
       if (globalProject) {
         projSpan.textContent = `, ${globalProject}`;
@@ -698,10 +688,9 @@ export const revenueBudgetTab = {
 
     controls.style.display = "block";
 
-    // Initial load
     await refreshRevenue(root, client);
 
-    // Add revenue line button
+    // Add manual revenue line
     $("#addRevenueLineBtn", root)?.addEventListener("click", async () => {
       const ctxNow = getPlanContext();
       const projectId = projSelect.value || null;
@@ -723,7 +712,7 @@ export const revenueBudgetTab = {
       if (msg) msg.textContent = "";
     });
 
-    // Input change handler (manual revenue only)
+    // Input change for manual rows
     $("#revBody", root)?.addEventListener("change", async (e) => {
       const input = e.target;
       if (!input.classList.contains("rev-input")) return;
@@ -734,7 +723,6 @@ export const revenueBudgetTab = {
 
       const row = rows[idx];
       if (!row.editable || row.kind !== "MANUAL" || !row.planning_line_id) {
-        // Read-only rows (T&M, Subs/ODC) — ignore edits
         input.value = row.months[monthKey] || "";
         return;
       }
@@ -745,7 +733,6 @@ export const revenueBudgetTab = {
 
       await updateManualCell(client, row.planning_line_id, monthKey, row.months[monthKey]);
 
-      // Re-render totals / summary only (keep inputs)
       const totalCell = root.querySelector(`td[data-total-row="${idx}"]`);
       if (totalCell) totalCell.textContent = fmtNum(computeRowTotal(row));
       updateTotals(root);
