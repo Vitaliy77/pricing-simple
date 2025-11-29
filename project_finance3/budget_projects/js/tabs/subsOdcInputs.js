@@ -12,9 +12,82 @@ let projectScope = [];
 let vendors = [];
 let lines = [];
 
+// Helper copied from laborHours.js – finds Level 1 + all children
+async function getProjectScope(client, level1ProjectId) {
+  if (!level1ProjectId) return [];
+
+  const { data: parent, error: pErr } = await client
+    .from("projects")
+    .select("id, project_code, name")
+    .eq("id", level1ProjectId)
+    .single();
+
+  if (pErr || !parent) {
+    console.error("[SubsOdcInputs] load parent project error", pErr);
+    return [];
+  }
+
+  const { data: children, error: cErr } = await client
+    .from("projects")
+    .select("id, project_code, name")
+    .like("project_code", `${parent.project_code}.%`)
+    .order("project_code");
+
+  if (cErr) {
+    console.error("[SubsOdcInputs] load child projects error", cErr);
+    return [parent];
+  }
+
+  return [parent, ...(children || [])];
+}
+
+async function loadVendors(client) {
+  const { data, error } = await client
+    .from("vendors")
+    .select("id, vendor_name")
+    .eq("active", true)
+    .order("vendor_name");
+
+  if (error) {
+    console.error("[SubsOdcInputs] loadVendors error", error);
+    return [];
+  }
+  return data || [];
+}
+
+async function fetchSubsOdcLines(client, projectIds, ctx) {
+  if (!projectIds.length) return [];
+
+  const { data, error } = await client
+    .from("planning_lines")
+    .select(`
+      id,
+      project_id,
+      vendor_id,
+      description,
+      amt_jan, amt_feb, amt_mar, amt_apr, amt_may, amt_jun,
+      amt_jul, amt_aug, amt_sep, amt_oct, amt_nov, amt_dec,
+      entry_types ( code )
+    `)
+    .in("project_id", projectIds)
+    .in("entry_types.code", ["SUBC_COST", "ODC_COST"])
+    .eq("plan_year", ctx.year)
+    .eq("plan_version_id", ctx.versionId)
+    .eq("plan_type", ctx.planType || "Working");
+
+  if (error) {
+    console.error("[SubsOdcInputs] fetch lines error", error);
+    return [];
+  }
+
+  return (data || []).map(line => ({
+    ...line,
+    entry_types: line.entry_types || { code: line.vendor_id ? "SUBC_COST" : "ODC_COST" }
+  }));
+}
+
 export const template = /*html*/ `
   <article class="full-width-card w-full">
-    <!-- EXACT SAME VISUAL LANGUAGE AS laborHours.js -->
     <style>
       .subs-table {
         border-collapse: collapse;
@@ -43,16 +116,13 @@ export const template = /*html*/ `
       }
       .no-spin { -moz-appearance: textfield; }
 
-      /* Sticky column widths — perfectly aligned */
+      /* Sticky column widths */
       .subs-col-project { width: 9rem; }
       .subs-col-type    { width: 7rem; }
       .subs-col-vendor  { width: 11rem; }
       .subs-col-desc    { width: 16rem; }
 
-      .subs-sticky-1,
-      .subs-sticky-2,
-      .subs-sticky-3,
-      .subs-sticky-4 {
+      .subs-sticky-1, .subs-sticky-2, .subs-sticky-3, .subs-sticky-4 {
         position: sticky;
         z-index: 30;
         background-color: inherit;
@@ -61,6 +131,8 @@ export const template = /*html*/ `
       .subs-sticky-2 { left: 9rem; }
       .subs-sticky-3 { left: 16rem; }
       .subs-sticky-4 { left: 27rem; }
+
+      }
 
       .subs-row-striped:nth-child(odd)  { background-color: #eff6ff; }
       .subs-row-striped:nth-child(even) { background-color: #ffffff; }
@@ -76,7 +148,6 @@ export const template = /*html*/ `
       }
     </style>
 
-    <!-- Identical header pattern -->
     <div class="px-4 pt-3 pb-2 border-b border-slate-200">
       <div class="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-xs text-slate-700">
         <span id="subsInlinePlan" class="font-medium"></span>
@@ -107,9 +178,7 @@ export const template = /*html*/ `
               <th class="subs-sticky-2 subs-col-type    sticky top-0 bg-slate-50 text-left text-[11px] font-semibold text-slate-700 uppercase tracking-wider">Type</th>
               <th class="subs-sticky-3 subs-col-vendor  sticky top-0 bg-slate-50 text-left text-[11px] font-semibold text-slate-700 uppercase tracking-wider">Vendor</th>
               <th class="subs-sticky-4 subs-col-desc    sticky top-0 bg-slate-50 text-left text-[11px] font-semibold text-slate-700 uppercase tracking-wider">Description</th>
-              ${MONTH_LABELS.map(m => `
-                <th class="sticky top-0 bg-slate-50 text-right text-[11px] font-semibold text-slate-700 uppercase tracking-wider">${m}</th>
-              `).join("")}
+              ${MONTH_LABELS.map(m => `<th class="sticky top-0 bg-slate-50 text-right text-[11px] font-semibold text-slate-700 uppercase tracking-wider">${m}</th>`).join("")}
               <th class="sticky top-0 bg-slate-50 text-right text-[11px] font-semibold text-slate-700 uppercase tracking-wider">Total $</th>
             </tr>
           </thead>
@@ -127,14 +196,17 @@ export const template = /*html*/ `
 // ─────────────────────────────────────────────
 function fmtNum(v) {
   if (v === null || v === undefined || v === "") return "";
-  const num = Number(v);
-  return Number.isNaN(num) ? "" : num.toString();
+  const n = Number(v);
+  return Number.isNaN(n) ? "" : n.toString();
 }
 
 function computeRowTotal(line) {
   return MONTH_COLS.reduce((sum, key) => sum + (Number(line[key] || 0) || 0), 0);
 }
 
+// ─────────────────────────────────────────────
+// RENDERING
+// ─────────────────────────────────────────────
 function renderLines(root) {
   const tbody = $("#subsOdcTbody", root);
   if (!tbody) return;
@@ -155,7 +227,7 @@ function renderLines(root) {
     const typeLabel = line.entry_types?.code === "SUBC_COST" ? "Subs" : "ODC";
     const total = computeRowTotal(line);
 
-    const projectOptions = projectScope.map(p =>
+    const projectOptions = projectScope.map(p => 
       `<option value="${p.id}" ${p.id === line.project_id ? "selected" : ""}>${p.project_code} – ${p.name}</option>`
     ).join("");
 
@@ -179,15 +251,13 @@ function renderLines(root) {
 
     tr.innerHTML = `
       <td class="subs-sticky-1 subs-col-project">
-        <select class="cell-input subs-cell-input border border-slate-200 rounded-sm px-1 py-0.5 text-[11px]"
-                data-row="${idx}" data-field="project_id">
+        <select class="cell-input subs-cell-input border border-slate-200 rounded-sm px-1 py-0.5 text-[11px]" data-row="${idx}" data-field="project_id">
           ${projectOptions}
         </select>
       </td>
       <td class="subs-sticky-2 subs-col-type text-[11px] text-slate-800">${typeLabel}</td>
       <td class="subs-sticky-3 subs-col-vendor">
-        <select class="cell-input subs-cell-input border border-slate-200 rounded-sm px-1 py-0.5 text-[11px]"
-                data-row="${idx}" data-field="vendor_id">
+        <select class="cell-input subs-cell-input border border-slate-200 rounded-sm px-1 py-0.5 text-[11px]" data-row="${idx}" data-field="vendor_id">
           ${vendorOptions}
         </select>
       </td>
@@ -204,7 +274,7 @@ function renderLines(root) {
     tbody.appendChild(tr);
   });
 
-  // Summary row — identical pattern
+  // Summary row
   const summaryTr = document.createElement("tr");
   summaryTr.dataset.summaryRow = "subs";
   summaryTr.className = "subs-summary-row";
@@ -246,8 +316,64 @@ function updateSubsTotals(root) {
 }
 
 // ─────────────────────────────────────────────
-// INIT — matches laborHours.js exactly
+// DATA MUTATIONS
 // ─────────────────────────────────────────────
+async function addNewSubsOdcLine(client, ctx, typeCode) {
+  const entryTypeId = (await client.from("entry_types").select("id").eq("code", typeCode).single()).data?.id;
+  if (!entryTypeId || !projectScope.length) return;
+
+  const payload = {
+    project_id: projectScope[0].id,
+    entry_type_id: entryTypeId,
+    plan_year: ctx.year,
+    plan_version_id: ctx.versionId,
+    plan_type: ctx.planType || "Working",
+    description: "",
+  };
+  MONTH_COLS.forEach(c => payload[c] = 0);
+
+  const { data, error } = await client.from("planning_lines").insert(payload).select().single();
+  if (error) console.error("[SubsOdcInputs] insert error", error);
+  return data;
+}
+
+async function updateNumericCell(client, lineId, field, value) {
+  const { error } = await client
+    .from("planning_lines")
+    .update({ [field]: value === "" ? 0 : Number(value) })
+    .eq("id", lineId);
+  if (error) console.error("[SubsOdcInputs] update numeric error", error);
+}
+
+async function updateTextField(client, lineId, field, value) {
+  const { error } = await client
+    .from("planning_lines")
+    .update({ [field]: value || null })
+    .eq("id", lineId);
+  if (error) console.error("[SubsOdcInputs] update text error", error);
+}
+
+async function updateProjectOnLine(client, lineId, projectId) {
+  const proj = projectScope.find(p => p.id === projectId);
+  const { error } = await client
+    .from("planning_lines")
+    .update({ project_id: projectId, project_name: proj?.name || null })
+    .eq("id", lineId);
+  if (error) console.error("[SubsOdcInputs] update project error", error);
+}
+
+async function updateVendorOnLine(client, lineId, vendorId) {
+  const vendor = vendors.find(v => v.id === vendorId);
+  const { error } = await client
+    .from("planning_lines")
+    .update({ vendor_id: vendorId || null, resource_name: vendor?.vendor_name || null })
+    .eq("id", lineId);
+  if (error) console.error("[SubsOdcInputs] update vendor error", error);
+}
+
+// ──────────────────────────────────────────────
+// TAB INIT
+//─────────────────────────────────────────────
 export const subsOdcInputsTab = {
   template,
   async init({ root, client }) {
@@ -255,15 +381,14 @@ export const subsOdcInputsTab = {
     const section = $("#subsOdcSection", root);
     const ctx = getPlanContext();
 
-    const planEl = $("#subsInlinePlan", root);
-    const projEl = $("#subsInlineProject", root);
-
-    planEl.textContent = ctx?.planLabel || (ctx?.year ? `BUDGET – ${ctx.year} · ${ctx.planType || "Working"}` : "Subs & ODC");
+    // Header labels – same logic as laborHours
+    $("#subsInlinePlan", root).textContent =
+      ctx?.planLabel || (ctx?.year ? `BUDGET – ${ctx.year} · ${ctx.planType || "Working"}` : "Subs & ODC");
     if (ctx?.level1ProjectCode && ctx?.level1ProjectName) {
-      planEl.textContent += ` · Level 1 Project: ${ctx.level1ProjectCode} – ${ctx.level1ProjectName}`;
+      $("#subsInlinePlan", root).textContent += ` · Level 1 Project: ${ctx.level1ProjectCode} – ${ctx.level1ProjectName}`;
     }
     if (ctx?.projectCode && ctx?.projectName) {
-      projEl.textContent = `, ${ctx.projectCode} – ${ctx.projectName}`;
+      $("#subsInlineProject", root).textContent = `, ${ctx.projectCode} – ${ctx.projectName}`;
     }
 
     if (!ctx.level1ProjectId || !ctx.year || !ctx.versionId) {
@@ -273,7 +398,7 @@ export const subsOdcInputsTab = {
     }
 
     section.style.display = "block";
-    msg.textContent = "Loading subs & ODC lines…";
+    msg.textContent = "Loading subs & ODC costs…";
 
     projectScope = await getProjectScope(client, ctx.level1ProjectId);
     vendors = await loadVendors(client);
@@ -283,10 +408,9 @@ export const subsOdcInputsTab = {
 
     renderLines(root);
     updateSubsTotals(root);
-
     msg.textContent = lines.length ? "" : "No lines yet. Use the buttons above to add.";
 
-    // Add line buttons
+    // Add buttons
     $("#addSubsLineBtn", root)?.addEventListener("click", async () => {
       await addNewSubsOdcLine(client, ctx, "SUBC_COST");
       lines = await fetchSubsOdcLines(client, projectIds, ctx);
@@ -301,10 +425,11 @@ export const subsOdcInputsTab = {
       updateSubsTotals(root);
     });
 
-    // Delegated input changes
+    // Input changes
     $("#subsOdcTbody", root)?.addEventListener("change", async (e) => {
       const input = e.target;
       if (!input.classList.contains("cell-input")) return;
+
       const idx = Number(input.dataset.row);
       const field = input.dataset.field;
       if (Number.isNaN(idx) || !field || !lines[idx]) return;
@@ -325,11 +450,11 @@ export const subsOdcInputsTab = {
         await updateVendorOnLine(client, line.id, val || null);
       }
 
-      renderLines(root); // re-render totals + row
+      renderLines(root);
       updateSubsTotals(root);
     });
 
-    // Row highlight (same as laborHours)
+    // Row highlight
     $("#subsOdcTbody", root)?.addEventListener("click", (e) => {
       const tr = e.target.closest("tr.subs-row-striped");
       if (!tr) return;
