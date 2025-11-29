@@ -3,8 +3,8 @@ import { $, h } from "../lib/dom.js";
 import { getSelectedProjectId, getPlanContext } from "../lib/projectContext.js";
 
 const MONTH_KEYS = [
-  "jan", "feb", "mar", "apr", "may", "jun",
-  "jul", "aug", "sep", "oct", "nov", "dec",
+  "amt_jan", "amt_feb", "amt_mar", "amt_apr", "amt_may", "amt_jun",
+  "amt_jul", "amt_aug", "amt_sep", "amt_oct", "amt_nov", "amt_dec",
 ];
 
 const MONTH_LABELS = [
@@ -12,11 +12,14 @@ const MONTH_LABELS = [
   "Jul","Aug","Sep","Oct","Nov","Dec",
 ];
 
+// cache for entry_type_id lookups
+let entryTypeIdByCode = null;
+
 export const template = /*html*/ `
   <article>
     <h3 style="margin-bottom:0.5rem;">Cost Inputs (Editable)</h3>
     <p style="font-size:0.9rem;margin-bottom:0.75rem;color:#475569;">
-      Enter <strong>hours</strong> for employees and <strong>cost</strong> for subcontractors and ODC
+      Enter <strong>amounts</strong> for direct labor, subcontractors, and ODC
       for all projects under the selected level 1 code.
     </p>
 
@@ -82,15 +85,14 @@ function computeRowTotal(line) {
 
 /**
  * Given the selected level-1 project id, find:
- *  - its code (e.g. P000001.)
- *  - derive prefix (e.g. P000001.)
- *  - fetch ALL child project ids whose code starts with that prefix
+ *  - its project_code (e.g. P000001.)
+ *  - a prefix (P000001.)
+ *  - all child project ids where project_code starts with that prefix
  */
 async function getProjectScope(client, rootProjectId) {
-  // 1) get root project code
   const { data: root, error: rootErr } = await client
     .from("projects")
-    .select("code, name")
+    .select("project_code, name")
     .eq("id", rootProjectId)
     .single();
 
@@ -99,17 +101,15 @@ async function getProjectScope(client, rootProjectId) {
     return { ids: [rootProjectId], label: "Selected project", count: 1 };
   }
 
-  const fullCode = root.code || "";
-  // base before the first dot, then add a dot back: "P000001."
-  const base = fullCode.split(".")[0] || fullCode;
-  const prefix = base.endsWith(".") ? base : `${base}.`;
+  const fullCode = root.project_code || "";
+  const base = fullCode.split(".")[0] || fullCode; // "P000001"
+  const prefix = base.endsWith(".") ? base : `${base}.`; // "P000001."
 
-  // 2) all children under that prefix, including the root row
   const { data: children, error: childErr } = await client
     .from("projects")
-    .select("id, code, name")
-    .ilike("code", `${prefix}%`)
-    .order("code", { ascending: true });
+    .select("id, project_code, name")
+    .ilike("project_code", `${prefix}%`)
+    .order("project_code", { ascending: true });
 
   if (childErr || !children?.length) {
     console.error("[costInputs] getProjectScope children error", childErr);
@@ -125,6 +125,29 @@ async function getProjectScope(client, rootProjectId) {
   return { ids, label, count: children.length };
 }
 
+/**
+ * Ensure we know the entry_type_id for DIR_LAB_COST, SUBC_COST, ODC_COST
+ */
+async function ensureEntryTypeIds(client) {
+  if (entryTypeIdByCode) return entryTypeIdByCode;
+
+  const { data, error } = await client
+    .from("entry_types")
+    .select("id, code");
+
+  if (error) {
+    console.error("[costInputs] entry_types lookup error", error);
+    entryTypeIdByCode = {};
+    return entryTypeIdByCode;
+  }
+
+  entryTypeIdByCode = {};
+  (data || []).forEach((row) => {
+    entryTypeIdByCode[row.code] = row.id;
+  });
+  return entryTypeIdByCode;
+}
+
 async function fetchLines(client, projectIds, ctx) {
   if (!projectIds?.length) return [];
 
@@ -133,18 +156,19 @@ async function fetchLines(client, projectIds, ctx) {
     .select(`
       id,
       project_id,
-      entry_type,
-      person_vendor,
+      entry_type_id,
+      is_revenue,
+      resource_name,
       description,
-      jan, feb, mar, apr, may, jun,
-      jul, aug, sep, oct, nov, dec
+      amt_jan, amt_feb, amt_mar, amt_apr, amt_may, amt_jun,
+      amt_jul, amt_aug, amt_sep, amt_oct, amt_nov, amt_dec,
+      entry_types ( code, display_name )
     `)
     .in("project_id", projectIds)
-    .in("entry_type", ["labor", "subs", "odc"])
+    .eq("is_revenue", false) // costs only
     .order("project_id", { ascending: true })
-    .order("entry_type", { ascending: true });
+    .order("entry_type_id", { ascending: true });
 
-  // Plan filters if present
   if (ctx?.year) {
     query = query.eq("plan_year", ctx.year);
   }
@@ -206,6 +230,18 @@ async function updateTextField(client, lineId, field, value) {
   }
 }
 
+function getEntryLabel(line) {
+  const et = line.entry_types || {};
+  const code = et.code;
+
+  if (code === "DIR_LAB_COST") return "Labor (dir)";
+  if (code === "SUBC_COST") return "Subs";
+  if (code === "ODC_COST") return "ODC";
+
+  // fallback to whatever we have
+  return et.display_name || code || "Cost";
+}
+
 function renderLines(root, lines) {
   const tbody = $("#costInputsTbody", root);
   if (!tbody) return;
@@ -217,25 +253,18 @@ function renderLines(root, lines) {
   for (const line of lines) {
     const tr = document.createElement("tr");
     tr.dataset.lineId = line.id;
-    tr.dataset.entryType = line.entry_type;
 
-    const entryLabel =
-      line.entry_type === "labor"
-        ? "Labor (hrs)"
-        : line.entry_type === "subs"
-        ? "Subs ($)"
-        : line.entry_type === "odc"
-        ? "ODC ($)"
-        : line.entry_type || "";
+    const entryLabel = getEntryLabel(line);
+    const who = line.resource_name || "";
 
     tr.innerHTML = `
       <td class="sticky-col">${entryLabel}</td>
       <td class="sticky-col-2">
         <input
           class="cell-input"
-          data-field="person_vendor"
+          data-field="resource_name"
           type="text"
-          value="${line.person_vendor || ""}"
+          value="${who}"
         />
       </td>
       <td class="sticky-col-3">
@@ -254,7 +283,7 @@ function renderLines(root, lines) {
             class="cell-input cell-input-num"
             data-field="${key}"
             type="number"
-            step="0.1"
+            step="0.01"
             value="${fmtNum(line[key])}"
           />
         </td>
@@ -270,12 +299,21 @@ function renderLines(root, lines) {
   }
 }
 
-async function addNewLine(client, rootProjectId, ctx, entryType) {
-  // For now, attach new lines to the *root* level-1 project id
+async function addNewLine(client, rootProjectId, ctx, entryTypeCode) {
+  await ensureEntryTypeIds(client);
+  const entryTypeId = entryTypeIdByCode?.[entryTypeCode];
+
+  if (!entryTypeId) {
+    console.error("[costInputs] no entry_type_id for code", entryTypeCode);
+    return null;
+  }
+
   const baseLine = {
     project_id: rootProjectId,
-    entry_type: entryType,
-    person_vendor: "",
+    project_name: "", // optional; you can fill via a trigger or join on display
+    entry_type_id: entryTypeId,
+    is_revenue: false,
+    resource_name: "",
     description: "",
   };
 
@@ -284,7 +322,7 @@ async function addNewLine(client, rootProjectId, ctx, entryType) {
   if (ctx?.planType) baseLine.plan_type = ctx.planType;
 
   MONTH_KEYS.forEach((key) => {
-    baseLine[key] = null;
+    baseLine[key] = 0;
   });
 
   const inserted = await upsertLine(client, baseLine);
@@ -332,7 +370,7 @@ export const costInputsTab = {
 
     if (msgEl) msgEl.textContent = "Loading cost inputs…";
 
-    // Figure out the full scope (P000001.* children)
+    // Determine the full scope under the level 1 project
     const scope = await getProjectScope(client, rootProjectId);
 
     if (labelEl) {
@@ -347,23 +385,23 @@ export const costInputsTab = {
 
     if (msgEl) msgEl.textContent = "";
 
-    // Button handlers (new lines attach to root level-1 id)
+    // Button handlers: create new lines on the root (level 1) project
     $("#addLaborLineBtn", root).addEventListener("click", async () => {
-      const line = await addNewLine(client, rootProjectId, ctx, "labor");
+      const line = await addNewLine(client, rootProjectId, ctx, "DIR_LAB_COST");
       if (line) await refresh(root, client, scope.ids, ctx);
     });
 
     $("#addSubsLineBtn", root).addEventListener("click", async () => {
-      const line = await addNewLine(client, rootProjectId, ctx, "subs");
+      const line = await addNewLine(client, rootProjectId, ctx, "SUBC_COST");
       if (line) await refresh(root, client, scope.ids, ctx);
     });
 
     $("#addOdcLineBtn", root).addEventListener("click", async () => {
-      const line = await addNewLine(client, rootProjectId, ctx, "odc");
+      const line = await addNewLine(client, rootProjectId, ctx, "ODC_COST");
       if (line) await refresh(root, client, scope.ids, ctx);
     });
 
-    // Event delegation for grid edits
+    // Event delegation for edits
     $("#costInputsTbody", root).addEventListener("change", async (evt) => {
       const input = evt.target;
       if (!input.classList.contains("cell-input")) return;
@@ -376,7 +414,7 @@ export const costInputsTab = {
 
       const value = input.value;
 
-      if (field === "person_vendor" || field === "description") {
+      if (field === "resource_name" || field === "description") {
         await updateTextField(client, lineId, field, value);
       } else {
         await updateCell(client, lineId, field, value);
