@@ -7,22 +7,31 @@ const _entryTypeIds = {};
 
 export const template = /*html*/ `
   <article class="full-width-card">
-    <div class="px-6 pt-4 pb-4">
-      <h3 class="text-base font-semibold text-slate-900 mb-1">
-        Cost Budget
-      </h3>
-      
-      <p class="text-xs text-slate-600 mb-3 leading-snug">
-        Build costs for all projects under the selected Level 1 project — direct labor, subcontractors, and other direct costs.
-      </p>
+    <!-- Compact inline header -->
+    <div class="px-4 pt-3 pb-2 border-b border-slate-200">
+      <div
+        class="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-xs text-slate-700"
+      >
+        <span id="costInlinePlan" class="font-medium"></span>
+        <span id="costInlineProject"></span>
+        <span class="ml-2 text-xs text-slate-900 font-semibold">
+          · Cost Budget
+        </span>
+        <span class="text-[11px] text-slate-600 ml-1">
+          — Build costs for all projects under the selected Level 1 project: direct labor, subcontractors, and other direct costs.
+        </span>
+      </div>
 
-      <div id="costMessage" class="text-xs text-slate-600 mb-3 min-h-[1.25rem]"></div>
+      <div
+        id="costMessage"
+        class="text-[11px] text-slate-500 mt-1 min-h-[1.1rem]"
+      ></div>
 
       <!-- ADD COST LINES -->
-      <section class="mb-3">
+      <section class="mt-1 mb-1">
         <div class="flex flex-wrap items-end gap-3">
           <label class="flex-1 min-w-[220px]">
-            <span class="block text-xs font-medium text-slate-700 mb-1">Project</span>
+            <span class="block text-[11px] font-medium text-slate-700 mb-1">Project</span>
             <select
               id="costProjectSelect"
               class="w-full px-2 py-1 border border-slate-300 rounded-md text-xs
@@ -32,24 +41,24 @@ export const template = /*html*/ `
             </select>
           </label>
 
-          <div class="flex flex-wrap gap-2">
+          <div class="flex flex-wrap gap-2 text-xs">
             <button
               id="addEmployeesBtn"
-              class="px-3 py-1.5 text-xs font-medium rounded-md shadow-sm
+              class="px-3 py-1.5 font-medium rounded-md shadow-sm
                      bg-blue-600 hover:bg-blue-700 text-white"
             >
               + Add Employees
             </button>
             <button
               id="addSubsBtn"
-              class="px-3 py-1.5 text-xs font-medium rounded-md shadow-sm
+              class="px-3 py-1.5 font-medium rounded-md shadow-sm
                      bg-blue-600 hover:bg-blue-700 text-white"
             >
               + Add Subcontractors
             </button>
             <button
               id="addOdcBtn"
-              class="px-3 py-1.5 text-xs font-medium rounded-md shadow-sm
+              class="px-3 py-1.5 font-medium rounded-md shadow-sm
                      bg-blue-600 hover:bg-blue-700 text-white"
             >
               + Add ODC
@@ -61,8 +70,8 @@ export const template = /*html*/ `
 
     <!-- TABLE WRAPPER: fixed height, only grid scrolls -->
     <div class="border-t border-slate-200">
-      <div class="max-h-[520px] overflow-auto overflow-x-auto">
-        <table id="costTable" class="min-w-full text-xs">
+      <div class="w-full max-h-[520px] overflow-auto overflow-x-auto">
+        <table id="costTable" class="min-w-full text-xs table-fixed">
           <thead class="bg-slate-50">
             <tr>
               <th
@@ -120,6 +129,24 @@ export const costBudgetTab = {
   async init({ root, client }) {
     const msg = $("#costMessage", root);
     const ctx = getPlanContext();
+
+    // Inline header from global header elements
+    const globalPlan =
+      document.querySelector("#planContextHeader")?.textContent?.trim() || "";
+    const globalProject =
+      document.querySelector("#currentProject")?.textContent?.trim() || "";
+
+    const planSpan = $("#costInlinePlan", root);
+    const projSpan = $("#costInlineProject", root);
+
+    if (planSpan) planSpan.textContent = globalPlan;
+    if (projSpan) {
+      if (globalProject) {
+        projSpan.textContent = `, ${globalProject}`;
+      } else {
+        projSpan.textContent = "";
+      }
+    }
 
     if (!ctx.level1ProjectId || !ctx.year || !ctx.versionId) {
       msg && (msg.textContent = "Please select a Level 1 project and plan first.");
