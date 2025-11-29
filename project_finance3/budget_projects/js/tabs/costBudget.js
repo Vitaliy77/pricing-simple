@@ -3,7 +3,22 @@ import { $, h } from "../lib/dom.js";
 import { getPlanContext } from "../lib/projectContext.js";
 
 let _costProjectIds = [];
-const _entryTypeIds = {};
+let _projectMeta = {};
+
+const MONTH_FIELDS = [
+  { col: "amt_jan", idx: 0, label: "Jan" },
+  { col: "amt_feb", idx: 1, label: "Feb" },
+  { col: "amt_mar", idx: 2, label: "Mar" },
+  { col: "amt_apr", idx: 3, label: "Apr" },
+  { col: "amt_may", idx: 4, label: "May" },
+  { col: "amt_jun", idx: 5, label: "Jun" },
+  { col: "amt_jul", idx: 6, label: "Jul" },
+  { col: "amt_aug", idx: 7, label: "Aug" },
+  { col: "amt_sep", idx: 8, label: "Sep" },
+  { col: "amt_oct", idx: 9, label: "Oct" },
+  { col: "amt_nov", idx: 10, label: "Nov" },
+  { col: "amt_dec", idx: 11, label: "Dec" },
+];
 
 export const template = /*html*/ `
   <article class="full-width-card">
@@ -18,7 +33,8 @@ export const template = /*html*/ `
           · Cost Budget
         </span>
         <span class="text-[11px] text-slate-600 ml-1">
-          — Build costs for all projects under the selected Level 1 project: direct labor, subcontractors, and other direct costs.
+          — Cost summary for all projects under the selected Level 1 project:
+          labor (hours × rates), subcontractors, and other direct costs.
         </span>
       </div>
 
@@ -26,52 +42,12 @@ export const template = /*html*/ `
         id="costMessage"
         class="text-[11px] text-slate-500 mt-1 min-h-[1.1rem]"
       ></div>
-
-      <!-- ADD COST LINES -->
-      <section class="mt-1 mb-1">
-        <div class="flex flex-wrap items-end gap-3">
-          <label class="flex-1 min-w-[220px]">
-            <span class="block text-[11px] font-medium text-slate-700 mb-1">Project</span>
-            <select
-              id="costProjectSelect"
-              class="w-full px-2 py-1 border border-slate-300 rounded-md text-xs
-                     focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="">— Select project —</option>
-            </select>
-          </label>
-
-          <div class="flex flex-wrap gap-2 text-xs">
-            <button
-              id="addEmployeesBtn"
-              class="px-3 py-1.5 font-medium rounded-md shadow-sm
-                     bg-blue-600 hover:bg-blue-700 text-white"
-            >
-              + Add Employees
-            </button>
-            <button
-              id="addSubsBtn"
-              class="px-3 py-1.5 font-medium rounded-md shadow-sm
-                     bg-blue-600 hover:bg-blue-700 text-white"
-            >
-              + Add Subcontractors
-            </button>
-            <button
-              id="addOdcBtn"
-              class="px-3 py-1.5 font-medium rounded-md shadow-sm
-                     bg-blue-600 hover:bg-blue-700 text-white"
-            >
-              + Add ODC
-            </button>
-          </div>
-        </div>
-      </section>
     </div>
 
     <!-- TABLE WRAPPER: fixed height, only grid scrolls -->
     <div class="border-t border-slate-200">
       <div class="w-full max-h-[520px] overflow-auto overflow-x-auto">
-        <table id="costTable" class="min-w-full text-xs table-fixed">
+        <table id="costTable" class="min-w-full text-xs">
           <thead class="bg-slate-50">
             <tr>
               <th
@@ -95,14 +71,12 @@ export const template = /*html*/ `
               >
                 Role / Description
               </th>
-              ${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
-                .map(
-                  m => `
-              <th class="sticky top-0 z-20 bg-slate-50 px-3 py-1.5 text-right text-[11px] font-semibold text-slate-700 uppercase tracking-wider">
-                ${m}
-              </th>`
-                )
-                .join("")}
+              ${MONTH_FIELDS.map(
+                m => `
+                  <th class="sticky top-0 z-20 bg-slate-50 px-3 py-1.5 text-right text-[11px] font-semibold text-slate-700 uppercase tracking-wider">
+                    ${m.label}
+                  </th>`
+              ).join("")}
               <th class="sticky top-0 z-20 bg-slate-50 px-3 py-1.5 text-right text-[11px] font-semibold text-slate-700 uppercase tracking-wider">
                 Total
               </th>
@@ -155,84 +129,17 @@ export const costBudgetTab = {
     }
 
     await loadProjectsUnderLevel1(root, client, ctx.level1ProjectId);
-
-    const projSelect = $("#costProjectSelect", root);
-    $("#addEmployeesBtn", root)?.addEventListener("click", () =>
-      handleAddLines(root, client, projSelect, "DIR_LAB_COST", "New employee cost line")
-    );
-    $("#addSubsBtn", root)?.addEventListener("click", () =>
-      handleAddLines(root, client, projSelect, "SUBC_COST", "New subcontractor cost line")
-    );
-    $("#addOdcBtn", root)?.addEventListener("click", () =>
-      handleAddLines(root, client, projSelect, "ODC_COST", "New ODC cost line")
-    );
-
     await refreshCost(root, client);
   },
 };
 
 // ─────────────────────────────────────────────
-// RENDER COST GRID
-// ─────────────────────────────────────────────
-function renderCost(root, rows) {
-  const tbody = $("#costBody", root);
-  if (!tbody) return;
-
-  if (!rows?.length) {
-    tbody.innerHTML = `<tr><td colspan="16" class="text-center py-10 text-slate-500 text-xs">No cost lines found for this project and plan.</td></tr>`;
-    return;
-  }
-
-  const months = [
-    "amt_jan","amt_feb","amt_mar","amt_apr","amt_may","amt_jun",
-    "amt_jul","amt_aug","amt_sep","amt_oct","amt_nov","amt_dec"
-  ];
-  const fmt = v => typeof v === "number" ? v.toLocaleString() : "";
-
-  tbody.innerHTML = "";
-  rows.forEach(r => {
-    const who = r.resource_name || "";
-    const desc = r.department_name || r.description || "";
-    let total = 0;
-
-    const monthCells = months.map(m => {
-      const val = Number(r[m] || 0);
-      total += val;
-      return `<td class="px-3 py-1 text-right text-[11px] text-slate-900">${fmt(val)}</td>`;
-    }).join("");
-
-    const tr = document.createElement("tr");
-    tr.className = "hover:bg-slate-50 transition";
-
-    tr.innerHTML = `
-      <td class="cost-grid-sticky cost-col-1 px-3 py-1 text-[11px] font-medium text-slate-900">
-        ${r.project_name || ""}
-      </td>
-      <td class="cost-grid-sticky cost-col-2 px-3 py-1 text-[11px] font-medium text-slate-800">
-        ${who}
-      </td>
-      <td class="cost-grid-sticky cost-col-3 px-3 py-1 text-[11px] text-slate-600 italic">
-        ${desc}
-      </td>
-      ${monthCells}
-      <td class="px-3 py-1 text-right text-[11px] font-bold text-slate-900 bg-slate-50">
-        ${fmt(total)}
-      </td>
-    `;
-    tbody.appendChild(tr);
-  });
-}
-
-// ─────────────────────────────────────────────
 // LOAD ALL PROJECTS UNDER LEVEL 1
 // ─────────────────────────────────────────────
 async function loadProjectsUnderLevel1(root, client, level1ProjectId) {
-  const sel = $("#costProjectSelect", root);
   const msg = $("#costMessage", root);
-  if (!sel) return;
-
-  sel.innerHTML = `<option value="">— Select project —</option>`;
   _costProjectIds = [];
+  _projectMeta = {};
 
   const { data: parent, error: parentError } = await client
     .from("projects")
@@ -262,77 +169,161 @@ async function loadProjectsUnderLevel1(root, client, level1ProjectId) {
   _costProjectIds = all.map(p => p.id);
 
   all.forEach(p => {
-    const opt = document.createElement("option");
-    opt.value = p.id;
-    opt.textContent = `${p.project_code} – ${p.name}`;
-    sel.appendChild(opt);
+    _projectMeta[p.id] = {
+      project_code: p.project_code,
+      name: p.name,
+      label: `${p.project_code} – ${p.name}`,
+    };
   });
 }
 
 // ─────────────────────────────────────────────
-// ENTRY TYPE ID CACHE
+// COST AGGREGATION HELPERS
 // ─────────────────────────────────────────────
-async function getEntryTypeId(client, code) {
-  if (_entryTypeIds[code]) return _entryTypeIds[code];
+function ensureMonthFields(row) {
+  MONTH_FIELDS.forEach(({ col }) => {
+    if (typeof row[col] !== "number") row[col] = 0;
+  });
+}
 
-  const { data, error } = await client
-    .from("entry_types")
-    .select("id")
-    .eq("code", code)
-    .single();
-
-  if (error || !data) {
-    console.error("[CostBudget] Error loading entry_type", code, error);
-    throw error || new Error("entry_type not found");
-  }
-
-  _entryTypeIds[code] = data.id;
-  return data.id;
+function addToMonth(row, dateStr, amount) {
+  if (!dateStr) return;
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return;
+  const monthIdx = d.getUTCMonth(); // 0–11
+  const mf = MONTH_FIELDS.find(m => m.idx === monthIdx);
+  if (!mf) return;
+  row[mf.col] += amount;
 }
 
 // ─────────────────────────────────────────────
-// ADD LINES (EMPLOYEES / SUBS / ODC)
+// LOAD LABOR COST: labor_hours × employees.hourly_cost
 // ─────────────────────────────────────────────
-async function handleAddLines(root, client, projSel, entryCode, defaultDescription) {
-  const ctx = getPlanContext();
-  const msg = $("#costMessage", root);
+async function loadLaborCosts(client, projectIds, ctx) {
+  if (!projectIds.length) return [];
 
-  const projectId = projSel?.value || null;
-  const projectLabel = projSel?.selectedOptions[0]?.textContent || "";
-  const projectName = projectLabel.split(" – ").slice(1).join(" – ") || projectLabel;
+  const { data: hours, error: hoursErr } = await client
+    .from("labor_hours")
+    .select("project_id, employee_id, ym, hours")
+    .in("project_id", projectIds)
+    .eq("plan_year", ctx.year)
+    .eq("plan_version_id", ctx.versionId)
+    .eq("plan_type", ctx.planType || "Working");
 
-  if (!projectId) {
-    msg && (msg.textContent = "Please pick a project from the dropdown first.");
-    return;
+  if (hoursErr) {
+    console.error("[CostBudget] labor_hours error", hoursErr);
+    return [];
   }
 
-  try {
-    const entryTypeId = await getEntryTypeId(client, entryCode);
+  if (!hours || !hours.length) return [];
 
-    const payload = {
-      project_id: projectId,
-      project_name: projectName,
-      entry_type_id: entryTypeId,
-      is_revenue: false,
-      resource_name: defaultDescription,
-      description: defaultDescription,
-      plan_year: ctx.year,
-      plan_version_id: ctx.versionId,
-      plan_type: ctx.planType || "Working",
-      amt_jan: 0, amt_feb: 0, amt_mar: 0, amt_apr: 0,
-      amt_may: 0, amt_jun: 0, amt_jul: 0, amt_aug: 0,
-      amt_sep: 0, amt_oct: 0, amt_nov: 0, amt_dec: 0,
-    };
+  const employeeIds = Array.from(
+    new Set(hours.map(h => h.employee_id).filter(Boolean))
+  );
 
-    const { error } = await client.from("planning_lines").insert(payload);
-    if (error) throw error;
+  let empMap = new Map();
+  if (employeeIds.length) {
+    const { data: emps, error: empErr } = await client
+      .from("employees")
+      .select("id, full_name, department_name, hourly_cost");
+      // you can add labor_category if you want to show it
 
-    msg && (msg.textContent = "New cost line added.");
-    await refreshCost(root, client);
-  } catch (err) {
-    console.error("[CostBudget] handleAddLines error", err);
-    msg && (msg.textContent = "Error adding cost line.");
+    if (empErr) {
+      console.error("[CostBudget] employees error", empErr);
+    } else {
+      (emps || []).forEach(e => {
+        empMap.set(e.id, e);
+      });
+    }
   }
+
+  const byKey = new Map();
+
+  for (const row of hours) {
+    const projMeta = _projectMeta[row.project_id];
+    if (!projMeta) continue;
+
+    const emp = empMap.get(row.employee_id);
+    const hourly = emp?.hourly_cost || 0;
+    const hoursVal = Number(row.hours || 0);
+    const cost = hoursVal * hourly;
+
+    const key = `${row.project_id}::${row.employee_id}`;
+    if (!byKey.has(key)) {
+      const who = emp?.full_name || "(Unknown employee)";
+      const role = emp?.department_name || "";
+      const rec = {
+        source: "labor",
+        project_label: projMeta.label,
+        who,
+        desc: role,
+      };
+      ensureMonthFields(rec);
+      byKey.set(key, rec);
+    }
+
+    const rec = byKey.get(key);
+    addToMonth(rec, row.ym, cost);
+  }
+
+  return Array.from(byKey.values());
+}
+
+// ─────────────────────────────────────────────
+// LOAD SUBS & ODC COSTS
+//   Assumes a table like: subs_odc_costs
+//   with columns: project_id, type, vendor_name, label, description, ym, amount,
+//   plan_year, plan_version_id, plan_type
+//   Adjust table / column names if your schema differs.
+// ─────────────────────────────────────────────
+async function loadSubsOdcCosts(client, projectIds, ctx) {
+  if (!projectIds.length) return [];
+
+  const { data, error } = await client
+    .from("subs_odc_costs") // <-- rename if your table is named differently
+    .select("project_id, type, vendor_name, label, description, ym, amount")
+    .in("project_id", projectIds)
+    .eq("plan_year", ctx.year)
+    .eq("plan_version_id", ctx.versionId)
+    .eq("plan_type", ctx.planType || "Working");
+
+  if (error) {
+    console.error("[CostBudget] subs_odc_costs error", error);
+    return [];
+  }
+
+  if (!data || !data.length) return [];
+
+  const byKey = new Map();
+
+  for (const row of data) {
+    const projMeta = _projectMeta[row.project_id];
+    if (!projMeta) continue;
+
+    const who = row.vendor_name || row.label || row.type || "(Vendor / ODC)";
+    const descParts = [];
+    if (row.type) descParts.push(row.type);
+    if (row.description) descParts.push(row.description);
+    const desc = descParts.join(" · ");
+
+    const key = `${row.project_id}::${who}::${desc}`;
+    if (!byKey.has(key)) {
+      const rec = {
+        source: "subs_odc",
+        project_label: projMeta.label,
+        who,
+        desc,
+      };
+      ensureMonthFields(rec);
+      byKey.set(key, rec);
+    }
+
+    const rec = byKey.get(key);
+    const amt = Number(row.amount || 0);
+    addToMonth(rec, row.ym, amt);
+  }
+
+  return Array.from(byKey.values());
 }
 
 // ─────────────────────────────────────────────
@@ -349,27 +340,68 @@ async function refreshCost(root, client) {
 
   msg && (msg.textContent = "Loading costs…");
 
-  const { data, error } = await client
-    .from("planning_lines")
-    .select(
-      "id, project_name, resource_name, department_name, description, " +
-      "amt_jan, amt_feb, amt_mar, amt_apr, amt_may, amt_jun, " +
-      "amt_jul, amt_aug, amt_sep, amt_oct, amt_nov, amt_dec"
-    )
-    .in("project_id", _costProjectIds)
-    .eq("plan_year", ctx.year)
-    .eq("plan_version_id", ctx.versionId)
-    .eq("plan_type", ctx.planType || "Working")
-    .eq("is_revenue", false)
-    .order("project_name", { ascending: true });
+  try {
+    const [laborRows, subsOdcRows] = await Promise.all([
+      loadLaborCosts(client, _costProjectIds, ctx),
+      loadSubsOdcCosts(client, _costProjectIds, ctx),
+    ]);
 
-  if (error) {
-    console.error("[CostBudget] Cost load error", error);
+    const allRows = [...laborRows, ...subsOdcRows];
+
+    renderCost(root, allRows);
+    msg && (msg.textContent = allRows.length ? "" : "No cost data found for this plan.");
+  } catch (err) {
+    console.error("[CostBudget] refreshCost error", err);
     msg && (msg.textContent = "Error loading cost data.");
     renderCost(root, null);
+  }
+}
+
+// ─────────────────────────────────────────────
+// RENDER COST GRID (presentation only)
+// ─────────────────────────────────────────────
+function renderCost(root, rows) {
+  const tbody = $("#costBody", root);
+  if (!tbody) return;
+
+  if (!rows?.length) {
+    tbody.innerHTML = `<tr><td colspan="16" class="text-center py-10 text-slate-500 text-xs">No cost lines found for this project and plan.</td></tr>`;
     return;
   }
 
-  renderCost(root, data || []);
-  msg && (msg.textContent = data?.length ? "" : "No cost lines found.");
+  const fmt = v =>
+    typeof v === "number"
+      ? v.toLocaleString(undefined, { maximumFractionDigits: 0 })
+      : "";
+
+  tbody.innerHTML = "";
+  rows.forEach(r => {
+    let total = 0;
+
+    const monthCells = MONTH_FIELDS.map(mf => {
+      const val = Number(r[mf.col] || 0);
+      total += val;
+      return `<td class="px-3 py-1 text-right text-[11px] text-slate-900">${fmt(val)}</td>`;
+    }).join("");
+
+    const tr = document.createElement("tr");
+    tr.className = "hover:bg-slate-50 transition";
+
+    tr.innerHTML = `
+      <td class="cost-grid-sticky cost-col-1 px-3 py-1 text-[11px] font-medium text-slate-900">
+        ${r.project_label || ""}
+      </td>
+      <td class="cost-grid-sticky cost-col-2 px-3 py-1 text-[11px] font-medium text-slate-800">
+        ${r.who || ""}
+      </td>
+      <td class="cost-grid-sticky cost-col-3 px-3 py-1 text-[11px] text-slate-600 italic">
+        ${r.desc || ""}
+      </td>
+      ${monthCells}
+      <td class="px-3 py-1 text-right text-[11px] font-bold text-slate-900 bg-slate-50">
+        ${fmt(total)}
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
 }
