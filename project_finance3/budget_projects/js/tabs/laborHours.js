@@ -18,23 +18,21 @@ const MONTHS = [
 ];
 
 export const template = /*html*/ `
-  <article class="full-width-card">
-    <!-- Local styles for this tab -->
+  <article class="full-width-card w-full">
+    <!-- Local styles -->
     <style>
-      /* compact table + narrow gaps */
       .labor-table {
         border-collapse: collapse;
         width: 100%;
       }
       .labor-table th,
       .labor-table td {
-        padding: 2px 4px; /* small – ~<1mm visually */
+        padding: 2px 4px;
         white-space: nowrap;
       }
 
-      /* number inputs: no spinners, fixed min width for 100.00 / 1,000,000 */
       .labor-cell-input {
-        min-width: 4.8rem; /* fits 1,000,000 comfortably */
+        min-width: 4.8rem; /* fits 1,000,000 */
         text-align: right;
       }
       .no-spin::-webkit-inner-spin-button,
@@ -46,7 +44,23 @@ export const template = /*html*/ `
         -moz-appearance: textfield;
       }
 
-      /* striping + active row highlighting */
+      /* Sticky columns for this tab only */
+      .labor-sticky-1,
+      .labor-sticky-2,
+      .labor-sticky-3 {
+        position: sticky;
+        z-index: 30;
+        background-color: inherit; /* keep row striping */
+      }
+      .labor-sticky-1 { left: 0; }
+      .labor-sticky-2 { left: 9rem; }
+      .labor-sticky-3 { left: 21rem; }
+
+      .labor-col-project { min-width: 9rem; }
+      .labor-col-employee { min-width: 12rem; }
+      .labor-col-dept { min-width: 14rem; }
+
+      /* striping + active row */
       .labor-row-striped:nth-child(odd) {
         background-color: #eff6ff; /* blue-50 */
       }
@@ -60,13 +74,12 @@ export const template = /*html*/ `
         background-color: #bfdbfe !important; /* blue-200 */
       }
 
-      /* summary row at bottom */
       .labor-summary-row {
-        background-color: #e5e7eb; /* slate-200 */
+        background-color: #e5e7eb;
         font-weight: 600;
         position: sticky;
         bottom: 0;
-        z-index: 10;
+        z-index: 20;
       }
     </style>
 
@@ -79,7 +92,7 @@ export const template = /*html*/ `
           · Labor Hours
         </span>
         <span class="text-[11px] text-slate-600 ml-1">
-          — Enter hours per month for all employees mapped to projects under the selected Level 1 project.
+          — Enter hours per month for employees on projects under the selected Level 1 project.
         </span>
       </div>
       <div
@@ -88,13 +101,36 @@ export const template = /*html*/ `
       ></div>
     </div>
 
-    <section id="laborHoursSection" class="border-t border-slate-200" style="display:none;">
-      <div class="px-4 py-2">
+    <!-- Assignment controls -->
+    <section class="border-t border-slate-200" id="laborHoursSection" style="display:none;">
+      <div class="px-4 py-2 flex flex-wrap items-end gap-3 text-xs">
+        <label class="flex flex-col">
+          <span class="mb-0.5 text-[11px] text-slate-700">Project</span>
+          <select
+            id="laborProjectSelect"
+            class="min-w-[220px] px-2 py-1 border border-slate-300 rounded-md text-xs
+                   focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="">— Select project —</option>
+          </select>
+        </label>
+
+        <label class="flex flex-col">
+          <span class="mb-0.5 text-[11px] text-slate-700">Employee</span>
+          <select
+            id="laborEmployeeSelect"
+            class="min-w-[220px] px-2 py-1 border border-slate-300 rounded-md text-xs
+                   focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="">— Select employee —</option>
+          </select>
+        </label>
+
         <button
-          id="addEmployeeRowBtn"
+          id="assignEmployeeBtn"
           class="px-3 py-1.5 text-xs font-medium rounded-md shadow-sm bg-blue-600 hover:bg-blue-700 text-white"
         >
-          + Add Employee Row
+          + Assign Employee to Project
         </button>
       </div>
 
@@ -103,30 +139,30 @@ export const template = /*html*/ `
           <thead class="bg-slate-50">
             <tr>
               <th
-                class="cost-grid-sticky cost-col-1 sticky top-0 z-30 bg-slate-50
+                class="labor-sticky-1 labor-col-project sticky top-0 bg-slate-50
                        text-left text-[11px] font-semibold text-slate-700 uppercase tracking-wider"
               >
                 Project
               </th>
               <th
-                class="cost-grid-sticky cost-col-2 sticky top-0 z-30 bg-slate-50
+                class="labor-sticky-2 labor-col-employee sticky top-0 bg-slate-50
                        text-left text-[11px] font-semibold text-slate-700 uppercase tracking-wider"
               >
                 Employee
               </th>
               <th
-                class="cost-grid-sticky cost-col-3 sticky top-0 z-30 bg-slate-50
+                class="labor-sticky-3 labor-col-dept sticky top-0 bg-slate-50
                        text-left text-[11px] font-semibold text-slate-700 uppercase tracking-wider"
               >
                 Department / Labor Category
               </th>
               ${MONTHS.map(
                 (m) => `
-              <th class="sticky top-0 z-20 bg-slate-50 text-right text-[11px] font-semibold text-slate-700 uppercase tracking-wider">
+              <th class="sticky top-0 bg-slate-50 text-right text-[11px] font-semibold text-slate-700 uppercase tracking-wider">
                 ${m.label}
               </th>`
               ).join("")}
-              <th class="sticky top-0 z-20 bg-slate-50 text-right text-[11px] font-semibold text-slate-700 uppercase tracking-wider">
+              <th class="sticky top-0 bg-slate-50 text-right text-[11px] font-semibold text-slate-700 uppercase tracking-wider">
                 Total Hrs
               </th>
             </tr>
@@ -144,10 +180,14 @@ export const template = /*html*/ `
   </article>
 `;
 
-// rows: one per (project, employee)
-let rows = []; // { project_id, project_code, project_name, employee_id, full_name, department_name, labor_category, months: {ym: hours}, ymMap }
+// ─────────────────────────────────────────────
+// STATE
+// ─────────────────────────────────────────────
+
 let projectScope = []; // [{ id, project_code, name }]
-let availableEmployees = []; // [{ project_id, project_code, project_name, employee_id, full_name, department_name, labor_category }]
+let availableEmployees = []; // from project assignments
+let allEmployees = []; // all employees for dropdown
+let rows = []; // [{ project_id, project_code, project_name, employee_id, full_name, department_name, labor_category, months{ym}, ymMap }]
 
 function fmtNum(v) {
   if (v === null || v === undefined || v === "") return "";
@@ -173,7 +213,10 @@ function buildYmMap(year) {
   return map;
 }
 
-// project scope from Level 1: parent + all children
+// ─────────────────────────────────────────────
+// LOADERS
+// ─────────────────────────────────────────────
+
 async function getProjectScope(client, level1ProjectId) {
   const { data: parent, error: parentError } = await client
     .from("projects")
@@ -200,7 +243,7 @@ async function getProjectScope(client, level1ProjectId) {
   return [parent, ...(children || [])];
 }
 
-// Employees mapped to any project in scope
+// all mapped employees from project_employee_assignments
 async function loadAvailableEmployees(client, projectIds) {
   if (!projectIds.length) return [];
 
@@ -252,7 +295,34 @@ async function loadAvailableEmployees(client, projectIds) {
   });
 }
 
-// Existing hours from project_labor_hours
+// all employees for dropdown
+async function loadAllEmployees(client) {
+  const { data, error } = await client
+    .from("employees")
+    .select(`
+      id,
+      full_name,
+      department_name,
+      employee_id,
+      labor_categories ( labor_category )
+    `)
+    .order("full_name");
+
+  if (error) {
+    console.error("[laborHours] loadAllEmployees error", error);
+    return [];
+  }
+
+  return (data || []).map((e) => ({
+    id: e.id,
+    full_name: e.full_name,
+    department_name: e.department_name,
+    employee_code: e.employee_id,
+    labor_category: e.labor_categories?.labor_category || "",
+  }));
+}
+
+// existing hours from project_labor_hours
 async function loadHours(client, projectIds, ctx) {
   if (!projectIds.length) return [];
   const { year, versionId, planType } = ctx;
@@ -269,10 +339,7 @@ async function loadHours(client, projectIds, ctx) {
         department_name,
         labor_categories ( labor_category )
       ),
-      projects (
-        project_code,
-        name
-      )
+      projects ( project_code, name )
     `)
     .in("project_id", projectIds)
     .eq("plan_year", year)
@@ -285,7 +352,7 @@ async function loadHours(client, projectIds, ctx) {
   }
 
   const ymMap = buildYmMap(year);
-  const byKey = new Map(); // key = project_id||employee_id
+  const byKey = new Map();
 
   (data || []).forEach((r) => {
     const key = `${r.project_id}||${r.employee_id}`;
@@ -317,6 +384,10 @@ async function loadHours(client, projectIds, ctx) {
 
   return result;
 }
+
+// ─────────────────────────────────────────────
+// RENDERING & TOTALS
+// ─────────────────────────────────────────────
 
 function updateLaborTotals(root) {
   const summaryRow = root.querySelector("tr[data-summary-row='labor']");
@@ -362,7 +433,7 @@ function renderRows(root) {
     tbody.innerHTML = `
       <tr>
         <td colspan="16" class="text-center py-10 text-slate-500 text-xs">
-          No employees assigned yet.
+          No employees yet. Use the assignment controls above to add employees to projects.
         </td>
       </tr>
     `;
@@ -396,16 +467,16 @@ function renderRows(root) {
     }).join("");
 
     tr.innerHTML = `
-      <td class="cost-grid-sticky cost-col-1 text-[11px] font-medium text-slate-900">
+      <td class="labor-sticky-1 labor-col-project text-[11px] font-medium text-slate-900">
         ${row.project_code || ""}
       </td>
-      <td class="cost-grid-sticky cost-col-2 text-[11px] text-slate-800">
+      <td class="labor-sticky-2 labor-col-employee text-[11px] text-slate-800">
         ${row.full_name || ""}
       </td>
-      <td class="cost-grid-sticky cost-col-3 text-[11px] text-slate-600">
+      <td class="labor-sticky-3 labor-col-dept text-[11px] text-slate-600">
         ${row.department_name || ""}${
-          row.labor_category ? ` · ${row.labor_category}` : ""
-        }
+      row.labor_category ? ` · ${row.labor_category}` : ""
+    }
       </td>
       ${monthCells}
       <td class="text-right text-[11px] font-semibold text-slate-900" data-total-row="${idx}">
@@ -490,6 +561,10 @@ function wireRowHighlight(root) {
   });
 }
 
+// ─────────────────────────────────────────────
+// MAIN TAB INIT
+// ─────────────────────────────────────────────
+
 export const laborHoursTab = {
   template,
   async init({ root, client }) {
@@ -528,12 +603,38 @@ export const laborHoursTab = {
     projectScope = await getProjectScope(client, ctx.level1ProjectId);
     const projectIds = projectScope.map((p) => p.id);
 
+    // fill project dropdown
+    const projSel = $("#laborProjectSelect", root);
+    if (projSel) {
+      projSel.innerHTML = '<option value="">— Select project —</option>';
+      projectScope.forEach((p) => {
+        const opt = document.createElement("option");
+        opt.value = p.id;
+        opt.textContent = `${p.project_code} – ${p.name}`;
+        projSel.appendChild(opt);
+      });
+    }
+
+    allEmployees = await loadAllEmployees(client);
+    availableEmployees = await loadAvailableEmployees(client, projectIds);
+
+    // employee dropdown (all employees)
+    const empSel = $("#laborEmployeeSelect", root);
+    if (empSel) {
+      empSel.innerHTML = '<option value="">— Select employee —</option>';
+      allEmployees.forEach((e) => {
+        const opt = document.createElement("option");
+        opt.value = e.id;
+        opt.textContent = `${e.full_name} (${e.employee_code})`;
+        empSel.appendChild(opt);
+      });
+    }
+
     const ymMap = buildYmMap(ctx.year);
 
-    availableEmployees = await loadAvailableEmployees(client, projectIds);
     rows = await loadHours(client, projectIds, ctx);
 
-    // Ensure rows exist for all mapped employees
+    // Ensure mapped employees get rows even if they have no hours yet
     const existingKeys = new Set(
       rows.map((r) => `${r.project_id}||${r.employee_id}`)
     );
@@ -563,26 +664,48 @@ export const laborHoursTab = {
     renderRows(root);
     if (msgEl) msgEl.textContent = "";
 
-    // Add Employee Row: blank row
-    $("#addEmployeeRowBtn", root).addEventListener("click", () => {
-      if (!projectScope.length) return;
-      const firstProj = projectScope[0];
+    // Assign Employee to Project (creates a row; hours saved once user types)
+    $("#assignEmployeeBtn", root).addEventListener("click", () => {
+      const projId = projSel?.value || "";
+      const empId = empSel?.value || "";
+      if (!projId || !empId) {
+        if (msgEl) msgEl.textContent = "Select both project and employee.";
+        return;
+      }
+
+      const proj = projectScope.find((p) => p.id === projId);
+      const emp = allEmployees.find((e) => e.id === empId);
+      if (!proj || !emp) return;
+
+      const key = `${projId}||${empId}`;
+      const exists = rows.some(
+        (r) => r.project_id === projId && r.employee_id === empId
+      );
+      if (exists) {
+        if (msgEl) msgEl.textContent =
+          "This employee is already on that project.";
+        return;
+      }
+
       const months = {};
       Object.values(ymMap).forEach((ym) => {
         months[ym] = null;
       });
+
       rows.push({
-        project_id: firstProj.id,
-        project_code: firstProj.project_code,
-        project_name: firstProj.name,
-        employee_id: null,
-        full_name: "",
-        department_name: "",
-        labor_category: "",
+        project_id: proj.id,
+        project_code: proj.project_code,
+        project_name: proj.name,
+        employee_id: emp.id,
+        full_name: emp.full_name,
+        department_name: emp.department_name,
+        labor_category: emp.labor_category,
         months,
         ymMap: { ...ymMap },
       });
+
       renderRows(root);
+      if (msgEl) msgEl.textContent = "Employee added to project. Enter hours in the grid.";
     });
 
     // Change events for hour cells
@@ -601,6 +724,9 @@ export const laborHoursTab = {
 
       const ym = row.ymMap[monthKey];
       if (ym) row.months[ym] = numVal;
+
+      // ensure visible value in the cell
+      target.value = numVal === null ? "" : numVal.toString();
 
       const totalCell = root.querySelector(
         `[data-total-row="${rowIdx}"]`
