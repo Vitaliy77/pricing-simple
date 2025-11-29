@@ -18,42 +18,37 @@ const MONTHS = [
 ];
 
 export const template = /*html*/ `
-  <article>
-    <h3 style="margin-bottom:0.5rem;">Labor Hours</h3>
-    <p style="font-size:0.9rem;margin-bottom:0.75rem;color:#475569;">
+  <article class="full-width-card p-6">
+    <h3 class="text-2xl font-bold text-slate-900 mb-4">Labor Hours</h3>
+    <p class="text-sm text-slate-600 mb-6">
       Enter <strong>hours</strong> per month for employees on the selected project and plan.
       Cost will be calculated separately from hourly cost rates.
     </p>
 
-    <p id="laborHoursMessage"
-       style="min-height:1.25rem;font-size:0.85rem;color:#64748b;margin-bottom:0.5rem;"></p>
+    <p id="laborHoursMessage" class="text-sm text-slate-600 mb-4 min-h-6"></p>
+    <p id="laborHoursProjectLabel" class="text-sm font-medium text-slate-800 mb-6"></p>
 
-    <p id="laborHoursProjectLabel"
-       style="font-size:0.85rem;color:#0f172a;margin-bottom:0.75rem;"></p>
-
-    <section id="laborHoursSection" style="display:none;">
-      <div style="margin-bottom:0.5rem;display:flex;gap:0.5rem;flex-wrap:wrap;">
-        <button id="addEmployeeRowBtn" class="btn-primary">+ Add Employee</button>
+    <section id="laborHoursSection" class="hidden">
+      <div class="mb-6">
+        <button id="addEmployeeRowBtn" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-sm transition">
+          + Add Employee
+        </button>
       </div>
 
-      <div class="full-width-card">
-        <div class="cost-table-wrapper">
-          <table class="cost-table">
-            <thead>
+      <div class="overflow-x-auto -mx-6">
+        <div class="inline-block min-w-full align-middle">
+          <table class="min-w-full divide-y divide-slate-200">
+            <thead class="bg-slate-50">
               <tr>
-                <th class="sticky-col">Employee</th>
-                <th class="sticky-col-2">Department</th>
-                <th class="sticky-col-3">Labor Category</th>
-                ${MONTHS.map(m => `<th>${m.label}</th>`).join("")}
-                <th>Total Hrs</th>
+                <th class="cost-grid-sticky cost-col-1 px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Employee</th>
+                <th class="cost-grid-sticky cost-col-2 px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Department</th>
+                <th class="cost-grid-sticky cost-col-3 px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Labor Category</th>
+                ${MONTHS.map(m => `<th class="px-4 py-3 text-right text-xs font-semibold text-slate-700 uppercase tracking-wider">${m.label}</th>`).join("")}
+                <th class="px-4 py-3 text-right text-xs font-semibold text-slate-700 uppercase tracking-wider">Total Hrs</th>
               </tr>
             </thead>
-            <tbody id="laborHoursTbody">
-              <tr>
-                <td colspan="16" style="text-align:left;font-size:0.9rem;color:#64748b;">
-                  Loading…
-                </td>
-              </tr>
+            <tbody id="laborHoursTbody" class="bg-white divide-y divide-slate-200">
+              <tr><td colspan="16" class="text-center py-12 text-slate-500">Loading…</td></tr>
             </tbody>
           </table>
         </div>
@@ -62,15 +57,14 @@ export const template = /*html*/ `
   </article>
 `;
 
-// in-memory state: one row per employee
-let rows = []; // [{ employee_id, full_name, department_name, labor_category, months: { ym: hours }, ymMap: {monthKey: ym} }]
-let availableEmployees = []; // employees assigned to this project
+// in-memory state
+let rows = [];
+let availableEmployees = [];
 
 function fmtNum(v) {
   if (v === null || v === undefined || v === "") return "";
   const num = Number(v);
-  if (Number.isNaN(num)) return "";
-  return num.toString();
+  return Number.isNaN(num) ? "" : num.toString();
 }
 
 function computeTotal(row) {
@@ -80,20 +74,16 @@ function computeTotal(row) {
   }, 0);
 }
 
-// build ym for each month of the plan year
 function buildYmMap(year) {
   const map = {};
   MONTHS.forEach((m) => {
-    const monthIndex = m.idx; // 0-11
-    const d = new Date(Date.UTC(year, monthIndex, 1));
-    const ym = d.toISOString().slice(0, 10); // YYYY-MM-DD
-    map[m.key] = ym;
+    const d = new Date(Date.UTC(year, m.idx, 1));
+    map[m.key] = d.toISOString().slice(0, 10); // YYYY-MM-DD
   });
   return map;
 }
 
 async function loadAvailableEmployees(client, projectId) {
-  // employees explicitly assigned to this project
   const { data, error } = await client
     .from("project_employee_assignments")
     .select(`
@@ -107,24 +97,20 @@ async function loadAvailableEmployees(client, projectId) {
     return [];
   }
 
-  const list = [];
+  const uniq = new Map();
   (data || []).forEach((row) => {
     const e = row.employees;
-    if (!e) return;
-    list.push({
-      id: e.id,
-      full_name: e.full_name,
-      department_name: e.department_name,
-      labor_category: e.labor_categories?.labor_category || "",
-    });
+    if (e) {
+      uniq.set(e.id, {
+        id: e.id,
+        full_name: e.full_name || "",
+        department_name: e.department_name || "",
+        labor_category: e.labor_categories?.labor_category || "",
+      });
+    }
   });
 
-  // unique by employee id
-  const uniq = new Map();
-  list.forEach((e) => uniq.set(e.id, e));
-  return Array.from(uniq.values()).sort((a, b) =>
-    a.full_name.localeCompare(b.full_name)
-  );
+  return Array.from(uniq.values()).sort((a, b) => a.full_name.localeCompare(b.full_name));
 }
 
 async function loadHours(client, projectId, ctx) {
@@ -134,18 +120,8 @@ async function loadHours(client, projectId, ctx) {
   const { data, error } = await client
     .from("project_labor_hours")
     .select(`
-      project_id,
-      employee_id,
-      plan_year,
-      plan_version_id,
-      plan_type,
-      ym,
-      hours,
-      employees (
-        full_name,
-        department_name,
-        labor_categories ( labor_category )
-      )
+      project_id, employee_id, plan_year, plan_version_id, plan_type, ym, hours,
+      employees ( full_name, department_name, labor_categories ( labor_category ) )
     `)
     .eq("project_id", projectId)
     .eq("plan_year", year)
@@ -157,7 +133,7 @@ async function loadHours(client, projectId, ctx) {
     return [];
   }
 
-  const byEmp = new Map(); // employee_id -> row
+  const byEmp = new Map();
   (data || []).forEach((r) => {
     const empId = r.employee_id;
     if (!byEmp.has(empId)) {
@@ -171,12 +147,9 @@ async function loadHours(client, projectId, ctx) {
         ymMap: { ...ymMap },
       });
     }
-    const row = byEmp.get(empId);
-    const ymStr = r.ym;
-    row.months[ymStr] = Number(r.hours || 0);
+    byEmp.get(empId).months[r.ym] = Number(r.hours || 0);
   });
 
-  // ensure all ym keys present
   const result = Array.from(byEmp.values());
   result.forEach((row) => {
     Object.values(row.ymMap).forEach((ym) => {
@@ -192,98 +165,55 @@ function renderRows(root) {
   if (!tbody) return;
 
   if (!rows.length) {
-    tbody.innerHTML = `
-      <tr>
-        <td colspan="16" style="text-align:left;font-size:0.9rem;color:#64748b;">
-          No labor hours yet. Use “+ Add Employee” to start.
-        </td>
-      </tr>
-    `;
+    tbody.innerHTML = `<tr><td colspan="16" class="text-center py-12 text-slate-500 text-sm">No employees assigned yet.</td></tr>`;
     return;
   }
 
-  const optionList = availableEmployees
-    .map(
-      (e) => `
-        <option value="${e.id}">${e.full_name}</option>
-      `
-    )
-    .join("");
+  const optionList = availableEmployees.map(e => 
+    `<option value="${e.id}">${e.full_name}</option>`
+  ).join("");
 
   tbody.innerHTML = "";
 
   rows.forEach((row, idx) => {
     const tr = document.createElement("tr");
-    tr.dataset.rowIndex = idx.toString();
+    tr.dataset.rowIndex = idx;
     const total = computeTotal(row);
 
-    const monthCells = MONTHS.map((m) => {
+    const monthCells = MONTHS.map(m => {
       const ym = row.ymMap[m.key];
       const val = row.months[ym];
       return `
-        <td>
-          <input
-            class="cell-input cell-input-num"
-            data-row="${idx}"
-            data-month="${m.key}"
-            type="number"
-            step="0.01"
-            value="${fmtNum(val)}"
-          />
+        <td class="px-1">
+          <input class="w-16 px-2 py-1 text-right text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                 data-row="${idx}" data-month="${m.key}" type="number" step="0.01" value="${fmtNum(val)}">
         </td>
       `;
     }).join("");
 
     tr.innerHTML = `
-      <td class="sticky-col">
-        <select
-          class="cell-input"
-          data-row="${idx}"
-          data-field="employee_id"
-        >
+      <td class="cost-grid-sticky cost-col-1 px-4 py-3">
+        <select class="w-full px-2 py-1 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                data-row="${idx}" data-field="employee_id">
           <option value="">— Select —</option>
           ${optionList}
         </select>
       </td>
-      <td class="sticky-col-2">
-        <input
-          class="cell-input"
-          data-row="${idx}"
-          data-field="department_name"
-          type="text"
-          readonly
-          value="${row.department_name || ""}"
-        />
-      </td>
-      <td class="sticky-col-3">
-        <input
-          class="cell-input"
-          data-row="${idx}"
-          data-field="labor_category"
-          type="text"
-          readonly
-          value="${row.labor_category || ""}"
-        />
-      </td>
+      <td class="cost-grid-sticky cost-col-2 px-4 py-3 text-sm text-slate-700">${row.department_name || ""}</td>
+      <td class="cost-grid-sticky cost-col-3 px-4 py-3 text-sm text-slate-600 italic">${row.labor_category || ""}</td>
       ${monthCells}
-      <td class="text-right text-xs text-slate-600" data-total-row="${idx}">
-        ${total.toLocaleString(undefined, { maximumFractionDigits: 2 })}
-      </td>
+      <td class="px-4 py-3 text-right font-medium text-slate-900 bg-slate-50">${total.toLocaleString(undefined, {maximumFractionDigits: 2})}</td>
     `;
 
-    // set selected employee in dropdown
     const select = tr.querySelector('select[data-field="employee_id"]');
-    if (select && row.employee_id) {
-      select.value = row.employee_id;
-    }
+    if (select && row.employee_id) select.value = row.employee_id;
 
     tbody.appendChild(tr);
   });
 }
 
-async function upsertHourCell(client, ctx, projectId, row, monthKey, hoursValue) {
-  if (!row.employee_id) return; // nothing to persist yet
-
+async function upsertHourCell(client, ctx, projectId, row, monthKey, value) {
+  if (!row.employee_id) return;
   const ym = row.ymMap[monthKey];
   if (!ym) return;
 
@@ -294,18 +224,14 @@ async function upsertHourCell(client, ctx, projectId, row, monthKey, hoursValue)
     plan_version_id: ctx.versionId,
     plan_type: ctx.planType || "Working",
     ym,
-    hours: hoursValue === "" || hoursValue === null ? 0 : Number(hoursValue),
+    hours: value === "" || value === null ? 0 : Number(value),
   };
 
   const { error } = await client
     .from("project_labor_hours")
-    .upsert(payload, {
-      onConflict: "project_id,employee_id,plan_version_id,plan_type,ym",
-    });
+    .upsert(payload, { onConflict: "project_id,employee_id,plan_version_id,plan_type,ym" });
 
-  if (error) {
-    console.error("[laborHours] upsertHourCell error", error);
-  }
+  if (error) console.error("[laborHours] upsert error", error);
 }
 
 export const laborHoursTab = {
@@ -318,106 +244,92 @@ export const laborHoursTab = {
     const projectId = getSelectedProjectId();
     const ctx = getPlanContext();
 
-    if (!projectId) {
-      if (msgEl) msgEl.textContent = "No project selected. Please go to the Projects tab.";
-      if (sectionEl) sectionEl.style.display = "none";
-      return;
-    }
-    if (!ctx.year || !ctx.versionId) {
-      if (msgEl) {
-        msgEl.textContent =
-          "Plan not fully selected. Please complete selection in the Projects tab.";
-      }
-      if (sectionEl) sectionEl.style.display = "none";
+    if (!projectId || !ctx.year || !ctx.versionId) {
+      msgEl && (msgEl.textContent = "Please select a project and plan first.");
+      sectionEl && (sectionEl.classList.add("hidden"));
       return;
     }
 
-    if (labelEl) {
-      labelEl.textContent = `Labor hours for project ${projectId} · ${ctx.year} · ${
-        ctx.planType || "Working"
-      }`;
-    }
-
-    if (msgEl) msgEl.textContent = "Loading employees and hours…";
+    labelEl && (labelEl.textContent = `Labor hours · Project ${projectId} · ${ctx.year} · ${ctx.planType || "Working"}`);
+    msgEl && (msgEl.textContent = "Loading employees and hours…");
 
     const ymMap = buildYmMap(ctx.year);
+
     availableEmployees = await loadAvailableEmployees(client, projectId);
     rows = await loadHours(client, projectId, ctx);
 
-    // any row missing ymMap? attach
+    // ——— REPLACED BLOCK ———
+    const existingIds = new Set(rows.map(r => r.employee_id).filter(Boolean));
+
+    // Ensure all existing rows have full ymMap + months
     rows.forEach((r) => {
       if (!r.ymMap) r.ymMap = { ...ymMap };
+      Object.values(r.ymMap).forEach((ym) => {
+        if (!(ym in r.months)) r.months[ym] = null;
+      });
     });
 
-    if (sectionEl) sectionEl.style.display = "block";
-    renderRows(root);
-    if (msgEl) msgEl.textContent = "";
+    // AUTO-CREATE rows for employees who are assigned but have no hours yet
+    availableEmployees.forEach((emp) => {
+      if (!existingIds.has(emp.id)) {
+        const months = {};
+        Object.values(ymMap).forEach((ym) => {
+          months[ym] = null;
+        });
+        rows.push({
+          employee_id: emp.id,
+          full_name: emp.full_name,
+          department_name: emp.department_name,
+          labor_category: emp.labor_category,
+          months,
+          ymMap: { ...ymMap },
+        });
+      }
+    });
+    // ——— END REPLACED BLOCK ———
 
-    // Add employee button
-    $("#addEmployeeRowBtn", root).addEventListener("click", () => {
-      const newRow = {
-        employee_id: "",
-        full_name: "",
-        department_name: "",
-        labor_category: "",
-        months: {},
-        ymMap: { ...ymMap },
-      };
-      Object.values(newRow.ymMap).forEach((ym) => {
-        newRow.months[ym] = null;
+    sectionEl && sectionEl.classList.remove("hidden");
+    renderRows(root);
+    msgEl && (msgEl.textContent = "");
+
+    // Add row button
+    $("#addEmployeeRowBtn", root)?.addEventListener("click", () => {
+      const months = {};
+      Object.values(ymMap).forEach((ym) => months[ym] = null);
+      rows.push({
+        employee_id: "", full_name: "", department_name: "", labor_category: "",
+        months, ymMap: { ...ymMap }
       });
-      rows.push(newRow);
       renderRows(root);
     });
 
-    // Delegated events for select + inputs
-    $("#laborHoursTbody", root).addEventListener("change", async (evt) => {
-      const target = evt.target;
-      const rowIdx = Number(target.dataset.row);
+    // Event delegation
+    $("#laborHoursTbody", root)?.addEventListener("change", async (e) => {
+      const t = e.target;
+      const rowIdx = Number(t.dataset.row);
       if (Number.isNaN(rowIdx) || !rows[rowIdx]) return;
       const row = rows[rowIdx];
 
-      // employee selection
-      if (target.tagName === "SELECT" && target.dataset.field === "employee_id") {
-        const empId = target.value || "";
+      if (t.dataset.field === "employee_id") {
+        const empId = t.value;
         row.employee_id = empId;
-
-        const emp = availableEmployees.find((e) => e.id === empId);
-        row.full_name = emp?.full_name || "";
-        row.department_name = emp?.department_name || "";
-        row.labor_category = emp?.labor_category || "";
-
-        // update readonly fields
-        const tr = target.closest("tr");
-        if (tr) {
-          const deptInput = tr.querySelector('input[data-field="department_name"]');
-          const catInput = tr.querySelector('input[data-field="labor_category"]');
-          if (deptInput) deptInput.value = row.department_name || "";
-          if (catInput) catInput.value = row.labor_category || "";
+        const emp = availableEmployees.find(e => e.id === empId);
+        if (emp) {
+          row.full_name = emp.full_name;
+          row.department_name = emp.department_name;
+          row.labor_category = emp.labor_category;
         }
+        renderRows(root);
         return;
       }
 
-      // hour cell
-      if (target.classList.contains("cell-input-num")) {
-        const monthKey = target.dataset.month;
-        const rawVal = target.value;
-        const numVal =
-          rawVal === "" ? null : Number.isNaN(Number(rawVal)) ? null : Number(rawVal);
-        // update memory
+      if (t.dataset.month) {
+        const monthKey = t.dataset.month;
+        const val = t.value === "" ? null : Number(t.value);
         const ym = row.ymMap[monthKey];
-        if (ym) row.months[ym] = numVal;
-        // recompute total
-        const totalCell = root.querySelector(
-          `[data-total-row="${rowIdx}"]`
-        );
-        if (totalCell) {
-          totalCell.textContent = computeTotal(row).toLocaleString(undefined, {
-            maximumFractionDigits: 2,
-          });
-        }
-        // persist
-        await upsertHourCell(client, ctx, projectId, row, monthKey, numVal);
+        if (ym) row.months[ym] = val;
+        renderRows(root);
+        await upsertHourCell(client, ctx, projectId, row, monthKey, val);
       }
     });
   },
