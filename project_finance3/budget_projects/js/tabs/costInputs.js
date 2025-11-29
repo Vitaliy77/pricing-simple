@@ -17,7 +17,7 @@ export const template = /*html*/ `
     <h3 style="margin-bottom:0.5rem;">Cost Inputs (Editable)</h3>
     <p style="font-size:0.9rem;margin-bottom:0.75rem;color:#475569;">
       Enter <strong>hours</strong> for employees and <strong>cost</strong> for subcontractors and ODC
-      for the selected project.
+      for all projects under the selected level 1 code.
     </p>
 
     <p id="costInputsMessage"
@@ -59,7 +59,7 @@ export const template = /*html*/ `
 
     <p id="costInputsEmpty"
        style="font-size:0.85rem;color:#666;margin-top:0.75rem;display:none;">
-      No cost input lines found for this project yet. Use the buttons above to add lines.
+      No cost input lines found for this project group yet. Use the buttons above to add lines.
     </p>
   </article>
 `;
@@ -80,22 +80,71 @@ function computeRowTotal(line) {
   }, 0);
 }
 
-async function fetchLines(client, projectId, ctx) {
+/**
+ * Given the selected level-1 project id, find:
+ *  - its code (e.g. P000001.)
+ *  - derive prefix (e.g. P000001.)
+ *  - fetch ALL child project ids whose code starts with that prefix
+ */
+async function getProjectScope(client, rootProjectId) {
+  // 1) get root project code
+  const { data: root, error: rootErr } = await client
+    .from("projects")
+    .select("code, name")
+    .eq("id", rootProjectId)
+    .single();
+
+  if (rootErr || !root) {
+    console.error("[costInputs] getProjectScope root error", rootErr);
+    return { ids: [rootProjectId], label: "Selected project", count: 1 };
+  }
+
+  const fullCode = root.code || "";
+  // base before the first dot, then add a dot back: "P000001."
+  const base = fullCode.split(".")[0] || fullCode;
+  const prefix = base.endsWith(".") ? base : `${base}.`;
+
+  // 2) all children under that prefix, including the root row
+  const { data: children, error: childErr } = await client
+    .from("projects")
+    .select("id, code, name")
+    .ilike("code", `${prefix}%`)
+    .order("code", { ascending: true });
+
+  if (childErr || !children?.length) {
+    console.error("[costInputs] getProjectScope children error", childErr);
+    return {
+      ids: [rootProjectId],
+      label: `${fullCode} (no children found)`,
+      count: 1,
+    };
+  }
+
+  const ids = children.map((p) => p.id);
+  const label = `${prefix}* (${children.length} projects)`;
+  return { ids, label, count: children.length };
+}
+
+async function fetchLines(client, projectIds, ctx) {
+  if (!projectIds?.length) return [];
+
   let query = client
     .from("planning_lines")
     .select(`
       id,
+      project_id,
       entry_type,
       person_vendor,
       description,
       jan, feb, mar, apr, may, jun,
       jul, aug, sep, oct, nov, dec
     `)
-    .eq("project_id", projectId)
+    .in("project_id", projectIds)
     .in("entry_type", ["labor", "subs", "odc"])
+    .order("project_id", { ascending: true })
     .order("entry_type", { ascending: true });
 
-  // Only apply plan filters if they exist (so we don't block the tab)
+  // Plan filters if present
   if (ctx?.year) {
     query = query.eq("plan_year", ctx.year);
   }
@@ -221,15 +270,15 @@ function renderLines(root, lines) {
   }
 }
 
-async function addNewLine(client, projectId, ctx, entryType) {
+async function addNewLine(client, rootProjectId, ctx, entryType) {
+  // For now, attach new lines to the *root* level-1 project id
   const baseLine = {
-    project_id: projectId,
+    project_id: rootProjectId,
     entry_type: entryType,
     person_vendor: "",
     description: "",
   };
 
-  // include plan fields if they exist, so new lines line up with other tabs
   if (ctx?.year) baseLine.plan_year = ctx.year;
   if (ctx?.versionId) baseLine.plan_version_id = ctx.versionId;
   if (ctx?.planType) baseLine.plan_type = ctx.planType;
@@ -242,11 +291,11 @@ async function addNewLine(client, projectId, ctx, entryType) {
   return inserted;
 }
 
-async function refresh(root, client, projectId, ctx) {
+async function refresh(root, client, projectIds, ctx) {
   const section = $("#costInputsSection", root);
   const emptyMsg = $("#costInputsEmpty", root);
 
-  const lines = await fetchLines(client, projectId, ctx);
+  const lines = await fetchLines(client, projectIds, ctx);
 
   if (!lines.length) {
     if (section) section.style.display = "block";
@@ -265,12 +314,12 @@ async function refresh(root, client, projectId, ctx) {
 export const costInputsTab = {
   template,
   async init({ root, client }) {
-    const projectId = getSelectedProjectId();
+    const rootProjectId = getSelectedProjectId();
     const ctx = getPlanContext();
     const msgEl = $("#costInputsMessage", root);
     const labelEl = $("#costInputsProjectLabel", root);
 
-    if (!projectId) {
+    if (!rootProjectId) {
       if (msgEl) {
         msgEl.textContent = "No project selected. Please go to the Projects tab.";
       }
@@ -281,34 +330,37 @@ export const costInputsTab = {
       return;
     }
 
+    if (msgEl) msgEl.textContent = "Loading cost inputs…";
+
+    // Figure out the full scope (P000001.* children)
+    const scope = await getProjectScope(client, rootProjectId);
+
     if (labelEl) {
       const planBits =
         ctx?.year && ctx?.versionId
           ? ` · ${ctx.year} · ${ctx.planType || "Working"}`
           : "";
-      labelEl.textContent = `Editing cost inputs for project ${projectId}${planBits}`;
+      labelEl.textContent = `Editing cost inputs for ${scope.label}${planBits}`;
     }
 
-    if (msgEl) msgEl.textContent = "Loading cost inputs…";
-
-    await refresh(root, client, projectId, ctx);
+    await refresh(root, client, scope.ids, ctx);
 
     if (msgEl) msgEl.textContent = "";
 
-    // Button handlers
+    // Button handlers (new lines attach to root level-1 id)
     $("#addLaborLineBtn", root).addEventListener("click", async () => {
-      const line = await addNewLine(client, projectId, ctx, "labor");
-      if (line) await refresh(root, client, projectId, ctx);
+      const line = await addNewLine(client, rootProjectId, ctx, "labor");
+      if (line) await refresh(root, client, scope.ids, ctx);
     });
 
     $("#addSubsLineBtn", root).addEventListener("click", async () => {
-      const line = await addNewLine(client, projectId, ctx, "subs");
-      if (line) await refresh(root, client, projectId, ctx);
+      const line = await addNewLine(client, rootProjectId, ctx, "subs");
+      if (line) await refresh(root, client, scope.ids, ctx);
     });
 
     $("#addOdcLineBtn", root).addEventListener("click", async () => {
-      const line = await addNewLine(client, projectId, ctx, "odc");
-      if (line) await refresh(root, client, projectId, ctx);
+      const line = await addNewLine(client, rootProjectId, ctx, "odc");
+      if (line) await refresh(root, client, scope.ids, ctx);
     });
 
     // Event delegation for grid edits
