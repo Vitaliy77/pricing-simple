@@ -1,25 +1,30 @@
 // js/tabs/costInputs.js
-import { client } from "../api/supabase.js";
 import { $, h } from "../lib/dom.js";
-import { getSelectedProjectId } from "../lib/projectContext.js";
+import { getPlanContext } from "../lib/projectContext.js";
 
 const MONTH_KEYS = [
-  "jan_25", "feb_25", "mar_25", "apr_25", "may_25", "jun_25",
-  "jul_25", "aug_25", "sep_25", "oct_25", "nov_25", "dec_25",
+  "jan", "feb", "mar", "apr", "may", "jun",
+  "jul", "aug", "sep", "oct", "nov", "dec",
 ];
 
-const MONTH_LABELS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const MONTH_LABELS = [
+  "Jan","Feb","Mar","Apr","May","Jun",
+  "Jul","Aug","Sep","Oct","Nov","Dec",
+];
 
 export const template = /*html*/ `
   <article>
     <h3 style="margin-bottom:0.5rem;">Cost Inputs (Editable)</h3>
-    <p style="font-size:0.9rem;margin-bottom:0.75rem;">
+    <p style="font-size:0.9rem;margin-bottom:0.75rem;color:#475569;">
       Enter <strong>hours</strong> for employees and <strong>cost</strong> for subcontractors and ODC
-      for the selected project. Labor lines are stored as hours; costs for subs and ODC are stored in dollars.
+      for the selected project and plan.
     </p>
 
+    <p id="costInputsMessage"
+       style="min-height:1.25rem;font-size:0.85rem;color:#64748b;margin-bottom:0.5rem;"></p>
+
     <p id="costInputsProjectLabel"
-       style="font-size:0.85rem;color:#555;margin-bottom:0.75rem;"></p>
+       style="font-size:0.85rem;color:#0f172a;margin-bottom:0.75rem;"></p>
 
     <section id="costInputsSection" style="display:none;">
       <div style="margin-bottom:0.5rem;display:flex;gap:0.5rem;flex-wrap:wrap;">
@@ -41,7 +46,11 @@ export const template = /*html*/ `
               </tr>
             </thead>
             <tbody id="costInputsTbody">
-              <!-- filled dynamically -->
+              <tr>
+                <td colspan="16" style="text-align:left;font-size:0.9rem;color:#64748b;">
+                  Loading…
+                </td>
+              </tr>
             </tbody>
           </table>
         </div>
@@ -55,15 +64,15 @@ export const template = /*html*/ `
   </article>
 `;
 
-// Helper to format number safely
-function fmt(v) {
+// ---------- helpers ----------
+
+function fmtNum(v) {
   if (v === null || v === undefined || v === "") return "";
   const num = Number(v);
   if (Number.isNaN(num)) return "";
   return num.toString();
 }
 
-// Compute row total
 function computeRowTotal(line) {
   return MONTH_KEYS.reduce((sum, key) => {
     const val = Number(line[key] || 0);
@@ -71,12 +80,23 @@ function computeRowTotal(line) {
   }, 0);
 }
 
-async function fetchLines(projectId) {
-  // Adjust table/columns if your schema is different
+async function fetchLines(client, ctx) {
+  const { projectId, year, versionId, planType } = ctx;
+
   const { data, error } = await client
     .from("planning_lines")
-    .select("*")
+    .select(`
+      id,
+      entry_type,
+      person_vendor,
+      description,
+      jan, feb, mar, apr, may, jun,
+      jul, aug, sep, oct, nov, dec
+    `)
     .eq("project_id", projectId)
+    .eq("plan_year", year)
+    .eq("plan_version_id", versionId)
+    .eq("plan_type", planType || "Working")
     .in("entry_type", ["labor", "subs", "odc"])
     .order("entry_type", { ascending: true });
 
@@ -87,7 +107,7 @@ async function fetchLines(projectId) {
   return data || [];
 }
 
-async function upsertLine(line) {
+async function upsertLine(client, line) {
   const { data, error } = await client
     .from("planning_lines")
     .upsert(line, { onConflict: "id" })
@@ -101,7 +121,7 @@ async function upsertLine(line) {
   return data;
 }
 
-async function updateCell(lineId, field, value) {
+async function updateCell(client, lineId, field, value) {
   const patch = {};
   patch[field] = value === "" ? null : Number(value);
 
@@ -115,7 +135,7 @@ async function updateCell(lineId, field, value) {
   }
 }
 
-async function updateTextField(lineId, field, value) {
+async function updateTextField(client, lineId, field, value) {
   const patch = {};
   patch[field] = value || null;
 
@@ -129,8 +149,10 @@ async function updateTextField(lineId, field, value) {
   }
 }
 
-function renderLines(lines) {
-  const tbody = $("#costInputsTbody");
+function renderLines(root, lines) {
+  const tbody = $("#costInputsTbody", root);
+  if (!tbody) return;
+
   tbody.innerHTML = "";
 
   if (!lines.length) return;
@@ -140,7 +162,6 @@ function renderLines(lines) {
     tr.dataset.lineId = line.id;
     tr.dataset.entryType = line.entry_type;
 
-    // Entry type label
     const entryLabel =
       line.entry_type === "labor"
         ? "Labor (hrs)"
@@ -148,7 +169,7 @@ function renderLines(lines) {
         ? "Subs ($)"
         : line.entry_type === "odc"
         ? "ODC ($)"
-        : line.entry_type;
+        : line.entry_type || "";
 
     tr.innerHTML = `
       <td class="sticky-col">${entryLabel}</td>
@@ -177,7 +198,7 @@ function renderLines(lines) {
             data-field="${key}"
             type="number"
             step="0.1"
-            value="${fmt(line[key])}"
+            value="${fmtNum(line[key])}"
           />
         </td>
       `
@@ -192,102 +213,132 @@ function renderLines(lines) {
   }
 }
 
-async function addNewLine(projectId, entryType) {
+async function addNewLine(client, ctx, entryType) {
   const baseLine = {
-    project_id: projectId,
-    entry_type: entryType, // 'labor', 'subs', or 'odc'
+    project_id: ctx.projectId,
+    plan_year: ctx.year,
+    plan_version_id: ctx.versionId,
+    plan_type: ctx.planType || "Working",
+    entry_type: entryType,
     person_vendor: "",
     description: "",
   };
 
-  for (const key of MONTH_KEYS) {
+  MONTH_KEYS.forEach((key) => {
     baseLine[key] = null;
-  }
+  });
 
-  const inserted = await upsertLine(baseLine);
+  const inserted = await upsertLine(client, baseLine);
   return inserted;
 }
 
-async function refresh(projectId) {
-  const lines = await fetchLines(projectId);
+async function refresh(root, client, ctx) {
+  const section = $("#costInputsSection", root);
+  const emptyMsg = $("#costInputsEmpty", root);
 
-  const section = $("#costInputsSection");
-  const emptyMsg = $("#costInputsEmpty");
+  const lines = await fetchLines(client, ctx);
 
   if (!lines.length) {
     section.style.display = "block";
     emptyMsg.style.display = "block";
-    renderLines([]);
+    renderLines(root, []);
     return;
   }
 
   section.style.display = "block";
   emptyMsg.style.display = "none";
-  renderLines(lines);
+  renderLines(root, lines);
 }
 
-export async function init() {
-  const projectId = getSelectedProjectId();
-  const label = $("#costInputsProjectLabel");
+// ---------- tab init/export ----------
 
-  if (!projectId) {
-    if (label) {
-      label.textContent = "No project selected. Please go to the Projects tab.";
+export const costInputsTab = {
+  template,
+  async init({ root, client }) {
+    const ctx = getPlanContext();
+    const msgEl = $("#costInputsMessage", root);
+    const labelEl = $("#costInputsProjectLabel", root);
+
+    if (!ctx.projectId) {
+      if (msgEl) {
+        msgEl.textContent = "No project selected. Please go to the Projects tab.";
+      }
+      const section = $("#costInputsSection", root);
+      const emptyMsg = $("#costInputsEmpty", root);
+      if (section) section.style.display = "none";
+      if (emptyMsg) emptyMsg.style.display = "none";
+      return;
     }
-    $("#costInputsSection").style.display = "none";
-    $("#costInputsEmpty").style.display = "none";
-    return;
-  }
 
-  label.textContent = `Editing cost inputs for project ${projectId}`;
-
-  // Initial load
-  await refresh(projectId);
-
-  // Add line buttons
-  $("#addLaborLineBtn").addEventListener("click", async () => {
-    const line = await addNewLine(projectId, "labor");
-    if (line) await refresh(projectId);
-  });
-
-  $("#addSubsLineBtn").addEventListener("click", async () => {
-    const line = await addNewLine(projectId, "subs");
-    if (line) await refresh(projectId);
-  });
-
-  $("#addOdcLineBtn").addEventListener("click", async () => {
-    const line = await addNewLine(projectId, "odc");
-    if (line) await refresh(projectId);
-  });
-
-  // Event delegation for inputs
-  $("#costInputsTbody").addEventListener("change", async (evt) => {
-    const input = evt.target;
-    if (!input.classList.contains("cell-input")) return;
-
-    const tr = input.closest("tr");
-    const lineId = tr?.dataset.lineId;
-    const field = input.dataset.field;
-
-    if (!lineId || !field) return;
-
-    const value = input.value;
-
-    // Text vs numeric
-    if (field === "person_vendor" || field === "description") {
-      await updateTextField(lineId, field, value);
-    } else {
-      await updateCell(lineId, field, value);
-      // After number change, recompute row total in-place
-      const tds = tr.querySelectorAll("td");
-      const numericInputs = tr.querySelectorAll("input.cell-input-num");
-      let sum = 0;
-      numericInputs.forEach((inp) => {
-        const v = Number(inp.value || 0);
-        if (!Number.isNaN(v)) sum += v;
-      });
-      const totalCell = tds[tds.length - 1];
-      totalCell.textContent = sum.toLocaleString();
+    if (!ctx.year || !ctx.versionId) {
+      if (msgEl) {
+        msgEl.textContent =
+          "Plan not fully selected. Please complete selection in the Projects tab.";
+      }
+      const section = $("#costInputsSection", root);
+      const emptyMsg = $("#costInputsEmpty", root);
+      if (section) section.style.display = "none";
+      if (emptyMsg) emptyMsg.style.display = "none";
+      return;
     }
-  });
-}
+
+    if (labelEl) {
+      labelEl.textContent = `Editing cost inputs for project ${ctx.projectId} · ${ctx.year} · ${
+        ctx.planType || "Working"
+      }`;
+    }
+
+    if (msgEl) msgEl.textContent = "Loading cost inputs…";
+
+    await refresh(root, client, ctx);
+
+    if (msgEl) msgEl.textContent = "";
+
+    // Button handlers
+    $("#addLaborLineBtn", root).addEventListener("click", async () => {
+      const line = await addNewLine(client, ctx, "labor");
+      if (line) await refresh(root, client, ctx);
+    });
+
+    $("#addSubsLineBtn", root).addEventListener("click", async () => {
+      const line = await addNewLine(client, ctx, "subs");
+      if (line) await refresh(root, client, ctx);
+    });
+
+    $("#addOdcLineBtn", root).addEventListener("click", async () => {
+      const line = await addNewLine(client, ctx, "odc");
+      if (line) await refresh(root, client, ctx);
+    });
+
+    // Event delegation for grid edits
+    $("#costInputsTbody", root).addEventListener("change", async (evt) => {
+      const input = evt.target;
+      if (!input.classList.contains("cell-input")) return;
+
+      const tr = input.closest("tr");
+      const lineId = tr?.dataset.lineId;
+      const field = input.dataset.field;
+
+      if (!lineId || !field) return;
+
+      const value = input.value;
+
+      if (field === "person_vendor" || field === "description") {
+        await updateTextField(client, lineId, field, value);
+      } else {
+        await updateCell(client, lineId, field, value);
+
+        // recompute total
+        const tds = tr.querySelectorAll("td");
+        const numericInputs = tr.querySelectorAll("input.cell-input-num");
+        let sum = 0;
+        numericInputs.forEach((inp) => {
+          const v = Number(inp.value || 0);
+          if (!Number.isNaN(v)) sum += v;
+        });
+        const totalCell = tds[tds.length - 1];
+        totalCell.textContent = sum.toLocaleString();
+      }
+    });
+  },
+};
