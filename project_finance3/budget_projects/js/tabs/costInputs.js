@@ -1,6 +1,6 @@
 // js/tabs/costInputs.js
 import { $, h } from "../lib/dom.js";
-import { getPlanContext } from "../lib/projectContext.js";
+import { getSelectedProjectId, getPlanContext } from "../lib/projectContext.js";
 
 const MONTH_KEYS = [
   "jan", "feb", "mar", "apr", "may", "jun",
@@ -17,7 +17,7 @@ export const template = /*html*/ `
     <h3 style="margin-bottom:0.5rem;">Cost Inputs (Editable)</h3>
     <p style="font-size:0.9rem;margin-bottom:0.75rem;color:#475569;">
       Enter <strong>hours</strong> for employees and <strong>cost</strong> for subcontractors and ODC
-      for the selected project and plan.
+      for the selected project.
     </p>
 
     <p id="costInputsMessage"
@@ -80,10 +80,8 @@ function computeRowTotal(line) {
   }, 0);
 }
 
-async function fetchLines(client, ctx) {
-  const { projectId, year, versionId, planType } = ctx;
-
-  const { data, error } = await client
+async function fetchLines(client, projectId, ctx) {
+  let query = client
     .from("planning_lines")
     .select(`
       id,
@@ -94,11 +92,21 @@ async function fetchLines(client, ctx) {
       jul, aug, sep, oct, nov, dec
     `)
     .eq("project_id", projectId)
-    .eq("plan_year", year)
-    .eq("plan_version_id", versionId)
-    .eq("plan_type", planType || "Working")
     .in("entry_type", ["labor", "subs", "odc"])
     .order("entry_type", { ascending: true });
+
+  // Only apply plan filters if they exist (so we don't block the tab)
+  if (ctx?.year) {
+    query = query.eq("plan_year", ctx.year);
+  }
+  if (ctx?.versionId) {
+    query = query.eq("plan_version_id", ctx.versionId);
+  }
+  if (ctx?.planType) {
+    query = query.eq("plan_type", ctx.planType);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     console.error("[costInputs] fetchLines error", error);
@@ -213,16 +221,18 @@ function renderLines(root, lines) {
   }
 }
 
-async function addNewLine(client, ctx, entryType) {
+async function addNewLine(client, projectId, ctx, entryType) {
   const baseLine = {
-    project_id: ctx.projectId,
-    plan_year: ctx.year,
-    plan_version_id: ctx.versionId,
-    plan_type: ctx.planType || "Working",
+    project_id: projectId,
     entry_type: entryType,
     person_vendor: "",
     description: "",
   };
+
+  // include plan fields if they exist, so new lines line up with other tabs
+  if (ctx?.year) baseLine.plan_year = ctx.year;
+  if (ctx?.versionId) baseLine.plan_version_id = ctx.versionId;
+  if (ctx?.planType) baseLine.plan_type = ctx.planType;
 
   MONTH_KEYS.forEach((key) => {
     baseLine[key] = null;
@@ -232,21 +242,21 @@ async function addNewLine(client, ctx, entryType) {
   return inserted;
 }
 
-async function refresh(root, client, ctx) {
+async function refresh(root, client, projectId, ctx) {
   const section = $("#costInputsSection", root);
   const emptyMsg = $("#costInputsEmpty", root);
 
-  const lines = await fetchLines(client, ctx);
+  const lines = await fetchLines(client, projectId, ctx);
 
   if (!lines.length) {
-    section.style.display = "block";
-    emptyMsg.style.display = "block";
+    if (section) section.style.display = "block";
+    if (emptyMsg) emptyMsg.style.display = "block";
     renderLines(root, []);
     return;
   }
 
-  section.style.display = "block";
-  emptyMsg.style.display = "none";
+  if (section) section.style.display = "block";
+  if (emptyMsg) emptyMsg.style.display = "none";
   renderLines(root, lines);
 }
 
@@ -255,11 +265,12 @@ async function refresh(root, client, ctx) {
 export const costInputsTab = {
   template,
   async init({ root, client }) {
+    const projectId = getSelectedProjectId();
     const ctx = getPlanContext();
     const msgEl = $("#costInputsMessage", root);
     const labelEl = $("#costInputsProjectLabel", root);
 
-    if (!ctx.projectId) {
+    if (!projectId) {
       if (msgEl) {
         msgEl.textContent = "No project selected. Please go to the Projects tab.";
       }
@@ -270,44 +281,34 @@ export const costInputsTab = {
       return;
     }
 
-    if (!ctx.year || !ctx.versionId) {
-      if (msgEl) {
-        msgEl.textContent =
-          "Plan not fully selected. Please complete selection in the Projects tab.";
-      }
-      const section = $("#costInputsSection", root);
-      const emptyMsg = $("#costInputsEmpty", root);
-      if (section) section.style.display = "none";
-      if (emptyMsg) emptyMsg.style.display = "none";
-      return;
-    }
-
     if (labelEl) {
-      labelEl.textContent = `Editing cost inputs for project ${ctx.projectId} · ${ctx.year} · ${
-        ctx.planType || "Working"
-      }`;
+      const planBits =
+        ctx?.year && ctx?.versionId
+          ? ` · ${ctx.year} · ${ctx.planType || "Working"}`
+          : "";
+      labelEl.textContent = `Editing cost inputs for project ${projectId}${planBits}`;
     }
 
     if (msgEl) msgEl.textContent = "Loading cost inputs…";
 
-    await refresh(root, client, ctx);
+    await refresh(root, client, projectId, ctx);
 
     if (msgEl) msgEl.textContent = "";
 
     // Button handlers
     $("#addLaborLineBtn", root).addEventListener("click", async () => {
-      const line = await addNewLine(client, ctx, "labor");
-      if (line) await refresh(root, client, ctx);
+      const line = await addNewLine(client, projectId, ctx, "labor");
+      if (line) await refresh(root, client, projectId, ctx);
     });
 
     $("#addSubsLineBtn", root).addEventListener("click", async () => {
-      const line = await addNewLine(client, ctx, "subs");
-      if (line) await refresh(root, client, ctx);
+      const line = await addNewLine(client, projectId, ctx, "subs");
+      if (line) await refresh(root, client, projectId, ctx);
     });
 
     $("#addOdcLineBtn", root).addEventListener("click", async () => {
-      const line = await addNewLine(client, ctx, "odc");
-      if (line) await refresh(root, client, ctx);
+      const line = await addNewLine(client, projectId, ctx, "odc");
+      if (line) await refresh(root, client, projectId, ctx);
     });
 
     // Event delegation for grid edits
