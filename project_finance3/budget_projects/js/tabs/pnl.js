@@ -426,6 +426,7 @@ async function refreshPnl(root, client) {
 function buildSummary(laborRevCost, manualRev, costByType, subsOdcRev) {
   const zero = () => emptyAgg();
 
+  // Revenue buckets
   const rev_tm = laborRevCost.tmRevenue || zero();
   const rev_fixed = manualRev.fixed || zero();
   const rev_software = manualRev.software || zero();
@@ -433,7 +434,15 @@ function buildSummary(laborRevCost, manualRev, costByType, subsOdcRev) {
   const rev_other = manualRev.other || zero();
   const rev_subs_odc = subsOdcRev || zero();
 
-  const cost_labor = costByType.labor || zero();
+  // Cost buckets
+  const cost_labor_from_hours = laborRevCost.laborCost || zero(); // <- from labor_hours × hourly_cost
+  const cost_labor_from_pl = costByType.labor || zero();          // <- DIR_LAB_COST planning_lines
+
+  // Combine both into a single Labor Cost bucket
+  const cost_labor = emptyAgg();
+  addLineToAgg(cost_labor, cost_labor_from_hours, +1);
+  addLineToAgg(cost_labor, cost_labor_from_pl, +1);
+
   const cost_subc = costByType.subc || zero();
   const cost_odc = costByType.odc || zero();
 
@@ -441,15 +450,17 @@ function buildSummary(laborRevCost, manualRev, costByType, subsOdcRev) {
   const cost_total = emptyAgg();
   const profit = emptyAgg();
 
-  // Build totals
+  // Build total revenue
   [rev_tm, rev_fixed, rev_software, rev_unit, rev_other, rev_subs_odc].forEach(r =>
     addLineToAgg(rev_total, r, +1)
   );
 
+  // Build total cost (now using combined Labor Cost)
   [cost_labor, cost_subc, cost_odc].forEach(c =>
     addLineToAgg(cost_total, c, +1)
   );
 
+  // Profit = Total Revenue – Total Cost
   MONTH_FIELDS.forEach(({ col }) => {
     const r = Number(rev_total[col] || 0);
     const c = Number(cost_total[col] || 0);
@@ -480,6 +491,7 @@ function buildSummary(laborRevCost, manualRev, costByType, subsOdcRev) {
 
   return { rows };
 }
+
 
 // ─────────────────────────────────────────────
 // RENDER
