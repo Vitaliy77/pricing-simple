@@ -2,7 +2,7 @@
 import { $, h } from "../lib/dom.js";
 import { getPlanContext } from "../lib/projectContext.js";
 
-// Month mapping used for all computations
+// Month mapping
 const MONTH_FIELDS = [
   { col: "amt_jan", idx: 0, label: "Jan" },
   { col: "amt_feb", idx: 1, label: "Feb" },
@@ -24,7 +24,6 @@ let projectMeta = {};
 export const template = /*html*/ `
   <article class="full-width-card">
     <style>
-      /* Local stickies so the left side stays solid */
       .rev-table {
         border-collapse: collapse;
         width: max-content;
@@ -41,7 +40,7 @@ export const template = /*html*/ `
       .rev-sticky-3 {
         position: sticky;
         z-index: 30;
-        background-color: #f8fafc; /* opaque so scrolled part doesn't shine through */
+        background-color: #f8fafc; /* opaque */
       }
       .rev-sticky-1 { left: 0; }
       .rev-sticky-2 { left: 12rem; }
@@ -54,6 +53,7 @@ export const template = /*html*/ `
       .rev-row-striped:nth-child(odd)  { background-color: #eff6ff; }
       .rev-row-striped:nth-child(even) { background-color: #ffffff; }
       .rev-row-striped:hover           { background-color: #dbeafe; }
+
       .rev-summary-row {
         background-color: #e5e7eb;
         font-weight: 600;
@@ -61,9 +61,19 @@ export const template = /*html*/ `
         bottom: 0;
         z-index: 20;
       }
+
+      .rev-num-input {
+        width: 5.2rem;
+        text-align: right;
+        border: 1px solid #cbd5f5;
+        border-radius: 3px;
+        padding: 0 4px;
+        font-size: 11px;
+        height: 1.4rem;
+      }
     </style>
 
-    <!-- Compact inline header + controls -->
+    <!-- Header + controls -->
     <div class="px-4 pt-3 pb-2 border-b border-slate-200">
       <div class="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-xs text-slate-700">
         <span id="revInlinePlan" class="font-medium"></span>
@@ -78,7 +88,6 @@ export const template = /*html*/ `
 
       <div id="revMessage" class="text-[11px] text-slate-500 mt-1 min-h-[1.1rem]"></div>
 
-      <!-- Add revenue line controls -->
       <div class="mt-1 flex flex-wrap items-end gap-3 text-xs">
         <label class="flex flex-col">
           <span class="mb-0.5 text-[11px] text-slate-700">Project</span>
@@ -115,7 +124,7 @@ export const template = /*html*/ `
       </div>
     </div>
 
-    <!-- Main table -->
+    <!-- Table -->
     <div class="w-full max-h-[520px] overflow-y-auto overflow-x-auto">
       <table class="rev-table text-xs">
         <thead class="bg-slate-50">
@@ -161,7 +170,7 @@ export const revenueBudgetTab = {
     const msg = $("#revMessage", root);
     const ctx = getPlanContext();
 
-    // Header from global context (same pattern as other tabs)
+    // Inline header
     const globalPlan =
       document.querySelector("#planContextHeader")?.textContent?.trim() || "";
     const globalProject =
@@ -172,11 +181,7 @@ export const revenueBudgetTab = {
 
     if (planSpan) planSpan.textContent = globalPlan;
     if (projSpan) {
-      if (globalProject) {
-        projSpan.textContent = `, ${globalProject}`;
-      } else {
-        projSpan.textContent = "";
-      }
+      projSpan.textContent = globalProject ? `, ${globalProject}` : "";
     }
 
     if (!ctx.level1ProjectId || !ctx.year || !ctx.versionId) {
@@ -185,7 +190,7 @@ export const revenueBudgetTab = {
       return;
     }
 
-    // Load project scope (parent + children) and build dropdown
+    // Load project scope
     await loadProjectsUnderLevel1(client, ctx.level1ProjectId);
 
     const projSelect = $("#revProjectSelect", root);
@@ -199,14 +204,17 @@ export const revenueBudgetTab = {
       });
     }
 
-    // Wire Add Revenue Line button
-    const addBtn = $("#addRevLineBtn", root);
-    addBtn?.addEventListener("click", async () => {
+    // Add revenue line
+    $("#addRevLineBtn", root)?.addEventListener("click", async () => {
       const ctxNow = getPlanContext();
       await insertManualRevenueLine(root, client, ctxNow);
     });
 
-    // Initial load
+    // Change handler for manual revenue inputs
+    $("#revBody", root)?.addEventListener("change", (e) =>
+      handleRevenueChange(e, root, client)
+    );
+
     await refreshRevenue(root, client);
   },
 };
@@ -252,7 +260,7 @@ async function loadProjectsUnderLevel1(client, level1ProjectId) {
 }
 
 // ─────────────────────────────────────────────
-// SMALL HELPERS
+// HELPERS
 // ─────────────────────────────────────────────
 function ensureMonthFields(rec) {
   MONTH_FIELDS.forEach(({ col }) => {
@@ -260,7 +268,7 @@ function ensureMonthFields(rec) {
   });
 }
 
-function addToMonth(rec, dateStr, amount) {
+function addToMonthFromYm(rec, dateStr, amount) {
   if (!dateStr) return;
   const d = new Date(dateStr);
   if (Number.isNaN(d.getTime())) return;
@@ -274,7 +282,7 @@ function addToMonth(rec, dateStr, amount) {
 // LOADERS
 // ─────────────────────────────────────────────
 
-// 1) T&M revenue = labor_hours × billing_rate (or cost if no billing_rate)
+// 1) T&M revenue = labor_hours × billing_rate (fallback to hourly_cost)
 async function loadTmRevenueRows(client, ctx) {
   const projectIds = projectScope.map(p => p.id);
   if (!projectIds.length) return [];
@@ -299,9 +307,10 @@ async function loadTmRevenueRows(client, ctx) {
 
   const empMap = new Map();
   if (employeeIds.length) {
+    // Use * to avoid 400 if billing_rate doesn't exist
     const { data: emps, error: eErr } = await client
       .from("employees")
-      .select("id, hourly_cost, billing_rate");
+      .select("*");
 
     if (eErr) {
       console.error("[Revenue] employees error", eErr);
@@ -323,11 +332,11 @@ async function loadTmRevenueRows(client, ctx) {
     const billingRate =
       typeof emp?.billing_rate === "number" && !Number.isNaN(emp.billing_rate)
         ? emp.billing_rate
-        : costRate; // fallback so we don't crash
+        : costRate;
 
     const revAmount = hoursVal * billingRate;
 
-    const key = row.project_id; // aggregate one T&M line per project
+    const key = row.project_id;
     if (!byProject.has(key)) {
       const rec = {
         source: "TM",
@@ -341,43 +350,51 @@ async function loadTmRevenueRows(client, ctx) {
     }
 
     const rec = byProject.get(key);
-    addToMonth(rec, row.ym, revAmount);
+    addToMonthFromYm(rec, row.ym, revAmount);
   }
 
   return Array.from(byProject.values());
 }
 
-// 2) Subs & ODC revenue = subs & ODC cost (pass-through)
+// 2) Subs & ODC revenue = Subs & ODC cost from planning_lines
 async function loadSubsOdcRevenueRows(client, ctx) {
   const projectIds = projectScope.map(p => p.id);
   if (!projectIds.length) return [];
 
-  // Assumes a view/table subs_odc_costs built from planning_lines / subs&ODC tab
   const { data, error } = await client
-    .from("subs_odc_costs")
-    .select("project_id, ym, amount")
+    .from("planning_lines")
+    .select(`
+      project_id,
+      amt_jan, amt_feb, amt_mar, amt_apr, amt_may, amt_jun,
+      amt_jul, amt_aug, amt_sep, amt_oct, amt_nov, amt_dec,
+      entry_types ( code )
+    `)
     .in("project_id", projectIds)
     .eq("plan_year", ctx.year)
     .eq("plan_version_id", ctx.versionId)
-    .eq("plan_type", ctx.planType || "Working");
+    .eq("plan_type", ctx.planType || "Working")
+    .eq("is_revenue", false);
 
   if (error) {
-    console.error("[Revenue] subs_odc_costs error", error);
+    console.error("[Revenue] subs/odc planning_lines error", error);
     return [];
   }
   if (!data || !data.length) return [];
 
   const byProject = new Map();
 
-  for (const row of data) {
-    const proj = projectMeta[row.project_id];
-    if (!proj) continue;
+  data.forEach(line => {
+    const etCode = line.entry_types?.code || "";
+    if (etCode !== "SUBC_COST" && etCode !== "ODC_COST") return;
 
-    const key = row.project_id;
+    const proj = projectMeta[line.project_id];
+    if (!proj) return;
+
+    const key = line.project_id;
     if (!byProject.has(key)) {
       const rec = {
         source: "SUBS_ODC",
-        project_id: row.project_id,
+        project_id: line.project_id,
         project_label: proj.label,
         type_label: "Subs & ODC",
         description: "Revenue equal to Subs & ODC cost",
@@ -387,14 +404,15 @@ async function loadSubsOdcRevenueRows(client, ctx) {
     }
 
     const rec = byProject.get(key);
-    const amt = Number(row.amount || 0);
-    addToMonth(rec, row.ym, amt);
-  }
+    MONTH_FIELDS.forEach(({ col }) => {
+      rec[col] += Number(line[col] || 0);
+    });
+  });
 
   return Array.from(byProject.values());
 }
 
-// 3) Manual revenue lines from planning_lines (is_revenue = true)
+// 3) Manual revenue lines (editable) from planning_lines
 async function loadManualRevenueRows(client, ctx) {
   const projectIds = projectScope.map(p => p.id);
   if (!projectIds.length) return [];
@@ -435,6 +453,7 @@ async function loadManualRevenueRows(client, ctx) {
 
     const rec = {
       source: "MANUAL",
+      id: line.id,
       project_id: line.project_id,
       project_label: proj?.label || line.project_name || "",
       type_label: typeLabel,
@@ -513,12 +532,30 @@ function renderRevenue(root, rows) {
 
   tbody.innerHTML = "";
 
-  // Rows
+  // Detail rows
   rows.forEach(r => {
     let total = 0;
+
     const monthCells = MONTH_FIELDS.map(mf => {
       const val = Number(r[mf.col] || 0);
       total += val;
+
+      if (r.source === "MANUAL") {
+        const displayVal = val === 0 ? "" : val;
+        return `
+          <td class="text-right text-[11px] px-2 py-1">
+            <input
+              type="number"
+              class="rev-num-input"
+              data-id="${r.id}"
+              data-field="${mf.col}"
+              value="${displayVal}"
+            />
+          </td>
+        `;
+      }
+
+      // Computed rows (T&M, Subs & ODC) are read-only
       return `<td class="text-right text-[11px] px-2 py-1">${fmt(val)}</td>`;
     }).join("");
 
@@ -542,7 +579,7 @@ function renderRevenue(root, rows) {
     tbody.appendChild(tr);
   });
 
-  // Optional: summary row (totals across all projects/types)
+  // Summary row
   const summary = document.createElement("tr");
   summary.className = "rev-summary-row";
   let grand = 0;
@@ -574,10 +611,9 @@ function renderRevenue(root, rows) {
 }
 
 // ─────────────────────────────────────────────
-// MANUAL REVENUE INSERT
+// MANUAL REVENUE INSERT & UPDATE
 // ─────────────────────────────────────────────
 async function getEntryTypeIdForManual(client, revType) {
-  // Adjust these codes if your entry_types table uses different names
   const candidatesByType = {
     FIXED: ["REV_FIXED", "FIXED_REV", "REV_MANUAL"],
     SOFTWARE: ["REV_SOFTWARE", "SOFT_REV", "REV_MANUAL"],
@@ -666,5 +702,40 @@ async function insertManualRevenueLine(root, client, ctx) {
   } catch (err) {
     console.error("[Revenue] unexpected error inserting revenue", err);
     msg && (msg.textContent = "Error adding revenue line. Check console.");
+  }
+}
+
+async function handleRevenueChange(e, root, client) {
+  const input = e.target;
+  if (!input.classList.contains("rev-num-input")) return;
+
+  const id = input.dataset.id;
+  const field = input.dataset.field;
+  if (!id || !field) return;
+
+  const raw = input.value;
+  const val = raw === "" ? 0 : Number(raw);
+  if (Number.isNaN(val)) return;
+
+  try {
+    const { error } = await client
+      .from("planning_lines")
+      .update({ [field]: val })
+      .eq("id", id);
+
+    if (error) {
+      console.error("[Revenue] update manual amount error", error);
+      const msg = $("#revMessage", root);
+      msg && (msg.textContent = "Error updating revenue. Check console.");
+      return;
+    }
+
+    const msg = $("#revMessage", root);
+    msg && (msg.textContent = "Revenue updated.");
+    await refreshRevenue(root, client);
+  } catch (err) {
+    console.error("[Revenue] unexpected error updating amount", err);
+    const msg = $("#revMessage", root);
+    msg && (msg.textContent = "Error updating revenue. Check console.");
   }
 }
