@@ -2,51 +2,143 @@
 import { $ } from "../lib/dom.js";
 
 export const template = /*html*/ `
-  <article style="max-width:480px;margin:0 auto;">
-    <h3>Sign In</h3>
+  <article class="full-width-card max-w-xl mx-auto">
+    <!-- Header -->
+    <div class="px-4 pt-3 pb-2 border-b border-slate-200">
+      <h3 class="text-base font-semibold text-slate-900">Sign In</h3>
+      <p class="text-[11px] text-slate-600 mt-1">
+        Access your project planning workspace. You can create an account, sign in, or request a password reset.
+      </p>
+      <div
+        id="authMessages"
+        class="mt-2 text-xs min-h-[1.25rem]"
+      ></div>
+    </div>
 
-    <section id="authMessages" style="min-height:1.5rem;font-size:0.9rem;"></section>
+    <!-- Content -->
+    <div class="px-4 py-4 space-y-6">
+      <!-- Sign In -->
+      <section>
+        <h4 class="text-xs font-semibold text-slate-700 uppercase tracking-wide mb-2">
+          Sign In
+        </h4>
+        <form
+          id="signInForm"
+          class="form-vertical space-y-2"
+          style="max-width: 520px;"
+        >
+          <label class="flex flex-col text-xs text-slate-700">
+            <span class="mb-0.5">Email</span>
+            <input
+              type="email"
+              id="signInEmail"
+              required
+              class="border border-slate-300 rounded-md px-2 py-1 text-xs
+                     focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+          </label>
 
-    <section style="margin-top:0.75rem;">
-      <h4>Sign In</h4>
-      <form id="signInForm" class="form-vertical">
-        <label>
-          Email
-          <input type="email" id="signInEmail" required />
-        </label>
-        <label>
-          Password
-          <input type="password" id="signInPassword" required />
-        </label>
-        <button type="submit">Sign In</button>
-      </form>
-    </section>
+          <label class="flex flex-col text-xs text-slate-700">
+            <span class="mb-0.5">Password</span>
+            <input
+              type="password"
+              id="signInPassword"
+              required
+              class="border border-slate-300 rounded-md px-2 py-1 text-xs
+                     focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+          </label>
 
-    <section style="margin-top:1.5rem;">
-      <h4>Sign Up</h4>
-      <form id="signUpForm" class="form-vertical">
-        <label>
-          Email
-          <input type="email" id="signUpEmail" required />
-        </label>
-        <label>
-          Password
-          <input type="password" id="signUpPassword" required />
-        </label>
-        <button type="submit">Create Account</button>
-      </form>
-    </section>
+          <button
+            type="submit"
+            class="mt-2 inline-flex items-center justify-center px-3 py-1.5
+                   text-xs font-medium rounded-md shadow-sm
+                   bg-blue-600 hover:bg-blue-700 text-white"
+          >
+            Sign In
+          </button>
+        </form>
+      </section>
 
-    <section style="margin-top:1.5rem;">
-      <h4>Password Reset</h4>
-      <form id="resetForm" class="form-vertical">
-        <label>
-          Email
-          <input type="email" id="resetEmail" required />
-        </label>
-        <button type="submit">Send Reset Link</button>
-      </form>
-    </section>
+      <hr class="border-slate-200" />
+
+      <!-- Sign Up -->
+      <section>
+        <h4 class="text-xs font-semibold text-slate-700 uppercase tracking-wide mb-2">
+          Sign Up
+        </h4>
+        <form
+          id="signUpForm"
+          class="form-vertical space-y-2"
+          style="max-width: 520px;"
+        >
+          <label class="flex flex-col text-xs text-slate-700">
+            <span class="mb-0.5">Email</span>
+            <input
+              type="email"
+              id="signUpEmail"
+              required
+              class="border border-slate-300 rounded-md px-2 py-1 text-xs
+                     focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+          </label>
+
+          <label class="flex flex-col text-xs text-slate-700">
+            <span class="mb-0.5">Password</span>
+            <input
+              type="password"
+              id="signUpPassword"
+              required
+              class="border border-slate-300 rounded-md px-2 py-1 text-xs
+                     focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+          </label>
+
+          <button
+            type="submit"
+            class="mt-2 inline-flex items-center justify-center px-3 py-1.5
+                   text-xs font-medium rounded-md shadow-sm
+                   bg-slate-800 hover:bg-slate-900 text-white"
+          >
+            Create Account
+          </button>
+        </form>
+      </section>
+
+      <hr class="border-slate-200" />
+
+      <!-- Password Reset -->
+      <section>
+        <h4 class="text-xs font-semibold text-slate-700 uppercase tracking-wide mb-2">
+          Password Reset
+        </h4>
+        <form
+          id="resetForm"
+          class="form-vertical space-y-2"
+          style="max-width: 520px;"
+        >
+          <label class="flex flex-col text-xs text-slate-700">
+            <span class="mb-0.5">Email</span>
+            <input
+              type="email"
+              id="resetEmail"
+              required
+              class="border border-slate-300 rounded-md px-2 py-1 text-xs
+                     focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+          </label>
+
+          <button
+            type="submit"
+            class="mt-2 inline-flex items-center justify-center px-3 py-1.5
+                   text-xs font-medium rounded-md shadow-sm
+                   bg-slate-500 hover:bg-slate-600 text-white"
+          >
+            Send Reset Link
+          </button>
+        </form>
+      </section>
+    </div>
   </article>
 `;
 
