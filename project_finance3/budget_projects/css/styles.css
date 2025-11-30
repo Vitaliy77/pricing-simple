@@ -1,20 +1,18 @@
 /* ────────────────────────────── */
-/* Base styles                    */
+/* Base styles */
 /* ────────────────────────────── */
-
 body {
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
     sans-serif;
   font-size: 13px;
   line-height: 1.4;
   background-color: #f1f5f9; /* slate-100 */
-  color: #0f172a;           /* slate-900 */
+  color: #0f172a; /* slate-900 */
 }
 
 /* ────────────────────────────── */
-/* Top menu & tab buttons         */
+/* Top menu & tab buttons */
 /* ────────────────────────────── */
-
 .top-menu {
   position: sticky;
   top: 0;
@@ -26,27 +24,24 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0.375rem 0.75rem;   /* px-3 py-1.5 */
-  margin-right: 0.5rem;        /* mr-2 */
-  border-radius: 9999px;       /* rounded-full */
+  padding: 0.375rem 0.75rem;
+  margin-right: 0.5rem;
+  border-radius: 9999px;
   font-size: 12px;
   font-weight: 500;
   white-space: nowrap;
-  border: 1px solid #2563eb;   /* blue-600 */
-  background-color: #2563eb;   /* blue-600 */
+  border: 1px solid #2563eb;
+  background-color: #2563eb;
   color: #ffffff;
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.15);
   cursor: pointer;
   transition: background-color 0.15s ease, border-color 0.15s ease,
     color 0.15s ease, box-shadow 0.15s ease;
 }
-
 .tab-btn:hover {
-  background-color: #1d4ed8; /* blue-700 */
+  background-color: #1d4ed8;
   border-color: #1d4ed8;
 }
-
-/* Active tab – support both "active" and "tab-btn-active" */
 .tab-btn.active,
 .tab-btn-active {
   background-color: #ffffff;
@@ -56,56 +51,39 @@ body {
 }
 
 /* ────────────────────────────── */
-/* Layout cards / containers      */
+/* Full-width card – FIXED & BEAUTIFUL */
 /* ────────────────────────────── */
-
-/* Full-width breakout card: used by Cost Budget tab */
 .full-width-card {
   width: 100%;
-  max-width: none;
   margin-top: 1rem;
   margin-bottom: 1.5rem;
-  margin-left: -1rem;  /* approximate -mx-4 */
-  margin-right: -1rem;
-  background-color: #ffffff;
-  border-radius: 0.75rem;
-  border: 1px solid #e2e8f0; /* slate-200 */
-  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
-  overflow: hidden;
-}
-
-@media (min-width: 640px) {
-  .full-width-card {
-    margin-left: -1.5rem; /* -mx-6 */
-    margin-right: -1.5rem;
-  }
-}
-@media (min-width: 1024px) {
-  .full-width-card {
-    margin-left: -2rem; /* -mx-8 */
-    margin-right: -2rem;
-  }
-}
-
-/* Padded variant if you ever need it */
-.full-width-card-padded {
-  width: 100%;
-  max-width: none;
-  margin-top: 1rem;
-  margin-bottom: 1.5rem;
-  margin-left: -1rem;
-  margin-right: -1rem;
-  padding: 1rem 1.5rem;
   background-color: #ffffff;
   border-radius: 0.75rem;
   border: 1px solid #e2e8f0;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
+  overflow: hidden;
+
+  /* Beautiful ~5–6 mm breathing room on both sides */
+  padding-left: 1.5rem;
+  padding-right: 1.5rem;
+}
+
+@media (min-width: 1024px) {
+  .full-width-card {
+    padding-left: 2rem;
+    padding-right: 2rem;
+  }
+}
+
+/* Optional: tight version without padding (rarely needed) */
+.full-width-card-tight {
+  padding-left: 0 !important;
+  padding-right: 0 !important;
 }
 
 /* ────────────────────────────── */
-/* Generic table styling          */
+/* Generic table styling */
 /* ────────────────────────────── */
-
 .table-shell {
   overflow: auto;
   border-radius: 0.75rem;
@@ -118,37 +96,31 @@ body {
   border-collapse: collapse;
   font-size: 11px;
 }
-
 .data-table thead {
-  background-color: #f8fafc; /* slate-50 */
+  background-color: #f8fafc;
 }
-
 .data-table th {
   position: sticky;
   top: 0;
   z-index: 10;
   background-color: #f8fafc;
   font-weight: 600;
-  color: #475569; /* slate-600 */
+  color: #475569;
   border-bottom: 1px solid #e2e8f0;
   padding: 0.25rem 0.5rem;
   text-align: left;
 }
-
 .data-table td {
   border-bottom: 1px solid #f1f5f9;
   padding: 0.25rem 0.5rem;
   vertical-align: middle;
 }
-
 .data-table tbody tr:nth-child(odd) {
   background-color: rgba(248, 250, 252, 0.7);
 }
-
 .data-table tbody tr:hover {
-  background-color: #eff6ff; /* blue-50 */
+  background-color: #eff6ff;
 }
-
 .table-number {
   text-align: right;
   font-variant-numeric: tabular-nums;
@@ -157,47 +129,23 @@ body {
 /* ────────────────────────────── */
 /* Sticky columns for Cost Budget */
 /* ────────────────────────────── */
-
 .cost-grid-sticky {
   position: sticky;
   background-color: #ffffff;
   z-index: 10;
-  border-right: 1px solid #e2e8f0; /* slate-200 */
+  border-right: 1px solid #e2e8f0;
 }
-
-/* NOTE: these widths/offsets must match your first 3 column widths */
-.cost-col-1 {
-  left: 0;
-  min-width: 160px;
-  width: 160px;
-}
-
-.cost-col-2 {
-  left: 160px; /* after col 1 */
-  min-width: 220px;
-  width: 220px;
-}
-
-.cost-col-3 {
-  left: 380px; /* 160 + 220 */
-  min-width: 260px;
-  width: 260px;
-}
-
-/* Stacking order so they layer correctly */
+.cost-col-1 { left: 0; min-width: 160px; width: 160px; }
+.cost-col-2 { left: 160px; min-width: 220px; width: 220px; }
+.cost-col-3 { left: 380px; min-width: 260px; width: 260px; }
 .cost-grid-sticky.cost-col-1 { z-index: 30; }
 .cost-grid-sticky.cost-col-2 { z-index: 29; }
 .cost-grid-sticky.cost-col-3 { z-index: 28; }
-
-/* Header variant – slightly tinted */
-.cost-grid-sticky.bg-slate-50 {
-  background-color: #f8fafc;
-}
+.cost-grid-sticky.bg-slate-50 { background-color: #f8fafc; }
 
 /* ────────────────────────────── */
-/* Cost Budget table tweaks       */
+/* Cost Budget table tweaks */
 /* ────────────────────────────── */
-
 #costTable th,
 #costTable td {
   padding-top: 2px;
@@ -205,46 +153,49 @@ body {
   line-height: 1.2;
   font-size: 12px;
 }
+#costTable tbody tr:nth-child(even) { background-color: #f8fafc; }
+#costTable tbody tr:hover { background-color: #e0f2fe; }
 
-/* Zebra striping */
-#costTable tbody tr:nth-child(even) {
-  background-color: #f8fafc; /* slate-50 */
+/* ────────────────────────────── */
+/* Utility: horizontal scroll (respects card padding) */
+/* ────────────────────────────── */
+.scroll-x,
+.overflow-x-auto {
+  margin-left: -1.5rem;
+  margin-right: -1.5rem;
+  padding-left: 1.5rem;
+  padding-right: 1.5rem;
+}
+@media (min-width: 1024px) {
+  .scroll-x,
+  .overflow-x-auto {
+    margin-left: -2rem;
+    margin-right: -2rem;
+    padding-left: 2rem;
+    padding-right: 2rem;
+  }
 }
 
-/* Hover */
-#costTable tbody tr:hover {
-  background-color: #e0f2fe; /* light blue */
+/* ────────────────────────────── */
+/* CRITICAL FIX: Prevent tables from overflowing into huge empty space */
+/* ────────────────────────────── */
+.full-width-card table,
+.full-width-card .data-table,
+.full-width-card .pnl-table {
+  width: 100% !important;
+  min-width: unset !important;
+  max-width: 100% !important;
+  table-layout: auto;
 }
 
 /* ────────────────────────────── */
-/* Utility: horizontal scroll     */
+/* Print tweaks */
 /* ────────────────────────────── */
-
-.scroll-x {
-  overflow-x: auto;
-}
-
-/* ────────────────────────────── */
-/* Print tweaks                   */
-/* ────────────────────────────── */
-
 @media print {
-  @page {
-    margin: 10mm;
-  }
-
-  body {
-    background-color: #ffffff;
-  }
-
-  .nav-bar,
-  .top-menu,
-  .no-print {
-    display: none !important;
-  }
-
-  .card,
-  .full-width-card {
+  @page { margin: 10mm; }
+  body { background-color: #ffffff; }
+  .nav-bar, .top-menu, .no-print { display: none !important; }
+  .card, .full-width-card {
     box-shadow: none;
     border: 1px solid #cbd5e1;
     margin-top: 1rem;
