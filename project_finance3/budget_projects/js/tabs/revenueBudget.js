@@ -40,7 +40,7 @@ export const template = /*html*/ `
       .rev-sticky-3 {
         position: sticky;
         z-index: 30;
-        background-color: #f8fafc; /* opaque */
+        background-color: #f8fafc; /* opaque so nothing "shines through" */
       }
       .rev-sticky-1 { left: 0; }
       .rev-sticky-2 { left: 12rem; }
@@ -282,7 +282,7 @@ function addToMonthFromYm(rec, dateStr, amount) {
 // LOADERS
 // ─────────────────────────────────────────────
 
-// 1) T&M revenue = labor_hours × billing_rate (fallback to hourly_cost)
+// 1) T&M revenue = labor_hours × billing_rate (via labor_categories, fallback hourly_cost)
 async function loadTmRevenueRows(client, ctx) {
   const projectIds = projectScope.map(p => p.id);
   if (!projectIds.length) return [];
@@ -307,15 +307,21 @@ async function loadTmRevenueRows(client, ctx) {
 
   const empMap = new Map();
   if (employeeIds.length) {
-    // Use * to avoid 400 if billing_rate doesn't exist
     const { data: emps, error: eErr } = await client
       .from("employees")
-      .select("*");
+      .select("id, hourly_cost, labor_categories(billing_rate)")
+      .in("id", employeeIds);
 
     if (eErr) {
       console.error("[Revenue] employees error", eErr);
     } else {
-      (emps || []).forEach(e => empMap.set(e.id, e));
+      (emps || []).forEach(e => {
+        const billingRate = Number(e.labor_categories?.billing_rate || 0);
+        empMap.set(e.id, {
+          hourly_cost: Number(e.hourly_cost || 0),
+          billing_rate: billingRate,
+        });
+      });
     }
   }
 
@@ -325,16 +331,18 @@ async function loadTmRevenueRows(client, ctx) {
     const proj = projectMeta[row.project_id];
     if (!proj) continue;
 
-    const emp = empMap.get(row.employee_id);
+    const emp = empMap.get(row.employee_id) || {};
     const hoursVal = Number(row.hours || 0);
 
-    const costRate = emp?.hourly_cost || 0;
-    const billingRate =
-      typeof emp?.billing_rate === "number" && !Number.isNaN(emp.billing_rate)
+    // EFFECTIVE BILLING RATE:
+    // primary: billing_rate from labor_categories
+    // fallback: hourly_cost if no billing_rate is defined
+    const effectiveRate =
+      (typeof emp.billing_rate === "number" && !Number.isNaN(emp.billing_rate) && emp.billing_rate > 0)
         ? emp.billing_rate
-        : costRate;
+        : (emp.hourly_cost || 0);
 
-    const revAmount = hoursVal * billingRate;
+    const revAmount = hoursVal * effectiveRate;
 
     const key = row.project_id;
     if (!byProject.has(key)) {
@@ -343,7 +351,7 @@ async function loadTmRevenueRows(client, ctx) {
         project_id: row.project_id,
         project_label: proj.label,
         type_label: "T&M Labor",
-        description: "Hours × billing rates",
+        description: "Hours × billing rates (labor category)",
       };
       ensureMonthFields(rec);
       byProject.set(key, rec);
@@ -446,10 +454,13 @@ async function loadManualRevenueRows(client, ctx) {
     const etCode = line.entry_types?.code || null;
 
     let typeLabel = "Manual Revenue";
-    if (etCode === "REV_FIXED" || etCode === "FIXED_REV") typeLabel = "Fixed Revenue";
-    else if (etCode === "REV_SOFTWARE" || etCode === "SOFT_REV") typeLabel = "Software Revenue";
-    else if (etCode === "REV_UNIT" || etCode === "UNIT_REV") typeLabel = "Unit Revenue";
-    else if (etCode === "REV_TM" || etCode === "TM_REV") typeLabel = "T&M Revenue";
+
+    // Match to your schema codes:
+    // FIXED_REV, SOFT_REV, UNIT_REV, OTHER_REV
+    if (etCode === "FIXED_REV") typeLabel = "Fixed Revenue";
+    else if (etCode === "SOFT_REV") typeLabel = "Software Revenue";
+    else if (etCode === "UNIT_REV") typeLabel = "Unit Revenue";
+    else if (etCode === "OTHER_REV") typeLabel = "Other Revenue";
 
     const rec = {
       source: "MANUAL",
@@ -614,14 +625,18 @@ function renderRevenue(root, rows) {
 // MANUAL REVENUE INSERT & UPDATE
 // ─────────────────────────────────────────────
 async function getEntryTypeIdForManual(client, revType) {
+  // Align with your actual entry_types codes:
+  // FIXED_REV, SOFT_REV, UNIT_REV, OTHER_REV
   const candidatesByType = {
-    FIXED: ["REV_FIXED", "FIXED_REV", "REV_MANUAL"],
-    SOFTWARE: ["REV_SOFTWARE", "SOFT_REV", "REV_MANUAL"],
-    UNIT: ["REV_UNIT", "UNIT_REV", "REV_MANUAL"],
-    OTHER: ["REV_OTHER", "REV_MANUAL"],
+    FIXED: ["FIXED_REV"],
+    SOFTWARE: ["SOFT_REV"],
+    UNIT: ["UNIT_REV"],
+    OTHER: ["OTHER_REV"],
   };
 
-  const codes = candidatesByType[revType] || candidatesByType.OTHER;
+  // Fallback chain: specific → OTHER_REV
+  let codes = candidatesByType[revType] || [];
+  codes = [...codes, "OTHER_REV"];
 
   const { data, error } = await client
     .from("entry_types")
@@ -655,7 +670,7 @@ async function insertManualRevenueLine(root, client, ctx) {
   const entryTypeId = await getEntryTypeIdForManual(client, revType);
   if (!entryTypeId) {
     msg && (msg.textContent =
-      "Cannot add revenue: configure revenue entry_types (e.g. REV_FIXED / REV_MANUAL) in entry_types table.");
+      "Cannot add revenue: matching entry_types code not found (expecting FIXED_REV, SOFT_REV, UNIT_REV or OTHER_REV).");
     return;
   }
 
