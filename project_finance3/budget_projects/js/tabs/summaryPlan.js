@@ -65,6 +65,9 @@ export const template = /*html*/ `
         border: 1px solid rgba(148, 163, 184, 0.4);
         padding: 0.75rem;
         background-color: #ffffff;
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
       }
 
       .summary-chart-title {
@@ -73,7 +76,27 @@ export const template = /*html*/ `
         text-transform: uppercase;
         letter-spacing: 0.06em;
         color: #4b5563;
-        margin-bottom: 0.35rem;
+        margin-bottom: 0.15rem;
+      }
+
+      /* NEW: fixed-height chart area */
+      .summary-chart-body {
+        position: relative;
+        height: 220px;              /* ~2–3 inches on most screens */
+        max-height: 260px;
+      }
+
+      @media (max-height: 700px) {
+        .summary-chart-body {
+          height: 40vh;             /* on short screens, use ~half of viewport height */
+          max-height: 280px;
+        }
+      }
+
+      .summary-chart-card canvas {
+        width: 100% !important;
+        height: 100% !important;
+        display: block;
       }
     </style>
 
@@ -123,11 +146,15 @@ export const template = /*html*/ `
         <div class="summary-grid">
           <div class="summary-chart-card">
             <div class="summary-chart-title">Monthly Revenue by Type</div>
-            <canvas id="summaryChartRevenueByMonth" height="220"></canvas>
+            <div class="summary-chart-body">
+              <canvas id="summaryChartRevenueByMonth"></canvas>
+            </div>
           </div>
           <div class="summary-chart-card">
             <div class="summary-chart-title">Monthly Profit</div>
-            <canvas id="summaryChartProfitByMonth" height="220"></canvas>
+            <div class="summary-chart-body">
+              <canvas id="summaryChartProfitByMonth"></canvas>
+            </div>
           </div>
         </div>
 
@@ -135,17 +162,22 @@ export const template = /*html*/ `
         <div class="summary-grid">
           <div class="summary-chart-card">
             <div class="summary-chart-title">Revenue Mix by Type</div>
-            <canvas id="summaryChartRevenueMix" height="220"></canvas>
+            <div class="summary-chart-body">
+              <canvas id="summaryChartRevenueMix"></canvas>
+            </div>
           </div>
           <div class="summary-chart-card">
             <div class="summary-chart-title">Cost Mix by Type</div>
-            <canvas id="summaryChartCostMix" height="220"></canvas>
+            <div class="summary-chart-body">
+              <canvas id="summaryChartCostMix"></canvas>
+            </div>
           </div>
         </div>
       </section>
     </div>
   </article>
 `;
+
 
 export const summaryPlanTab = {
   template,
