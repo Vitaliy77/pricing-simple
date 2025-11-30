@@ -55,43 +55,69 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
 
-  <!-- Global Chart.js + Datalabels Registration & Styling -->
+    <!-- Global Chart.js + Datalabels Registration & Styling -->
   <script>
-    if (window.Chart) {
-      // Register the datalabels plugin globally
-      Chart.register(ChartDataLabels);
+    (function () {
+      if (!window.Chart) return;
 
-      // Global defaults — clean, professional look
-      Chart.defaults.font.family = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
-      Chart.defaults.font.size = 13;
-      Chart.defaults.color = '#475569'; // slate-600
+      // Register the datalabels plugin only if it exists
+      if (window.ChartDataLabels) {
+        Chart.register(window.ChartDataLabels);
+      }
 
-      // Legend
-      Chart.defaults.plugins.legend.labels.font.size = 12;
-      Chart.defaults.plugins.legend.labels.boxWidth = 10;
-      Chart.defaults.plugins.legend.labels.padding = 12;
+      const defaults = Chart.defaults;
 
-      // Tooltip
-      Chart.defaults.plugins.tooltip.titleFont.size = 13;
-      Chart.defaults.plugins.tooltip.bodyFont.size = 13;
-      Chart.defaults.plugins.tooltip.padding = 10;
-      Chart.defaults.plugins.tooltip.cornerRadius = 6;
+      // Base font + colors
+      defaults.font = defaults.font || {};
+      defaults.font.family =
+        'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+      defaults.font.size = 13;
+      defaults.color = '#475569'; // slate-600
 
-      // Datalabels – beautiful defaults (you can override per chart)
-      Chart.defaults.plugins.datalabels.display = false; // default off, enable per chart
-      Chart.defaults.plugins.datalabels.font.weight = '600';
-      Chart.defaults.plugins.datalabels.font.size = 12;
-      Chart.defaults.plugins.datalabels.color = '#1e293b';
-      Chart.defaults.plugins.datalabels.anchor = 'end';
-      Chart.defaults.plugins.datalabels.align = 'top';
-      Chart.defaults.plugins.datalabels.formatter = (value) => {
+      // Make sure plugins object exists
+      defaults.plugins = defaults.plugins || {};
+
+      // Legend defaults
+      defaults.plugins.legend = defaults.plugins.legend || {};
+      defaults.plugins.legend.labels = defaults.plugins.legend.labels || {};
+      defaults.plugins.legend.labels.font =
+        defaults.plugins.legend.labels.font || {};
+      defaults.plugins.legend.labels.font.size = 12;
+      defaults.plugins.legend.labels.boxWidth = 10;
+      defaults.plugins.legend.labels.padding = 12;
+
+      // Tooltip defaults
+      defaults.plugins.tooltip = defaults.plugins.tooltip || {};
+      defaults.plugins.tooltip.titleFont =
+        defaults.plugins.tooltip.titleFont || {};
+      defaults.plugins.tooltip.bodyFont =
+        defaults.plugins.tooltip.bodyFont || {};
+      defaults.plugins.tooltip.titleFont.size = 13;
+      defaults.plugins.tooltip.bodyFont.size = 13;
+      defaults.plugins.tooltip.padding = 10;
+      defaults.plugins.tooltip.cornerRadius = 6;
+
+      // DataLabels defaults – create object before touching nested props
+      defaults.plugins.datalabels = defaults.plugins.datalabels || {};
+      defaults.plugins.datalabels.display = false; // default off, enable per chart
+      defaults.plugins.datalabels.font =
+        defaults.plugins.datalabels.font || {};
+      defaults.plugins.datalabels.font.weight = '600';
+      defaults.plugins.datalabels.font.size = 12;
+      defaults.plugins.datalabels.color = '#1e293b';
+      defaults.plugins.datalabels.anchor = 'end';
+      defaults.plugins.datalabels.align = 'top';
+      defaults.plugins.datalabels.formatter = (value) => {
         if (typeof value === 'number' && value >= 1000) {
-          return value.toLocaleString(undefined, { maximumFractionDigits: 0 });
+          return value.toLocaleString(undefined, {
+            maximumFractionDigits: 0,
+          });
         }
         return value;
       };
-    }
+    })();
   </script>
+
 
   <!-- Your app -->
   <script type="module" src="./js/main.js"></script>
