@@ -77,12 +77,6 @@ function zeroMonths() {
   return o;
 }
 
-function addMonthMaps(target, source) {
-  MONTHS.forEach(m => {
-    target[m.key] += Number(source[m.key] || 0);
-  });
-}
-
 function fmtNum(v) {
   if (v === null || v === undefined) return "";
   const n = Number(v);
@@ -125,14 +119,10 @@ async function loadProjectScope(client, level1ProjectId) {
 }
 
 // ─────────────────────────────────────────────
-// T&M LABOR: REVENUE (billing_rate) + COST (hourly_cost) — NOW SEPARATE!
+// T&M LABOR: REVENUE (billing_rate) + COST (hourly_cost) — FINAL & CORRECT
 // ─────────────────────────────────────────────
 async function loadLaborRevenueAndCost(client, ctx, projectIds) {
-  const result = {
-    revenue: zeroMonths(),  // T&M labor revenue
-    cost: zeroMonths(),     // labor cost
-  };
-
+  const result = { revenue: zeroMonths(), cost: zeroMonths() };
   if (!projectIds.length) return result;
 
   const { data: hours, error: hErr } = await client
@@ -143,28 +133,23 @@ async function loadLaborRevenueAndCost(client, ctx, projectIds) {
     .eq("plan_version_id", ctx.versionId)
     .eq("plan_type", ctx.planType || "Working");
 
-  if (hErr) {
-    console.error("[PnL] labor_hours error", hErr);
+  if (hErr || !hours?.length) {
+    if (hErr) console.error("[PnL] labor_hours error", hErr);
     return result;
   }
-  if (!hours || !hours.length) return result;
 
-  const employeeIds = Array.from(
-    new Set(hours.map(r => r.employee_id).filter(Boolean))
-  );
-
+  const employeeIds = [...new Set(hours.map(h => h.employee_id).filter(Boolean))];
   const empMap = new Map();
+
   if (employeeIds.length) {
     const { data: emps, error: eErr } = await client
       .from("employees")
-      .select("id, hourly_cost, billing_rate"); // billing_rate is now used!
+      .select("id, hourly_cost, billing_rate");
 
     if (eErr) {
       console.error("[PnL] employees error", eErr);
-    } else {
-      (emps || []).forEach(e => {
-        empMap.set(e.id, e);
-      });
+    } else if (emps) {
+      emps.forEach(e => empMap.set(e.id, e));
     }
   }
 
@@ -176,6 +161,7 @@ async function loadLaborRevenueAndCost(client, ctx, projectIds) {
     const hoursVal = Number(row.hours || 0);
 
     const costRate = emp?.hourly_cost || 0;
+
     const billingRate =
       typeof emp?.billing_rate === "number" && !Number.isNaN(emp.billing_rate)
         ? emp.billing_rate
@@ -192,7 +178,7 @@ async function loadLaborRevenueAndCost(client, ctx, projectIds) {
 }
 
 // ─────────────────────────────────────────────
-// SUBS & ODC COST (revenue = cost)
+// SUBS & ODC (revenue = cost)
 // ─────────────────────────────────────────────
 async function loadSubsOdcCost(client, ctx, projectIds) {
   const months = zeroMonths();
@@ -309,15 +295,10 @@ async function loadManualRevenueByType(client, ctx, projectIds) {
 }
 
 // ─────────────────────────────────────────────
-// P&L ROW BUILDING & RENDERING (unchanged)
+// P&L ROW BUILDING
 // ─────────────────────────────────────────────
 function buildPnlRows(components) {
-  const {
-    laborRevCost,
-    subsOdcCost,
-    otherCost,
-    manualRevByType,
-  } = components;
+  const { laborRevCost, subsOdcCost, otherCost, manualRevByType } = components;
 
   const rev_tm = laborRevCost.revenue;
   const cost_labor = laborRevCost.cost;
@@ -333,18 +314,8 @@ function buildPnlRows(components) {
   const profit_total = zeroMonths();
 
   MONTHS.forEach(m => {
-    rev_total[m.key] =
-      (rev_tm[m.key] || 0) +
-      (rev_subs[m.key] || 0) +
-      (rev_fixed[m.key] || 0) +
-      (rev_soft[m.key] || 0) +
-      (rev_unit[m.key] || 0);
-
-    cost_total[m.key] =
-      (cost_labor[m.key] || 0) +
-      (cost_subs[m.key] || 0) +
-      (cost_other[m.key] || 0);
-
+    rev_total[m.key] = (rev_tm[m.key] || 0) + (rev_subs[m.key] || 0) + (rev_fixed[m.key] || 0) + (rev_soft[m.key] || 0) + (rev_unit[m.key] || 0);
+    cost_total[m.key] = (cost_labor[m.key] || 0) + (cost_subs[m.key] || 0) + (cost_other[m.key] || 0);
     profit_total[m.key] = rev_total[m.key] - cost_total[m.key];
   });
 
@@ -374,6 +345,9 @@ function computeRowTotal(monthsMap) {
   return MONTHS.reduce((sum, m) => sum + Number(monthsMap[m.key] || 0), 0);
 }
 
+// ─────────────────────────────────────────────
+// RENDER
+// ─────────────────────────────────────────────
 function renderPnl(root, rows) {
   const tbody = $("#pnlBody", root);
   if (!tbody) return;
@@ -410,10 +384,9 @@ function renderPnl(root, rows) {
     tbody.appendChild(tr);
   });
 
-  // Sticky bottom summary
+  // Bottom summary
   const summaryTr = document.createElement("tr");
   summaryTr.className = "pnl-summary-row";
-  summaryTr.dataset.summaryRow = "pnl";
   const monthTotals = zeroMonths();
   let grand = 0;
   rows.forEach(r => {
@@ -429,6 +402,9 @@ function renderPnl(root, rows) {
   tbody.appendChild(summaryTr);
 }
 
+// ─────────────────────────────────────────────
+// REFRESH
+// ─────────────────────────────────────────────
 async function refreshPnl(root, client) {
   const msg = $("#pnlMessage", root);
   const ctx = getPlanContext();
@@ -460,6 +436,9 @@ async function refreshPnl(root, client) {
   }
 }
 
+// ─────────────────────────────────────────────
+// TAB INIT
+// ─────────────────────────────────────────────
 export const pnlTab = {
   template,
   async init({ root, client }) {
