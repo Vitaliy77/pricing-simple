@@ -84,7 +84,7 @@ export const template = /*html*/`
         <span id="revInlineProject"></span>
         <span class="ml-2 text-xs text-slate-900 font-semibold">· Revenue Budget</span>
         <span class="text-[11px] text-slate-600 ml-1">
-          — Revenue by project and type (T&amp;M, Fixed, Software, Subs &amp; ODC, etc.).
+          — Revenue by project and type (T&M, Fixed, Software, Subs & ODC, etc.).
         </span>
       </div>
       <div id="revMessage" class="text-[11px] text-slate-500 mt-1 min-h-[1.1rem]"></div>
@@ -167,17 +167,30 @@ export const revenueBudgetTab = {
 // PROJECT SCOPE + HELPERS
 // ─────────────────────────────────────────────
 async function loadProjectsUnderLevel1(client, level1ProjectId) {
-  projectScope = []; projectMeta = {};
+  projectScope = [];
+  projectMeta = {};
+
   const { data: parent } = await client.from("projects").select("id, project_code, name").eq("id", level1ProjectId).single();
-  if (!parent) return;
+  if (!parent) return console.error("[Revenue] Parent project not found");
+
   const { data: children } = await client.from("projects").select("id, project_code, name").like("project_code", `${parent.project_code}.%`).order("project_code");
+
   const all = [parent, ...(children || [])];
   projectScope = all;
-  all.forEach(p => projectMeta[p.id] = { project_code: p.project_code, name: p.name, label: `${p.project_code} – ${p.name}` });
+
+  all.forEach(p => {
+    projectMeta[p.id] = {
+      project_code: p.project_code,
+      name: p.name,
+      label: `${p.project_code} – ${p.name}`
+    };
+  });
 }
 
 function ensureMonthFields(rec) {
-  MONTH_FIELDS.forEach(({ col }) => { if (typeof rec[col] !== "number") rec[col] = 0; });
+  MONTH_FIELDS.forEach(({ col }) => {
+    if (typeof rec[col] !== "number") rec[col] = 0;
+  });
 }
 
 function addToMonthFromYm(rec, dateStr, amount) {
@@ -189,34 +202,184 @@ function addToMonthFromYm(rec, dateStr, amount) {
 }
 
 // ─────────────────────────────────────────────
-// LOADERS
+// LOADERS — FULLY IMPLEMENTED
 // ─────────────────────────────────────────────
-async function loadTmRevenueRows(client, ctx) { /* ... unchanged ... */ }
-async function loadSubsOdcRevenueRows(client, ctx) { /* ... unchanged ... */ }
-async function loadManualRevenueRows(client, ctx) { /* ... unchanged ... */ }
+
+// 1) T&M Revenue
+async function loadTmRevenueRows(client, ctx) {
+  const projectIds = projectScope.map(p => p.id);
+  if (!projectIds.length) return [];
+
+  const { data: hours, error: hErr } = await client
+    .from("labor_hours")
+    .select("project_id, employee_id, ym, hours")
+    .in("project_id", projectIds)
+    .eq("plan_year", ctx.year)
+    .eq("plan_version_id", ctx.versionId)
+    .eq("plan_type", ctx.planType || "Working");
+
+  if (hErr || !hours?.length) return [];
+
+  const employeeIds = [...new Set(hours.map(r => r.employee_id).filter(Boolean))];
+  const empMap = new Map();
+
+  if (employeeIds.length) {
+    const { data: emps } = await client
+      .from("employees")
+      .select("id, hourly_cost, labor_categories(billing_rate)")
+      .in("id", employeeIds);
+
+    (emps || []).forEach(e => {
+      const rate = Number(e.labor_categories?.billing_rate || e.hourly_cost || 0);
+      empMap.set(e.id, { billing_rate: rate });
+    });
+  }
+
+  const byProject = new Map();
+
+  for (const h of hours) {
+    const proj = projectMeta[h.project_id];
+    if (!proj) continue;
+
+    const rate = empMap.get(h.employee_id)?.billing_rate || 0;
+    const revenue = Number(h.hours || 0) * rate;
+
+    const key = h.project_id;
+    if (!byProject.has(key)) {
+      byProject.set(key, {
+        source: "TM",
+        project_id: h.project_id,
+        project_label: proj.label,
+        type_label: "T&M Labor",
+        description: "Hours × billing rates",
+      });
+      ensureMonthFields(byProject.get(key));
+    }
+    addToMonthFromYm(byProject.get(key), h.ym, revenue);
+  }
+
+  return Array.from(byProject.values());
+}
+
+// 2) Subs & ODC Revenue
+async function loadSubsOdcRevenueRows(client, ctx) {
+  const projectIds = projectScope.map(p => p.id);
+  if (!projectIds.length) return [];
+
+  const { data, error } = await client
+    .from("planning_lines")
+    .select("project_id, amt_*, entry_types(code)")
+    .in("project_id", projectIds)
+    .eq("plan_year", ctx.year)
+    .eq("plan_version_id", ctx.versionId)
+    .eq("plan_type", ctx.planType || "Working")
+    .eq("is_revenue", false);
+
+  if (error || !data?.length) return [];
+
+  const byProject = new Map();
+
+  data.forEach(line => {
+    if (!["SUBC_COST", "ODC_COST"].includes(line.entry_types?.code)) return;
+    const proj = projectMeta[line.project_id];
+    if (!proj) return;
+
+    const key = line.project_id;
+    if (!byProject.has(key)) {
+      byProject.set(key, {
+        source: "SUBS_ODC",
+        project_id: line.project_id,
+        project_label: proj.label,
+        type_label: "Subs & ODC",
+        description: "Revenue = cost",
+      });
+      ensureMonthFields(byProject.get(key));
+    }
+
+    const rec = byProject.get(key);
+    MONTH_FIELDS.forEach(m => rec[m.col] += Number(line[m.col] || 0));
+  });
+
+  return Array.from(byProject.values());
+}
+
+// 3) Manual Revenue
+async function loadManualRevenueRows(client, ctx) {
+  const projectIds = projectScope.map(p => p.id);
+  if (!projectIds.length) return [];
+
+  const { data, error } = await client
+    .from("planning_lines")
+    .select("id, project_id, project_name, resource_name, description, amt_*, entry_types(code)")
+    .in("project_id", projectIds)
+    .eq("plan_year", ctx.year)
+    .eq("plan_version_id", ctx.versionId)
+    .eq("plan_type", ctx.planType || "Working")
+    .eq("is_revenue", true);
+
+  if (error || !data?.length) return [];
+
+  return data.map(line => {
+    const proj = projectMeta[line.project_id];
+    const code = line.entry_types?.code || "";
+    const typeMap = {
+      FIXED_REV: "Fixed Revenue",
+      SOFT_REV: "Software Revenue",
+      UNIT_REV: "Unit Revenue",
+      OTHER_REV: "Other Revenue"
+    };
+
+    const rec = {
+      source: "MANUAL",
+      id: line.id,
+      project_id: line.project_id,
+      project_label: proj?.label || line.project_name || "",
+      type_label: typeMap[code] || "Manual Revenue",
+      description: line.description || line.resource_name || "",
+    };
+    ensureMonthFields(rec);
+    MONTH_FIELDS.forEach(m => rec[m.col] = Number(line[m.col] || 0));
+    return rec;
+  });
+}
 
 // ─────────────────────────────────────────────
-// REFRESH + RENDER (FIXED: only one `fmt` declaration)
+// SAFE REFRESH + RENDER
 // ─────────────────────────────────────────────
 async function refreshRevenue(root, client) {
   const msg = $("#revMessage", root);
   const ctx = getPlanContext();
+
   if (!ctx.level1ProjectId || !ctx.year || !ctx.versionId) {
     renderRevenue(root, null);
     msg && (msg.textContent = "Please select a Level 1 project and plan first.");
     return;
   }
+
+  if (!projectScope.length) {
+    renderRevenue(root, null);
+    msg && (msg.textContent = "No projects under selected Level 1.");
+    return;
+  }
+
   msg && (msg.textContent = "Loading revenue…");
+
   try {
-    const [tmRows, subsRows, manualRows] = await Promise.all([
+    const [
+      tmRows = [],
+      subsRows = [],
+      manualRows = [],
+    ] = await Promise.all([
       loadTmRevenueRows(client, ctx),
       loadSubsOdcRevenueRows(client, ctx),
       loadManualRevenueRows(client, ctx),
     ]);
-    renderRevenue(root, [...tmRows, ...subsRows, ...manualRows]);
-    msg && (msg.textContent = "");
+
+    const allRows = [...tmRows, ...subsRows, ...manualRows];
+    renderRevenue(root, allRows);
+    msg && (msg.textContent = allRows.length ? "" : "No revenue found.");
   } catch (err) {
-    console.error("[Revenue] refresh error", err);
+    console.error("[Revenue] Load failed", err);
     msg && (msg.textContent = "Error loading revenue.");
     renderRevenue(root, null);
   }
@@ -226,13 +389,12 @@ function renderRevenue(root, rows) {
   const tbody = $("#revBody", root);
   if (!tbody) return;
 
-  if (!rows || !rows.length) {
-    tbody.innerHTML = `<tr><td colspan="16" class="text-center py-10 text-slate-500 text-xs">No revenue lines found for this plan.</td></tr>`;
+  if (!rows?.length) {
+    tbody.innerHTML = `<tr><td colspan="16" class="text-center py-10 text-slate-500 text-xs">No revenue lines found.</td></tr>`;
     return;
   }
 
-  // One single fmt function — no duplicate const!
-  const fmt = (v) => typeof v === "number" ? v.toLocaleString(undefined, { maximumFractionDigits: 0 }) : "";
+  const fmt = v => typeof v === "number" ? v.toLocaleString(undefined, { maximumFractionDigits: 0 }) : "";
 
   tbody.innerHTML = "";
 
@@ -242,10 +404,8 @@ function renderRevenue(root, rows) {
       const val = Number(r[mf.col] || 0);
       total += val;
       if (r.source === "MANUAL") {
-        const displayVal = val === 0 ? "" : val;
-        return `<td class="text-right text-[11px] px-2 py-1">
-          <input type="number" class="rev-num-input" data-id="${r.id}" data-field="${mf.col}" value="${displayVal}" />
-        </td>`;
+        const display = val === 0 ? "" : val;
+        return `<td class="text-right text-[11px] px-2 py-1"><input type="number" class="rev-num-input" data-id="${r.id}" data-field="${mf.col}" value="${display}"></td>`;
       }
       return `<td class="text-right text-[11px] px-2 py-1">${fmt(val)}</td>`;
     }).join("");
@@ -253,36 +413,33 @@ function renderRevenue(root, rows) {
     const tr = document.createElement("tr");
     tr.className = "rev-row-striped";
     tr.innerHTML = `
-      <td class="rev-sticky-1 rev-col-project text-[11px] font-medium text-slate-900">${r.project_label || ""}</td>
-      <td class="rev-sticky-2 rev-col-type text-[11px] text-slate-800">${r.type_label || ""}</td>
-      <td class="rev-sticky-3 rev-col-desc text-[11px] text-slate-600">${r.description || ""}</td>
+      <td class="rev-sticky-1 rev-col-project text-[11px] font-medium text-slate-900">${r.project_label}</td>
+      <td class="rev-sticky-2 rev-col-type text-[11px] text-slate-800">${r.type_label}</td>
+      <td class="rev-sticky-3 rev-col-desc text-[11px] text-slate-600">${r.description}</td>
       ${monthCells}
       <td class="text-right text-[11px] font-bold text-slate-900 bg-slate-50 px-2 py-1">${fmt(total)}</td>
     `;
     tbody.appendChild(tr);
   });
 
-  // Summary row
+  // Summary Row
+  const monthTotals = Object.fromEntries(MONTH_FIELDS.map(m => [m.col, 0]));
+  let grandTotal = 0;
+
+  rows.forEach(r => MONTH_FIELDS.forEach(m => {
+    const v = Number(r[m.col] || 0);
+    monthTotals[m.col] += v;
+    grandTotal += v;
+  }));
+
   const summary = document.createElement("tr");
   summary.className = "rev-summary-row";
-  let grand = 0;
-  const monthTotals = {};
-  MONTH_FIELDS.forEach(m => monthTotals[m.col] = 0);
-
-  rows.forEach(r => {
-    MONTH_FIELDS.forEach(m => {
-      const val = Number(r[m.col] || 0);
-      monthTotals[m.col] += val;
-      grand += val;
-    });
-  });
-
   summary.innerHTML = `
     <td class="rev-sticky-1 rev-col-project text-[11px] font-semibold text-slate-900">Totals</td>
     <td class="rev-sticky-2 rev-col-type"></td>
     <td class="rev-sticky-3 rev-col-desc"></td>
     ${MONTH_FIELDS.map(m => `<td class="text-right text-[11px]">${fmt(monthTotals[m.col])}</td>`).join("")}
-    <td class="text-right text-[11px] font-semibold">${fmt(grand)}</td>
+    <td class="text-right text-[11px] font-semibold">${fmt(grandTotal)}</td>
   `;
   tbody.appendChild(summary);
 }
@@ -292,8 +449,8 @@ function renderRevenue(root, rows) {
 // ─────────────────────────────────────────────
 async function getEntryTypeIdForManual(client, revType) {
   const map = { FIXED: "FIXED_REV", SOFTWARE: "SOFT_REV", UNIT: "UNIT_REV", OTHER: "OTHER_REV" };
-  const codes = [map[revType] || "OTHER_REV"];
-  const { data } = await client.from("entry_types").select("id").in("code", codes);
+  const code = map[revType] || "OTHER_REV";
+  const { data } = await client.from("entry_types").select("id").eq("code", code);
   return data?.[0]?.id || null;
 }
 
@@ -301,10 +458,10 @@ async function insertManualRevenueLine(root, client, ctx) {
   const projSel = $("#revProjectSelect", root);
   const typeSel = $("#revTypeSelect", root);
   const projectId = projSel?.value;
-  if (!projectId) return $("#revMessage", root).textContent = "Please select a project.";
+  if (!projectId) return $("#revMessage", root).textContent = "Select a project first.";
 
   const entryTypeId = await getEntryTypeIdForManual(client, typeSel?.value || "FIXED");
-  if (!entryTypeId) return $("#revMessage", root).textContent = "Revenue type not found.";
+  if (!entryTypeId) return $("#revMessage", root).textContent = "Revenue type not configured.";
 
   const payload = {
     project_id: projectId,
@@ -319,13 +476,15 @@ async function insertManualRevenueLine(root, client, ctx) {
   };
 
   const { error } = await client.from("planning_lines").insert(payload);
-  if (error) console.error("[Revenue] insert error", error);
+  if (error) console.error(error);
+
   await refreshRevenue(root, client);
 }
 
 async function handleRevenueChange(e, root, client) {
   const input = e.target;
   if (!input.classList.contains("rev-num-input")) return;
+
   const id = input.dataset.id;
   const field = input.dataset.field;
   const val = input.value === "" ? 0 : Number(input.value);
