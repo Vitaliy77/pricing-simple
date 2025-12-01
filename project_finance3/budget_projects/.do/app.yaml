@@ -1,19 +1,25 @@
-# .do/app.yaml
-name: clownfish-app
+name: clownfish-app  # Your app name
 
 services:
-  - name: pricing-simple
-    source_dir: /project_finance3/budget_projects/     # keep exactly this
+  - name: pricing-simple  # Your component name
+    source_dir: /project_finance3/budget_projects/  # Your source directory
     github:
-      repo: Vitaliy77/pricing-simple
+      repo: Vitaliy77/pricing-simple  # Your repo
       branch: main
-      deploy_on_push: true
+      deploy_on_push: true  # Auto-deploy on push
 
-    build_command: npm install && npm run build
-    output_dir: dist                 # THIS LINE IS WHAT FIXES EVERYTHING
-    run_command: npx serve dist -s -l 3000     # or "npm run preview" if you have it
+    build_command: npm ci && npm run build  # Your build command
+    output_dir: dist  # CRITICAL: Forces DO to look in 'dist' (your Vite output)
+    run_command: npx serve dist -s -l 3000  # Serves your static build (adjust if using 'npm run preview')
 
-    http_port: 3000
+    environment_slug: node-js
     instance_count: 1
+    http_port: 3000
+
     routes:
       - path: /
+
+    envs:
+      - key: NODE_VERSION
+        scope: RUN_AND_BUILD_TIME
+        value: "18"  # Or your Node version
