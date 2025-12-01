@@ -100,15 +100,20 @@ export const template = /*html*/ `
       .subs-table td {
         padding: 2px 4px;
         white-space: nowrap;
+        background-clip: padding-box;
       }
 
+      /* smaller, right-aligned entry cells */
       .subs-cell-input {
-        min-width: 5.2rem;
-        text-align: left;
+        width: 3rem;
+        min-width: 3rem;
+        max-width: 3rem;
+        text-align: right;
         color: #0f172a !important;
         background-color: #ffffff !important;
         height: 1.5rem;
         line-height: 1.5rem;
+        font-variant-numeric: tabular-nums;
       }
 
       .no-spin::-webkit-inner-spin-button,
@@ -127,12 +132,28 @@ export const template = /*html*/ `
       .subs-sticky-1, .subs-sticky-2, .subs-sticky-3, .subs-sticky-4 {
         position: sticky;
         z-index: 30;
-        background-color: inherit;
       }
       .subs-sticky-1 { left: 0; }
       .subs-sticky-2 { left: 9rem; }
       .subs-sticky-3 { left: 16rem; }
       .subs-sticky-4 { left: 27rem; }
+
+      /* opaque sticky backgrounds (no bleed-through) */
+      .subs-table thead .subs-sticky-1,
+      .subs-table thead .subs-sticky-2,
+      .subs-table thead .subs-sticky-3,
+      .subs-table thead .subs-sticky-4 {
+        background-color: #f8fafc;
+        z-index: 40;
+      }
+      .subs-table tbody .subs-sticky-1,
+      .subs-table tbody .subs-sticky-2,
+      .subs-table tbody .subs-sticky-3,
+      .subs-table tbody .subs-sticky-4 {
+        background-color: #ffffff;
+        z-index: 35;
+        border-right: 1px solid #e2e8f0;
+      }
 
       .subs-row-striped:nth-child(odd)  { background-color: #eff6ff; }
       .subs-row-striped:nth-child(even) { background-color: #ffffff; }
@@ -248,7 +269,7 @@ function renderLines(root) {
     ].join("");
 
     const monthCells = MONTH_COLS.map(key => `
-      <td>
+      <td class="text-right">
         <input
           class="cell-input cell-input-num subs-cell-input no-spin border border-slate-200 rounded-sm px-1 py-0.5 text-[11px]"
           data-row="${idx}"
