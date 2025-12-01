@@ -8,74 +8,115 @@ import {
 import { client } from "../api/supabase.js";
 
 export const template = /*html*/ `
-  <article>
-    <h3 style="margin-bottom:0.5rem;">Select Budget & Project</h3>
-    <p style="font-size:0.9rem;margin-bottom:0.75rem;color:#475569;">
-      Choose a plan year, version, plan type, and a level 1 project. Then click a child project to work with.
-      Your selection will carry over to Revenue, Cost, and P&L tabs.
-    </p>
+  <article class="full-width-card">
+    <!-- HEADER -->
+    <div class="px-4 pt-3 pb-2 border-b border-slate-200">
+      <h3 class="text-sm font-semibold text-slate-900">
+        Select Budget &amp; Project
+      </h3>
+      <p class="mt-1 text-[11px] text-slate-600">
+        Choose a plan year, version, plan type, and a Level 1 project. Then click a child project to work with.
+        Your selection will carry over to Revenue, Cost, and P&amp;L tabs.
+      </p>
+    </div>
 
-    <section style="display:flex;flex-wrap:wrap;gap:0.75rem;margin-bottom:0.75rem;">
-      <label>
-        Plan Year
-        <select id="planYearSelect">
-          <option value="2026">2026</option>
-          <option value="2027">2027</option>
-          <option value="2028">2028</option>
-        </select>
-      </label>
+    <!-- BODY -->
+    <div class="px-4 py-3 space-y-3">
+      <!-- Plan selectors -->
+      <section
+        class="flex flex-wrap gap-3 items-end text-xs"
+      >
+        <label class="flex flex-col min-w-[110px]">
+          <span class="mb-0.5 text-[11px] text-slate-700">Plan Year</span>
+          <select
+            id="planYearSelect"
+            class="px-2 py-1 border border-slate-300 rounded-md text-xs
+                   focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="2026">2026</option>
+            <option value="2027">2027</option>
+            <option value="2028">2028</option>
+          </select>
+        </label>
 
-      <label>
-        Plan Version
-        <select id="planVersionSelect">
-          <option value="">Loading…</option>
-        </select>
-      </label>
+        <label class="flex flex-col min-w-[180px]">
+          <span class="mb-0.5 text-[11px] text-slate-700">Plan Version</span>
+          <select
+            id="planVersionSelect"
+            class="px-2 py-1 border border-slate-300 rounded-md text-xs
+                   min-w-[180px]
+                   focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="">Loading…</option>
+          </select>
+        </label>
 
-      <label>
-        Plan Type
-        <select id="planTypeSelect">
-          <option value="Working">Working</option>
-          <option value="Final">Final</option>
-        </select>
-      </label>
+        <label class="flex flex-col min-w-[140px]">
+          <span class="mb-0.5 text-[11px] text-slate-700">Plan Type</span>
+          <select
+            id="planTypeSelect"
+            class="px-2 py-1 border border-slate-300 rounded-md text-xs
+                   focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="Working">Working</option>
+            <option value="Final">Final</option>
+          </select>
+        </label>
 
-      <label style="min-width:340px;">
-        Level 1 Project
-        <select id="level1ProjectSelect">
-          <option value="">Loading…</option>
-        </select>
-      </label>
-    </section>
+        <label class="flex flex-col min-w-[320px] flex-1">
+          <span class="mb-0.5 text-[11px] text-slate-700">Level 1 Project</span>
+          <select
+            id="level1ProjectSelect"
+            class="px-2 py-1 border border-slate-300 rounded-md text-xs
+                   w-full
+                   focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="">Loading…</option>
+          </select>
+        </label>
+      </section>
 
-    <section id="projMessage" style="min-height:1.25rem;font-size:0.9rem;color:#64748b;margin-bottom:0.75rem;"></section>
+      <!-- Message -->
+      <section
+        id="projMessage"
+        class="min-h-[1.25rem] text-[11px] text-slate-500"
+      ></section>
 
-    <section style="margin-top:0.75rem;">
-      <h4 style="margin-bottom:0.35rem;font-size:0.95rem;">Child Projects (click to select)</h4>
-      <div class="scroll-x">
-        <table class="data-grid">
-          <thead>
-            <tr>
-              <th>Code</th>
-              <th>Name</th>
-              <th>Revenue Formula</th>
-              <th>PoP</th>
-              <th>Funding</th>
-            </tr>
-          </thead>
-          <tbody id="childProjectsBody">
-            <tr><td colspan="5">Select a Level 1 project above.</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
+      <!-- Child projects table -->
+      <section class="space-y-1">
+        <h4 class="text-[11px] font-semibold text-slate-800 uppercase tracking-wide">
+          Child Projects <span class="font-normal normal-case text-[11px] text-slate-500">(click to select)</span>
+        </h4>
+
+        <div class="scroll-x border border-slate-200 rounded-md bg-white">
+          <table class="data-grid text-xs">
+            <thead>
+              <tr>
+                <th>Code</th>
+                <th>Name</th>
+                <th>Revenue Formula</th>
+                <th>PoP</th>
+                <th>Funding</th>
+              </tr>
+            </thead>
+            <tbody id="childProjectsBody">
+              <tr>
+                <td colspan="5" class="text-center text-[11px] text-slate-500 py-4">
+                  Select a Level 1 project above.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
   </article>
 `;
 
 export const projectSelectTab = {
   template,
   async init({ root }) {
-    const msg   = $("#projMessage", root);
+    const msg    = $("#projMessage", root);
     const yearSel = $("#planYearSelect", root);
     const verSel  = $("#planVersionSelect", root);
     const typeSel = $("#planTypeSelect", root);
@@ -144,7 +185,9 @@ export const projectSelectTab = {
 
     // Event Listeners
     yearSel?.addEventListener("change", () => {
-      setPlanContext({ year: yearSel.value ? parseInt(yearSel.value, 10) : null });
+      setPlanContext({
+        year: yearSel.value ? parseInt(yearSel.value, 10) : null,
+      });
     });
 
     verSel?.addEventListener("change", () => {
@@ -178,11 +221,13 @@ export const projectSelectTab = {
         await loadChildProjects(root, id);
       } else {
         $("#childProjectsBody", root).innerHTML =
-          `<tr><td colspan="5">Select a Level 1 project above.</td></tr>`;
+          `<tr><td colspan="5" class="text-center text-[11px] text-slate-500 py-4">Select a Level 1 project above.</td></tr>`;
       }
     });
 
-    msg.textContent = "Ready – select a project to begin.";
+    if (msg) {
+      msg.textContent = "Ready – select a project to begin.";
+    }
   },
 };
 
@@ -246,16 +291,16 @@ async function loadLevel1Projects(root) {
 }
 
 // ────────────────────────────────────────────────────────────────
-// Load Child Projects + setSelectedProject() on click
+— Load Child Projects + setSelectedProject() on click
 // ────────────────────────────────────────────────────────────────
 async function loadChildProjects(root, level1ProjectId) {
   const tbody = $("#childProjectsBody", root);
   if (!tbody || !level1ProjectId) {
-    tbody && (tbody.innerHTML = `<tr><td colspan="5">Select a Level 1 project above.</td></tr>`);
+    tbody && (tbody.innerHTML = `<tr><td colspan="5" class="text-center text-[11px] text-slate-500 py-4">Select a Level 1 project above.</td></tr>`);
     return;
   }
 
-  tbody.innerHTML = `<tr><td colspan="5">Loading child projects…</td></tr>`;
+  tbody.innerHTML = `<tr><td colspan="5" class="text-center text-[11px] text-slate-500 py-4">Loading child projects…</td></tr>`;
 
   const { data: parent, error: parentError } = await client
     .from("projects")
@@ -265,7 +310,7 @@ async function loadChildProjects(root, level1ProjectId) {
 
   if (parentError || !parent) {
     console.error("[ProjectSelect] Error loading parent project:", parentError);
-    tbody.innerHTML = `<tr><td colspan="5">Parent project not found.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" class="text-center text-[11px] text-slate-500 py-4">Parent project not found.</td></tr>`;
     return;
   }
 
@@ -277,7 +322,7 @@ async function loadChildProjects(root, level1ProjectId) {
 
   if (error || !data?.length) {
     console.error("[ProjectSelect] Error or no data loading child projects:", error);
-    tbody.innerHTML = `<tr><td colspan="5">No child projects found.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" class="text-center text-[11px] text-slate-500 py-4">No child projects found.</td></tr>`;
     return;
   }
 
@@ -285,7 +330,7 @@ async function loadChildProjects(root, level1ProjectId) {
   data.forEach(proj => {
     const tr = document.createElement("tr");
     tr.style.cursor = "pointer";
-    tr.classList.add("hover:bg-blue-50", "transition-colors");
+    tr.classList.add("transition-colors");
 
     const pop =
       proj.pop_start && proj.pop_end
