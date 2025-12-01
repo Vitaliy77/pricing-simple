@@ -23,9 +23,7 @@ export const template = /*html*/ `
     <!-- BODY -->
     <div class="px-4 py-3 space-y-3">
       <!-- Plan selectors -->
-      <section
-        class="flex flex-wrap gap-3 items-end text-xs"
-      >
+      <section class="flex flex-wrap gap-3 items-end text-xs">
         <label class="flex flex-col min-w-[110px]">
           <span class="mb-0.5 text-[11px] text-slate-700">Plan Year</span>
           <select
@@ -43,8 +41,7 @@ export const template = /*html*/ `
           <span class="mb-0.5 text-[11px] text-slate-700">Plan Version</span>
           <select
             id="planVersionSelect"
-            class="px-2 py-1 border border-slate-300 rounded-md text-xs
-                   min-w-[180px]
+            class="px-2 py-1 border border-slate-300 rounded-md text-xs min-w-[180px]
                    focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           >
             <option value="">Loading…</option>
@@ -67,8 +64,7 @@ export const template = /*html*/ `
           <span class="mb-0.5 text-[11px] text-slate-700">Level 1 Project</span>
           <select
             id="level1ProjectSelect"
-            class="px-2 py-1 border border-slate-300 rounded-md text-xs
-                   w-full
+            class="px-2 py-1 border border-slate-300 rounded-md text-xs w-full
                    focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           >
             <option value="">Loading…</option>
@@ -85,7 +81,10 @@ export const template = /*html*/ `
       <!-- Child projects table -->
       <section class="space-y-1">
         <h4 class="text-[11px] font-semibold text-slate-800 uppercase tracking-wide">
-          Child Projects <span class="font-normal normal-case text-[11px] text-slate-500">(click to select)</span>
+          Child Projects
+          <span class="font-normal normal-case text-[11px] text-slate-500">
+            (click to select)
+          </span>
         </h4>
 
         <div class="scroll-x border border-slate-200 rounded-md bg-white">
@@ -116,7 +115,7 @@ export const template = /*html*/ `
 export const projectSelectTab = {
   template,
   async init({ root }) {
-    const msg    = $("#projMessage", root);
+    const msg     = $("#projMessage", root);
     const yearSel = $("#planYearSelect", root);
     const verSel  = $("#planVersionSelect", root);
     const typeSel = $("#planTypeSelect", root);
@@ -291,12 +290,14 @@ async function loadLevel1Projects(root) {
 }
 
 // ────────────────────────────────────────────────────────────────
-— Load Child Projects + setSelectedProject() on click
+// Load Child Projects + setSelectedProject() on click
 // ────────────────────────────────────────────────────────────────
 async function loadChildProjects(root, level1ProjectId) {
   const tbody = $("#childProjectsBody", root);
   if (!tbody || !level1ProjectId) {
-    tbody && (tbody.innerHTML = `<tr><td colspan="5" class="text-center text-[11px] text-slate-500 py-4">Select a Level 1 project above.</td></tr>`);
+    if (tbody) {
+      tbody.innerHTML = `<tr><td colspan="5" class="text-center text-[11px] text-slate-500 py-4">Select a Level 1 project above.</td></tr>`;
+    }
     return;
   }
 
