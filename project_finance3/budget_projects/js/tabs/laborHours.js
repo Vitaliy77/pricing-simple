@@ -29,16 +29,22 @@ export const template = /*html*/ `
       .labor-table td {
         padding: 2px 4px;
         white-space: nowrap;
+        background-clip: padding-box;
       }
 
+      /* smaller, right-aligned entry cells */
       .labor-cell-input {
-        min-width: 5.2rem;
-        text-align: left;
+        width: 3rem;
+        min-width: 3rem;
+        max-width: 3rem;
+        text-align: right;
         color: #0f172a !important;
         background-color: #ffffff !important;
         height: 1.5rem;
         line-height: 1.5rem;
+        font-variant-numeric: tabular-nums;
       }
+
       .no-spin::-webkit-inner-spin-button,
       .no-spin::-webkit-outer-spin-button {
         -webkit-appearance: none;
@@ -58,11 +64,26 @@ export const template = /*html*/ `
       .labor-sticky-3 {
         position: sticky;
         z-index: 30;
-        background-color: inherit;
       }
       .labor-sticky-1 { left: 0; }
       .labor-sticky-2 { left: 11rem; }
-      .labor-sticky-3 { left: 24rem; }
+      /* nudge a bit so Jan doesn't sit under the last sticky col */
+      .labor-sticky-3 { left: 25rem; }
+
+      /* opaque sticky backgrounds */
+      .labor-table thead .labor-sticky-1,
+      .labor-table thead .labor-sticky-2,
+      .labor-table thead .labor-sticky-3 {
+        background-color: #f8fafc;
+        z-index: 40;
+      }
+      .labor-table tbody .labor-sticky-1,
+      .labor-table tbody .labor-sticky-2,
+      .labor-table tbody .labor-sticky-3 {
+        background-color: #ffffff;
+        z-index: 35;
+        border-right: 1px solid #e2e8f0;
+      }
 
       /* striping + active row */
       .labor-row-striped:nth-child(odd) {
@@ -242,7 +263,7 @@ function renderRows(root) {
       const ym = row.ymMap[m.key];
       const val = row.months[ym];
       return `
-        <td>
+        <td class="text-right">
           <input
             class="cell-input cell-input-num labor-cell-input no-spin border border-slate-200 rounded-sm px-1 py-0.5 text-[11px]"
             data-row="${idx}"
@@ -264,8 +285,8 @@ function renderRows(root) {
       </td>
       <td class="labor-sticky-3 labor-col-dept text-[11px] text-slate-600">
         ${row.department_name || ""}${
-      row.labor_category ? ` · ${row.labor_category}` : ""
-    }
+          row.labor_category ? ` · ${row.labor_category}` : ""
+        }
       </td>
       ${monthCells}
       <td class="text-right text-[11px] font-semibold text-slate-900" data-total-row="${idx}">
@@ -595,7 +616,6 @@ export const laborHoursTab = {
     const planEl = $("#laborInlinePlan", root);
     const projEl = $("#laborInlineProject", root);
 
-    // best-effort inline labels (safe even if properties missing)
     planEl.textContent =
       ctx?.planLabel ||
       (ctx?.year
@@ -666,7 +686,6 @@ export const laborHoursTab = {
         return;
       }
 
-      // create assignment in project_employee_assignments
       try {
         const payload = {
           project_id: projId,
@@ -681,7 +700,6 @@ export const laborHoursTab = {
           .insert(payload);
 
         if (error) {
-          // ignore unique violation (already assigned)
           console.error("[LaborHours] assign employee error", error);
           msg.textContent =
             "Employee may already be assigned to this project, or an error occurred.";
