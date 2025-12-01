@@ -1,5 +1,5 @@
 // js/tabs/projectSelect.js
-import { $, h } from "../lib/dom.js";
+import { $ } from "../lib/dom.js";
 import {
   setSelectedProject,
   setPlanContext,
@@ -44,7 +44,7 @@ export const template = /*html*/ `
             class="px-2 py-1 border border-slate-300 rounded-md text-xs min-w-[180px]
                    focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           >
-            <option value="">Loading…</option>
+            <option value="">Loading...</option>
           </select>
         </label>
 
@@ -67,7 +67,7 @@ export const template = /*html*/ `
             class="px-2 py-1 border border-slate-300 rounded-md text-xs w-full
                    focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           >
-            <option value="">Loading…</option>
+            <option value="">Loading...</option>
           </select>
         </label>
       </section>
@@ -129,7 +129,7 @@ export const projectSelectTab = {
 
     const ctx = getPlanContext();
 
-    // ---- Plan Year default ----
+    // Plan Year default
     if (ctx.year) {
       yearSel.value = String(ctx.year);
     } else if (yearSel.options.length > 0) {
@@ -137,7 +137,7 @@ export const projectSelectTab = {
       setPlanContext({ year: parseInt(yearSel.value, 10) });
     }
 
-    // ---- Plan Type default ----
+    // Plan Type default
     if (ctx.planType) {
       typeSel.value = ctx.planType;
     } else {
@@ -145,7 +145,7 @@ export const projectSelectTab = {
       setPlanContext({ planType: "Working" });
     }
 
-    // ---- Plan Version default (first non-empty option) ----
+    // Plan Version default (first non-empty option)
     if (ctx.versionId) {
       verSel.value = ctx.versionId;
     } else {
@@ -160,7 +160,7 @@ export const projectSelectTab = {
       }
     }
 
-    // ---- Level 1 Project default (first non-empty option) ----
+    // Level 1 Project default
     if (ctx.level1ProjectId) {
       lvl1Sel.value = ctx.level1ProjectId;
       await loadChildProjects(root, ctx.level1ProjectId);
@@ -214,28 +214,26 @@ export const projectSelectTab = {
         level1ProjectName: name,
       });
 
-      setSelectedProject(null); // clear previous child selection
+      setSelectedProject(null);
 
       if (id) {
         await loadChildProjects(root, id);
       } else {
         $("#childProjectsBody", root).innerHTML =
-          `<tr><td colspan="5" class="text-center text-[11px] text-slate-500 py-4">Select a Level 1 project above.</td></tr>`;
+          '<tr><td colspan="5" class="text-center text-[11px] text-slate-500 py-4">Select a Level 1 project above.</td></tr>';
       }
     });
 
     if (msg) {
-      msg.textContent = "Ready – select a project to begin.";
+      msg.textContent = "Ready - select a project to begin.";
     }
   },
 };
 
-// ────────────────────────────────────────────────────────────────
 // Load Plan Versions
-// ────────────────────────────────────────────────────────────────
 async function loadPlanVersions(root) {
   const sel = $("#planVersionSelect", root);
-  sel.innerHTML = `<option value="">Loading…</option>`;
+  sel.innerHTML = '<option value="">Loading...</option>';
 
   const { data, error } = await client
     .from("plan_versions")
@@ -243,7 +241,7 @@ async function loadPlanVersions(root) {
     .order("sort_order", { ascending: true });
 
   if (error || !data) {
-    sel.innerHTML = `<option value="">Error loading versions</option>`;
+    sel.innerHTML = '<option value="">Error loading versions</option>';
     console.error(error);
     return;
   }
@@ -253,17 +251,15 @@ async function loadPlanVersions(root) {
     const opt = document.createElement("option");
     opt.value = pv.id;
     opt.dataset.code = pv.code;
-    opt.textContent = `${pv.code} – ${pv.description}`;
+    opt.textContent = pv.code + " - " + pv.description;
     sel.appendChild(opt);
   });
 }
 
-// ────────────────────────────────────────────────────────────────
 // Load Level 1 Projects
-// ────────────────────────────────────────────────────────────────
 async function loadLevel1Projects(root) {
   const sel = $("#level1ProjectSelect", root);
-  sel.innerHTML = `<option value="">Loading…</option>`;
+  sel.innerHTML = '<option value="">Loading...</option>';
 
   const { data, error } = await client
     .from("projects")
@@ -271,7 +267,7 @@ async function loadLevel1Projects(root) {
     .order("project_code");
 
   if (error || !data) {
-    sel.innerHTML = `<option value="">Error loading projects</option>`;
+    sel.innerHTML = '<option value="">Error loading projects</option>';
     console.error(error);
     return;
   }
@@ -284,24 +280,24 @@ async function loadLevel1Projects(root) {
     opt.value = p.id;
     opt.dataset.code = p.project_code;
     opt.dataset.name = p.name;
-    opt.textContent = `${p.project_code} – ${p.name}`;
+    opt.textContent = p.project_code + " - " + p.name;
     sel.appendChild(opt);
   });
 }
 
-// ────────────────────────────────────────────────────────────────
-// Load Child Projects + setSelectedProject() on click
-// ────────────────────────────────────────────────────────────────
+// Load Child Projects
 async function loadChildProjects(root, level1ProjectId) {
   const tbody = $("#childProjectsBody", root);
   if (!tbody || !level1ProjectId) {
     if (tbody) {
-      tbody.innerHTML = `<tr><td colspan="5" class="text-center text-[11px] text-slate-500 py-4">Select a Level 1 project above.</td></tr>`;
+      tbody.innerHTML =
+        '<tr><td colspan="5" class="text-center text-[11px] text-slate-500 py-4">Select a Level 1 project above.</td></tr>';
     }
     return;
   }
 
-  tbody.innerHTML = `<tr><td colspan="5" class="text-center text-[11px] text-slate-500 py-4">Loading child projects…</td></tr>`;
+  tbody.innerHTML =
+    '<tr><td colspan="5" class="text-center text-[11px] text-slate-500 py-4">Loading child projects...</td></tr>';
 
   const { data: parent, error: parentError } = await client
     .from("projects")
@@ -311,19 +307,21 @@ async function loadChildProjects(root, level1ProjectId) {
 
   if (parentError || !parent) {
     console.error("[ProjectSelect] Error loading parent project:", parentError);
-    tbody.innerHTML = `<tr><td colspan="5" class="text-center text-[11px] text-slate-500 py-4">Parent project not found.</td></tr>`;
+    tbody.innerHTML =
+      '<tr><td colspan="5" class="text-center text-[11px] text-slate-500 py-4">Parent project not found.</td></tr>';
     return;
   }
 
   const { data, error } = await client
     .from("projects")
     .select("id, project_code, name, revenue_formula, pop_start, pop_end, funding")
-    .like("project_code", `${parent.project_code}.%`)
+    .like("project_code", parent.project_code + ".%")
     .order("project_code");
 
-  if (error || !data?.length) {
+  if (error || !data || !data.length) {
     console.error("[ProjectSelect] Error or no data loading child projects:", error);
-    tbody.innerHTML = `<tr><td colspan="5" class="text-center text-[11px] text-slate-500 py-4">No child projects found.</td></tr>`;
+    tbody.innerHTML =
+      '<tr><td colspan="5" class="text-center text-[11px] text-slate-500 py-4">No child projects found.</td></tr>';
     return;
   }
 
@@ -335,9 +333,9 @@ async function loadChildProjects(root, level1ProjectId) {
 
     const pop =
       proj.pop_start && proj.pop_end
-        ? `${new Date(proj.pop_start).toLocaleDateString()} – ${new Date(
-            proj.pop_end
-          ).toLocaleDateString()}`
+        ? new Date(proj.pop_start).toLocaleDateString() +
+          " - " +
+          new Date(proj.pop_end).toLocaleDateString()
         : "";
 
     const funding = proj.funding ? Number(proj.funding).toLocaleString() : "";
@@ -351,8 +349,6 @@ async function loadChildProjects(root, level1ProjectId) {
     `;
 
     tr.addEventListener("click", () => {
-      console.log("[ProjectSelect] Setting selected project (full row):", proj);
-
       setSelectedProject(proj);
       setPlanContext({
         projectId: proj.id,
@@ -366,7 +362,8 @@ async function loadChildProjects(root, level1ProjectId) {
 
       const msg = $("#projMessage", root);
       if (msg) {
-        msg.textContent = `Selected project: ${proj.project_code} – ${proj.name}`;
+        msg.textContent =
+          "Selected project: " + proj.project_code + " - " + proj.name;
       }
     });
 
