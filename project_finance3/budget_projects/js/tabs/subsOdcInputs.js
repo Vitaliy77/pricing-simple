@@ -95,6 +95,8 @@ export const template = /*html*/ `
         border-collapse: collapse;
         width: max-content;
         min-width: 100%;
+        /* make widths predictable so sticky offsets line up with columns */
+        table-layout: fixed;
       }
       .subs-table th,
       .subs-table td {
@@ -103,7 +105,7 @@ export const template = /*html*/ `
         background-clip: padding-box;
       }
 
-      /* smaller, right-aligned entry cells */
+      /* smaller, right-aligned entry cells for months */
       .subs-cell-input {
         width: 3rem;
         min-width: 3rem;
@@ -123,22 +125,27 @@ export const template = /*html*/ `
       }
       .no-spin { -moz-appearance: textfield; }
 
-      /* Sticky column widths */
-      .subs-col-project { width: 9rem; }
-      .subs-col-type    { width: 7rem; }
-      .subs-col-vendor  { width: 11rem; }
-      .subs-col-desc    { width: 16rem; }
+      /* Sticky column widths – enough to show full text but not huge gaps */
+      .subs-col-project { width: 9rem;  max-width: 9rem; }
+      .subs-col-type    { width: 6rem;  max-width: 6rem; }
+      .subs-col-vendor  { width: 11rem; max-width: 11rem; }
+      .subs-col-desc    { width: 18rem; max-width: 18rem; }
 
-      .subs-sticky-1, .subs-sticky-2, .subs-sticky-3, .subs-sticky-4 {
+      .subs-sticky-1,
+      .subs-sticky-2,
+      .subs-sticky-3,
+      .subs-sticky-4 {
         position: sticky;
         z-index: 30;
       }
       .subs-sticky-1 { left: 0; }
       .subs-sticky-2 { left: 9rem; }
-      .subs-sticky-3 { left: 16rem; }
-      .subs-sticky-4 { left: 27rem; }
+      /* 3rd starts after project + type → 9 + 6 = 15rem */
+      .subs-sticky-3 { left: calc(9rem + 6rem); }
+      /* 4th starts after project + type + vendor → 9 + 6 + 11 = 26rem */
+      .subs-sticky-4 { left: calc(9rem + 6rem + 11rem); }
 
-      /* opaque sticky backgrounds (no bleed-through) */
+      /* header sticky cells get solid background */
       .subs-table thead .subs-sticky-1,
       .subs-table thead .subs-sticky-2,
       .subs-table thead .subs-sticky-3,
@@ -146,13 +153,27 @@ export const template = /*html*/ `
         background-color: #f8fafc;
         z-index: 40;
       }
+
+      /* body sticky cells inherit row striping, just add border + z-index */
       .subs-table tbody .subs-sticky-1,
       .subs-table tbody .subs-sticky-2,
       .subs-table tbody .subs-sticky-3,
       .subs-table tbody .subs-sticky-4 {
-        background-color: #ffffff;
+        background-color: inherit;
         z-index: 35;
         border-right: 1px solid #e2e8f0;
+      }
+
+      /* make selects / description use full column width,
+         overriding the 3rem subs-cell-input */
+      .subs-col-project select,
+      .subs-col-vendor select,
+      .subs-col-desc input[type="text"] {
+        width: 100%;
+        min-width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+        text-align: left;
       }
 
       .subs-row-striped:nth-child(odd)  { background-color: #eff6ff; }
@@ -271,7 +292,7 @@ function renderLines(root) {
     const monthCells = MONTH_COLS.map(key => `
       <td class="text-right">
         <input
-          class="cell-input cell-input-num subs-cell-input no-spin border border-slate-200 rounded-sm px-1 py-0.5 text-[11px]"
+          class="cell-input subs-cell-input no-spin border border-slate-200 rounded-sm px-1 py-0.5 text-[11px]"
           data-row="${idx}"
           data-field="${key}"
           type="number"
@@ -283,18 +304,18 @@ function renderLines(root) {
 
     tr.innerHTML = `
       <td class="subs-sticky-1 subs-col-project">
-        <select class="cell-input subs-cell-input border border-slate-200 rounded-sm px-1 py-0.5 text-[11px]" data-row="${idx}" data-field="project_id">
+        <select class="cell-input border border-slate-200 rounded-sm px-1 py-0.5 text-[11px]" data-row="${idx}" data-field="project_id">
           ${projectOptions}
         </select>
       </td>
       <td class="subs-sticky-2 subs-col-type text-[11px] text-slate-800">${typeLabel}</td>
       <td class="subs-sticky-3 subs-col-vendor">
-        <select class="cell-input subs-cell-input border border-slate-200 rounded-sm px-1 py-0.5 text-[11px]" data-row="${idx}" data-field="vendor_id">
+        <select class="cell-input border border-slate-200 rounded-sm px-1 py-0.5 text-[11px]" data-row="${idx}" data-field="vendor_id">
           ${vendorOptions}
         </select>
       </td>
       <td class="subs-sticky-4 subs-col-desc">
-        <input class="cell-input subs-cell-input border border-slate-200 rounded-sm px-1 py-0.5 text-[11px]"
+        <input class="cell-input border border-slate-200 rounded-sm px-1 py-0.5 text-[11px]"
                data-row="${idx}" data-field="description" type="text" value="${line.description || ""}" />
       </td>
       ${monthCells}
