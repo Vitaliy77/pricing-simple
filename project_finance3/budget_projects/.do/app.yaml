@@ -1,9 +1,10 @@
 name: clownfish-app
-region: nyc   # add this at the top if it's not already set
+region: nyc
 
 services:
   - name: pricing-simple
-    source_dir: project_finance3/budget_projects   # <— relative path, no leading slash
+    # app.yaml and package.json live in the same folder, so just use "."
+    source_dir: .      # <— key change
 
     github:
       repo: Vitaliy77/pricing-simple
@@ -11,7 +12,8 @@ services:
       deploy_on_push: true
 
     environment_slug: node-js
-    build_command: npm ci && npm run build    # you can also use `npm install && npm run build`
+
+    build_command: npm ci && npm run build
     output_dir: dist
     run_command: npx serve dist -s -l 3000
 
@@ -24,7 +26,3 @@ services:
       - key: NODE_VERSION
         scope: RUN_AND_BUILD_TIME
         value: "18"
-
-    # ⛔ remove this block for now
-    # logs:
-    #   disable_build_logs: true
