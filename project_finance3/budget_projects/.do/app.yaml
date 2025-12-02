@@ -1,8 +1,7 @@
-# .do/app.yaml
 name: clownfish-app
 region: nyc
 
-services:
+static_sites:
   - name: pricing-simple
     source_dir: project_finance3/budget_projects
 
@@ -11,17 +10,8 @@ services:
       branch: main
       deploy_on_push: true
 
-    environment_slug: node-js
-    instance_count: 1
-    http_port: 3000
-
     build_command: npm ci && npm run build
     output_dir: dist
-    run_command: npx serve dist -s -l 3000
 
     routes:
       - path: /
-
-    # Optional: workaround for the appbuild-logs bucket bug
-    logs:
-      disable_build_logs: true
