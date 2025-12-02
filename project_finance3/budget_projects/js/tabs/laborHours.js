@@ -25,9 +25,9 @@ export const template = /*html*/ `
         border-spacing: 0;
         width: 100%;
         min-width: max-content;
-        table-layout: auto; /* ← CRITICAL: was fixed → broken everything */
+        table-layout: auto;
       }
-    
+
       .labor-table th,
       .labor-table td {
         padding: 2px 6px;
@@ -35,8 +35,7 @@ export const template = /*html*/ `
         border-right: 1px solid #e2e8f0;
         background-clip: padding-box;
       }
-    
-      /* Input cells */
+
       .labor-cell-input {
         width: 3.2rem;
         min-width: 3.2rem;
@@ -48,52 +47,53 @@ export const template = /*html*/ `
         padding: 0 4px;
         border: 1px solid #cbd5e1;
         border-radius: 4px;
-        background: white !important;
+        background: #ffffff !important;
       }
+
       .no-spin { -moz-appearance: textfield; }
       .no-spin::-webkit-inner-spin-button,
-      .no-spin::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
-    
-      /* === STICKY COLUMNS — NOW PERFECT === */
-      .labor-col-project  { width: 9rem; min-width: 9rem; }
+      .no-spin::-webkit-outer-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+      }
+
+      /* sticky columns */
+      .labor-col-project  { width: 9rem;  min-width: 9rem; }
       .labor-col-employee { width: 10rem; min-width: 10rem; }
       .labor-col-dept     { width: 15rem; min-width: 15rem; }
-    
+
       .labor-sticky-1,
       .labor-sticky-2,
       .labor-sticky-3 {
         position: sticky;
         z-index: 30;
-        background-color: white !important; /* ← CRITICAL: no inherit! */
-        box-shadow: 2px 0 4px -2px rgba(0,0,0,0.1);
+        background-color: #ffffff !important;
+        box-shadow: 2px 0 4px -2px rgba(0, 0, 0, 0.1);
       }
-    
+
       .labor-sticky-1 { left: 0; }
-      .labor-sticky-2 { left: 9rem; }                    /* 9rem */
-      .labor-sticky-3 { left: calc(9rem + 10rem); }      /* 9 + 10 = 19rem → Jan starts right after */
-    
-      /* Header styling */
+      .labor-sticky-2 { left: 9rem; }
+      .labor-sticky-3 { left: calc(9rem + 10rem); }
+
       .labor-table thead th.labor-sticky-1,
       .labor-table thead th.labor-sticky-2,
       .labor-table thead th.labor-sticky-3 {
         background-color: #f8fafc !important;
         z-index: 40;
       }
-    
-      /* Body sticky borders */
+
       .labor-table tbody td.labor-sticky-1,
       .labor-table tbody td.labor-sticky-2,
       .labor-table tbody td.labor-sticky-3 {
         border-right: 2px solid #94a3b8;
         z-index: 35;
       }
-    
-      /* Row styling */
+
       .labor-row-striped:nth-child(odd)  { background-color: #f8fafc; }
-      .labor-row-striped:nth-child(even) { background-color: white; }
+      .labor-row-striped:nth-child(even) { background-color: #ffffff; }
       .labor-row-striped:hover           { background-color: #dbeafe; }
       .labor-row-active                  { background-color: #bfdbfe !important; }
-    
+
       .labor-summary-row {
         background-color: #e5e7eb !important;
         font-weight: 600;
@@ -101,8 +101,7 @@ export const template = /*html*/ `
         bottom: 0;
         z-index: 25;
       }
-    
-      /* Month columns — ensure they start immediately after sticky cols */
+
       .labor-table th:not(.labor-sticky-1):not(.labor-sticky-2):not(.labor-sticky-3),
       .labor-table td:not(.labor-sticky-1):not(.labor-sticky-2):not(.labor-sticky-3) {
         border-left: none;
@@ -202,16 +201,12 @@ export const template = /*html*/ `
   </article>
 `;
 
-// ─────────────────────────────────────────────
 // STATE
-// ─────────────────────────────────────────────
-let projectScope = []; // [{id, project_code, name}]
-let rows = [];         // grid rows
-let allEmployees = []; // for dropdown
+let projectScope = [];
+let rows = [];
+let allEmployees = [];
 
-// ─────────────────────────────────────────────
 // HELPERS
-// ─────────────────────────────────────────────
 function fmtNum(v) {
   if (v === null || v === undefined || v === "") return "";
   const num = Number(v);
@@ -234,9 +229,7 @@ function buildYmMap(year) {
   return map;
 }
 
-// ─────────────────────────────────────────────
 // RENDER GRID
-// ─────────────────────────────────────────────
 function renderRows(root) {
   const tbody = $("#laborHoursTbody", root);
   if (!tbody) return;
@@ -256,7 +249,7 @@ function renderRows(root) {
 
   rows.forEach((row, idx) => {
     const tr = document.createElement("tr");
-    tr.dataset.rowIndex = idx;
+    tr.dataset.rowIndex = String(idx);
     tr.className = "labor-row-striped";
     const total = computeRowTotal(row);
 
@@ -296,7 +289,6 @@ function renderRows(root) {
     tbody.appendChild(tr);
   });
 
-  // Summary row at the bottom
   const summaryTr = document.createElement("tr");
   summaryTr.dataset.summaryRow = "labor";
   summaryTr.className = "labor-summary-row";
@@ -316,7 +308,9 @@ function updateLaborTotals(root) {
   if (!summaryRow || !rows.length) return;
 
   const monthTotals = {};
-  MONTHS.forEach((m) => (monthTotals[m.key] = 0));
+  MONTHS.forEach((m) => {
+    monthTotals[m.key] = 0;
+  });
   let grand = 0;
 
   rows.forEach((row) => {
@@ -331,49 +325,51 @@ function updateLaborTotals(root) {
 
   MONTHS.forEach((m) => {
     const cell = summaryRow.querySelector(`[data-total-col="${m.key}"]`);
-    if (cell)
+    if (cell) {
       cell.textContent = monthTotals[m.key].toLocaleString(undefined, {
         maximumFractionDigits: 2,
       });
+    }
   });
 
   const grandCell = summaryRow.querySelector('[data-total-col="all"]');
-  if (grandCell)
+  if (grandCell) {
     grandCell.textContent = grand.toLocaleString(undefined, {
       maximumFractionDigits: 2,
     });
+  }
 }
 
-// ─────────────────────────────────────────────
 // EVENTS
-// ─────────────────────────────────────────────
 function wireGridEvents(root, client, ctx) {
   const tbody = $("#laborHoursTbody", root);
   if (!tbody) return;
 
-  // cell edits
   tbody.querySelectorAll("input[data-row][data-month]").forEach((inp) => {
     inp.addEventListener("change", async (e) => {
-      const rowIdx = Number(e.target.dataset.row);
-      const monthKey = e.target.dataset.month;
+      const target = e.target;
+      if (!(target instanceof HTMLInputElement)) return;
+
+      const rowIdx = Number(target.dataset.row);
+      const monthKey = target.dataset.month;
       if (Number.isNaN(rowIdx) || !monthKey) return;
 
       const row = rows[rowIdx];
       if (!row) return;
-      const ym = row.ymMap[monthKey];
 
-      const raw = e.target.value;
+      const ym = row.ymMap[monthKey];
+      const raw = target.value;
       const val = raw === "" ? null : Number.parseFloat(raw || "0");
       row.months[ym] = Number.isNaN(val) ? null : val;
 
-      // update row total
-      const totalCell = root.querySelector(`[data-total-row="${rowIdx}"]`);
+      const totalCell = root.querySelector(
+        `[data-total-row="${rowIdx}"]`
+      );
       if (totalCell) {
-        totalCell.textContent = computeRowTotal(
-          row
-        ).toLocaleString(undefined, {
-          maximumFractionDigits: 2,
-        });
+        totalCell.textContent = computeRowTotal(row).toLocaleString(
+          undefined,
+          { maximumFractionDigits: 2 }
+        );
       }
 
       updateLaborTotals(root);
@@ -381,7 +377,6 @@ function wireGridEvents(root, client, ctx) {
     });
   });
 
-  // row highlight
   tbody.querySelectorAll("tr.labor-row-striped").forEach((tr) => {
     tr.addEventListener("click", () => {
       tbody
@@ -392,9 +387,7 @@ function wireGridEvents(root, client, ctx) {
   });
 }
 
-// ─────────────────────────────────────────────
-// DATA LOAD HELPERS
-// ─────────────────────────────────────────────
+// DATA LOADERS
 async function getProjectScope(client, level1ProjectId) {
   if (!level1ProjectId) return [];
 
@@ -446,7 +439,6 @@ async function loadHours(client, projectIds, ctx) {
   rows = [];
   if (!projectIds?.length) return;
 
-  // 1) assignments
   const { data: assignData, error: assignErr } = await client
     .from("project_employee_assignments")
     .select("project_id, employee_id")
@@ -466,7 +458,6 @@ async function loadHours(client, projectIds, ctx) {
     ...new Set(assignData.map((a) => a.employee_id).filter(Boolean)),
   ];
 
-  // 2) employees
   const { data: empData, error: empErr } = await client
     .from("employees")
     .select("id, full_name, department_name, labor_category_id")
@@ -477,7 +468,6 @@ async function loadHours(client, projectIds, ctx) {
     return;
   }
 
-  // 3) labor categories
   const { data: lcData, error: lcErr } = await client
     .from("labor_categories")
     .select("id, labor_category");
@@ -491,7 +481,6 @@ async function loadHours(client, projectIds, ctx) {
     (lcData || []).map((l) => [l.id, l.labor_category])
   );
 
-  // 4) projects
   const { data: projData, error: projErr } = await client
     .from("projects")
     .select("id, project_code")
@@ -506,7 +495,6 @@ async function loadHours(client, projectIds, ctx) {
     (projData || []).map((p) => [p.id, p.project_code])
   );
 
-  // 5) existing hours
   const { data: hoursData, error: hoursErr } = await client
     .from("labor_hours")
     .select("project_id, employee_id, ym, hours")
@@ -520,7 +508,7 @@ async function loadHours(client, projectIds, ctx) {
     return;
   }
 
-  const hoursMap = new Map(); // key -> { ym: hours }
+  const hoursMap = new Map();
   (hoursData || []).forEach((r) => {
     const key = `${r.project_id}|${r.employee_id}`;
     let months = hoursMap.get(key);
@@ -543,7 +531,6 @@ async function loadHours(client, projectIds, ctx) {
         const key = `${a.project_id}|${a.employee_id}`;
         const monthValues = { ...(hoursMap.get(key) || {}) };
 
-        // ensure all months exist
         Object.values(ymMap).forEach((ym) => {
           if (!(ym in monthValues)) monthValues[ym] = null;
         });
@@ -562,13 +549,12 @@ async function loadHours(client, projectIds, ctx) {
       .filter(Boolean) || [];
 }
 
-// upsert/delete one cell in labor_hours
+// UPSERT / DELETE ONE CELL
 async function upsertHourCell(client, ctx, row, monthKey, hoursValue) {
   const ym = row.ymMap[monthKey];
   if (!ym) return;
 
   if (hoursValue === null || hoursValue === undefined || hoursValue === "") {
-    // delete row for that month
     const { error } = await client
       .from("labor_hours")
       .delete()
@@ -604,9 +590,7 @@ async function upsertHourCell(client, ctx, row, monthKey, hoursValue) {
   if (error) console.error("[LaborHours] upsert hour error", error);
 }
 
-// ─────────────────────────────────────────────
 // MAIN INIT
-// ─────────────────────────────────────────────
 export const laborHoursTab = {
   template,
   async init({ root, client }) {
@@ -639,7 +623,6 @@ export const laborHoursTab = {
     section.style.display = "block";
     msg.textContent = "Loading employees and hours…";
 
-    // 1) load project scope and populate project dropdown
     projectScope = await getProjectScope(client, ctx.level1ProjectId);
     const projectSelect = $("#laborProjectSelect", root);
     projectSelect.innerHTML = `<option value="">— Select project —</option>`;
@@ -650,12 +633,10 @@ export const laborHoursTab = {
       projectSelect.appendChild(opt);
     });
 
-    // pick current project if in scope
     if (ctx.projectId && projectScope.some((p) => p.id === ctx.projectId)) {
       projectSelect.value = ctx.projectId;
     }
 
-    // 2) load global employee list for dropdown
     await loadAllEmployees(client);
     const empSelect = $("#laborEmployeeSelect", root);
     empSelect.innerHTML = `<option value="">— Select employee —</option>`;
@@ -668,7 +649,6 @@ export const laborHoursTab = {
 
     const projectIds = projectScope.map((p) => p.id);
 
-    // 3) load existing hours grid
     await loadHours(client, projectIds, ctx);
     renderRows(root);
     updateLaborTotals(root);
@@ -677,7 +657,6 @@ export const laborHoursTab = {
       ? ""
       : "No employees assigned yet. Use the controls above to add employees.";
 
-    // 4) assignment button
     $("#assignEmployeeBtn", root)?.addEventListener("click", async () => {
       const projId = projectSelect.value || null;
       const empId = empSelect.value || null;
@@ -709,7 +688,6 @@ export const laborHoursTab = {
             "Employee added to project. Enter hours in the grid.";
         }
 
-        // reload grid
         await loadHours(client, projectIds, ctx);
         renderRows(root);
         updateLaborTotals(root);
