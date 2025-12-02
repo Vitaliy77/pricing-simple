@@ -3,26 +3,15 @@ region: nyc
 
 services:
   - name: pricing-simple
-    # app.yaml and package.json live in the same folder, so just use "."
-    source_dir: .      # <— key change
+    source_dir: project_finance3/budget_projects
 
     github:
       repo: Vitaliy77/pricing-simple
       branch: main
       deploy_on_push: true
 
-    environment_slug: node-js
-
-    build_command: npm ci && npm run build
+    build_command: npm install && npm run build
     output_dir: dist
-    run_command: npx serve dist -s -l 3000
 
-    instance_count: 1
-    http_port: 3000
-    routes:
-      - path: /
-
-    envs:
-      - key: NODE_VERSION
-        scope: RUN_AND_BUILD_TIME
-        value: "18"
+    # static site doesn't actually use run_command / environment_slug,
+    # so you can omit them here if you want to keep it simple
