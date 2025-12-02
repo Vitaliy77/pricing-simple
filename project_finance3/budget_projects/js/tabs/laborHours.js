@@ -24,6 +24,8 @@ export const template = /*html*/ `
         border-collapse: collapse;
         width: max-content;
         min-width: 100%;
+        /* make widths predictable so sticky offsets line up */
+        table-layout: fixed;
       }
       .labor-table th,
       .labor-table td {
@@ -54,10 +56,13 @@ export const template = /*html*/ `
         -moz-appearance: textfield;
       }
 
-      /* Fixed widths for sticky columns */
-      .labor-col-project  { width: 11rem; }
-      .labor-col-employee { width: 13rem; }
-      .labor-col-dept     { width: 18rem; }
+      /* === STICKY COLUMNS ===
+         Narrow widths so gaps between Project/Employee/Dept are tiny
+         and keep totals small so Jan starts immediately after Dept.
+      */
+      .labor-col-project  { width: 8rem;  max-width: 8rem; }
+      .labor-col-employee { width: 9rem;  max-width: 9rem; }
+      .labor-col-dept     { width: 14rem; max-width: 14rem; }
 
       .labor-sticky-1,
       .labor-sticky-2,
@@ -66,23 +71,25 @@ export const template = /*html*/ `
         z-index: 30;
       }
       .labor-sticky-1 { left: 0; }
-      .labor-sticky-2 { left: 11rem; }
-      /* third sticky col starts after first + second → no overlap with Jan */
-      .labor-sticky-3 { left: calc(11rem + 13rem); }
+      .labor-sticky-2 { left: 8rem; }
+      /* third sticky col starts after project + employee → no overlap with Jan */
+      .labor-sticky-3 { left: calc(8rem + 9rem); }
 
-      /* opaque sticky backgrounds */
+      /* header sticky cells get a solid background */
       .labor-table thead .labor-sticky-1,
       .labor-table thead .labor-sticky-2,
       .labor-table thead .labor-sticky-3 {
         background-color: #f8fafc;
         z-index: 40;
       }
+
+      /* body sticky cells inherit row striping, just add border + z-index */
       .labor-table tbody .labor-sticky-1,
       .labor-table tbody .labor-sticky-2,
       .labor-table tbody .labor-sticky-3 {
-        background-color: #ffffff;
-        z-index: 35;
+        background-color: inherit;
         border-right: 1px solid #e2e8f0;
+        z-index: 35;
       }
 
       /* striping + active row */
