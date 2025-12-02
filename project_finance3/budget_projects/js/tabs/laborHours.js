@@ -21,97 +21,91 @@ export const template = /*html*/ `
   <article class="full-width-card w-full">
     <style>
       .labor-table {
-        border-collapse: collapse;
-        width: max-content;
-        min-width: 100%;
-        /* make widths predictable so sticky offsets line up */
-        table-layout: fixed;
+        border-collapse: separate;
+        border-spacing: 0;
+        width: 100%;
+        min-width: max-content;
+        table-layout: auto; /* ← CRITICAL: was fixed → broken everything */
       }
+    
       .labor-table th,
       .labor-table td {
-        padding: 2px 4px;
+        padding: 2px 6px;
         white-space: nowrap;
+        border-right: 1px solid #e2e8f0;
         background-clip: padding-box;
       }
-
-      /* smaller, right-aligned entry cells */
+    
+      /* Input cells */
       .labor-cell-input {
-        width: 3rem;
-        min-width: 3rem;
-        max-width: 3rem;
+        width: 3.2rem;
+        min-width: 3.2rem;
+        max-width: 3.2rem;
         text-align: right;
-        color: #0f172a !important;
-        background-color: #ffffff !important;
+        font-variant-numeric: tabular-nums;
         height: 1.5rem;
         line-height: 1.5rem;
-        font-variant-numeric: tabular-nums;
+        padding: 0 4px;
+        border: 1px solid #cbd5e1;
+        border-radius: 4px;
+        background: white !important;
       }
-
+      .no-spin { -moz-appearance: textfield; }
       .no-spin::-webkit-inner-spin-button,
-      .no-spin::-webkit-outer-spin-button {
-        -webkit-appearance: none;
-        margin: 0;
-      }
-      .no-spin {
-        -moz-appearance: textfield;
-      }
-
-      /* === STICKY COLUMNS ===
-         Narrow widths so gaps between Project/Employee/Dept are tiny
-         and keep totals small so Jan starts immediately after Dept.
-      */
-      .labor-col-project  { width: 8rem;  max-width: 8rem; }
-      .labor-col-employee { width: 9rem;  max-width: 9rem; }
-      .labor-col-dept     { width: 14rem; max-width: 14rem; }
-
+      .no-spin::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+    
+      /* === STICKY COLUMNS — NOW PERFECT === */
+      .labor-col-project  { width: 9rem; min-width: 9rem; }
+      .labor-col-employee { width: 10rem; min-width: 10rem; }
+      .labor-col-dept     { width: 15rem; min-width: 15rem; }
+    
       .labor-sticky-1,
       .labor-sticky-2,
       .labor-sticky-3 {
         position: sticky;
         z-index: 30;
+        background-color: white !important; /* ← CRITICAL: no inherit! */
+        box-shadow: 2px 0 4px -2px rgba(0,0,0,0.1);
       }
+    
       .labor-sticky-1 { left: 0; }
-      .labor-sticky-2 { left: 8rem; }
-      /* third sticky col starts after project + employee → no overlap with Jan */
-      .labor-sticky-3 { left: calc(8rem + 9rem); }
-
-      /* header sticky cells get a solid background */
-      .labor-table thead .labor-sticky-1,
-      .labor-table thead .labor-sticky-2,
-      .labor-table thead .labor-sticky-3 {
-        background-color: #f8fafc;
+      .labor-sticky-2 { left: 9rem; }                    /* 9rem */
+      .labor-sticky-3 { left: calc(9rem + 10rem); }      /* 9 + 10 = 19rem → Jan starts right after */
+    
+      /* Header styling */
+      .labor-table thead th.labor-sticky-1,
+      .labor-table thead th.labor-sticky-2,
+      .labor-table thead th.labor-sticky-3 {
+        background-color: #f8fafc !important;
         z-index: 40;
       }
-
-      /* body sticky cells inherit row striping, just add border + z-index */
-      .labor-table tbody .labor-sticky-1,
-      .labor-table tbody .labor-sticky-2,
-      .labor-table tbody .labor-sticky-3 {
-        background-color: inherit;
-        border-right: 1px solid #e2e8f0;
+    
+      /* Body sticky borders */
+      .labor-table tbody td.labor-sticky-1,
+      .labor-table tbody td.labor-sticky-2,
+      .labor-table tbody td.labor-sticky-3 {
+        border-right: 2px solid #94a3b8;
         z-index: 35;
       }
-
-      /* striping + active row */
-      .labor-row-striped:nth-child(odd) {
-        background-color: #eff6ff;
-      }
-      .labor-row-striped:nth-child(even) {
-        background-color: #ffffff;
-      }
-      .labor-row-striped:hover {
-        background-color: #dbeafe;
-      }
-      .labor-row-active {
-        background-color: #bfdbfe !important;
-      }
-
+    
+      /* Row styling */
+      .labor-row-striped:nth-child(odd)  { background-color: #f8fafc; }
+      .labor-row-striped:nth-child(even) { background-color: white; }
+      .labor-row-striped:hover           { background-color: #dbeafe; }
+      .labor-row-active                  { background-color: #bfdbfe !important; }
+    
       .labor-summary-row {
-        background-color: #e5e7eb;
+        background-color: #e5e7eb !important;
         font-weight: 600;
         position: sticky;
         bottom: 0;
-        z-index: 20;
+        z-index: 25;
+      }
+    
+      /* Month columns — ensure they start immediately after sticky cols */
+      .labor-table th:not(.labor-sticky-1):not(.labor-sticky-2):not(.labor-sticky-3),
+      .labor-table td:not(.labor-sticky-1):not(.labor-sticky-2):not(.labor-sticky-3) {
+        border-left: none;
       }
     </style>
 
