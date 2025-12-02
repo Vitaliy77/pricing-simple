@@ -92,16 +92,19 @@ export const template = /*html*/ `
   <article class="full-width-card w-full">
     <style>
       .subs-table {
-        border-collapse: collapse;
-        width: max-content;
-        min-width: 100%;
-        /* make widths predictable so sticky offsets line up with columns */
-        table-layout: fixed;
+        border-collapse: separate;
+        border-spacing: 0;
+        width: 100%;
+        min-width: 100%;        /* fill card width like Labor tab */
+        table-layout: auto;
       }
+
       .subs-table th,
       .subs-table td {
-        padding: 2px 4px;
+        padding: 2px 6px;
         white-space: nowrap;
+        border-right: none;     /* no vertical grid lines */
+        border-bottom: 1px solid #e2e8f0; /* only horizontal lines */
         background-clip: padding-box;
       }
 
@@ -125,11 +128,11 @@ export const template = /*html*/ `
       }
       .no-spin { -moz-appearance: textfield; }
 
-      /* Sticky column widths – enough to show full text but not huge gaps */
-      .subs-col-project { width: 9rem;  max-width: 9rem; }
-      .subs-col-type    { width: 6rem;  max-width: 6rem; }
-      .subs-col-vendor  { width: 11rem; max-width: 11rem; }
-      .subs-col-desc    { width: 18rem; max-width: 18rem; }
+      /* Sticky column widths – align with Labor look */
+      .subs-col-project { width: 9rem;  min-width: 9rem; }
+      .subs-col-type    { width: 6rem;  min-width: 6rem; }
+      .subs-col-vendor  { width: 11rem; min-width: 11rem; }
+      .subs-col-desc    { width: 18rem; min-width: 18rem; }
 
       .subs-sticky-1,
       .subs-sticky-2,
@@ -137,15 +140,15 @@ export const template = /*html*/ `
       .subs-sticky-4 {
         position: sticky;
         z-index: 30;
+        /* no explicit background or shadow, so striping flows underneath */
       }
-      .subs-sticky-1 { left: 0; }
-      .subs-sticky-2 { left: 9rem; }
-      /* 3rd starts after project + type → 9 + 6 = 15rem */
-      .subs-sticky-3 { left: calc(9rem + 6rem); }
-      /* 4th starts after project + type + vendor → 9 + 6 + 11 = 26rem */
-      .subs-sticky-4 { left: calc(9rem + 6rem + 11rem); }
 
-      /* header sticky cells get solid background */
+      .subs-sticky-1 { left: 0; }
+      .subs-sticky-2 { left: 9rem; }                 /* project width */
+      .subs-sticky-3 { left: calc(9rem + 6rem); }    /* project + type */
+      .subs-sticky-4 { left: calc(9rem + 6rem + 11rem); } /* + vendor */
+
+      /* header sticky cells keep a light background */
       .subs-table thead .subs-sticky-1,
       .subs-table thead .subs-sticky-2,
       .subs-table thead .subs-sticky-3,
@@ -154,18 +157,16 @@ export const template = /*html*/ `
         z-index: 40;
       }
 
-      /* body sticky cells inherit row striping, just add border + z-index */
+      /* body sticky cells inherit the row striping */
       .subs-table tbody .subs-sticky-1,
       .subs-table tbody .subs-sticky-2,
       .subs-table tbody .subs-sticky-3,
       .subs-table tbody .subs-sticky-4 {
         background-color: inherit;
         z-index: 35;
-        border-right: 1px solid #e2e8f0;
       }
 
-      /* make selects / description use full column width,
-         overriding the 3rem subs-cell-input */
+      /* full-width controls inside sticky columns */
       .subs-col-project select,
       .subs-col-vendor select,
       .subs-col-desc input[type="text"] {
@@ -176,7 +177,8 @@ export const template = /*html*/ `
         text-align: left;
       }
 
-      .subs-row-striped:nth-child(odd)  { background-color: #eff6ff; }
+      /* striping to match labor tab */
+      .subs-row-striped:nth-child(odd)  { background-color: #f8fafc; }
       .subs-row-striped:nth-child(even) { background-color: #ffffff; }
       .subs-row-striped:hover           { background-color: #dbeafe; }
       .subs-row-active                  { background-color: #bfdbfe !important; }
