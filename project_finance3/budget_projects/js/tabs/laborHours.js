@@ -24,7 +24,7 @@ export const template = /*html*/ `
         border-collapse: separate;
         border-spacing: 0;
         width: 100%;
-        min-width: max-content;
+        min-width: 100%;          /* stretch to full card width */
         table-layout: auto;
       }
 
@@ -32,7 +32,8 @@ export const template = /*html*/ `
       .labor-table td {
         padding: 2px 6px;
         white-space: nowrap;
-        border-right: 1px solid #e2e8f0;
+        border-right: none;       /* no vertical lines */
+        border-bottom: 1px solid #e2e8f0; /* only horizontal grid lines */
         background-clip: padding-box;
       }
 
@@ -67,28 +68,22 @@ export const template = /*html*/ `
       .labor-sticky-3 {
         position: sticky;
         z-index: 30;
-        background-color: #ffffff !important;
-        box-shadow: 2px 0 4px -2px rgba(0, 0, 0, 0.1);
+        /* no background and no shadow here so stripes flow underneath */
       }
 
       .labor-sticky-1 { left: 0; }
       .labor-sticky-2 { left: 9rem; }
       .labor-sticky-3 { left: calc(9rem + 10rem); }
 
+      /* sticky header cells: keep a light background */
       .labor-table thead th.labor-sticky-1,
       .labor-table thead th.labor-sticky-2,
       .labor-table thead th.labor-sticky-3 {
-        background-color: #f8fafc !important;
+        background-color: #f8fafc;
         z-index: 40;
       }
 
-      .labor-table tbody td.labor-sticky-1,
-      .labor-table tbody td.labor-sticky-2,
-      .labor-table tbody td.labor-sticky-3 {
-        border-right: 2px solid #94a3b8;
-        z-index: 35;
-      }
-
+      /* row striping (applies across entire row, including sticky cells) */
       .labor-row-striped:nth-child(odd)  { background-color: #f8fafc; }
       .labor-row-striped:nth-child(even) { background-color: #ffffff; }
       .labor-row-striped:hover           { background-color: #dbeafe; }
@@ -100,11 +95,6 @@ export const template = /*html*/ `
         position: sticky;
         bottom: 0;
         z-index: 25;
-      }
-
-      .labor-table th:not(.labor-sticky-1):not(.labor-sticky-2):not(.labor-sticky-3),
-      .labor-table td:not(.labor-sticky-1):not(.labor-sticky-2):not(.labor-sticky-3) {
-        border-left: none;
       }
     </style>
 
