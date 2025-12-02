@@ -1,25 +1,30 @@
-name: clownfish-app  # Your app name
+name: clownfish-app
+region: nyc   # add this at the top if it's not already set
 
 services:
-  - name: pricing-simple  # Your component name
-    source_dir: /project_finance3/budget_projects/  # Your source directory
-    github:
-      repo: Vitaliy77/pricing-simple  # Your repo
-      branch: main
-      deploy_on_push: true  # Auto-deploy on push
+  - name: pricing-simple
+    source_dir: project_finance3/budget_projects   # <— relative path, no leading slash
 
-    build_command: npm ci && npm run build  # Your build command
-    output_dir: dist  # CRITICAL: Forces DO to look in 'dist' (your Vite output)
-    run_command: npx serve dist -s -l 3000  # Serves your static build (adjust if using 'npm run preview')
+    github:
+      repo: Vitaliy77/pricing-simple
+      branch: main
+      deploy_on_push: true
 
     environment_slug: node-js
+    build_command: npm ci && npm run build    # you can also use `npm install && npm run build`
+    output_dir: dist
+    run_command: npx serve dist -s -l 3000
+
     instance_count: 1
     http_port: 3000
-
     routes:
       - path: /
 
     envs:
       - key: NODE_VERSION
         scope: RUN_AND_BUILD_TIME
-        value: "18"  # Or your Node version
+        value: "18"
+
+    # ⛔ remove this block for now
+    # logs:
+    #   disable_build_logs: true
