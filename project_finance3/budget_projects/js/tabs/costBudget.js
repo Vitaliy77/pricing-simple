@@ -4,6 +4,7 @@ import { getPlanContext } from "../lib/projectContext.js";
 
 let _costProjectIds = [];
 let _projectMeta = {};
+let _lastCostRows = []; // for export
 
 const MONTH_FIELDS = [
   { col: "amt_jan", idx: 0, label: "Jan" },
@@ -33,8 +34,7 @@ export const template = /*html*/ `
           · Cost Budget
         </span>
         <span class="text-[11px] text-slate-600 ml-1">
-          — Cost summary for all projects under the selected Level 1 project:
-          labor (hours × rates), subcontractors, and other direct costs.
+          — Cost summary (labor, subs, ODC) plus revenue for all projects under the selected Level 1 project.
         </span>
       </div>
 
@@ -42,6 +42,16 @@ export const template = /*html*/ `
         id="costMessage"
         class="text-[11px] text-slate-500 mt-1 min-h-[1.1rem]"
       ></div>
+
+      <div class="mt-1 flex justify-end">
+        <button
+          id="costExportBtn"
+          class="px-3 py-1.5 text-xs font-medium rounded-md shadow-sm
+                 bg-slate-700 hover:bg-slate-800 text-white"
+        >
+          Export to Excel
+        </button>
+      </div>
     </div>
 
     <!-- TABLE WRAPPER: fixed height, only grid scrolls -->
@@ -130,6 +140,11 @@ export const costBudgetTab = {
 
     await loadProjectsUnderLevel1(root, client, ctx.level1ProjectId);
     await refreshCost(root, client);
+
+    // Wire export button
+    $("#costExportBtn", root)?.addEventListener("click", () => {
+      exportCostToCsv(ctx);
+    });
   },
 };
 
@@ -178,7 +193,7 @@ async function loadProjectsUnderLevel1(root, client, level1ProjectId) {
 }
 
 // ─────────────────────────────────────────────
-// COST AGGREGATION HELPERS
+// SHARED HELPERS
 // ─────────────────────────────────────────────
 function ensureMonthFields(row) {
   MONTH_FIELDS.forEach(({ col }) => {
@@ -197,7 +212,7 @@ function addToMonth(row, dateStr, amount) {
 }
 
 // ─────────────────────────────────────────────
-// LOAD LABOR COST: labor_hours × employees.hourly_cost
+// COST: LABOR COST = labor_hours × employees.hourly_cost
 // ─────────────────────────────────────────────
 async function loadLaborCosts(client, projectIds, ctx) {
   if (!projectIds.length) return [];
@@ -252,6 +267,7 @@ async function loadLaborCosts(client, projectIds, ctx) {
       const who = emp?.full_name || "(Unknown employee)";
       const role = emp?.department_name || "";
       const rec = {
+        kind: "COST",
         source: "labor",
         project_label: projMeta.label,
         who,
@@ -269,9 +285,7 @@ async function loadLaborCosts(client, projectIds, ctx) {
 }
 
 // ─────────────────────────────────────────────
-// LOAD SUBS & ODC COSTS FROM planning_lines
-//   entry_types.code in ["SUBC_COST", "ODC_COST"]
-//   Uses monthly amt_* columns directly
+// COST: SUBS & ODC FROM planning_lines
 // ─────────────────────────────────────────────
 async function loadSubsOdcCosts(client, projectIds, ctx) {
   if (!projectIds.length) return [];
@@ -320,6 +334,7 @@ async function loadSubsOdcCosts(client, projectIds, ctx) {
     const key = `${line.project_id}::${who}::${desc}`;
     if (!byKey.has(key)) {
       const rec = {
+        kind: "COST",
         source: isSubs ? "subs" : "odc",
         project_label: projectLabel,
         who,
@@ -343,6 +358,237 @@ async function loadSubsOdcCosts(client, projectIds, ctx) {
 }
 
 // ─────────────────────────────────────────────
+// REVENUE LOADERS (mirroring revenueBudget.js)
+// ─────────────────────────────────────────────
+
+// T&M revenue = labor_hours × effective billing rate
+async function loadTmRevenueRowsForCost(client, ctx) {
+  try {
+    const projectIds = _costProjectIds;
+    if (!projectIds.length) return [];
+
+    const { data: hours, error: hErr } = await client
+      .from("labor_hours")
+      .select("project_id, employee_id, ym, hours")
+      .in("project_id", projectIds)
+      .eq("plan_year", ctx.year)
+      .eq("plan_version_id", ctx.versionId)
+      .eq("plan_type", ctx.planType || "Working");
+
+    if (hErr) {
+      console.error("[CostBudget/Revenue] labor_hours error", hErr);
+      return [];
+    }
+    if (!hours || !hours.length) return [];
+
+    const employeeIds = Array.from(
+      new Set(hours.map(r => r.employee_id).filter(Boolean))
+    );
+
+    const empMap = new Map();
+    if (employeeIds.length) {
+      const { data: emps, error: eErr } = await client
+        .from("employees")
+        .select("id, hourly_cost, labor_categories(billing_rate)")
+        .in("id", employeeIds);
+
+      if (eErr) {
+        console.error("[CostBudget/Revenue] employees error", eErr);
+      } else {
+        (emps || []).forEach(e => {
+          const billingRate = Number(e.labor_categories?.billing_rate || 0);
+          const hourlyCost = Number(e.hourly_cost || 0);
+          empMap.set(e.id, {
+            billing_rate: billingRate,
+            hourly_cost: hourlyCost,
+          });
+        });
+      }
+    }
+
+    const byProject = new Map();
+
+    for (const row of hours) {
+      const projMeta = _projectMeta[row.project_id];
+      if (!projMeta) continue;
+
+      const emp = empMap.get(row.employee_id) || {};
+      const hrs = Number(row.hours || 0);
+
+      // Effective rate: billing_rate if > 0, else hourly_cost
+      const effectiveRate =
+        typeof emp.billing_rate === "number" &&
+        !Number.isNaN(emp.billing_rate) &&
+        emp.billing_rate > 0
+          ? emp.billing_rate
+          : emp.hourly_cost || 0;
+
+      const revAmount = hrs * effectiveRate;
+
+      const key = row.project_id;
+      if (!byProject.has(key)) {
+        const rec = {
+          kind: "REVENUE",
+          project_label: projMeta.label,
+          who: "REVENUE – T&M Labor",
+          desc: "Hours × billing rates",
+        };
+        ensureMonthFields(rec);
+        byProject.set(key, rec);
+      }
+
+      const rec = byProject.get(key);
+      addToMonth(rec, row.ym, revAmount);
+    }
+
+    return Array.from(byProject.values());
+  } catch (err) {
+    console.error("[CostBudget/Revenue] loadTmRevenueRowsForCost failed", err);
+    return [];
+  }
+}
+
+// Subs & ODC revenue = cost (Subs & ODC) from planning_lines
+async function loadSubsOdcRevenueRowsForCost(client, ctx) {
+  try {
+    const projectIds = _costProjectIds;
+    if (!projectIds.length) return [];
+
+    const { data, error } = await client
+      .from("planning_lines")
+      .select(`
+        project_id,
+        amt_jan, amt_feb, amt_mar, amt_apr, amt_may, amt_jun,
+        amt_jul, amt_aug, amt_sep, amt_oct, amt_nov, amt_dec,
+        entry_types ( code )
+      `)
+      .in("project_id", projectIds)
+      .eq("plan_year", ctx.year)
+      .eq("plan_version_id", ctx.versionId)
+      .eq("plan_type", ctx.planType || "Working")
+      .eq("is_revenue", false);
+
+    if (error) {
+      console.error("[CostBudget/Revenue] subs/odc planning_lines error", error);
+      return [];
+    }
+    if (!data || !data.length) return [];
+
+    const byProject = new Map();
+
+    data.forEach(line => {
+      const etCode = line.entry_types?.code || "";
+      if (etCode !== "SUBC_COST" && etCode !== "ODC_COST") return;
+
+      const projMeta = _projectMeta[line.project_id];
+      if (!projMeta) return;
+
+      const key = line.project_id;
+      if (!byProject.has(key)) {
+        const rec = {
+          kind: "REVENUE",
+          project_label: projMeta.label,
+          who: "REVENUE – Subs & ODC",
+          desc: "Revenue equal to Subs & ODC cost",
+        };
+        ensureMonthFields(rec);
+        byProject.set(key, rec);
+      }
+
+      const rec = byProject.get(key);
+      MONTH_FIELDS.forEach(({ col }) => {
+        rec[col] += Number(line[col] || 0);
+      });
+    });
+
+    return Array.from(byProject.values());
+  } catch (err) {
+    console.error("[CostBudget/Revenue] loadSubsOdcRevenueRowsForCost failed", err);
+    return [];
+  }
+}
+
+// Manual revenue (is_revenue = true) – aggregate per project
+async function loadManualRevenueRowsForCost(client, ctx) {
+  try {
+    const projectIds = _costProjectIds;
+    if (!projectIds.length) return [];
+
+    const { data, error } = await client
+      .from("planning_lines")
+      .select(`
+        project_id,
+        project_name,
+        resource_name,
+        description,
+        amt_jan, amt_feb, amt_mar, amt_apr, amt_may, amt_jun,
+        amt_jul, amt_aug, amt_sep, amt_oct, amt_nov, amt_dec,
+        entry_types ( code )
+      `)
+      .in("project_id", projectIds)
+      .eq("plan_year", ctx.year)
+      .eq("plan_version_id", ctx.versionId)
+      .eq("plan_type", ctx.planType || "Working")
+      .eq("is_revenue", true);
+
+    if (error) {
+      console.error("[CostBudget/Revenue] manual revenue load error", error);
+      return [];
+    }
+    if (!data || !data.length) return [];
+
+    const typeMap = {
+      FIXED_REV: "Fixed Revenue",
+      SOFT_REV: "Software Revenue",
+      UNIT_REV: "Unit Revenue",
+      OTHER_REV: "Other Revenue",
+    };
+
+    const byProjectType = new Map();
+
+    data.forEach(line => {
+      const projMeta = _projectMeta[line.project_id];
+      const projLabel = projMeta?.label || line.project_name || "";
+
+      const etCode = line.entry_types?.code || "";
+      const typeLabel = typeMap[etCode] || "Manual Revenue";
+
+      const key = `${line.project_id}::${typeLabel}`;
+      if (!byProjectType.has(key)) {
+        const rec = {
+          kind: "REVENUE",
+          project_label: projLabel,
+          who: `REVENUE – ${typeLabel}`,
+          desc: typeLabel,
+        };
+        ensureMonthFields(rec);
+        byProjectType.set(key, rec);
+      }
+
+      const rec = byProjectType.get(key);
+      MONTH_FIELDS.forEach(({ col }) => {
+        rec[col] += Number(line[col] || 0);
+      });
+    });
+
+    return Array.from(byProjectType.values());
+  } catch (err) {
+    console.error("[CostBudget/Revenue] loadManualRevenueRowsForCost failed", err);
+    return [];
+  }
+}
+
+async function loadAllRevenueForCost(client, ctx) {
+  const [tm, subsOdc, manual] = await Promise.all([
+    loadTmRevenueRowsForCost(client, ctx),
+    loadSubsOdcRevenueRowsForCost(client, ctx),
+    loadManualRevenueRowsForCost(client, ctx),
+  ]);
+
+  return [...(tm || []), ...(subsOdc || []), ...(manual || [])];
+}
+
+// ─────────────────────────────────────────────
 // REFRESH GRID
 // ─────────────────────────────────────────────
 async function refreshCost(root, client) {
@@ -354,21 +600,27 @@ async function refreshCost(root, client) {
     return;
   }
 
-  msg && (msg.textContent = "Loading costs…");
+  msg && (msg.textContent = "Loading cost and revenue…");
 
   try {
-    const [laborRows, subsOdcRows] = await Promise.all([
+    const [laborRows, subsOdcRows, revenueRows] = await Promise.all([
       loadLaborCosts(client, _costProjectIds, ctx),
       loadSubsOdcCosts(client, _costProjectIds, ctx),
+      loadAllRevenueForCost(client, ctx),
     ]);
 
-    const allRows = [...laborRows, ...subsOdcRows];
+    const allRows = [
+      ...(laborRows || []),
+      ...(subsOdcRows || []),
+      ...(revenueRows || []),
+    ];
 
+    _lastCostRows = allRows;
     renderCost(root, allRows);
-    msg && (msg.textContent = allRows.length ? "" : "No cost data found for this plan.");
+    msg && (msg.textContent = allRows.length ? "" : "No cost or revenue data found for this plan.");
   } catch (err) {
     console.error("[CostBudget] refreshCost error", err);
-    msg && (msg.textContent = "Error loading cost data.");
+    msg && (msg.textContent = "Error loading cost and revenue data.");
     renderCost(root, null);
   }
 }
@@ -420,4 +672,103 @@ function renderCost(root, rows) {
     `;
     tbody.appendChild(tr);
   });
+}
+
+// ─────────────────────────────────────────────
+// EXPORT TO CSV (Excel-friendly)
+// ─────────────────────────────────────────────
+function exportCostToCsv(ctx) {
+  if (!_lastCostRows || !_lastCostRows.length) {
+    alert("No data to export.");
+    return;
+  }
+
+  const headers = [
+    "Project",
+    "Person / Vendor / Category",
+    "Role / Description",
+    ...MONTH_FIELDS.map(m => m.label),
+    "Total",
+  ];
+
+  const fmtNum = v =>
+    typeof v === "number"
+      ? v.toLocaleString(undefined, { maximumFractionDigits: 2 })
+      : "";
+
+  const lines = [];
+  lines.push(headers.join(","));
+
+  // Detail rows
+  _lastCostRows.forEach(r => {
+    let total = 0;
+    const monthVals = MONTH_FIELDS.map(mf => {
+      const val = Number(r[mf.col] || 0);
+      total += val;
+      return fmtNum(val);
+    });
+
+    const rowVals = [
+      r.project_label || "",
+      r.who || "",
+      r.desc || "",
+      ...monthVals,
+      fmtNum(total),
+    ];
+
+    lines.push(
+      rowVals
+        .map(v => {
+          const s = v == null ? "" : String(v);
+          // Escape quotes and wrap in quotes
+          return `"${s.replace(/"/g, '""')}"`;
+        })
+        .join(",")
+    );
+  });
+
+  // Totals row
+  const monthTotals = {};
+  MONTH_FIELDS.forEach(m => (monthTotals[m.col] = 0));
+  let grand = 0;
+
+  _lastCostRows.forEach(r => {
+    MONTH_FIELDS.forEach(m => {
+      const val = Number(r[m.col] || 0);
+      if (!Number.isNaN(val)) {
+        monthTotals[m.col] += val;
+        grand += val;
+      }
+    });
+  });
+
+  const totalRow = [
+    "Totals",
+    "",
+    "",
+    ...MONTH_FIELDS.map(m => fmtNum(monthTotals[m.col])),
+    fmtNum(grand),
+  ];
+
+  lines.push(
+    totalRow
+      .map(v => {
+        const s = v == null ? "" : String(v);
+        return `"${s.replace(/"/g, '""')}"`;
+      })
+      .join(",")
+  );
+
+  const csv = lines.join("\r\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+
+  const year = ctx?.year || "plan";
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `cost-budget-${year}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
