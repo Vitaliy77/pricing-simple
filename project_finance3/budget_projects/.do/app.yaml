@@ -1,7 +1,7 @@
 name: clownfish-app
 region: nyc
 
-services:
+static_sites:
   - name: pricing-simple
     source_dir: project_finance3/budget_projects
 
@@ -10,8 +10,8 @@ services:
       branch: main
       deploy_on_push: true
 
-    build_command: npm install && npm run build
+    build_command: npm ci && npm run build
     output_dir: dist
 
-    # static site doesn't actually use run_command / environment_slug,
-    # so you can omit them here if you want to keep it simple
+    routes:
+      - path: /
