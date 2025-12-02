@@ -268,9 +268,14 @@ function wireGridEvents(root, client, ctx) {
       row.months[ym] = Number.isNaN(val) ? null : val;
 
       const totalCell = root.querySelector(`[data-total-row="${rowIdx}"]`);
-      if (totalCell) totalCell.textContent = computeRowTotal(row).toLocaleString(undefined, { maximumFractionDigits: 2 });
+      if (totalCell) {
+        totalCell.textContent = computeRowTotal(row).toLocaleString(
+          undefined,
+          { maximumFractionDigits: 2 }
+        );
+      }
 
-commission      updateLaborTotals(root);
+      updateLaborTotals(root);
       await upsertHourCell(client, ctx, row, monthKey, row.months[ym]);
     });
   });
