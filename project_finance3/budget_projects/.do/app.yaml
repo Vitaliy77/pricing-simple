@@ -1,7 +1,8 @@
+# .do/app.yaml
 name: clownfish-app
 region: nyc
 
-static_sites:
+services:
   - name: pricing-simple
     source_dir: project_finance3/budget_projects
 
@@ -13,5 +14,6 @@ static_sites:
     build_command: npm ci && npm run build
     output_dir: dist
 
-    routes:
-      - path: /
+    # This line kills the appbuild-logs error forever
+    logs:
+      disable_build_logs: true
