@@ -11,6 +11,7 @@ const MONTH_LABELS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct
 let projectScope = [];
 let vendors = [];
 let lines = [];
+let entryTypeCache = {}; // code -> id cache for quick lookups
 
 // Helper copied from laborHours.js – finds Level 1 + all children
 async function getProjectScope(client, level1ProjectId) {
@@ -95,7 +96,7 @@ export const template = /*html*/ `
         border-collapse: separate;
         border-spacing: 0;
         width: 100%;
-        min-width: 100%;        /* fill card width like Labor tab */
+        min-width: 100%;
         table-layout: auto;
       }
 
@@ -103,16 +104,16 @@ export const template = /*html*/ `
       .subs-table td {
         padding: 2px 6px;
         white-space: nowrap;
-        border-right: none;     /* no vertical grid lines */
-        border-bottom: 1px solid #e2e8f0; /* only horizontal lines */
+        border-right: none;
+        border-bottom: 1px solid #e2e8f0;
         background-clip: padding-box;
       }
 
-      /* smaller, right-aligned entry cells for months */
+      /* right-aligned entry cells for months – wider to fit 1,000,000 */
       .subs-cell-input {
-        width: 3rem;
-        min-width: 3rem;
-        max-width: 3rem;
+        width: 4.5rem;
+        min-width: 4.5rem;
+        max-width: 4.5rem;
         text-align: right;
         color: #0f172a !important;
         background-color: #ffffff !important;
@@ -140,15 +141,13 @@ export const template = /*html*/ `
       .subs-sticky-4 {
         position: sticky;
         z-index: 30;
-        /* no explicit background or shadow, so striping flows underneath */
       }
 
       .subs-sticky-1 { left: 0; }
-      .subs-sticky-2 { left: 9rem; }                 /* project width */
-      .subs-sticky-3 { left: calc(9rem + 6rem); }    /* project + type */
-      .subs-sticky-4 { left: calc(9rem + 6rem + 11rem); } /* + vendor */
+      .subs-sticky-2 { left: 9rem; }
+      .subs-sticky-3 { left: calc(9rem + 6rem); }
+      .subs-sticky-4 { left: calc(9rem + 6rem + 11rem); }
 
-      /* header sticky cells keep a light background */
       .subs-table thead .subs-sticky-1,
       .subs-table thead .subs-sticky-2,
       .subs-table thead .subs-sticky-3,
@@ -157,7 +156,6 @@ export const template = /*html*/ `
         z-index: 40;
       }
 
-      /* body sticky cells inherit the row striping */
       .subs-table tbody .subs-sticky-1,
       .subs-table tbody .subs-sticky-2,
       .subs-table tbody .subs-sticky-3,
@@ -166,8 +164,8 @@ export const template = /*html*/ `
         z-index: 35;
       }
 
-      /* full-width controls inside sticky columns */
       .subs-col-project select,
+      .subs-col-type select,
       .subs-col-vendor select,
       .subs-col-desc input[type="text"] {
         width: 100%;
@@ -177,7 +175,6 @@ export const template = /*html*/ `
         text-align: left;
       }
 
-      /* striping to match labor tab */
       .subs-row-striped:nth-child(odd)  { background-color: #f8fafc; }
       .subs-row-striped:nth-child(even) { background-color: #ffffff; }
       .subs-row-striped:hover           { background-color: #dbeafe; }
@@ -252,11 +249,30 @@ export const template = /*html*/ `
 function fmtNum(v) {
   if (v === null || v === undefined || v === "") return "";
   const n = Number(v);
-  return Number.isNaN(n) ? "" : n.toString();
+  return Number.isNaN(n)
+    ? ""
+    : n.toLocaleString(undefined, { maximumFractionDigits: 0 });
 }
 
 function computeRowTotal(line) {
   return MONTH_COLS.reduce((sum, key) => sum + (Number(line[key] || 0) || 0), 0);
+}
+
+async function getEntryTypeId(client, code) {
+  if (entryTypeCache[code]) return entryTypeCache[code];
+
+  const { data, error } = await client
+    .from("entry_types")
+    .select("id, code")
+    .eq("code", code)
+    .single();
+
+  if (error || !data) {
+    console.error("[SubsOdcInputs] getEntryTypeId error", error);
+    return null;
+  }
+  entryTypeCache[code] = data.id;
+  return data.id;
 }
 
 // ─────────────────────────────────────────────
@@ -279,7 +295,7 @@ function renderLines(root) {
     tr.dataset.index = idx;
     tr.className = "subs-row-striped";
 
-    const typeLabel = line.entry_types?.code === "SUBC_COST" ? "Subs" : "ODC";
+    const typeCode = line.entry_types?.code === "SUBC_COST" ? "SUBC_COST" : "ODC_COST";
     const total = computeRowTotal(line);
 
     const projectOptions = projectScope.map(p =>
@@ -294,11 +310,11 @@ function renderLines(root) {
     const monthCells = MONTH_COLS.map(key => `
       <td class="text-right">
         <input
-          class="cell-input subs-cell-input no-spin border border-slate-200 rounded-sm px-1 py-0.5 text-[11px]"
+          class="cell-input subs-cell-input border border-slate-200 rounded-sm px-1 py-0.5 text-[11px]"
           data-row="${idx}"
           data-field="${key}"
-          type="number"
-          step="1"
+          type="text"
+          inputmode="decimal"
           value="${fmtNum(line[key])}"
         />
       </td>
@@ -310,7 +326,13 @@ function renderLines(root) {
           ${projectOptions}
         </select>
       </td>
-      <td class="subs-sticky-2 subs-col-type text-[11px] text-slate-800">${typeLabel}</td>
+      <td class="subs-sticky-2 subs-col-type">
+        <select class="cell-input border border-slate-200 rounded-sm px-1 py-0.5 text-[11px]"
+                data-row="${idx}" data-field="entry_type_code">
+          <option value="SUBC_COST" ${typeCode === "SUBC_COST" ? "selected" : ""}>Subs</option>
+          <option value="ODC_COST"  ${typeCode === "ODC_COST"  ? "selected" : ""}>ODC</option>
+        </select>
+      </td>
       <td class="subs-sticky-3 subs-col-vendor">
         <select class="cell-input border border-slate-200 rounded-sm px-1 py-0.5 text-[11px]" data-row="${idx}" data-field="vendor_id">
           ${vendorOptions}
@@ -376,18 +398,9 @@ function updateSubsTotals(root) {
 async function addNewSubsOdcLine(client, ctx, typeCode, projectId) {
   if (!projectId) return null;
 
-  const { data: et, error: etErr } = await client
-    .from("entry_types")
-    .select("id")
-    .eq("code", typeCode)
-    .single();
+  const entryTypeId = await getEntryTypeId(client, typeCode);
+  if (!entryTypeId) return null;
 
-  if (etErr || !et) {
-    console.error("[SubsOdcInputs] entry_type lookup error", etErr);
-    return null;
-  }
-
-  const entryTypeId = et.id;
   const proj = projectScope.find(p => p.id === projectId);
 
   const payload = {
@@ -434,7 +447,7 @@ async function updateProjectOnLine(client, lineId, projectId) {
   const proj = projectScope.find(p => p.id === projectId);
   const { error } = await client
     .from("planning_lines")
-    .update({ project_id: projectId, project_name: proj?.name || null })
+    .update({ project_id: projectId || null, project_name: proj?.name || null })
     .eq("id", lineId);
   if (error) console.error("[SubsOdcInputs] update project error", error);
 }
@@ -443,9 +456,22 @@ async function updateVendorOnLine(client, lineId, vendorId) {
   const vendor = vendors.find(v => v.id === vendorId);
   const { error } = await client
     .from("planning_lines")
-    .update({ vendor_id: vendorId || null, resource_name: vendor?.vendor_name || null })
+    .update({
+      vendor_id: vendorId || null,
+      resource_name: vendor?.vendor_name || null,
+    })
     .eq("id", lineId);
   if (error) console.error("[SubsOdcInputs] update vendor error", error);
+}
+
+async function updateEntryTypeOnLine(client, lineId, code) {
+  const entryTypeId = await getEntryTypeId(client, code);
+  if (!entryTypeId) return;
+  const { error } = await client
+    .from("planning_lines")
+    .update({ entry_type_id: entryTypeId })
+    .eq("id", lineId);
+  if (error) console.error("[SubsOdcInputs] update entry_type error", error);
 }
 
 // ──────────────────────────────────────────────
@@ -506,10 +532,12 @@ export const subsOdcInputsTab = {
         msg.textContent = "Please select a project before adding a Subs line.";
         return;
       }
-      await addNewSubsOdcLine(client, ctx, "SUBC_COST", projId);
-      lines = await fetchSubsOdcLines(client, projectIds, ctx);
-      renderLines(root);
-      updateSubsTotals(root);
+      const created = await addNewSubsOdcLine(client, ctx, "SUBC_COST", projId);
+      if (created) {
+        lines = await fetchSubsOdcLines(client, projectIds, ctx);
+        renderLines(root);
+        updateSubsTotals(root);
+      }
     });
 
     $("#addOdcLineBtn", root)?.addEventListener("click", async () => {
@@ -518,13 +546,15 @@ export const subsOdcInputsTab = {
         msg.textContent = "Please select a project before adding an ODC line.";
         return;
       }
-      await addNewSubsOdcLine(client, ctx, "ODC_COST", projId);
-      lines = await fetchSubsOdcLines(client, projectIds, ctx);
-      renderLines(root);
-      updateSubsTotals(root);
+      const created = await addNewSubsOdcLine(client, ctx, "ODC_COST", projId);
+      if (created) {
+        lines = await fetchSubsOdcLines(client, projectIds, ctx);
+        renderLines(root);
+        updateSubsTotals(root);
+      }
     });
 
-    // Input changes
+    // Input / select changes
     $("#subsOdcTbody", root)?.addEventListener("change", async (e) => {
       const input = e.target;
       if (!input.classList.contains("cell-input")) return;
@@ -537,16 +567,33 @@ export const subsOdcInputsTab = {
       const val = input.value;
 
       if (MONTH_COLS.includes(field)) {
-        line[field] = val === "" ? 0 : Number(val);
-        input.value = fmtNum(line[field]);
-        await updateNumericCell(client, line.id, field, line[field]);
+        // parse "1,234,567" → 1234567
+        const raw = val || "";
+        const cleaned = raw.replace(/,/g, "").trim();
+        const num = cleaned === "" ? 0 : Number(cleaned);
+        const safeNum = Number.isNaN(num) ? 0 : num;
+
+        line[field] = safeNum;
+        await updateNumericCell(client, line.id, field, safeNum);
+        input.value = fmtNum(safeNum);
       } else if (field === "description") {
         line.description = val;
         await updateTextField(client, line.id, field, val);
       } else if (field === "project_id") {
+        line.project_id = val || null;
+        const proj = projectScope.find(p => p.id === val);
+        line.project_name = proj?.name || line.project_name || null;
         await updateProjectOnLine(client, line.id, val || null);
       } else if (field === "vendor_id") {
+        // keep value in memory so it doesn't disappear on re-render
+        line.vendor_id = val || null;
+        const vendor = vendors.find(v => v.id === val);
+        line.resource_name = vendor?.vendor_name || null;
         await updateVendorOnLine(client, line.id, val || null);
+      } else if (field === "entry_type_code") {
+        const code = val === "SUBC_COST" ? "SUBC_COST" : "ODC_COST";
+        line.entry_types = { code };
+        await updateEntryTypeOnLine(client, line.id, code);
       }
 
       renderLines(root);
