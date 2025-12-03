@@ -67,6 +67,16 @@ export const template = /*html*/ `
         }
       }
 
+      .summary-grid-charts {
+        align-items: stretch;
+      }
+
+      .summary-column {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+      }
+
       .summary-chart-card {
         border-radius: 0.5rem;
         border: 1px solid rgba(148, 163, 184, 0.4);
@@ -88,14 +98,14 @@ export const template = /*html*/ `
 
       .summary-chart-body {
         position: relative;
-        height: 220px;
-        max-height: 260px;
+        height: 330px;        /* increased by ~50% */
+        max-height: 390px;
       }
 
       @media (max-height: 700px) {
         .summary-chart-body {
-          height: 40vh;
-          max-height: 280px;
+          height: 60vh;
+          max-height: 420px;
         }
       }
 
@@ -144,32 +154,36 @@ export const template = /*html*/ `
       </section>
 
       <section class="space-y-3">
-        <div class="summary-grid">
-          <div class="summary-chart-card">
-            <div class="summary-chart-title">Monthly Revenue by Type</div>
-            <div class="summary-chart-body">
-              <canvas id="summaryChartRevenueByMonth"></canvas>
+        <div class="summary-grid summary-grid-charts">
+          <!-- LEFT COLUMN: Revenue bar + Profit -->
+          <div class="summary-column">
+            <div class="summary-chart-card">
+              <div class="summary-chart-title">Monthly Revenue by Type</div>
+              <div class="summary-chart-body">
+                <canvas id="summaryChartRevenueByMonth"></canvas>
+              </div>
+            </div>
+            <div class="summary-chart-card">
+              <div class="summary-chart-title">Monthly Profit</div>
+              <div class="summary-chart-body">
+                <canvas id="summaryChartProfitByMonth"></canvas>
+              </div>
             </div>
           </div>
-          <div class="summary-chart-card">
-            <div class="summary-chart-title">Monthly Profit</div>
-            <div class="summary-chart-body">
-              <canvas id="summaryChartProfitByMonth"></canvas>
-            </div>
-          </div>
-        </div>
 
-        <div class="summary-grid">
-          <div class="summary-chart-card">
-            <div class="summary-chart-title">Revenue Mix by Type</div>
-            <div class="summary-chart-body">
-              <canvas id="summaryChartRevenueMix"></canvas>
+          <!-- RIGHT COLUMN: Revenue Mix + Cost Mix (same sizes) -->
+          <div class="summary-column">
+            <div class="summary-chart-card">
+              <div class="summary-chart-title">Revenue Mix by Type</div>
+              <div class="summary-chart-body">
+                <canvas id="summaryChartRevenueMix"></canvas>
+              </div>
             </div>
-          </div>
-          <div class="summary-chart-card">
-            <div class="summary-chart-title">Cost Mix by Type</div>
-            <div class="summary-chart-body">
-              <canvas id="summaryChartCostMix"></canvas>
+            <div class="summary-chart-card">
+              <div class="summary-chart-title">Cost Mix by Type</div>
+              <div class="summary-chart-body">
+                <canvas id="summaryChartCostMix"></canvas>
+              </div>
             </div>
           </div>
         </div>
@@ -657,22 +671,23 @@ function renderCharts(root, summary) {
     costMix,
   } = summary;
 
+  // Semi-transparent color palette
   const revColors = {
-    tm: "rgba(59, 130, 246, 0.7)",
-    fixed: "rgba(16, 185, 129, 0.7)",
-    software: "rgba(129, 140, 248, 0.7)",
-    unit: "rgba(251, 191, 36, 0.7)",
-    other: "rgba(148, 163, 184, 0.7)",
-    subsOdc: "rgba(248, 113, 113, 0.7)",
+    tm: "rgba(59, 130, 246, 0.55)",
+    fixed: "rgba(16, 185, 129, 0.55)",
+    software: "rgba(129, 140, 248, 0.55)",
+    unit: "rgba(251, 191, 36, 0.55)",
+    other: "rgba(148, 163, 184, 0.55)",
+    subsOdc: "rgba(248, 113, 113, 0.55)",
   };
 
   const costColors = {
-    labor: "rgba(59, 130, 246, 0.7)",
-    subc: "rgba(251, 191, 36, 0.7)",
-    odc: "rgba(148, 163, 184, 0.7)",
+    labor: "rgba(59, 130, 246, 0.55)",
+    subc: "rgba(251, 191, 36, 0.55)",
+    odc: "rgba(148, 163, 184, 0.55)",
   };
 
-  // 1) Monthly Revenue by Type – Stacked bar with labels
+  // 1) Monthly Revenue by Type – Stacked bar with ONE total label per month
   if (revByMonthCanvas) {
     const ctx = revByMonthCanvas.getContext("2d");
     const chart = new Chart(ctx, {
@@ -705,9 +720,24 @@ function renderCharts(root, summary) {
             anchor: "end",
             align: "end",
             clamp: true,
+            offset: 2,
             color: "#111827",
             font: { size: 9, weight: "500" },
-            formatter: (value) => (value ? fmtCurrency(value) : ""),
+            // Only show ONE label per month: total stack, on last dataset
+            formatter: (value, ctx) => {
+              if (!value) return "";
+              const { dataIndex, datasetIndex, chart } = ctx;
+              const datasets = chart.data.datasets || [];
+              const lastIdx = datasets.length - 1;
+              if (datasetIndex !== lastIdx) return "";
+
+              let total = 0;
+              datasets.forEach(ds => {
+                const v = Number(ds.data?.[dataIndex] || 0);
+                if (!Number.isNaN(v)) total += v;
+              });
+              return total ? fmtCurrency(total) : "";
+            },
           },
         },
         scales: {
@@ -731,10 +761,10 @@ function renderCharts(root, summary) {
             label: "Profit",
             data: monthlyProfit,
             borderColor: "rgba(22, 163, 74, 0.9)",
-            backgroundColor: "rgba(22, 163, 74, 0.12)",
+            backgroundColor: "rgba(22, 163, 74, 0.2)",
             tension: 0.2,
             fill: true,
-            pointBackgroundColor: "rgba(22, 163, 74, 1)",
+            pointBackgroundColor: "rgba(22, 163, 74, 0.95)",
             pointRadius: 4,
             pointHoverRadius: 6,
           },
@@ -766,7 +796,7 @@ function renderCharts(root, summary) {
     charts.push(chart);
   }
 
-  // 3) Revenue Mix – Donut with value + % per slice
+  // 3) Revenue Mix – Donut with semi-transparent slices
   if (revMixCanvas) {
     const total = sumArray(revenueMix.values) || 1;
     const ctx = revMixCanvas.getContext("2d");
@@ -817,7 +847,7 @@ function renderCharts(root, summary) {
     charts.push(chart);
   }
 
-  // 4) Cost Mix – Donut with value + % per slice
+  // 4) Cost Mix – Donut with semi-transparent slices
   if (costMixCanvas) {
     const total = sumArray(costMix.values) || 1;
     const ctx = costMixCanvas.getContext("2d");
