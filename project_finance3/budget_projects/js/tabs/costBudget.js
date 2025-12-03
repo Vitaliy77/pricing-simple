@@ -21,6 +21,14 @@ const MONTH_FIELDS = [
   { col: "amt_dec", idx: 11, label: "Dec" },
 ];
 
+// Fixed sort order for record types
+const RECORD_TYPE_ORDER = {
+  "Revenue": 1,
+  "Labor Cost": 2,
+  "Sub Cost": 3,
+  "ODC Cost": 4,
+};
+
 export const template = /*html*/ `
   <article class="full-width-card">
     <!-- Compact inline header -->
@@ -60,22 +68,49 @@ export const template = /*html*/ `
         <table id="costTable" class="min-w-full text-xs">
           <thead class="bg-slate-50">
             <tr>
+              <!-- NEW sticky Type column -->
               <th
                 class="cost-grid-sticky cost-col-1 sticky top-0 z-30 bg-slate-50
                        text-left text-[11px] font-semibold text-slate-700 uppercase tracking-wider
                        px-3 py-1.5"
               >
-                Project
+                Type
               </th>
+              <!-- Project (sticky) -->
               <th
                 class="cost-grid-sticky cost-col-2 sticky top-0 z-30 bg-slate-50
                        text-left text-[11px] font-semibold text-slate-700 uppercase tracking-wider
                        px-3 py-1.5"
               >
-                Person / Vendor / Category
+                Project
               </th>
+              <!-- Person / Vendor / Category (sticky) -->
               <th
                 class="cost-grid-sticky cost-col-3 sticky top-0 z-30 bg-slate-50
+                       text-left text-[11px] font-semibold text-slate-700 uppercase tracking-wider
+                       px-3 py-1.5"
+              >
+                Person / Vendor / Category
+              </th>
+              <!-- NEW short Rev? column -->
+              <th
+                class="sticky top-0 z-20 bg-slate-50
+                       text-center text-[11px] font-semibold text-slate-700 uppercase tracking-wider
+                       px-2 py-1.5"
+              >
+                Rev?
+              </th>
+              <!-- NEW Dept column -->
+              <th
+                class="sticky top-0 z-20 bg-slate-50
+                       text-left text-[11px] font-semibold text-slate-700 uppercase tracking-wider
+                       px-3 py-1.5"
+              >
+                Dept
+              </th>
+              <!-- Role / Description -->
+              <th
+                class="sticky top-0 z-20 bg-slate-50
                        text-left text-[11px] font-semibold text-slate-700 uppercase tracking-wider
                        px-3 py-1.5"
               >
@@ -97,7 +132,7 @@ export const template = /*html*/ `
             class="bg-white divide-y divide-slate-100"
           >
             <tr>
-              <td colspan="16" class="text-center py-10 text-slate-500 text-xs">
+              <td colspan="19" class="text-center py-10 text-slate-500 text-xs">
                 Loading…
               </td>
             </tr>
@@ -185,6 +220,7 @@ async function loadProjectsUnderLevel1(root, client, level1ProjectId) {
 
   all.forEach(p => {
     _projectMeta[p.id] = {
+      project_id: p.id,
       project_code: p.project_code,
       name: p.name,
       label: `${p.project_code} – ${p.name}`,
@@ -209,6 +245,20 @@ function addToMonth(row, dateStr, amount) {
   const mf = MONTH_FIELDS.find(m => m.idx === monthIdx);
   if (!mf) return;
   row[mf.col] += amount;
+}
+
+function normalizeRecordType(r) {
+  if (r.recordType) return r.recordType;
+  if (r.kind === "REVENUE") return "Revenue";
+  if (r.source === "labor") return "Labor Cost";
+  if (r.source === "subs") return "Sub Cost";
+  if (r.source === "odc") return "ODC Cost";
+  return "Other";
+}
+
+function normalizeIsRevenue(r) {
+  if (r.isRevenue === "Y" || r.isRevenue === "N") return r.isRevenue;
+  return r.kind === "REVENUE" ? "Y" : "N";
 }
 
 // ─────────────────────────────────────────────
@@ -254,7 +304,7 @@ async function loadLaborCosts(client, projectIds, ctx) {
   const byKey = new Map();
 
   for (const row of hours) {
-    const projMeta = _projectMeta[row.project_id];
+    const projMeta = _costProjectMeta(row.project_id);
     if (!projMeta) continue;
 
     const emp = empMap.get(row.employee_id);
@@ -265,13 +315,18 @@ async function loadLaborCosts(client, projectIds, ctx) {
     const key = `${row.project_id}::${row.employee_id}`;
     if (!byKey.has(key)) {
       const who = emp?.full_name || "(Unknown employee)";
-      const role = emp?.department_name || "";
+      const dept = emp?.department_name || "";
       const rec = {
         kind: "COST",
+        recordType: "Labor Cost",
+        isRevenue: "N",
         source: "labor",
+        project_id: projMeta.project_id,
+        project_code: projMeta.project_code,
         project_label: projMeta.label,
         who,
-        desc: role,
+        dept,
+        desc: dept, // keep dept as description as well if you like
       };
       ensureMonthFields(rec);
       byKey.set(key, rec);
@@ -282,6 +337,11 @@ async function loadLaborCosts(client, projectIds, ctx) {
   }
 
   return Array.from(byKey.values());
+}
+
+// small helper to safely get project meta
+function _costProjectMeta(projectId) {
+  return _projectMeta[projectId] || null;
 }
 
 // ─────────────────────────────────────────────
@@ -317,7 +377,7 @@ async function loadSubsOdcCosts(client, projectIds, ctx) {
   const byKey = new Map();
 
   for (const line of data) {
-    const projMeta = _projectMeta[line.project_id];
+    const projMeta = _costProjectMeta(line.project_id);
     const projectLabel = projMeta?.label || line.project_name || "(Project)";
 
     const typeCode = line.entry_types?.code;
@@ -327,6 +387,7 @@ async function loadSubsOdcCosts(client, projectIds, ctx) {
       line.resource_name ||
       (isSubs ? "Subcontractor" : "ODC");
 
+    // Description from Subs&ODC tab:
     const desc =
       line.description ||
       (isSubs ? "Subcontractor cost" : "Other direct cost");
@@ -335,9 +396,14 @@ async function loadSubsOdcCosts(client, projectIds, ctx) {
     if (!byKey.has(key)) {
       const rec = {
         kind: "COST",
+        recordType: isSubs ? "Sub Cost" : "ODC Cost",
+        isRevenue: "N",
         source: isSubs ? "subs" : "odc",
+        project_id: projMeta?.project_id || line.project_id,
+        project_code: projMeta?.project_code || "",
         project_label: projectLabel,
         who,
+        dept: "", // not applicable here
         desc,
       };
       ensureMonthFields(rec);
@@ -409,7 +475,7 @@ async function loadTmRevenueRowsForCost(client, ctx) {
     const byProject = new Map();
 
     for (const row of hours) {
-      const projMeta = _projectMeta[row.project_id];
+      const projMeta = _costProjectMeta(row.project_id);
       if (!projMeta) continue;
 
       const emp = empMap.get(row.employee_id) || {};
@@ -429,8 +495,14 @@ async function loadTmRevenueRowsForCost(client, ctx) {
       if (!byProject.has(key)) {
         const rec = {
           kind: "REVENUE",
+          recordType: "Revenue",
+          isRevenue: "Y",
+          source: "revenue_tm",
+          project_id: projMeta.project_id,
+          project_code: projMeta.project_code,
           project_label: projMeta.label,
-          who: "REVENUE – T&M Labor",
+          who: "T&M Labor",
+          dept: "",
           desc: "Hours × billing rates",
         };
         ensureMonthFields(rec);
@@ -480,15 +552,21 @@ async function loadSubsOdcRevenueRowsForCost(client, ctx) {
       const etCode = line.entry_types?.code || "";
       if (etCode !== "SUBC_COST" && etCode !== "ODC_COST") return;
 
-      const projMeta = _projectMeta[line.project_id];
+      const projMeta = _costProjectMeta(line.project_id);
       if (!projMeta) return;
 
       const key = line.project_id;
       if (!byProject.has(key)) {
         const rec = {
           kind: "REVENUE",
+          recordType: "Revenue",
+          isRevenue: "Y",
+          source: "revenue_subs_odc",
+          project_id: projMeta.project_id,
+          project_code: projMeta.project_code,
           project_label: projMeta.label,
-          who: "REVENUE – Subs & ODC",
+          who: "Subs & ODC",
+          dept: "",
           desc: "Revenue equal to Subs & ODC cost",
         };
         ensureMonthFields(rec);
@@ -508,7 +586,7 @@ async function loadSubsOdcRevenueRowsForCost(client, ctx) {
   }
 }
 
-// Manual revenue (is_revenue = true) – aggregate per project
+// Manual revenue (is_revenue = true) – aggregate per project + type
 async function loadManualRevenueRowsForCost(client, ctx) {
   try {
     const projectIds = _costProjectIds;
@@ -547,7 +625,7 @@ async function loadManualRevenueRowsForCost(client, ctx) {
     const byProjectType = new Map();
 
     data.forEach(line => {
-      const projMeta = _projectMeta[line.project_id];
+      const projMeta = _costProjectMeta(line.project_id);
       const projLabel = projMeta?.label || line.project_name || "";
 
       const etCode = line.entry_types?.code || "";
@@ -557,8 +635,14 @@ async function loadManualRevenueRowsForCost(client, ctx) {
       if (!byProjectType.has(key)) {
         const rec = {
           kind: "REVENUE",
+          recordType: "Revenue",
+          isRevenue: "Y",
+          source: "revenue_manual",
+          project_id: projMeta?.project_id || line.project_id,
+          project_code: projMeta?.project_code || "",
           project_label: projLabel,
-          who: `REVENUE – ${typeLabel}`,
+          who: typeLabel,
+          dept: "",
           desc: typeLabel,
         };
         ensureMonthFields(rec);
@@ -609,11 +693,35 @@ async function refreshCost(root, client) {
       loadAllRevenueForCost(client, ctx),
     ]);
 
-    const allRows = [
+    let allRows = [
       ...(laborRows || []),
       ...(subsOdcRows || []),
       ...(revenueRows || []),
     ];
+
+    // Normalize & sort by record type, then project code
+    allRows.forEach(r => {
+      r.recordType = normalizeRecordType(r);
+      r.isRevenue = normalizeIsRevenue(r);
+    });
+
+    allRows.sort((a, b) => {
+      const ta = RECORD_TYPE_ORDER[a.recordType] || 99;
+      const tb = RECORD_TYPE_ORDER[b.recordType] || 99;
+      if (ta !== tb) return ta - tb;
+
+      const pa = a.project_code || "";
+      const pb = b.project_code || "";
+      if (pa < pb) return -1;
+      if (pa > pb) return 1;
+
+      // tie-breaker on who/desc
+      const wa = a.who || "";
+      const wb = b.who || "";
+      if (wa < wb) return -1;
+      if (wa > wb) return 1;
+      return 0;
+    });
 
     _lastCostRows = allRows;
     renderCost(root, allRows);
@@ -633,7 +741,7 @@ function renderCost(root, rows) {
   if (!tbody) return;
 
   if (!rows?.length) {
-    tbody.innerHTML = `<tr><td colspan="16" class="text-center py-10 text-slate-500 text-xs">No cost lines found for this project and plan.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="19" class="text-center py-10 text-slate-500 text-xs">No cost lines found for this project and plan.</td></tr>`;
     return;
   }
 
@@ -657,12 +765,21 @@ function renderCost(root, rows) {
 
     tr.innerHTML = `
       <td class="cost-grid-sticky cost-col-1 px-3 py-1 text-[11px] font-medium text-slate-900">
+        ${r.recordType || ""}
+      </td>
+      <td class="cost-grid-sticky cost-col-2 px-3 py-1 text-[11px] font-medium text-slate-900">
         ${r.project_label || ""}
       </td>
-      <td class="cost-grid-sticky cost-col-2 px-3 py-1 text-[11px] font-medium text-slate-800">
+      <td class="cost-grid-sticky cost-col-3 px-3 py-1 text-[11px] font-medium text-slate-800">
         ${r.who || ""}
       </td>
-      <td class="cost-grid-sticky cost-col-3 px-3 py-1 text-[11px] text-slate-600 italic">
+      <td class="px-2 py-1 text-center text-[11px] text-slate-900">
+        ${normalizeIsRevenue(r)}
+      </td>
+      <td class="px-3 py-1 text-[11px] text-slate-700">
+        ${r.dept || ""}
+      </td>
+      <td class="px-3 py-1 text-[11px] text-slate-600 italic">
         ${r.desc || ""}
       </td>
       ${monthCells}
@@ -684,8 +801,11 @@ function exportCostToCsv(ctx) {
   }
 
   const headers = [
+    "Record Type",
+    "Is Revenue",
     "Project",
     "Person / Vendor / Category",
+    "Dept",
     "Role / Description",
     ...MONTH_FIELDS.map(m => m.label),
     "Total",
@@ -709,8 +829,11 @@ function exportCostToCsv(ctx) {
     });
 
     const rowVals = [
+      r.recordType || normalizeRecordType(r),
+      normalizeIsRevenue(r),
       r.project_label || "",
       r.who || "",
+      r.dept || "",
       r.desc || "",
       ...monthVals,
       fmtNum(total),
@@ -744,6 +867,9 @@ function exportCostToCsv(ctx) {
 
   const totalRow = [
     "Totals",
+    "",
+    "",
+    "",
     "",
     "",
     ...MONTH_FIELDS.map(m => fmtNum(monthTotals[m.col])),
