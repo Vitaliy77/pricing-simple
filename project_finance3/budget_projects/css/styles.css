@@ -4,7 +4,7 @@
 body {
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
     sans-serif;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.4;
   background-color: #f1f5f9; /* slate-100 */
   color: #0f172a; /* slate-900 */
@@ -19,18 +19,18 @@ body {
 
 /* Default text inside the main app shell */
 .app-root {
-  font-size: 13px;         /* slightly smaller for app UI */
+  font-size: 14px;         /* slightly smaller for app UI */
 }
 
 /* Small helper for microcopy / helper text */
 .app-microcopy {
-  font-size: 11px;
+  font-size: 14px;
   color: #6b7280;
 }
 
 /* Standard label text */
 .app-label {
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 500;
   color: #374151;
 }
