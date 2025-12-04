@@ -13,7 +13,7 @@ import { laborHoursTab } from "./tabs/laborHours.js";
 import { subsOdcInputsTab } from "./tabs/subsOdcInputs.js";
 import { adminTab } from "./tabs/admin.js";
 import { pnlTab } from "./tabs/pnl.js";
-import { userAdminTab } from "./userAdmin.js";
+import { userAdminTab } from "./tabs/userAdmin.js";
 
 const tabs = {
   auth: authTab,
