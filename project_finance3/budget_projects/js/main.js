@@ -13,6 +13,7 @@ import { laborHoursTab } from "./tabs/laborHours.js";
 import { subsOdcInputsTab } from "./tabs/subsOdcInputs.js";
 import { adminTab } from "./tabs/admin.js";
 import { pnlTab } from "./tabs/pnl.js";
+import { userAdminTab } from "./userAdmin.js";
 
 const tabs = {
   auth: authTab,
@@ -25,7 +26,8 @@ const tabs = {
   laborHours: laborHoursTab,        // NEW
   subsOdcInputs: subsOdcInputsTab,  // NEW
   admin: adminTab,
-  pnl: pnlTab,    
+  pnl: pnlTab,
+  userAdmin: userAdminTab,
 };
 
 let currentSession = null;
