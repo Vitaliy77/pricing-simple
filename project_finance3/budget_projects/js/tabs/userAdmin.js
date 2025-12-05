@@ -1,6 +1,6 @@
 // js/userAdmin.js
-import { client } from "./api/supabase.js";
-import { $, h } from "./lib/dom.js";
+import { client } from "../api/supabase.js";
+import { $, h } from "../lib/dom.js";
 
 export const template = /*html*/ `
   <article class="full-width-card">
