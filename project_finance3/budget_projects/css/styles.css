@@ -9,32 +9,27 @@ body {
   background-color: #f1f5f9; /* slate-100 */
   color: #0f172a; /* slate-900 */
 }
-
 /* Base app typography */
 body {
-  font-size: 14px;         /* overall app base */
+  font-size: 14px; /* overall app base */
   line-height: 1.4;
   color: #0f172a;
 }
-
 /* Default text inside the main app shell */
 .app-root {
-  font-size: 14px;         /* slightly smaller for app UI */
+  font-size: 14px; /* slightly smaller for app UI */
 }
-
 /* Small helper for microcopy / helper text */
 .app-microcopy {
   font-size: 14px;
   color: #6b7280;
 }
-
 /* Standard label text */
 .app-label {
   font-size: 14px;
   font-weight: 500;
   color: #374151;
 }
-
 
 /* ────────────────────────────── */
 /* Top menu & tab buttons */
@@ -44,7 +39,6 @@ body {
   top: 0;
   z-index: 50;
 }
-
 /* Generic top nav tab button */
 .tab-btn {
   display: inline-flex;
@@ -88,19 +82,16 @@ body {
   border: 1px solid #e2e8f0;
   box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
   overflow: hidden;
-
   /* Beautiful ~5–6 mm breathing room on both sides */
   padding-left: 1.5rem;
   padding-right: 1.5rem;
 }
-
 @media (min-width: 1024px) {
   .full-width-card {
     padding-left: 2rem;
     padding-right: 2rem;
   }
 }
-
 /* Optional: tight version without padding (rarely needed) */
 .full-width-card-tight {
   padding-left: 0 !important;
@@ -116,7 +107,6 @@ body {
   border: 1px solid #e2e8f0;
   background-color: #ffffff;
 }
-
 .data-table {
   width: 100%;
   border-collapse: collapse;
@@ -151,6 +141,46 @@ body {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
+
+/* ────────────────────────────── */
+/* NEW: Review / Revenue Table – Scrollable + Sticky Columns */
+/* ────────────────────────────── */
+.rev-table-wrapper {
+  position: relative;
+  width: 100%;
+  max-height: 520px;
+  overflow-y: auto;
+  overflow-x: auto;
+  background-color: #f8fafc; /* added */
+}
+
+.rev-table th,
+.rev-table td {
+  padding: 2px 4px;
+  white-space: nowrap;
+  background-clip: padding-box;
+}
+
+/* Sticky columns */
+.rev-sticky-1,
+.rev-sticky-2,
+.rev-sticky-3 {
+  position: sticky;
+  z-index: 5; /* above normal cells */
+  background-color: #f8fafc; /* opaque */
+}
+
+/* Sticky header cells need to be above sticky body cells */
+.rev-table thead .rev-sticky-1,
+.rev-table thead .rev-sticky-2,
+.rev-table thead .rev-sticky-3 {
+  z-index: 6;
+}
+
+/* Column widths (for JS-calculated sticky positioning) */
+.rev-col-project { width: 12rem; }
+.rev-col-type    { width: 10rem; }
+.rev-col-desc    { width: 18rem; }
 
 /* ────────────────────────────── */
 /* Sticky columns for Cost Budget */
