@@ -27,22 +27,32 @@
     </div>
   </section>
 
-  <!-- APP HEADER -->
-  <header class="bg-white border-b border-slate-200 px-6 py-5">
-    <div class="flex justify-between items-start">
+  <!-- APP HEADER – NEW COMPACT DESIGN -->
+  <header class="bg-white border-b border-slate-200 px-6 py-3">
+    <div class="flex justify-between items-center">
       <div class="app-title">
-        <h1 class="text-2xl font-bold text-slate-900">Project Planning App</h1>
-        <div id="planContextHeader" class="text-sm font-medium text-blue-700 mt-1"></div>
-        <div id="currentProject" class="text-lg font-semibold text-slate-800 mt-2"></div>
+        <!-- Single line: app name + plan context, same size -->
+        <div class="flex flex-wrap items-baseline gap-2">
+          <span class="text-sm font-semibold text-slate-900">
+            Project Planning App ·
+          </span>
+          <span id="planContextHeader" class="text-sm font-medium text-blue-700"></span>
+        </div>
+
+        <!-- Optional second line for current project, smaller and lighter -->
+        <div id="currentProject" class="text-xs font-medium text-slate-600 mt-1"></div>
       </div>
+
       <div class="text-right">
-        <span id="currentUser" class="text-sm font-medium text-slate-600">Not signed in</span>
+        <span id="currentUser" class="text-sm font-medium text-slate-600">
+          Not signed in
+        </span>
       </div>
     </div>
   </header>
 
-  <!-- MAIN CONTENT -->
-  <main class="container mx-auto px-6 py-8 max-w-screen-2xl">
+  <!-- MAIN CONTENT – REDUCED TOP PADDING -->
+  <main class="container mx-auto px-6 py-4 max-w-screen-2xl">
     <section id="appMain" class="tab-content">
       <!-- All tabs load here -->
     </section>
@@ -60,48 +70,35 @@
     (function () {
       if (!window.Chart) return;
 
-      // Register the datalabels plugin only if it exists
       if (window.ChartDataLabels) {
         Chart.register(window.ChartDataLabels);
       }
 
       const defaults = Chart.defaults;
-
-      // Base font + colors
       defaults.font = defaults.font || {};
-      defaults.font.family =
-        'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+      defaults.font.family = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
       defaults.font.size = 13;
-      defaults.color = '#475569'; // slate-600
+      defaults.color = '#475569';
 
-      // Make sure plugins object exists
       defaults.plugins = defaults.plugins || {};
-
-      // Legend defaults
       defaults.plugins.legend = defaults.plugins.legend || {};
       defaults.plugins.legend.labels = defaults.plugins.legend.labels || {};
-      defaults.plugins.legend.labels.font =
-        defaults.plugins.legend.labels.font || {};
+      defaults.plugins.legend.labels.font = defaults.plugins.legend.labels.font || {};
       defaults.plugins.legend.labels.font.size = 12;
       defaults.plugins.legend.labels.boxWidth = 10;
       defaults.plugins.legend.labels.padding = 12;
 
-      // Tooltip defaults
       defaults.plugins.tooltip = defaults.plugins.tooltip || {};
-      defaults.plugins.tooltip.titleFont =
-        defaults.plugins.tooltip.titleFont || {};
-      defaults.plugins.tooltip.bodyFont =
-        defaults.plugins.tooltip.bodyFont || {};
+      defaults.plugins.tooltip.titleFont = defaults.plugins.tooltip.titleFont || {};
+      defaults.plugins.tooltip.bodyFont = defaults.plugins.tooltip.bodyFont || {};
       defaults.plugins.tooltip.titleFont.size = 13;
       defaults.plugins.tooltip.bodyFont.size = 13;
       defaults.plugins.tooltip.padding = 10;
       defaults.plugins.tooltip.cornerRadius = 6;
 
-      // DataLabels defaults – create object before touching nested props
       defaults.plugins.datalabels = defaults.plugins.datalabels || {};
-      defaults.plugins.datalabels.display = false; // default off, enable per chart
-      defaults.plugins.datalabels.font =
-        defaults.plugins.datalabels.font || {};
+      defaults.plugins.datalabels.display = false;
+      defaults.plugins.datalabels.font = defaults.plugins.datalabels.font || {};
       defaults.plugins.datalabels.font.weight = '600';
       defaults.plugins.datalabels.font.size = 12;
       defaults.plugins.datalabels.color = '#1e293b';
@@ -109,9 +106,7 @@
       defaults.plugins.datalabels.align = 'top';
       defaults.plugins.datalabels.formatter = (value) => {
         if (typeof value === 'number' && value >= 1000) {
-          return value.toLocaleString(undefined, {
-            maximumFractionDigits: 0,
-          });
+          return value.toLocaleString(undefined, { maximumFractionDigits: 0 });
         }
         return value;
       };
