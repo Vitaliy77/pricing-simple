@@ -32,42 +32,134 @@ body {
 }
 
 /* ────────────────────────────── */
-/* Top menu & tab buttons */
+/* TOP MENU – MODERN GLASS + EQUAL-WIDTH TABS */
 /* ────────────────────────────── */
 .top-menu {
   position: sticky;
   top: 0;
   z-index: 50;
+  background: rgba(30, 64, 175, 0.9); /* deep blue with 90% opacity */
+  backdrop-filter: blur(10px);
 }
-/* Generic top nav tab button */
+
+/* Cleaner horizontal scrollbar */
+.top-menu .flex {
+  scrollbar-width: thin;
+}
+.top-menu .flex::-webkit-scrollbar {
+  height: 6px;
+}
+.top-menu .flex::-webkit-scrollbar-thumb {
+  border-radius: 9999px;
+}
+
+/* TAB BUTTON BASE STYLE – FULLY REPLACED */
 .tab-btn {
+  flex: 1 0 0; /* equal width tabs */
+  min-width: 7rem;
+  box-sizing: border-box;
+
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0.375rem 0.75rem;
-  margin-right: 0.5rem;
-  border-radius: 9999px;
-  font-size: 12px;
-  font-weight: 500;
+  padding: 0.45rem 0.75rem;
   white-space: nowrap;
-  border: 1px solid #2563eb;
-  background-color: #2563eb;
-  color: #ffffff;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.15);
+  font-size: 0.875rem;
+  font-weight: 500;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  line-height: 1.2;
+  text-align: center;
+
+  color: #e5e7eb;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(0, 0, 0, 0.85);
+  border-radius: 9999px;
+
   cursor: pointer;
-  transition: background-color 0.15s ease, border-color 0.15s ease,
-    color 0.15s ease, box-shadow 0.15s ease;
+  position: relative;              /* so underline indicator can be positioned */
+  transform-origin: center bottom; /* grow “upwards” more than sideways */
+
+  transition:
+    background-color 150ms ease,
+    transform 150ms ease,
+    box-shadow 150ms ease,
+    font-weight 150ms ease;
 }
+
+/* Small icon in tabs */
+.tab-icon {
+  width: 14px;
+  height: 14px;
+  margin-right: 0.35rem;
+  flex-shrink: 0;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.7;
+}
+
+/* Focus handling */
+.tab-btn:focus {
+  outline: none;
+}
+.tab-btn:focus-visible {
+  box-shadow: 0 0 0 2px #93c5fd;
+}
+
+/* Hover state – ~12–15% size bump, bold */
 .tab-btn:hover {
-  background-color: #1d4ed8;
-  border-color: #1d4ed8;
+  background: rgba(255, 255, 255, 0.16);
+  font-weight: 600;
+  transform: scale(1.12);
+  z-index: 10;
+  box-shadow:
+    0 8px 16px rgba(15, 23, 42, 0.35),
+    0 0 0 1px rgba(15, 23, 42, 0.5);
 }
+
+/* Active tab (current view) */
 .tab-btn.active,
-.tab-btn-active {
-  background-color: #ffffff;
-  color: #1d4ed8;
-  border-color: #ffffff;
-  box-shadow: 0 2px 4px rgba(15, 23, 42, 0.18);
+.tab-btn[aria-selected="true"] {
+  background: rgba(248, 250, 252, 0.98);
+  color: #1e293b;
+  font-weight: 700;
+  transform: scale(1.12);
+  box-shadow:
+    0 10px 18px rgba(15, 23, 42, 0.45),
+    0 0 0 1px rgba(15, 23, 42, 0.7);
+}
+
+/* Underline indicator for active tab */
+.tab-btn.active::after,
+.tab-btn[aria-selected="true"]::after {
+  content: "";
+  position: absolute;
+  left: 18%;
+  right: 18%;
+  bottom: -6px;
+  height: 3px;
+  border-radius: 9999px;
+  background: linear-gradient(to right, #93c5fd, #1d4ed8);
+  opacity: 0.95;
+}
+
+/* Mouse-down “press” – slightly stronger pop than hover */
+.tab-btn:active {
+  transform: scale(1.15);
+}
+
+/* ────────────────────────────── */
+/* APP HEADER – MATCH TOP MENU STYLE */
+/* ────────────────────────────── */
+.app-header {
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid #e2e8f0;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
+}
+
+/* Slight refinement for app title block (optional) */
+.app-header .app-title span:first-child {
+  letter-spacing: 0.02em;
 }
 
 /* ────────────────────────────── */
@@ -82,7 +174,6 @@ body {
   border: 1px solid #e2e8f0;
   box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
   overflow: hidden;
-  /* Beautiful ~5–6 mm breathing room on both sides */
   padding-left: 1.5rem;
   padding-right: 1.5rem;
 }
@@ -92,7 +183,6 @@ body {
     padding-right: 2rem;
   }
 }
-/* Optional: tight version without padding (rarely needed) */
 .full-width-card-tight {
   padding-left: 0 !important;
   padding-right: 0 !important;
@@ -151,33 +241,26 @@ body {
   max-height: 520px;
   overflow-y: auto;
   overflow-x: auto;
-  background-color: #f8fafc; /* added */
+  background-color: #f8fafc;
 }
-
 .rev-table th,
 .rev-table td {
   padding: 2px 4px;
   white-space: nowrap;
   background-clip: padding-box;
 }
-
-/* Sticky columns */
 .rev-sticky-1,
 .rev-sticky-2,
 .rev-sticky-3 {
   position: sticky;
-  z-index: 5; /* above normal cells */
-  background-color: #f8fafc; /* opaque */
+  z-index: 5;
+  background-color: #f8fafc;
 }
-
-/* Sticky header cells need to be above sticky body cells */
 .rev-table thead .rev-sticky-1,
 .rev-table thead .rev-sticky-2,
 .rev-table thead .rev-sticky-3 {
   z-index: 6;
 }
-
-/* Column widths (for JS-calculated sticky positioning) */
 .rev-col-project { width: 12rem; }
 .rev-col-type    { width: 10rem; }
 .rev-col-desc    { width: 18rem; }
