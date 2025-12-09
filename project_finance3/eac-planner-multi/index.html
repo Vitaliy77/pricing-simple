@@ -11,56 +11,16 @@
   <nav class="bg-blue-950 text-blue-50 sticky top-0 z-50 shadow-md">
     <div class="w-full px-6 py-2">
       <ul id="tabs" class="flex flex-wrap justify-end gap-2 py-2 text-sm font-semibold">
-        <li>
-          <a href="#visuals" class="tab-link inline-flex items-center justify-center px-4 py-2 text-slate-100 border border-transparent rounded-md hover:bg-blue-800 hover:text-white transition min-w-[7.5rem]">
-            Charts
-          </a>
-        </li>
-        <li>
-          <a href="#benchmarks" class="tab-link inline-flex items-center justify-center px-4 py-2 text-slate-100 border border-transparent rounded-md hover:bg-blue-800 hover:text-white transition min-w-[7.5rem]">
-            Benchmarks
-          </a>
-        </li>
-        <li>
-          <a href="#pnl" class="tab-link inline-flex items-center justify-center px-4 py-2 text-slate-100 border border-transparent rounded-md hover:bg-blue-800 hover:text-white transition min-w-[7.5rem]">
-            P&L
-          </a>
-        </li>
-        <li>
-          <a href="#project" class="tab-link inline-flex items-center justify-center px-4 py-2 text-slate-100 border border-transparent rounded-md hover:bg-blue-800 hover:text-white transition min-w-[7.5rem]">
-            Project
-          </a>
-        </li>
-        <li>
-          <a href="#plan-employees" class="tab-link inline-flex items-center justify-center px-4 py-2 text-slate-100 border border-transparent rounded-md hover:bg-blue-800 hover:text-white transition min-w-[7.5rem]">
-            Labor
-          </a>
-        </li>
-        <li>
-          <a href="#plan-subs" class="tab-link inline-flex items-center justify-center px-4 py-2 text-slate-100 border border-transparent rounded-md hover:bg-blue-800 hover:text-white transition min-w-[7.5rem]">
-            Subs
-          </a>
-        </li>
-        <li>
-          <a href="#plan-equipment" class="tab-link inline-flex items-center justify-center px-4 py-2 text-slate-100 border border-transparent rounded-md hover:bg-blue-800 hover:text-white transition min-w-[7.5rem]">
-            Equip
-          </a>
-        </li>
-        <li>
-          <a href="#plan-materials" class="tab-link inline-flex items-center justify-center px-4 py-2 text-slate-100 border border-transparent rounded-md hover:bg-blue-800 hover:text-white transition min-w-[7.5rem]">
-            Materials
-          </a>
-        </li>
-        <li>
-          <a href="#plan-odc" class="tab-link inline-flex items-center justify-center px-4 py-2 text-slate-100 border border-transparent rounded-md hover:bg-blue-800 hover:text-white transition min-w-[7.5rem]">
-            ODC
-          </a>
-        </li>
-        <li>
-          <a href="#admin" class="tab-link inline-flex items-center justify-center px-4 py-2 text-slate-100 border border-transparent rounded-md hover:bg-blue-800 hover:text-white transition min-w-[7.5rem]">
-            Admin
-          </a>
-        </li>
+        <li><a href="#visuals" class="tab-link inline-flex items-center justify-center px-4 py-2 text-slate-100 border border-transparent rounded-md hover:bg-blue-800 hover:text-white transition min-w-[7.5rem]">Charts</a></li>
+        <li><a href="#benchmarks" class="tab-link inline-flex items-center justify-center px-4 py-2 text-slate-100 border border-transparent rounded-md hover:bg-blue-800 hover:text-white transition min-w-[7.5rem]">Benchmarks</a></li>
+        <li><a href="#pnl" class="tab-link inline-flex items-center justify-center px-4 py-2 text-slate-100 border border-transparent rounded-md hover:bg-blue-800 hover:text-white transition min-w-[7.5rem]">P&L</a></li>
+        <li><a href="#project" class="tab-link inline-flex items-center justify-center px-4 py-2 text-slate-100 border border-transparent rounded-md hover:bg-blue-800 hover:text-white transition min-w-[7.5rem]">Project</a></li>
+        <li><a href="#plan-employees" class="tab-link inline-flex items-center justify-center px-4 py-2 text-slate-100 border border-transparent rounded-md hover:bg-blue-800 hover:text-white transition min-w-[7.5rem]">Labor</a></li>
+        <li><a href="#plan-subs" class="tab-link inline-flex items-center justify-center px-4 py-2 text-slate-100 border border-transparent rounded-md hover:bg-blue-800 hover:text-white transition min-w-[7.5rem]">Subs</a></li>
+        <li><a href="#plan-equipment" class="tab-link inline-flex items-center justify-center px-4 py-2 text-slate-100 border border-transparent rounded-md hover:bg-blue-800 hover:text-white transition min-w-[7.5rem]">Equip</a></li>
+        <li><a href="#plan-materials" class="tab-link inline-flex items-center justify-center px-4 py-2 text-slate-100 border border-transparent rounded-md hover:bg-blue-800 hover:text-white transition min-w-[7.5rem]">Materials</a></li>
+        <li><a href="#plan-odc" class="tab-link inline-flex items-center justify-center px-4 py-2 text-slate-100 border border-transparent rounded-md hover:bg-blue-800 hover:text-white transition min-w-[7.5rem]">ODC</a></li>
+        <li><a href="#admin" class="tab-link inline-flex items-center justify-center px-4 py-2 text-slate-100 border border-transparent rounded-md hover:bg-blue-800 hover:text-white transition min-w-[7.5rem]">Admin</a></li>
       </ul>
     </div>
   </nav>
@@ -72,7 +32,6 @@
         <h1 class="text-2xl font-semibold tracking-tight text-slate-900">
           EAC Planner
         </h1>
-        <!-- This span will show: "– project [name]" on non-Project tabs -->
         <span id="projectHeaderName" class="text-base font-normal text-slate-500"></span>
       </div>
       <div class="hidden sm:flex items-center gap-3 text-xs text-slate-400">
@@ -170,8 +129,7 @@
     function toggleProjectBar() {
       const bar = document.getElementById('projectBar');
       if (!bar) return;
-      const hash = location.hash || '#visuals';
-      bar.classList.toggle('hidden', hash !== '#project');
+      bar.classList.toggle('hidden', location.hash !== '#project');
     }
     window.addEventListener('hashchange', toggleProjectBar);
     document.addEventListener('DOMContentLoaded', toggleProjectBar);
@@ -188,25 +146,20 @@
     document.addEventListener('DOMContentLoaded', togglePnlActions);
   </script>
 
-  <!-- Update header with selected project name on non-Project tabs -->
+  <!-- Update header with selected project name -->
   <script>
     function updateProjectHeaderFromSelect() {
       const headerSpan = document.getElementById('projectHeaderName');
       const select = document.getElementById('projectSelect');
       if (!headerSpan || !select) return;
 
-      const hash = location.hash || '#visuals';
-
-      // Hide project name on the Project tab itself
-      if (hash === '#project') {
+      if (location.hash === '#project') {
         headerSpan.textContent = '';
         return;
       }
 
       const selectedOption = select.options[select.selectedIndex];
       const name = selectedOption ? selectedOption.text.trim() : '';
-
-      // Avoid showing placeholder text
       if (name && !/loading projects/i.test(name)) {
         headerSpan.textContent = `– project ${name}`;
       } else {
@@ -216,11 +169,9 @@
 
     document.addEventListener('DOMContentLoaded', () => {
       const select = document.getElementById('projectSelect');
-      if (select) {
-        select.addEventListener('change', updateProjectHeaderFromSelect);
-      }
+      if (select) select.addEventListener('change', updateProjectHeaderFromSelect);
       window.addEventListener('hashchange', updateProjectHeaderFromSelect);
-      updateProjectHeaderFromSelect(); // initial run
+      updateProjectHeaderFromSelect();
     });
   </script>
 
@@ -230,6 +181,9 @@
   <script>
     if (window.Chart) window.Chart.register(window.ChartDataLabels);
   </script>
+
+  <!-- Supabase (global) – loaded once, available everywhere -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
   <!-- App -->
   <script type="module" src="js/main.js?v=admin-eq-auto2"></script>
