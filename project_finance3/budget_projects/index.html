@@ -11,27 +11,109 @@
 </head>
 <body class="min-h-screen bg-slate-50 antialiased">
   <!-- TOP TAB BAR -->
-  <section class="top-menu bg-blue-700 shadow-lg sticky top-0 z-50">
+  <section class="top-menu shadow-lg sticky top-0 z-50">
     <div class="flex overflow-x-auto px-4 py-3 gap-2">
-      <button data-tab="auth" class="tab-btn">Sign In</button>
-      <button data-tab="projectSelect" class="tab-btn">Projects</button>
-      <button data-tab="newProjects" class="tab-btn">New Project</button>
-      <button data-tab="summaryPlan" class="tab-btn">Charts</button>
-      <button data-tab="costBudget" class="tab-btn">Budget</button>
-      <button data-tab="revenueBudget" class="tab-btn">Revenue</button>
-      <button data-tab="laborHours" class="tab-btn">Labor</button>
-      <button data-tab="subsOdcInputs" class="tab-btn">Subs &amp; ODC</button>
-      <button data-tab="pnl" class="tab-btn">P&L</button>
-      <button data-tab="admin" class="tab-btn">Edit</button>
-      <button data-tab="userAdmin" class="tab-btn">Access</button>
+      <button data-tab="auth" class="tab-btn">
+        <svg class="tab-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="8" r="3"></circle>
+          <path d="M5 19c1.5-3 4-5 7-5s5.5 2 7 5"></path>
+        </svg>
+        <span>Sign In</span>
+      </button>
+
+      <button data-tab="projectSelect" class="tab-btn">
+        <svg class="tab-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <rect x="4" y="6" width="16" height="12" rx="2"></rect>
+          <path d="M4 10h16"></path>
+        </svg>
+        <span>Projects</span>
+      </button>
+
+      <button data-tab="newProjects" class="tab-btn">
+        <svg class="tab-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <rect x="4" y="5" width="16" height="14" rx="2"></rect>
+          <path d="M12 9v6M9 12h6"></path>
+        </svg>
+        <span>New Project</span>
+      </button>
+
+      <button data-tab="summaryPlan" class="tab-btn">
+        <svg class="tab-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M5 19V10"></path>
+          <path d="M10 19V5"></path>
+          <path d="M15 19v-7"></path>
+          <path d="M20 19v-4"></path>
+        </svg>
+        <span>Charts</span>
+      </button>
+
+      <button data-tab="costBudget" class="tab-btn">
+        <svg class="tab-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <rect x="4" y="5" width="16" height="14" rx="2"></rect>
+          <path d="M4 10h16M9 5v14"></path>
+        </svg>
+        <span>Budget</span>
+      </button>
+
+      <button data-tab="revenueBudget" class="tab-btn">
+        <svg class="tab-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M8 8.5C8 7.1 9.3 6 11 6h2c1.7 0 3 1.1 3 2.5S14.7 11 13 11h-2c-1.7 0-3 1.1-3 2.5S9.3 16 11 16h2"></path>
+          <path d="M12 4v2M12 16v4"></path>
+        </svg>
+        <span>Revenue</span>
+      </button>
+
+      <button data-tab="laborHours" class="tab-btn">
+        <svg class="tab-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="8" cy="8" r="2.5"></circle>
+          <circle cx="16" cy="8" r="2.5"></circle>
+          <path d="M4.5 18c.8-2.3 2.2-3.5 3.5-3.5s2.7 1.2 3.5 3.5"></path>
+          <path d="M12.5 18c.8-2.3 2.2-3.5 3.5-3.5s2.7 1.2 3.5 3.5"></path>
+        </svg>
+        <span>Labor</span>
+      </button>
+
+      <button data-tab="subsOdcInputs" class="tab-btn">
+        <svg class="tab-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <rect x="4" y="5" width="7" height="6" rx="1.5"></rect>
+          <rect x="13" y="5" width="7" height="6" rx="1.5"></rect>
+          <rect x="4" y="13" width="7" height="6" rx="1.5"></rect>
+          <rect x="13" y="13" width="7" height="6" rx="1.5"></rect>
+        </svg>
+        <span>Subs &amp; ODC</span>
+      </button>
+
+      <button data-tab="pnl" class="tab-btn">
+        <svg class="tab-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M4 18l6-6 4 3 6-7"></path>
+          <path d="M4 6h4M4 10h2"></path>
+        </svg>
+        <span>P&amp;L</span>
+      </button>
+
+      <button data-tab="admin" class="tab-btn">
+        <svg class="tab-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M5 20l3.5-1 2.5 1 3.5-1 2.5 1V6L16 5l-3.5 1L10 5 6.5 6 5 5z"></path>
+          <path d="M10 9h4"></path>
+        </svg>
+        <span>Edit</span>
+      </button>
+
+      <button data-tab="userAdmin" class="tab-btn">
+        <svg class="tab-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <rect x="6" y="10" width="12" height="9" rx="2"></rect>
+          <path d="M9 10V8a3 3 0 0 1 6 0v2"></path>
+        </svg>
+        <span>Access</span>
+      </button>
     </div>
   </section>
 
-  <!-- APP HEADER – NEW COMPACT DESIGN -->
-  <header class="bg-white border-b border-slate-200 px-6 py-3">
+  <!-- APP HEADER – MATCHED STYLE -->
+  <header class="app-header px-6 py-3">
     <div class="flex justify-between items-center">
       <div class="app-title">
-        <!-- Single line: app name + plan context, same size -->
+        <!-- Single line: app name + plan context -->
         <div class="flex flex-wrap items-baseline gap-2">
           <span class="text-sm font-semibold text-slate-900">
             Project Planning App ·
@@ -39,7 +121,7 @@
           <span id="planContextHeader" class="text-sm font-medium text-blue-700"></span>
         </div>
 
-        <!-- Optional second line for current project, smaller and lighter -->
+        <!-- Optional second line for current project -->
         <div id="currentProject" class="text-xs font-medium text-slate-600 mt-1"></div>
       </div>
 
