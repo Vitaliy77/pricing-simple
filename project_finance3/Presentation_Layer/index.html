@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AI Finance Automation Hub</title>
+  <title>Finance Automation Hub with AI</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     body { overflow: hidden; background: #000; color: white; }
-    
+
     /* AI Core in the center */
     .ai-core {
       position: fixed;
@@ -19,32 +19,41 @@
       box-shadow: 0 0 100px #00ffff, 0 0 200px #0066ff;
       animation: pulse 4s infinite;
       z-index: 5;
+      pointer-events: none;
     }
     @keyframes pulse {
       0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.8; }
       50% { transform: translate(-50%, -50%) scale(1.15); opacity: 1; }
     }
 
-    /* Flying paper chaos (left side) */
-    .paper {
+    /* Floating keyword chips (left → core) */
+    .keyword {
       position: absolute;
-      width: 60px; height: 80px;
-      background: white;
-      border: 1px solid #ccc;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.5);
-      color: #000;
-      font-size: 10px;
-      padding: 8px;
-      writing-mode: vertical-rl;
-      animation: fly-left-to-core 12s linear infinite;
+      padding: 6px 12px;
+      border-radius: 9999px;
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(56, 189, 248, 0.7); /* cyan-400 */
+      box-shadow:
+        0 0 12px rgba(8, 145, 178, 0.7),
+        0 0 30px rgba(56, 189, 248, 0.5);
+      font-size: 0.75rem;
+      white-space: nowrap;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      color: #e5f9ff;
+      animation: keyword-left-to-core 16s linear infinite;
+      pointer-events: none;
+      z-index: 2;
     }
-    .calc, .stamp, .excel {
-      position: absolute;
-      font-size: 40px;
-      opacity: 0.7;
-      animation: fly-left-to-core 10s linear infinite;
+
+    @keyframes keyword-left-to-core {
+      0%   { transform: translateX(-120vw); opacity: 0; }
+      10%  { opacity: 1; }
+      70%  { transform: translateX(-10vw); opacity: 1; }
+      85%  { transform: translateX(0); opacity: 0.7; }
+      100% { transform: translateX(10vw); opacity: 0; }
     }
-    .stamp { color: #c00; transform: rotate(-20deg); }
 
     /* Clean dashboards coming out (right side) */
     .dashboard {
@@ -55,19 +64,16 @@
       border-radius: 12px;
       backdrop-filter: blur(10px);
       box-shadow: 0 0 30px #00ffff;
-      animation: fly-core-to-right 8s linear infinite;
+      animation: fly-core-to-right 10s linear infinite;
+      pointer-events: none;
+      z-index: 1;
     }
 
-    @keyframes fly-left-to-core {
-      0%   { left: -100px; top: random(100)vh; transform: rotate(0deg) scale(1); opacity: 0; }
-      20%  { opacity: 1; }
-      80%  { left: 50%; top: 50%; transform: translate(-50%, -50%) rotate(720deg) scale(0.1); opacity: 0.3; }
-      100% { left: 50%; top: 50%; transform: translate(-50%, -50%) scale(0); opacity: 0; }
-    }
     @keyframes fly-core-to-right {
-      0%   { left: 50%; top: 50%; transform: translate(-50%, -50%) scale(0.1); opacity: 0; }
-      20%  { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-      100% { left: 120vw; top: random(100)vh; transform: rotate(360deg) scale(1); opacity: 0; }
+      0%   { transform: translate(0, 0) scale(0.1); opacity: 0; left: 50%; top: 50%; }
+      10%  { opacity: 1; transform: translate(20vw, -5vh) scale(0.9); }
+      60%  { opacity: 1; transform: translate(55vw, var(--dash-offset-y)) scale(1); }
+      100% { opacity: 0; transform: translate(120vw, var(--dash-offset-y)) scale(1); }
     }
   </style>
 </head>
@@ -76,88 +82,112 @@
   <!-- AI Core -->
   <div class="ai-core"></div>
 
-  <!-- Background elements will be injected by JS -->
+  <!-- Background elements -->
   <div id="chaos"></div>
   <div id="clarity"></div>
 
-  <!-- Content -->
-  <div class="relative z-10 container mx-auto px-8 pt-32">
-    <h1 class="text-center text-6xl md:text-8xl font-black mb-6">
-      <span class="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
-        AI Finance Automation
-      </span>
-    </h1>
-    <p class="text-center text-xl md:text-2xl text-cyan-300 mb-16 max-w-4xl mx-auto">
-      End manual data entry, Excel hell, and late-night reconciliations.<br>
-      Our AI turns chaos into instant insights.
-    </p>
-
-    <!-- App Cards Grid -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6 max-w-7xl mx-auto">
-      <!-- Oyster app -->
-      <a href="https://oyster-app-5trn4.ondigitalocean.app/" target="_blank" rel="noopener noreferrer"
-         class="card rounded-2xl p-5 group bg-white/5 backdrop-blur-xl border border-cyan-500/30 hover:border-cyan-400 hover:bg-white/10 transition">
-        <div class="text-4xl mb-3 text-cyan-400 group-hover:scale-110 transition">🦪</div>
-        <h3 class="text-lg font-bold text-cyan-300 mb-1">Oyster EAC Sandbox</h3>
-        <p class="text-xs text-gray-300">
-          Explore scenarios and surface hidden “pearls” in your project data.
+  <!-- Foreground content (flex column, cards stuck to bottom) -->
+  <div class="relative z-10 flex flex-col min-h-screen">
+    <div class="container mx-auto px-8 pt-20 pb-8 flex flex-col flex-1">
+      <!-- Heading / hero -->
+      <div class="text-center mb-10">
+        <h1 class="text-5xl md:text-7xl font-black mb-4">
+          <span class="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
+            AI Finance Automation
+          </span>
+        </h1>
+        <p class="text-lg md:text-2xl text-cyan-300 max-w-4xl mx-auto">
+          End manual data entry, Excel hell, and late-night reconciliations.<br>
+          Our AI turns chaos into instant insights.
         </p>
-        <div class="mt-4 text-cyan-400 font-semibold text-sm group-hover:text-white">
-          Open
-        </div>
-      </a>
+      </div>
 
-      <!-- King Prawn app -->
-      <a href="https://king-prawn-app-8wlzi.ondigitalocean.app/" target="_blank" rel="noopener noreferrer"
-         class="card rounded-2xl p-5 group bg-white/5 backdrop-blur-xl border border-cyan-500/30 hover:border-cyan-400 hover:bg-white/10 transition">
-        <div class="text-4xl mb-3 text-cyan-400 group-hover:scale-110 transition">🍤</div>
-        <h3 class="text-lg font-bold text-cyan-300 mb-1">King Prawn Cost Curves</h3>
-        <p class="text-xs text-gray-300">
-          Quick visual cost curves and burn-down views for complex programs.
-        </p>
-        <div class="mt-4 text-cyan-400 font-semibold text-sm group-hover:text-white">
-          Open
+      <!-- App Cards Grid (anchored to bottom with mt-auto) -->
+      <div class="mt-auto mb-4">
+        <div class="text-sm text-cyan-200 mb-3 uppercase tracking-wide">
+          Launch a module:
         </div>
-      </a>
 
-      <!-- Stingray app -->
-      <a href="https://stingray-app-k8jzl.ondigitalocean.app/" target="_blank" rel="noopener noreferrer"
-         class="card rounded-2xl p-5 group bg-white/5 backdrop-blur-xl border border-cyan-500/30 hover:border-cyan-400 hover:bg-white/10 transition">
-        <div class="text-4xl mb-3 text-cyan-400 group-hover:scale-110 transition">🛸</div>
-        <h3 class="text-lg font-bold text-cyan-300 mb-1">Stingray Variance Radar</h3>
-        <p class="text-xs text-gray-300">
-          Sweep through portfolios at speed and spot outliers in seconds.
-        </p>
-        <div class="mt-4 text-cyan-400 font-semibold text-sm group-hover:text-white">
-          Open
-        </div>
-      </a>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 max-w-7xl mx-auto">
+          <!-- Oyster app -->
+          <a href="https://oyster-app-5trn4.ondigitalocean.app/" target="_blank" rel="noopener noreferrer"
+             class="card rounded-2xl p-4 group bg-white/5 backdrop-blur-xl border border-cyan-500/30 hover:border-cyan-400 hover:bg-white/10 transition">
+            <div class="flex items-center gap-2 mb-2">
+              <div class="text-3xl text-cyan-400 group-hover:scale-110 transition">🦪</div>
+              <h3 class="text-base font-bold text-cyan-300">EAC Sandbox</h3>
+            </div>
+            <p class="text-[11px] leading-snug text-gray-300">
+              Financial project planning for multiple users
+              <span class="text-cyan-300">[admin@admin.com / Test1234!]</span>.
+            </p>
+            <div class="mt-3 text-cyan-400 font-semibold text-xs group-hover:text-white">
+              Open
+            </div>
+          </a>
 
-      <!-- Orca app -->
-      <a href="https://orca-app-bneex.ondigitalocean.app/" target="_blank" rel="noopener noreferrer"
-         class="card rounded-2xl p-5 group bg-white/5 backdrop-blur-xl border border-cyan-500/30 hover:border-cyan-400 hover:bg-white/10 transition">
-        <div class="text-4xl mb-3 text-cyan-400 group-hover:scale-110 transition">🐋</div>
-        <h3 class="text-lg font-bold text-cyan-300 mb-1">Orca EAC Planner</h3>
-        <p class="text-xs text-gray-300">
-          Deep-dive EAC, margin, and risk analysis for large engineering projects.
-        </p>
-        <div class="mt-4 text-cyan-400 font-semibold text-sm group-hover:text-white">
-          Open
-        </div>
-      </a>
+          <!-- King Prawn app -->
+          <a href="https://king-prawn-app-8wlzi.ondigitalocean.app/" target="_blank" rel="noopener noreferrer"
+             class="card rounded-2xl p-4 group bg-white/5 backdrop-blur-xl border border-cyan-500/30 hover:border-cyan-400 hover:bg-white/10 transition">
+            <div class="flex items-center gap-2 mb-2">
+              <div class="text-3xl text-cyan-400 group-hover:scale-110 transition">🍤</div>
+              <h3 class="text-base font-bold text-cyan-300">Timekeeping App</h3>
+            </div>
+            <p class="text-[11px] leading-snug text-gray-300">
+              A simple timekeeping app
+              <span class="text-cyan-300">[john.tester@ledgersummit.com / Test123!]</span>.
+            </p>
+            <div class="mt-3 text-cyan-400 font-semibold text-xs group-hover:text-white">
+              Open
+            </div>
+          </a>
 
-      <!-- Seal app (visuals) -->
-      <a href="https://seal-app-9756y.ondigitalocean.app/#visuals" target="_blank" rel="noopener noreferrer"
-         class="card rounded-2xl p-5 group bg-white/5 backdrop-blur-xl border border-cyan-500/30 hover:border-cyan-400 hover:bg-white/10 transition">
-        <div class="text-4xl mb-3 text-cyan-400 group-hover:scale-110 transition">🦭</div>
-        <h3 class="text-lg font-bold text-cyan-300 mb-1">Seal Executive Dashboards</h3>
-        <p class="text-xs text-gray-300">
-          Clean visuals and board-ready summaries for your projects and portfolio.
-        </p>
-        <div class="mt-4 text-cyan-400 font-semibold text-sm group-hover:text-white">
-          Open
+          <!-- Stingray app -->
+          <a href="https://stingray-app-k8jzl.ondigitalocean.app/" target="_blank" rel="noopener noreferrer"
+             class="card rounded-2xl p-4 group bg-white/5 backdrop-blur-xl border border-cyan-500/30 hover:border-cyan-400 hover:bg-white/10 transition">
+            <div class="flex items-center gap-2 mb-2">
+              <div class="text-3xl text-cyan-400 group-hover:scale-110 transition">🛸</div>
+              <h3 class="text-base font-bold text-cyan-300">Grants Planning</h3>
+            </div>
+            <p class="text-[11px] leading-snug text-gray-300">
+              Grants budget planning
+              <span class="text-cyan-300">[admin@admin.com / Test123!]</span>.
+            </p>
+            <div class="mt-3 text-cyan-400 font-semibold text-xs group-hover:text-white">
+              Open
+            </div>
+          </a>
+
+          <!-- Orca app -->
+          <a href="https://orca-app-bneex.ondigitalocean.app/" target="_blank" rel="noopener noreferrer"
+             class="card rounded-2xl p-4 group bg-white/5 backdrop-blur-xl border border-cyan-500/30 hover:border-cyan-400 hover:bg-white/10 transition">
+            <div class="flex items-center gap-2 mb-2">
+              <div class="text-3xl text-cyan-400 group-hover:scale-110 transition">🐋</div>
+              <h3 class="text-base font-bold text-cyan-300">Consolidated P&L</h3>
+            </div>
+            <p class="text-[11px] leading-snug text-gray-300">
+              Consolidated P&amp;L planning (bottom-up portfolios).
+            </p>
+            <div class="mt-3 text-cyan-400 font-semibold text-xs group-hover:text-white">
+              Open
+            </div>
+          </a>
+
+          <!-- Seal app (visuals) -->
+          <a href="https://seal-app-9756y.ondigitalocean.app/#visuals" target="_blank" rel="noopener noreferrer"
+             class="card rounded-2xl p-4 group bg-white/5 backdrop-blur-xl border border-cyan-500/30 hover:border-cyan-400 hover:bg-white/10 transition">
+            <div class="flex items-center gap-2 mb-2">
+              <div class="text-3xl text-cyan-400 group-hover:scale-110 transition">🦭</div>
+              <h3 class="text-base font-bold text-cyan-300">Detailed EAC</h3>
+            </div>
+            <p class="text-[11px] leading-snug text-gray-300">
+              Clean visuals and board-ready summaries for your EAC planning.
+            </p>
+            <div class="mt-3 text-cyan-400 font-semibold text-xs group-hover:text-white">
+              Open
+            </div>
+          </a>
         </div>
-      </a>
+      </div>
     </div>
   </div>
 
@@ -165,34 +195,45 @@
     const chaos = document.getElementById('chaos');
     const clarity = document.getElementById('clarity');
 
-    // Left side: manual chaos
-    for (let i = 0; i < 30; i++) {
-      const item = document.createElement('div');
-      const type = ['paper', 'calc', 'stamp', 'excel'][Math.floor(Math.random()*4)];
-      item.className = type;
-      if (type === 'paper') {
-        item.textContent = 'INVOICE\n#A' + i;
-        item.style.left = '-100px';
-        item.style.top = Math.random() * 100 + 'vh';
-        item.style.animationDelay = Math.random() * 8 + 's';
-      } else if (type === 'calc') {
-        item.textContent = 'Calculator';
-        item.style.fontSize = '50px';
-      } else if (type === 'stamp') {
-        item.textContent = 'PAST DUE';
-        item.style.color = '#ff0066';
-      } else {
-        item.innerHTML = 'Spreadsheet';
-      }
-      item.style.animationDelay = Math.random() * 10 + 's';
-      chaos.appendChild(item);
-    }
+    // ---- Floating keyword bubbles (no crossing – each gets its own band) ----
+    const keywords = [
+      { text: 'Automation', icon: '⚙️' },
+      { text: 'Artificial Intelligence', icon: '🤖' },
+      { text: 'Finance Easy', icon: '💸' },
+      { text: 'Accounting Quick', icon: '📊' },
+      { text: 'Project EAC', icon: '📈' },
+      { text: 'No More Spreadsheets', icon: '🧹' },
+      { text: 'Real-Time Dashboards', icon: '📣' },
+      { text: 'Scenario Planning', icon: '🧠' }
+    ];
 
-    // Right side: clean AI output
-    for (let i = 0; i < 20; i++) {
+    // Bands (as percentages of viewport height) to keep them from overlapping
+    const bands = [15, 28, 41, 54, 67, 80];
+
+    keywords.forEach((kw, index) => {
+      const el = document.createElement('div');
+      el.className = 'keyword';
+      const band = bands[index % bands.length];
+      el.style.top = band + 'vh';
+      el.style.left = '-10vw';
+      el.style.animationDelay = (index * 2) + 's';
+
+      el.innerHTML = `
+        <span>${kw.icon}</span>
+        <span>${kw.text}</span>
+      `;
+
+      chaos.appendChild(el);
+    });
+
+    // ---- Right side: clean dashboards flying out (also separated vertically) ----
+    const dashBands = [-10, -3, 4, 11, 18]; // relative offsets in vh from center
+    for (let i = 0; i < 15; i++) {
       const dash = document.createElement('div');
       dash.className = 'dashboard';
-      dash.style.animationDelay = Math.random() * 6 + 's';
+      const offset = dashBands[i % dashBands.length];
+      dash.style.setProperty('--dash-offset-y', offset + 'vh');
+      dash.style.animationDelay = (i * 0.8) + 's';
       clarity.appendChild(dash);
     }
   </script>
