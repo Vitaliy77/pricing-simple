@@ -7,7 +7,6 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     body { overflow: hidden; background: #000; color: white; }
-
     /* AI Core in the center */
     .ai-core {
       position: fixed;
@@ -25,14 +24,13 @@
       0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.8; }
       50% { transform: translate(-50%, -50%) scale(1.15); opacity: 1; }
     }
-
-    /* Floating keyword chips (left → core) */
+    /* Floating keyword chips (left to core) */
     .keyword {
       position: absolute;
       padding: 6px 12px;
       border-radius: 9999px;
       background: rgba(15, 23, 42, 0.9);
-      border: 1px solid rgba(56, 189, 248, 0.7); /* cyan-400 */
+      border: 1px solid rgba(56, 189, 248, 0.7);
       box-shadow:
         0 0 12px rgba(8, 145, 178, 0.7),
         0 0 30px rgba(56, 189, 248, 0.5);
@@ -46,15 +44,13 @@
       pointer-events: none;
       z-index: 2;
     }
-
     @keyframes keyword-left-to-core {
-      0%   { transform: translateX(-120vw); opacity: 0; }
-      10%  { opacity: 1; }
-      70%  { transform: translateX(-10vw); opacity: 1; }
-      85%  { transform: translateX(0); opacity: 0.7; }
+      0% { transform: translateX(-120vw); opacity: 0; }
+      10% { opacity: 1; }
+      70% { transform: translateX(-10vw); opacity: 1; }
+      85% { transform: translateX(0); opacity: 0.7; }
       100% { transform: translateX(10vw); opacity: 0; }
     }
-
     /* Clean dashboards coming out (right side) */
     .dashboard {
       position: absolute;
@@ -68,20 +64,17 @@
       pointer-events: none;
       z-index: 1;
     }
-
     @keyframes fly-core-to-right {
-      0%   { transform: translate(0, 0) scale(0.1); opacity: 0; left: 50%; top: 50%; }
-      10%  { opacity: 1; transform: translate(20vw, -5vh) scale(0.9); }
-      60%  { opacity: 1; transform: translate(55vw, var(--dash-offset-y)) scale(1); }
+      0% { transform: translate(0, 0) scale(0.1); opacity: 0; left: 50%; top: 50%; }
+      10% { opacity: 1; transform: translate(20vw, -5vh) scale(0.9); }
+      60% { opacity: 1; transform: translate(55vw, var(--dash-offset-y)) scale(1); }
       100% { opacity: 0; transform: translate(120vw, var(--dash-offset-y)) scale(1); }
     }
   </style>
 </head>
 <body class="min-h-screen relative">
-
   <!-- AI Core -->
   <div class="ai-core"></div>
-
   <!-- Background elements -->
   <div id="chaos"></div>
   <div id="clarity"></div>
@@ -107,13 +100,15 @@
         <div class="text-sm text-cyan-200 mb-3 uppercase tracking-wide">
           Launch a module:
         </div>
-
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 max-w-7xl mx-auto">
           <!-- Oyster app -->
           <a href="https://oyster-app-5trn4.ondigitalocean.app/" target="_blank" rel="noopener noreferrer"
-             class="card rounded-2xl p-4 group bg-white/5 backdrop-blur-xl border border-cyan-500/30 hover:border-cyan-400 hover:bg-white/10 transition">
+             class="card relative rounded-2xl p-4 group bg-white/5 backdrop-blur-xl border border-cyan-500/30
+                    hover:border-cyan-400 hover:bg-white/10
+                    transition-transform transition-colors duration-200
+                    transform origin-bottom hover:scale-125 hover:-translate-y-1 hover:z-20">
             <div class="flex items-center gap-2 mb-2">
-              <div class="text-3xl text-cyan-400 group-hover:scale-110 transition">🦪</div>
+              <div class="text-3xl text-cyan-400 group-hover:scale-110 transition-transform">Oyster</div>
               <h3 class="text-base font-bold text-cyan-300">EAC Sandbox</h3>
             </div>
             <p class="text-[11px] leading-snug text-gray-300">
@@ -127,9 +122,12 @@
 
           <!-- King Prawn app -->
           <a href="https://king-prawn-app-8wlzi.ondigitalocean.app/" target="_blank" rel="noopener noreferrer"
-             class="card rounded-2xl p-4 group bg-white/5 backdrop-blur-xl border border-cyan-500/30 hover:border-cyan-400 hover:bg-white/10 transition">
+             class="card relative rounded-2xl p-4 group bg-white/5 backdrop-blur-xl border border-cyan-500/30
+                    hover:border-cyan-400 hover:bg-white/10
+                    transition-transform transition-colors duration-200
+                    transform origin-bottom hover:scale-125 hover:-translate-y-1 hover:z-20">
             <div class="flex items-center gap-2 mb-2">
-              <div class="text-3xl text-cyan-400 group-hover:scale-110 transition">🍤</div>
+              <div class="text-3xl text-cyan-400 group-hover:scale-110 transition-transform">King Prawn</div>
               <h3 class="text-base font-bold text-cyan-300">Timekeeping App</h3>
             </div>
             <p class="text-[11px] leading-snug text-gray-300">
@@ -143,9 +141,12 @@
 
           <!-- Stingray app -->
           <a href="https://stingray-app-k8jzl.ondigitalocean.app/" target="_blank" rel="noopener noreferrer"
-             class="card rounded-2xl p-4 group bg-white/5 backdrop-blur-xl border border-cyan-500/30 hover:border-cyan-400 hover:bg-white/10 transition">
+             class="card relative rounded-2xl p-4 group bg-white/5 backdrop-blur-xl border border-cyan-500/30
+                    hover:border-cyan-400 hover:bg-white/10
+                    transition-transform transition-colors duration-200
+                    transform origin-bottom hover:scale-125 hover:-translate-y-1 hover:z-20">
             <div class="flex items-center gap-2 mb-2">
-              <div class="text-3xl text-cyan-400 group-hover:scale-110 transition">🛸</div>
+              <div class="text-3xl text-cyan-400 group-hover:scale-110 transition-transform">Stingray</div>
               <h3 class="text-base font-bold text-cyan-300">Grants Planning</h3>
             </div>
             <p class="text-[11px] leading-snug text-gray-300">
@@ -159,13 +160,16 @@
 
           <!-- Orca app -->
           <a href="https://orca-app-bneex.ondigitalocean.app/" target="_blank" rel="noopener noreferrer"
-             class="card rounded-2xl p-4 group bg-white/5 backdrop-blur-xl border border-cyan-500/30 hover:border-cyan-400 hover:bg-white/10 transition">
+             class="card relative rounded-2xl p-4 group bg-white/5 backdrop-blur-xl border border-cyan-500/30
+                    hover:border-cyan-400 hover:bg-white/10
+                    transition-transform transition-colors duration-200
+                    transform origin-bottom hover:scale-125 hover:-translate-y-1 hover:z-20">
             <div class="flex items-center gap-2 mb-2">
-              <div class="text-3xl text-cyan-400 group-hover:scale-110 transition">🐋</div>
+              <div class="text-3xl text-cyan-400 group-hover:scale-110 transition-transform">Orca</div>
               <h3 class="text-base font-bold text-cyan-300">Consolidated P&L</h3>
             </div>
             <p class="text-[11px] leading-snug text-gray-300">
-              Consolidated P&amp;L planning (bottom-up portfolios).
+              Consolidated P&L planning (bottom-up portfolios).
             </p>
             <div class="mt-3 text-cyan-400 font-semibold text-xs group-hover:text-white">
               Open
@@ -174,9 +178,12 @@
 
           <!-- Seal app (visuals) -->
           <a href="https://seal-app-9756y.ondigitalocean.app/#visuals" target="_blank" rel="noopener noreferrer"
-             class="card rounded-2xl p-4 group bg-white/5 backdrop-blur-xl border border-cyan-500/30 hover:border-cyan-400 hover:bg-white/10 transition">
+             class="card relative rounded-2xl p-4 group bg-white/5 backdrop-blur-xl border border-cyan-500/30
+                    hover:border-cyan-400 hover:bg-white/10
+                    transition-transform transition-colors duration-200
+                    transform origin-bottom hover:scale-125 hover:-translate-y-1 hover:z-20">
             <div class="flex items-center gap-2 mb-2">
-              <div class="text-3xl text-cyan-400 group-hover:scale-110 transition">🦭</div>
+              <div class="text-3xl text-cyan-400 group-hover:scale-110 transition-transform">Seal</div>
               <h3 class="text-base font-bold text-cyan-300">Detailed EAC</h3>
             </div>
             <p class="text-[11px] leading-snug text-gray-300">
@@ -195,21 +202,18 @@
     const chaos = document.getElementById('chaos');
     const clarity = document.getElementById('clarity');
 
-    // ---- Floating keyword bubbles (no crossing – each gets its own band) ----
+    // Floating keyword bubbles
     const keywords = [
-      { text: 'Automation', icon: '⚙️' },
-      { text: 'Artificial Intelligence', icon: '🤖' },
-      { text: 'Finance Easy', icon: '💸' },
-      { text: 'Accounting Quick', icon: '📊' },
-      { text: 'Project EAC', icon: '📈' },
-      { text: 'No More Spreadsheets', icon: '🧹' },
-      { text: 'Real-Time Dashboards', icon: '📣' },
-      { text: 'Scenario Planning', icon: '🧠' }
+      { text: 'Automation', icon: 'Gear' },
+      { text: 'Artificial Intelligence', icon: 'Robot' },
+      { text: 'Finance Easy', icon: 'Money Bag' },
+      { text: 'Accounting Quick', icon: 'Chart Increasing' },
+      { text: 'Project EAC', icon: 'Chart Line' },
+      { text: 'No More Spreadsheets', icon: 'Broom' },
+      { text: 'Real-Time Dashboards', icon: 'Megaphone' },
+      { text: 'Scenario Planning', icon: 'Brain' }
     ];
-
-    // Bands (as percentages of viewport height) to keep them from overlapping
     const bands = [15, 28, 41, 54, 67, 80];
-
     keywords.forEach((kw, index) => {
       const el = document.createElement('div');
       el.className = 'keyword';
@@ -217,17 +221,15 @@
       el.style.top = band + 'vh';
       el.style.left = '-10vw';
       el.style.animationDelay = (index * 2) + 's';
-
       el.innerHTML = `
         <span>${kw.icon}</span>
         <span>${kw.text}</span>
       `;
-
       chaos.appendChild(el);
     });
 
-    // ---- Right side: clean dashboards flying out (also separated vertically) ----
-    const dashBands = [-10, -3, 4, 11, 18]; // relative offsets in vh from center
+    // Right side: clean dashboards flying out
+    const dashBands = [-10, -3, 4, 11, 18];
     for (let i = 0; i < 15; i++) {
       const dash = document.createElement('div');
       dash.className = 'dashboard';
