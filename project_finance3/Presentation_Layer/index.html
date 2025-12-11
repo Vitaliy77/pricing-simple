@@ -5,553 +5,238 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Finance Automation Hub with AI</title>
   <script src="https://cdn.tailwindcss.com"></script>
-
   <!-- Handwriting font -->
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link
-    href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&display=swap"
-    rel="stylesheet"
-  >
-
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&display=swap" rel="stylesheet">
   <style>
     :root {
       --ink: #111827;
-      --paper: #f3f4f6;
+      --paper: #fdfcf7;
       --line-light: #d1d5db;
       --line-mid: #9ca3af;
     }
-
     body {
       margin: 0;
       overflow: hidden;
-      background: var(--paper);
+      background: #ffffff;
       color: var(--ink);
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
 
-    /* ===== 3D SKETCH BACKGROUND ===== */
-
-    .scene {
+    /* ===== TILTED NOTEBOOK PAGE ===== */
+    .notebook-plane {
       position: fixed;
-      inset: 0;
-      overflow: hidden;
-      z-index: 0;
-      perspective: 1600px;
+      bottom: -8vh;
+      right: -8vw;
+      width: 150vw;
+      height: 150vh;
+      background-color: var(--paper);
+      background-image: linear-gradient(#e5e7eb 1px, transparent 1px);
+      background-size: 100% 28px;
+      transform-origin: bottom right;
+      transform: rotateX(15deg) rotateZ(-15deg);
+      box-shadow: 0 40px 90px rgba(0, 0, 0, 0.35);
+      border-radius: 12px;
+    }
+    .notebook-plane::before {
+      content: "";
+      position: absolute;
+      top: 0; bottom: 0; left: 8%;
+      width: 2px;
+      background: rgba(239, 68, 68, 0.55);
+      pointer-events: none;
+    }
+    .notebook-plane::after {
+      content: "";
+      position: absolute;
+      left: 4%; top: 14%;
+      width: 10px; height: 68%;
+      background-image: radial-gradient(circle, #d1d5db 0, #d1d5db 2px, transparent 2px);
+      background-size: 12px 40px;
+      background-repeat: repeat-y;
+      opacity: 0.75;
       pointer-events: none;
     }
 
-    .city {
+    /* ===== HANDWRITTEN NOTE ON THE PAGE ===== */
+    .notebook-writing-layer {
       position: absolute;
-      inset: auto 50% -260px 50%;
-      width: 2000px;
-      height: 1400px;
-      transform-style: preserve-3d;
-      transform:
-        translate(-50%, 0)
-        rotateX(64deg);
-      opacity: 0.7;
+      top: 50%;      /* was 55% – ~½ inch higher */
+      right: 10%;
+      width: 36%;
+      color: #2563eb;
+      font-family: "Caveat", cursive;
+      font-size: 1.6rem;
+      line-height: 28px;
+      white-space: pre-line;
+      text-align: right;
+      transform-origin: top right;
+      pointer-events: none;
+      z-index: 2;
     }
 
-    .ground-grid {
-      position: absolute;
-      inset: 0;
-      background-image:
-        linear-gradient(
-          rgba(0, 0, 0, 0.03) 1px,
-          transparent 1px
-        ),
-        linear-gradient(
-          90deg,
-          rgba(0, 0, 0, 0.03) 1px,
-          transparent 1px
-        );
-      background-size: 60px 60px;
-      background-position: center;
-      box-shadow: 0 0 40px rgba(0, 0, 0, 0.12);
-      transform: translateZ(-400px);
-      animation: gridBreath 18s ease-in-out infinite alternate;
-    }
 
-    @keyframes gridBreath {
-      0% { opacity: 0.5; }
-      100% { opacity: 1; }
-    }
 
-    .horizon-glow {
-      position: absolute;
-      left: 50%;
-      top: 40%;
-      width: 1600px;
-      height: 600px;
-      transform: translateX(-50%) translateZ(-200px);
-      background:
-        radial-gradient(circle at 50% 0%, rgba(0, 0, 0, 0.12), transparent 60%);
-      filter: blur(8px);
-      mix-blend-mode: multiply;
-      opacity: 0.7;
-    }
-
-    .building {
-      position: absolute;
-      bottom: 0;
-      width: var(--w, 90px);
-      height: var(--h, 260px);
-      background:
-        linear-gradient(to top, #e5e7eb, #ffffff);
-      border-radius: 6px;
-      border: 1px solid var(--ink);
-      box-shadow:
-        0 8px 20px rgba(0, 0, 0, 0.1);
-      transform-style: preserve-3d;
-      transform:
-        translate3d(var(--x, 0), 0, var(--z, 0))
-        rotateY(-26deg);
-      overflow: hidden;
-      animation: buildingFloat 9s ease-in-out infinite alternate;
-    }
-
-    .building::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background-image:
-        repeating-linear-gradient(
-          to right,
-          rgba(0, 0, 0, 0.06) 0,
-          rgba(0, 0, 0, 0.06) 1px,
-          transparent 1px,
-          transparent 11px
-        );
-      opacity: 0.8;
-    }
-
-    .building::after {
-      content: "";
-      position: absolute;
-      left: 0;
-      right: 0;
-      top: 18%;
-      height: 1px;
-      background:
-        repeating-linear-gradient(
-          to right,
-          rgba(0, 0, 0, 0.35) 0,
-          rgba(0, 0, 0, 0.35) 4px,
-          transparent 4px,
-          transparent 8px
-        );
-      opacity: 0.6;
-      animation: windowFlicker 4.8s ease-in-out infinite;
-    }
-
-    @keyframes buildingFloat {
-      0%   { transform: translate3d(var(--x), 0, var(--z)) rotateY(-26deg); }
-      100% { transform: translate3d(var(--x), -10px, var(--z)) rotateY(-26deg); }
-    }
-
-    @keyframes windowFlicker {
-      0%, 100% { opacity: 0.3; }
-      45%      { opacity: 0.8; }
-      70%      { opacity: 0.4; }
-    }
-
-    .data-drone {
-      position: absolute;
-      width: 90px;
-      height: 52px;
-      border-radius: 10px;
-      background:
-        repeating-linear-gradient(
-          -8deg,
-          #ffffff 0,
-          #ffffff 4px,
-          #f3f4f6 4px,
-          #f3f4f6 8px
-        );
-      border: 1px solid var(--ink);
-      box-shadow:
-        0 6px 14px rgba(0, 0, 0, 0.12);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 9px;
-      font-weight: 600;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: var(--ink);
-      transform-style: preserve-3d;
-      transform:
-        translate3d(var(--dx, 0), var(--dy, 0), var(--dz, 0))
-        rotateY(-18deg);
-      animation: droneSlide 15s linear infinite;
-      opacity: 0;
-    }
-
-    @keyframes droneSlide {
-      0% {
-        transform:
-          translate3d(var(--dx), var(--dy), var(--dz))
-          rotateY(-18deg)
-          translateX(-220px);
-        opacity: 0;
-      }
-      12% { opacity: 1; }
-      65% {
-        transform:
-          translate3d(calc(var(--dx) + 60px), calc(var(--dy) - 14px), var(--dz))
-          rotateY(-18deg)
-          translateX(180px);
-        opacity: 1;
-      }
-      100% {
-        transform:
-          translate3d(calc(var(--dx) + 120px), calc(var(--dy) - 4px), var(--dz))
-          rotateY(-18deg)
-          translateX(420px);
-        opacity: 0;
-      }
-    }
-
-    /* AI Core */
-
-    .ai-core {
+    /* ===== GEAR-LIKE AI CORE ===== */
+    .gear-core {
       position: fixed;
       top: 26%;
       left: 50%;
-      width: 220px;
-      height: 220px;
+      width: 230px;
+      height: 230px;
       transform: translateX(-50%);
-      border-radius: 50%;
-      background:
-        radial-gradient(circle at 30% 20%, #ffffff 0, #f9fafb 35%, transparent 70%);
-      border: 2px solid var(--ink);
-      box-shadow:
-        0 20px 40px rgba(0, 0, 0, 0.18);
-      filter: drop-shadow(0 26px 30px rgba(0, 0, 0, 0.35));
-      animation: aiCoreFloat 11s ease-in-out infinite;
       pointer-events: none;
-      z-index: 5;
+      z-index: 3;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
-
-    .ai-core::before {
+    .gear-core::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      background: conic-gradient(from 0deg, transparent 0deg 10deg, var(--ink) 10deg 14deg, transparent 14deg 20deg);
+      -webkit-mask: radial-gradient(circle at center, transparent 0 70%, #000 70% 100%);
+      mask: radial-gradient(circle at center, transparent 0 70%, #000 70% 100%);
+      opacity: 0.9;
+      animation: gearRotate 22s linear infinite;
+    }
+    .gear-inner {
+      position: absolute;
+      inset: 18%;
+      border-radius: 50%;
+      background: radial-gradient(circle at 30% 20%, #ffffff 0, #f9fafb 45%, transparent 90%);
+      border: 1.5px solid var(--ink);
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.18);
+    }
+    .gear-inner::before {
       content: "";
       position: absolute;
       inset: 18%;
       border-radius: 50%;
-      border: 1px dashed rgba(0, 0, 0, 0.5);
-      box-shadow:
-        0 0 0 1px rgba(0, 0, 0, 0.05);
-      animation: innerOrbit 14s linear infinite;
+      background: repeating-linear-gradient(135deg, rgba(0, 0, 0, 0.18) 0, rgba(0, 0, 0, 0.18) 1px, transparent 1px, transparent 5px);
+      opacity: 0.12;
     }
-
-    .ai-core::after {
+    .gear-inner::after {
       content: "";
       position: absolute;
-      inset: 32%;
-      border-radius: 999px;
-      background:
-        repeating-conic-gradient(
-          from 0deg,
-          rgba(0, 0, 0, 0.15) 0deg,
-          rgba(0, 0, 0, 0.15) 10deg,
-          transparent 10deg,
-          transparent 20deg
-        );
-      opacity: 0.5;
-      filter: blur(0.7px);
-      animation: scribbleSpin 9s linear infinite;
-    }
-
-    @keyframes aiCoreFloat {
-      0%, 100% {
-        transform: translateX(-50%) translateY(0);
-      }
-      50% {
-        transform: translateX(-50%) translateY(-10px);
-      }
-    }
-
-    @keyframes innerOrbit {
-      0%   { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-
-    @keyframes scribbleSpin {
-      0%   { transform: rotate(0deg); }
-      100% { transform: rotate(-360deg); }
-    }
-
-    /* Keyword orbit */
-
-    .keyword-ring {
-      position: fixed;
-      top: 26%;
-      left: 50%;
-      width: 520px;
-      height: 520px;
-      transform: translate(-50%, -50%);
-      pointer-events: none;
-      z-index: 4;
-    }
-
-    .keyword {
-      position: absolute;
-      padding: 4px 12px;
-      border-radius: 9999px;
+      inset: 42%;
+      border-radius: 50%;
+      border: 1.5px solid var(--ink);
       background: #ffffff;
-      border: 1px solid var(--ink);
-      box-shadow:
-        0 4px 8px rgba(0, 0, 0, 0.08);
-      font-size: 0.7rem;
-      white-space: nowrap;
-      display: inline-flex;
-      align-items: center;
-      gap: 0.35rem;
-      color: var(--ink);
-      transform-origin: center;
-      transform-style: preserve-3d;
-      animation: keywordOrbit 22s linear infinite;
-      opacity: 0;
+      box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.04);
     }
-
-    .keyword span.icon {
-      font-size: 0.8rem;
-      opacity: 0.9;
+    .gear-sat { position: absolute; inset: 0; animation: satOrbit 18s linear infinite; transform-origin: center; }
+    .gear-sat.sat-2 { animation-duration: 24s; animation-direction: reverse; }
+    .gear-sat.sat-3 { animation-duration: 28s; }
+    .gear-sat-ring {
+      position: absolute;
+      width: 80px; height: 80px;
+      border-radius: 50%;
+      top: 50%; left: 50%;
+      margin: -40px;
+      transform: translateX(125px);
     }
-
-    @keyframes keywordOrbit {
-      0% {
-        opacity: 0;
-        transform:
-          rotateZ(var(--angle))
-          translateY(-190px)
-          rotateY(-20deg)
-          translateZ(40px);
-      }
-      10% { opacity: 1; }
-      55% {
-        transform:
-          rotateZ(calc(var(--angle) + 180deg))
-          translateY(-190px)
-          rotateY(-20deg)
-          translateZ(80px);
-      }
-      90% { opacity: 1; }
-      100% {
-        opacity: 0;
-        transform:
-          rotateZ(calc(var(--angle) + 360deg))
-          translateY(-190px)
-          rotateY(-20deg)
-          translateZ(40px);
-      }
+    .gear-sat-ring::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      background: conic-gradient(from 0deg, transparent 0deg 12deg, var(--ink) 12deg 16deg, transparent 16deg 24deg);
+      -webkit-mask: radial-gradient(circle at center, transparent 0 68%, #000 68% 100%);
+      mask: radial-gradient(circle at center, transparent 0 68%, #000 68% 100%);
+      opacity: 0.85;
+      animation: gearRotate 12s linear infinite;
     }
-
-    /* ===== PEN LAYER – same as before (optional) ===== */
-
-    .pen-layer {
-      position: fixed;
-      right: 24px;
-      bottom: 24px;
-      width: 260px;
-      height: 180px;
-      z-index: 6;
-      pointer-events: none;
-      opacity: 0.95;
+    .gear-sat-ring::after {
+      content: "";
+      position: absolute;
+      inset: 28%;
+      border-radius: 50%;
+      background: #ffffff;
+      border: 1.2px solid var(--ink);
     }
+    @keyframes gearRotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    @keyframes satOrbit { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
-    .pen-bg {
-      fill: #f9fafb;
-      stroke: var(--line-mid);
-      stroke-width: 1;
-    }
-
-    .pen-path {
-      fill: none;
-      stroke: var(--ink);
-      stroke-width: 1.4;
-      stroke-linecap: round;
-      stroke-linejoin: round;
-      stroke-dasharray: 600;
-      stroke-dashoffset: 600;
-      animation: drawPath 8s ease-in-out infinite;
-    }
-
-    .pen-label {
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      font-size: 9px;
-      letter-spacing: 0.16em;
-      text-transform: uppercase;
-      fill: var(--ink);
-    }
-
-    .pen-tip {
-      fill: var(--ink);
-      stroke: #ffffff;
-      stroke-width: 0.8;
-      filter: drop-shadow(0 1px 1px rgba(0,0,0,0.4));
-    }
-
-    @keyframes drawPath {
-      0% {
-        stroke-dashoffset: 600;
-        opacity: 0;
-      }
-      10% {
-        opacity: 1;
-      }
-      60% {
-        stroke-dashoffset: 0;
-        opacity: 1;
-      }
-      80% {
-        opacity: 1;
-      }
-      100% {
-        stroke-dashoffset: 600;
-        opacity: 0;
-      }
-    }
-
-    /* ===== FOREGROUND CONTENT ===== */
-
+    /* ===== CONTENT ===== */
     .content-shell {
       position: relative;
-      z-index: 10;
+      z-index: 4;
       min-height: 100vh;
       display: flex;
       flex-direction: column;
     }
-
+    .page-container { max-width: 960px; }
     .frosted-panel {
       background: #ffffff;
       border-radius: 24px;
       border: 1px solid var(--line-light);
-      box-shadow:
-        0 18px 40px rgba(0, 0, 0, 0.06);
+      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.06);
     }
-
     .app-card {
       transform-origin: bottom;
       transform: perspective(900px) rotateX(9deg) translateY(0);
-      transition:
-        transform 220ms ease,
-        box-shadow 220ms ease,
-        border-color 220ms ease,
-        background 220ms ease;
+      transition: transform 220ms ease, box-shadow 220ms ease, border-color 220ms ease, background 220ms ease;
       background: #ffffff;
       border: 1px solid var(--line-light);
+      display: flex;
+      flex-direction: column;
+      height: 100%;
     }
-
     .app-card:hover {
       transform: perspective(900px) rotateX(0deg) translateY(-6px) scale(1.03);
-      box-shadow:
-        0 20px 40px rgba(0, 0, 0, 0.12);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.12);
       border-color: var(--ink);
-      background:
-        repeating-linear-gradient(
-          -4deg,
-          #ffffff 0,
-          #ffffff 5px,
-          #f9fafb 5px,
-          #f9fafb 9px
-        );
+      background: repeating-linear-gradient(-4deg, #ffffff 0, #ffffff 5px, #f9fafb 5px, #f9fafb 9px);
     }
-
-    .app-card h3 {
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-      font-size: 0.7rem;
-    }
-
-    .tagline {
-      letter-spacing: 0.16em;
-      text-transform: uppercase;
-    }
-
-    /* ===== HANDWRITING HERO TEXT ===== */
-
+    .tagline { letter-spacing: 0.16em; text-transform: uppercase; }
     #hero-hand-text {
       font-family: "Caveat", "Segoe Script", system-ui, sans-serif;
       font-size: 1.7rem;
       line-height: 1.3;
-      white-space: pre-line; /* keep your line breaks */
+      white-space: pre-line;
       color: #111827;
       max-width: 48rem;
       margin: 0 auto;
       text-align: center;
       opacity: 0;
     }
-
-    #hero-hand-text.fade-out {
-      transition: opacity 5s ease; /* 5 second fade */
-      opacity: 0;
-    }
   </style>
 </head>
 <body>
-  <!-- SKETCH CITY BACKGROUND -->
-  <div class="scene">
-    <div class="city">
-      <div class="ground-grid"></div>
-      <div class="horizon-glow"></div>
-      <div id="buildings-layer"></div>
-      <div id="drones-layer"></div>
+
+  <!-- Tilted notebook page with handwritten note directly on it -->
+  <div class="notebook-plane">
+    <div class="notebook-writing-layer">
+AI automation and improvement.
+
+How about simple and inexpensive solution based on AI?
+We know it works – the power of AI is just a click away.
     </div>
   </div>
 
-  <!-- AI CORE + KEYWORDS -->
-  <div class="ai-core"></div>
-  <div class="keyword-ring" id="keyword-ring"></div>
+  <!-- Gear-like AI core -->
+  <div class="gear-core">
+    <div class="gear-inner"></div>
+    <div class="gear-sat sat-1"><div class="gear-sat-ring"></div></div>
+    <div class="gear-sat sat-2"><div class="gear-sat-ring"></div></div>
+    <div class="gear-sat sat-3"><div class="gear-sat-ring"></div></div>
+  </div>
 
-  <!-- PEN CANVAS (bottom-right) -->
-  <svg class="pen-layer" viewBox="0 0 260 180">
-    <rect x="4" y="4" width="252" height="172" rx="12" class="pen-bg" />
-    <text x="16" y="28" class="pen-label">EAC PLAN &amp; DASHBOARD</text>
-    <path id="penPath"
-          class="pen-path"
-          d="
-            M20 52
-            L240 52
-            L240 140
-            L20 140
-            Z
-
-            M20 82
-            L240 82
-
-            M20 112
-            L240 112
-
-            M80 52
-            L80 140
-
-            M150 52
-            L150 140
-          " />
-    <circle r="3.5" class="pen-tip">
-      <animateMotion dur="8s"
-                     repeatCount="indefinite"
-                     rotate="auto">
-        <mpath xlink:href="#penPath" />
-      </animateMotion>
-    </circle>
-  </svg>
-
-  <!-- FOREGROUND CONTENT -->
+  <!-- Main content -->
   <div class="content-shell">
-    <div class="container mx-auto px-6 md:px-10 pt-24 pb-10 flex-1 flex flex-col">
+    <div class="container page-container mx-auto px-6 md:px-8 pt-24 pb-10 flex-1 flex flex-col">
       <!-- Hero panel -->
-      <div class="frosted-panel px-6 md:px-10 pt-8 pb-6 mb-8">
+      <div class="frosted-panel px-6 md:px-10 pt-8 pb-6 mb-4">
         <div class="text-center mb-6">
-          <!-- Animated handwriting text -->
           <div id="hero-hand-text"></div>
         </div>
-
         <div class="text-center text-xs md:text-sm text-gray-600 tagline">
           <span class="inline-flex items-center gap-2">
             <span class="h-px w-10 bg-gray-400"></span>
-            Real models &middot; Real projects &middot; Real automation
+            Real models · Real projects · Real automation
             <span class="h-px w-10 bg-gray-400"></span>
           </span>
         </div>
@@ -562,92 +247,72 @@
         <div class="mb-3 text-xs md:text-sm text-gray-700 tagline">
           Launch a module:
         </div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 max-w-7xl">
-          <!-- Oyster app -->
-          <a href="https://oyster-app-5trn4.ondigitalocean.app/" target="_blank" rel="noopener noreferrer"
-             class="app-card relative rounded-2xl p-4 group">
-            <div class="flex items-center gap-2 mb-2">
-              <div class="text-lg md:text-2xl font-semibold text-gray-900 group-hover:underline underline-offset-4">
-                Oyster
-              </div>
-              <h3 class="font-semibold text-gray-600">EAC Sandbox</h3>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+          <!-- EAC Sandbox -->
+          <a href="https://oyster-app-5trn4.ondigitalocean.app/" target="_blank" rel="noopener noreferrer" class="app-card relative rounded-2xl p-4 group">
+            <div>
+              <h3 class="font-semibold text-gray-900 mb-2">EAC Sandbox</h3>
+              <p class="text-[11px] leading-snug text-gray-600">
+                Financial project planning for multiple users
+                <span class="text-gray-900 font-mono">[admin@admin.com / Test1234!]</span>.
+              </p>
             </div>
-            <p class="text-[11px] leading-snug text-gray-600">
-              Financial project planning for multiple users
-              <span class="text-gray-900 font-mono">[admin@admin.com / Test1234!]</span>.
-            </p>
-            <div class="mt-3 text-xs font-semibold text-gray-900">
-              Open &rarr;
+            <div class="mt-4 flex justify-end">
+              <span class="text-xs font-semibold text-gray-900">Open →</span>
             </div>
           </a>
 
-          <!-- King Prawn app -->
-          <a href="https://king-prawn-app-8wlzi.ondigitalocean.app/" target="_blank" rel="noopener noreferrer"
-             class="app-card relative rounded-2xl p-4 group">
-            <div class="flex items-center gap-2 mb-2">
-              <div class="text-lg md:text-2xl font-semibold text-gray-900 group-hover:underline underline-offset-4">
-                King Prawn
-              </div>
-              <h3 class="font-semibold text-gray-600">Timekeeping App</h3>
+          <!-- Timekeeping App -->
+          <a href="https://king-prawn-app-8wlzi.ondigitalocean.app/" target="_blank" rel="noopener noreferrer" class="app-card relative rounded-2xl p-4 group">
+            <div>
+              <h3 class="font-semibold text-gray-900 mb-2">Timekeeping App</h3>
+              <p class="text-[11px] leading-snug text-gray-600">
+                Simple timekeeping for project teams
+                <span class="text-gray-900 font-mono">[john.tester@ledgersummit.com / Test123!]</span>.
+              </p>
             </div>
-            <p class="text-[11px] leading-snug text-gray-600">
-              A simple timekeeping app
-              <span class="text-gray-900 font-mono">[john.tester@ledgersummit.com / Test123!]</span>.
-            </p>
-            <div class="mt-3 text-xs font-semibold text-gray-900">
-              Open &rarr;
+            <div class="mt-4 flex justify-end">
+              <span class="text-xs font-semibold text-gray-900">Open →</span>
             </div>
           </a>
 
-          <!-- Stingray app -->
-          <a href="https://stingray-app-k8jzl.ondigitalocean.app/" target="_blank" rel="noopener noreferrer"
-             class="app-card relative rounded-2xl p-4 group">
-            <div class="flex items-center gap-2 mb-2">
-              <div class="text-lg md:text-2xl font-semibold text-gray-900 group-hover:underline underline-offset-4">
-                Stingray
-              </div>
-              <h3 class="font-semibold text-gray-600">Grants Planning</h3>
+          <!-- Grants Planning -->
+          <a href="https://stingray-app-k8jzl.ondigitalocean.app/" target="_blank" rel="noopener noreferrer" class="app-card relative rounded-2xl p-4 group">
+            <div>
+              <h3 class="font-semibold text-gray-900 mb-2">Grants Planning</h3>
+              <p class="text-[11px] leading-snug text-gray-600">
+                Grants budget planning with clear funding and cost structure
+                <span class="text-gray-900 font-mono">[admin@admin.com / Test123!]</span>.
+              </p>
             </div>
-            <p class="text-[11px] leading-snug text-gray-600">
-              Grants budget planning
-              <span class="text-gray-900 font-mono">[admin@admin.com / Test123!]</span>.
-            </p>
-            <div class="mt-3 text-xs font-semibold text-gray-900">
-              Open &rarr;
+            <div class="mt-4 flex justify-end">
+              <span class="text-xs font-semibold text-gray-900">Open →</span>
             </div>
           </a>
 
-          <!-- Orca app -->
-          <a href="https://orca-app-bneex.ondigitalocean.app/" target="_blank" rel="noopener noreferrer"
-             class="app-card relative rounded-2xl p-4 group">
-            <div class="flex items-center gap-2 mb-2">
-              <div class="text-lg md:text-2xl font-semibold text-gray-900 group-hover:underline underline-offset-4">
-                Orca
-              </div>
-              <h3 class="font-semibold text-gray-600">Consolidated P&amp;L</h3>
+          <!-- Consolidated P&L -->
+          <a href="https://orca-app-bneex.ondigitalocean.app/" target="_blank" rel="noopener noreferrer" class="app-card relative rounded-2xl p-4 group">
+            <div>
+              <h3 class="font-semibold text-gray-900 mb-2">Consolidated P&L</h3>
+              <p class="text-[11px] leading-snug text-gray-600">
+                Consolidated P&L planning from bottom-up portfolios.
+              </p>
             </div>
-            <p class="text-[11px] leading-snug text-gray-600">
-              Consolidated P&amp;L planning (bottom-up portfolios).
-            </p>
-            <div class="mt-3 text-xs font-semibold text-gray-900">
-              Open &rarr;
+            <div class="mt-4 flex justify-end">
+              <span class="text-xs font-semibold text-gray-900">Open →</span>
             </div>
           </a>
 
-          <!-- Seal app -->
-          <a href="https://seal-app-9756y.ondigitalocean.app/#visuals" target="_blank" rel="noopener noreferrer"
-             class="app-card relative rounded-2xl p-4 group">
-            <div class="flex items-center gap-2 mb-2">
-              <div class="text-lg md:text-2xl font-semibold text-gray-900 group-hover:underline underline-offset-4">
-                Seal
-              </div>
-              <h3 class="font-semibold text-gray-600">Detailed EAC</h3>
+          <!-- Detailed EAC -->
+          <a href="https://seal-app-9756y.ondigitalocean.app/#visuals" target="_blank" rel="noopener noreferrer" class="app-card relative rounded-2xl p-4 group">
+            <div>
+              <h3 class="font-semibold text-gray-900 mb-2">Detailed EAC</h3>
+              <p class="text-[11px] leading-snug text-gray-600">
+                Clean visuals and board-ready summaries for your EAC planning.
+              </p>
             </div>
-            <p class="text-[11px] leading-snug text-gray-600">
-              Clean visuals and board-ready summaries for your EAC planning.
-            </p>
-            <div class="mt-3 text-xs font-semibold text-gray-900">
-              Open &rarr;
+            <div class="mt-4 flex justify-end">
+              <span class="text-xs font-semibold text-gray-900">Open →</span>
             </div>
           </a>
         </div>
@@ -656,128 +321,35 @@
   </div>
 
   <script>
-    // Buildings & drones
-    const buildingsLayer = document.getElementById("buildings-layer");
-    const dronesLayer = document.getElementById("drones-layer");
-
-    const buildingConfigs = [
-      { x: -620, z: -260, h: 340 },
-      { x: -480, z: -140, h: 260 },
-      { x: -320, z: -360, h: 420 },
-      { x: -160, z: -220, h: 300 },
-      { x:   10, z: -420, h: 440 },
-      { x:  180, z: -260, h: 320 },
-      { x:  340, z: -360, h: 390 },
-      { x:  520, z: -220, h: 270 },
-      { x:  680, z: -320, h: 410 },
-      { x: -760, z: -360, h: 360 },
-      { x:  840, z: -420, h: 400 },
-    ];
-
-    buildingConfigs.forEach((b, i) => {
-      const el = document.createElement("div");
-      el.className = "building";
-      const w = 80 + (i % 3) * 14;
-      el.style.setProperty("--x", b.x + "px");
-      el.style.setProperty("--z", b.z + "px");
-      el.style.setProperty("--h", b.h + "px");
-      el.style.width = w + "px";
-      el.style.height = b.h + "px";
-      el.style.animationDelay = (i * 0.7) + "s";
-      buildingsLayer.appendChild(el);
-    });
-
-    const drones = [
-      { label: "EAC", dx: -480, dy: -120, dz: -340, delay: 0 },
-      { label: "GL MAP", dx: -180, dy: -80, dz: -300, delay: 2 },
-      { label: "FORECAST", dx:  80, dy: -140, dz: -360, delay: 4 },
-      { label: "WIP", dx:  320, dy: -110, dz: -320, delay: 6 },
-      { label: "SCENARIO", dx: -60, dy: -40, dz: -260, delay: 8 },
-      { label: "AUTOMATE", dx: 520, dy: -120, dz: -380, delay: 10 },
-    ];
-
-    drones.forEach((d) => {
-      const el = document.createElement("div");
-      el.className = "data-drone";
-      el.textContent = d.label;
-      el.style.setProperty("--dx", d.dx + "px");
-      el.style.setProperty("--dy", d.dy + "px");
-      el.style.setProperty("--dz", d.dz + "px");
-      el.style.animationDelay = d.delay + "s";
-      dronesLayer.appendChild(el);
-    });
-
-    // Keyword orbit
-    const keywordRing = document.getElementById("keyword-ring");
-    const keywords = [
-      { text: "Automation", icon: "◻︎" },
-      { text: "AI Co-pilot", icon: "◎" },
-      { text: "No More Spreadsheets", icon: "✕" },
-      { text: "Real-Time Dashboards", icon: "▤" },
-      { text: "Scenario Planning", icon: "△" },
-      { text: "Project EAC", icon: "↗︎" },
-      { text: "Month-End in Minutes", icon: "⏱" },
-      { text: "Ledger Summit", icon: "⛰" }
-    ];
-
-    keywords.forEach((kw, i) => {
-      const el = document.createElement("div");
-      el.className = "keyword";
-      const angle = (360 / keywords.length) * i;
-      el.style.setProperty("--angle", angle + "deg");
-      el.style.animationDelay = (i * 1.4) + "s";
-      el.innerHTML = `
-        <span class="icon">${kw.icon}</span>
-        <span>${kw.text}</span>
-      `;
-      keywordRing.appendChild(el);
-    });
-
-    // ===== Handwriting hero text: type, hold, fade, loop =====
     const heroEl = document.getElementById("hero-hand-text");
     const fullText = [
       "Finance Automation, Drawn in Black & White",
       "A clean line between chaos and clarity.",
       "Your planning, forecasting, and EACs – rendered with the precision of a technical drawing."
     ].join("\n");
-
-    const TYPE_SPEED = 30;    // ms per character (fast but visible)
-    const HOLD_TIME  = 5000;  // 5s fully visible
-    const FADE_TIME  = 5000;  // 5s fade-out
+    const TYPE_SPEED = 30;
+    const HOLD_TIME = 5000;
+    const FADE_TIME = 5000;
 
     function runTypingLoop() {
-      heroEl.classList.remove("fade-out");
       heroEl.style.opacity = 1;
       heroEl.textContent = "";
-
       let i = 0;
-      const len = fullText.length;
-
-      const typingInterval = setInterval(() => {
-        heroEl.textContent = fullText.slice(0, i);
-        i++;
-
-        if (i > len) {
-          clearInterval(typingInterval);
-
-          // Hold for 5 seconds
+      const typing = setInterval(() => {
+        heroEl.textContent = fullText.slice(0, ++i);
+        if (i > fullText.length) {
+          clearInterval(typing);
           setTimeout(() => {
-            // Trigger fade-out
-            heroEl.classList.add("fade-out");
-
-            // After fade completes, clear and restart
+            heroEl.style.transition = "opacity 5s";
+            heroEl.style.opacity = 0;
             setTimeout(() => {
-              heroEl.textContent = "";
-              heroEl.style.opacity = 0;
-              heroEl.classList.remove("fade-out");
-              // Small pause before restarting
-              setTimeout(runTypingLoop, 200);
-            }, FADE_TIME);
+              heroEl.style.transition = "";
+              runTypingLoop();
+            }, 5200);
           }, HOLD_TIME);
         }
       }, TYPE_SPEED);
     }
-
     window.addEventListener("load", runTypingLoop);
   </script>
 </body>
