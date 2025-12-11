@@ -5,192 +5,649 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Finance Automation Hub with AI</title>
   <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Handwriting font -->
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&display=swap"
+    rel="stylesheet"
+  >
+
   <style>
-    body { overflow: hidden; background: #000; color: white; }
-    /* AI Core in the center */
-    .ai-core {
+    :root {
+      --ink: #111827;
+      --paper: #f3f4f6;
+      --line-light: #d1d5db;
+      --line-mid: #9ca3af;
+    }
+
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    /* ===== 3D SKETCH BACKGROUND ===== */
+
+    .scene {
       position: fixed;
-      top: 50%; left: 50%;
-      width: 300px; height: 300px;
-      background: radial-gradient(circle, #00ffff 0%, #0066ff 50%, transparent 70%);
-      border-radius: 50%;
-      transform: translate(-50%, -50%);
-      box-shadow: 0 0 100px #00ffff, 0 0 200px #0066ff;
-      animation: pulse 4s infinite;
-      z-index: 5;
+      inset: 0;
+      overflow: hidden;
+      z-index: 0;
+      perspective: 1600px;
       pointer-events: none;
     }
-    @keyframes pulse {
-      0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.8; }
-      50% { transform: translate(-50%, -50%) scale(1.15); opacity: 1; }
+
+    .city {
+      position: absolute;
+      inset: auto 50% -260px 50%;
+      width: 2000px;
+      height: 1400px;
+      transform-style: preserve-3d;
+      transform:
+        translate(-50%, 0)
+        rotateX(64deg);
+      opacity: 0.7;
     }
-    /* Floating keyword chips (left to core) */
+
+    .ground-grid {
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(
+          rgba(0, 0, 0, 0.03) 1px,
+          transparent 1px
+        ),
+        linear-gradient(
+          90deg,
+          rgba(0, 0, 0, 0.03) 1px,
+          transparent 1px
+        );
+      background-size: 60px 60px;
+      background-position: center;
+      box-shadow: 0 0 40px rgba(0, 0, 0, 0.12);
+      transform: translateZ(-400px);
+      animation: gridBreath 18s ease-in-out infinite alternate;
+    }
+
+    @keyframes gridBreath {
+      0% { opacity: 0.5; }
+      100% { opacity: 1; }
+    }
+
+    .horizon-glow {
+      position: absolute;
+      left: 50%;
+      top: 40%;
+      width: 1600px;
+      height: 600px;
+      transform: translateX(-50%) translateZ(-200px);
+      background:
+        radial-gradient(circle at 50% 0%, rgba(0, 0, 0, 0.12), transparent 60%);
+      filter: blur(8px);
+      mix-blend-mode: multiply;
+      opacity: 0.7;
+    }
+
+    .building {
+      position: absolute;
+      bottom: 0;
+      width: var(--w, 90px);
+      height: var(--h, 260px);
+      background:
+        linear-gradient(to top, #e5e7eb, #ffffff);
+      border-radius: 6px;
+      border: 1px solid var(--ink);
+      box-shadow:
+        0 8px 20px rgba(0, 0, 0, 0.1);
+      transform-style: preserve-3d;
+      transform:
+        translate3d(var(--x, 0), 0, var(--z, 0))
+        rotateY(-26deg);
+      overflow: hidden;
+      animation: buildingFloat 9s ease-in-out infinite alternate;
+    }
+
+    .building::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image:
+        repeating-linear-gradient(
+          to right,
+          rgba(0, 0, 0, 0.06) 0,
+          rgba(0, 0, 0, 0.06) 1px,
+          transparent 1px,
+          transparent 11px
+        );
+      opacity: 0.8;
+    }
+
+    .building::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 18%;
+      height: 1px;
+      background:
+        repeating-linear-gradient(
+          to right,
+          rgba(0, 0, 0, 0.35) 0,
+          rgba(0, 0, 0, 0.35) 4px,
+          transparent 4px,
+          transparent 8px
+        );
+      opacity: 0.6;
+      animation: windowFlicker 4.8s ease-in-out infinite;
+    }
+
+    @keyframes buildingFloat {
+      0%   { transform: translate3d(var(--x), 0, var(--z)) rotateY(-26deg); }
+      100% { transform: translate3d(var(--x), -10px, var(--z)) rotateY(-26deg); }
+    }
+
+    @keyframes windowFlicker {
+      0%, 100% { opacity: 0.3; }
+      45%      { opacity: 0.8; }
+      70%      { opacity: 0.4; }
+    }
+
+    .data-drone {
+      position: absolute;
+      width: 90px;
+      height: 52px;
+      border-radius: 10px;
+      background:
+        repeating-linear-gradient(
+          -8deg,
+          #ffffff 0,
+          #ffffff 4px,
+          #f3f4f6 4px,
+          #f3f4f6 8px
+        );
+      border: 1px solid var(--ink);
+      box-shadow:
+        0 6px 14px rgba(0, 0, 0, 0.12);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--ink);
+      transform-style: preserve-3d;
+      transform:
+        translate3d(var(--dx, 0), var(--dy, 0), var(--dz, 0))
+        rotateY(-18deg);
+      animation: droneSlide 15s linear infinite;
+      opacity: 0;
+    }
+
+    @keyframes droneSlide {
+      0% {
+        transform:
+          translate3d(var(--dx), var(--dy), var(--dz))
+          rotateY(-18deg)
+          translateX(-220px);
+        opacity: 0;
+      }
+      12% { opacity: 1; }
+      65% {
+        transform:
+          translate3d(calc(var(--dx) + 60px), calc(var(--dy) - 14px), var(--dz))
+          rotateY(-18deg)
+          translateX(180px);
+        opacity: 1;
+      }
+      100% {
+        transform:
+          translate3d(calc(var(--dx) + 120px), calc(var(--dy) - 4px), var(--dz))
+          rotateY(-18deg)
+          translateX(420px);
+        opacity: 0;
+      }
+    }
+
+    /* AI Core */
+
+    .ai-core {
+      position: fixed;
+      top: 26%;
+      left: 50%;
+      width: 220px;
+      height: 220px;
+      transform: translateX(-50%);
+      border-radius: 50%;
+      background:
+        radial-gradient(circle at 30% 20%, #ffffff 0, #f9fafb 35%, transparent 70%);
+      border: 2px solid var(--ink);
+      box-shadow:
+        0 20px 40px rgba(0, 0, 0, 0.18);
+      filter: drop-shadow(0 26px 30px rgba(0, 0, 0, 0.35));
+      animation: aiCoreFloat 11s ease-in-out infinite;
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    .ai-core::before {
+      content: "";
+      position: absolute;
+      inset: 18%;
+      border-radius: 50%;
+      border: 1px dashed rgba(0, 0, 0, 0.5);
+      box-shadow:
+        0 0 0 1px rgba(0, 0, 0, 0.05);
+      animation: innerOrbit 14s linear infinite;
+    }
+
+    .ai-core::after {
+      content: "";
+      position: absolute;
+      inset: 32%;
+      border-radius: 999px;
+      background:
+        repeating-conic-gradient(
+          from 0deg,
+          rgba(0, 0, 0, 0.15) 0deg,
+          rgba(0, 0, 0, 0.15) 10deg,
+          transparent 10deg,
+          transparent 20deg
+        );
+      opacity: 0.5;
+      filter: blur(0.7px);
+      animation: scribbleSpin 9s linear infinite;
+    }
+
+    @keyframes aiCoreFloat {
+      0%, 100% {
+        transform: translateX(-50%) translateY(0);
+      }
+      50% {
+        transform: translateX(-50%) translateY(-10px);
+      }
+    }
+
+    @keyframes innerOrbit {
+      0%   { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    @keyframes scribbleSpin {
+      0%   { transform: rotate(0deg); }
+      100% { transform: rotate(-360deg); }
+    }
+
+    /* Keyword orbit */
+
+    .keyword-ring {
+      position: fixed;
+      top: 26%;
+      left: 50%;
+      width: 520px;
+      height: 520px;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      z-index: 4;
+    }
+
     .keyword {
       position: absolute;
-      padding: 6px 12px;
+      padding: 4px 12px;
       border-radius: 9999px;
-      background: rgba(15, 23, 42, 0.9);
-      border: 1px solid rgba(56, 189, 248, 0.7);
+      background: #ffffff;
+      border: 1px solid var(--ink);
       box-shadow:
-        0 0 12px rgba(8, 145, 178, 0.7),
-        0 0 30px rgba(56, 189, 248, 0.5);
-      font-size: 0.75rem;
+        0 4px 8px rgba(0, 0, 0, 0.08);
+      font-size: 0.7rem;
       white-space: nowrap;
       display: inline-flex;
       align-items: center;
-      gap: 0.4rem;
-      color: #e5f9ff;
-      animation: keyword-left-to-core 16s linear infinite;
-      pointer-events: none;
-      z-index: 2;
+      gap: 0.35rem;
+      color: var(--ink);
+      transform-origin: center;
+      transform-style: preserve-3d;
+      animation: keywordOrbit 22s linear infinite;
+      opacity: 0;
     }
-    @keyframes keyword-left-to-core {
-      0% { transform: translateX(-120vw); opacity: 0; }
+
+    .keyword span.icon {
+      font-size: 0.8rem;
+      opacity: 0.9;
+    }
+
+    @keyframes keywordOrbit {
+      0% {
+        opacity: 0;
+        transform:
+          rotateZ(var(--angle))
+          translateY(-190px)
+          rotateY(-20deg)
+          translateZ(40px);
+      }
       10% { opacity: 1; }
-      70% { transform: translateX(-10vw); opacity: 1; }
-      85% { transform: translateX(0); opacity: 0.7; }
-      100% { transform: translateX(10vw); opacity: 0; }
+      55% {
+        transform:
+          rotateZ(calc(var(--angle) + 180deg))
+          translateY(-190px)
+          rotateY(-20deg)
+          translateZ(80px);
+      }
+      90% { opacity: 1; }
+      100% {
+        opacity: 0;
+        transform:
+          rotateZ(calc(var(--angle) + 360deg))
+          translateY(-190px)
+          rotateY(-20deg)
+          translateZ(40px);
+      }
     }
-    /* Clean dashboards coming out (right side) */
-    .dashboard {
-      position: absolute;
-      width: 120px; height: 90px;
-      background: rgba(0, 255, 255, 0.15);
-      border: 1px solid #00ffff;
-      border-radius: 12px;
-      backdrop-filter: blur(10px);
-      box-shadow: 0 0 30px #00ffff;
-      animation: fly-core-to-right 10s linear infinite;
+
+    /* ===== PEN LAYER – same as before (optional) ===== */
+
+    .pen-layer {
+      position: fixed;
+      right: 24px;
+      bottom: 24px;
+      width: 260px;
+      height: 180px;
+      z-index: 6;
       pointer-events: none;
-      z-index: 1;
+      opacity: 0.95;
     }
-    @keyframes fly-core-to-right {
-      0% { transform: translate(0, 0) scale(0.1); opacity: 0; left: 50%; top: 50%; }
-      10% { opacity: 1; transform: translate(20vw, -5vh) scale(0.9); }
-      60% { opacity: 1; transform: translate(55vw, var(--dash-offset-y)) scale(1); }
-      100% { opacity: 0; transform: translate(120vw, var(--dash-offset-y)) scale(1); }
+
+    .pen-bg {
+      fill: #f9fafb;
+      stroke: var(--line-mid);
+      stroke-width: 1;
+    }
+
+    .pen-path {
+      fill: none;
+      stroke: var(--ink);
+      stroke-width: 1.4;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      stroke-dasharray: 600;
+      stroke-dashoffset: 600;
+      animation: drawPath 8s ease-in-out infinite;
+    }
+
+    .pen-label {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 9px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      fill: var(--ink);
+    }
+
+    .pen-tip {
+      fill: var(--ink);
+      stroke: #ffffff;
+      stroke-width: 0.8;
+      filter: drop-shadow(0 1px 1px rgba(0,0,0,0.4));
+    }
+
+    @keyframes drawPath {
+      0% {
+        stroke-dashoffset: 600;
+        opacity: 0;
+      }
+      10% {
+        opacity: 1;
+      }
+      60% {
+        stroke-dashoffset: 0;
+        opacity: 1;
+      }
+      80% {
+        opacity: 1;
+      }
+      100% {
+        stroke-dashoffset: 600;
+        opacity: 0;
+      }
+    }
+
+    /* ===== FOREGROUND CONTENT ===== */
+
+    .content-shell {
+      position: relative;
+      z-index: 10;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .frosted-panel {
+      background: #ffffff;
+      border-radius: 24px;
+      border: 1px solid var(--line-light);
+      box-shadow:
+        0 18px 40px rgba(0, 0, 0, 0.06);
+    }
+
+    .app-card {
+      transform-origin: bottom;
+      transform: perspective(900px) rotateX(9deg) translateY(0);
+      transition:
+        transform 220ms ease,
+        box-shadow 220ms ease,
+        border-color 220ms ease,
+        background 220ms ease;
+      background: #ffffff;
+      border: 1px solid var(--line-light);
+    }
+
+    .app-card:hover {
+      transform: perspective(900px) rotateX(0deg) translateY(-6px) scale(1.03);
+      box-shadow:
+        0 20px 40px rgba(0, 0, 0, 0.12);
+      border-color: var(--ink);
+      background:
+        repeating-linear-gradient(
+          -4deg,
+          #ffffff 0,
+          #ffffff 5px,
+          #f9fafb 5px,
+          #f9fafb 9px
+        );
+    }
+
+    .app-card h3 {
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      font-size: 0.7rem;
+    }
+
+    .tagline {
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+
+    /* ===== HANDWRITING HERO TEXT ===== */
+
+    #hero-hand-text {
+      font-family: "Caveat", "Segoe Script", system-ui, sans-serif;
+      font-size: 1.7rem;
+      line-height: 1.3;
+      white-space: pre-line; /* keep your line breaks */
+      color: #111827;
+      max-width: 48rem;
+      margin: 0 auto;
+      text-align: center;
+      opacity: 0;
+    }
+
+    #hero-hand-text.fade-out {
+      transition: opacity 5s ease; /* 5 second fade */
+      opacity: 0;
     }
   </style>
 </head>
-<body class="min-h-screen relative">
-  <!-- AI Core -->
-  <div class="ai-core"></div>
-  <!-- Background elements -->
-  <div id="chaos"></div>
-  <div id="clarity"></div>
+<body>
+  <!-- SKETCH CITY BACKGROUND -->
+  <div class="scene">
+    <div class="city">
+      <div class="ground-grid"></div>
+      <div class="horizon-glow"></div>
+      <div id="buildings-layer"></div>
+      <div id="drones-layer"></div>
+    </div>
+  </div>
 
-  <!-- Foreground content (flex column, cards stuck to bottom) -->
-  <div class="relative z-10 flex flex-col min-h-screen">
-    <div class="container mx-auto px-8 pt-20 pb-8 flex flex-col flex-1">
-      <!-- Heading / hero -->
-      <div class="text-center mb-10">
-        <h1 class="text-5xl md:text-7xl font-black mb-4">
-          <span class="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
-            AI Finance Automation
+  <!-- AI CORE + KEYWORDS -->
+  <div class="ai-core"></div>
+  <div class="keyword-ring" id="keyword-ring"></div>
+
+  <!-- PEN CANVAS (bottom-right) -->
+  <svg class="pen-layer" viewBox="0 0 260 180">
+    <rect x="4" y="4" width="252" height="172" rx="12" class="pen-bg" />
+    <text x="16" y="28" class="pen-label">EAC PLAN &amp; DASHBOARD</text>
+    <path id="penPath"
+          class="pen-path"
+          d="
+            M20 52
+            L240 52
+            L240 140
+            L20 140
+            Z
+
+            M20 82
+            L240 82
+
+            M20 112
+            L240 112
+
+            M80 52
+            L80 140
+
+            M150 52
+            L150 140
+          " />
+    <circle r="3.5" class="pen-tip">
+      <animateMotion dur="8s"
+                     repeatCount="indefinite"
+                     rotate="auto">
+        <mpath xlink:href="#penPath" />
+      </animateMotion>
+    </circle>
+  </svg>
+
+  <!-- FOREGROUND CONTENT -->
+  <div class="content-shell">
+    <div class="container mx-auto px-6 md:px-10 pt-24 pb-10 flex-1 flex flex-col">
+      <!-- Hero panel -->
+      <div class="frosted-panel px-6 md:px-10 pt-8 pb-6 mb-8">
+        <div class="text-center mb-6">
+          <!-- Animated handwriting text -->
+          <div id="hero-hand-text"></div>
+        </div>
+
+        <div class="text-center text-xs md:text-sm text-gray-600 tagline">
+          <span class="inline-flex items-center gap-2">
+            <span class="h-px w-10 bg-gray-400"></span>
+            Real models &middot; Real projects &middot; Real automation
+            <span class="h-px w-10 bg-gray-400"></span>
           </span>
-        </h1>
-        <p class="text-lg md:text-2xl text-cyan-300 max-w-4xl mx-auto">
-          End manual data entry, Excel hell, and late-night reconciliations.<br>
-          Our AI turns chaos into instant insights.
-        </p>
+        </div>
       </div>
 
-      <!-- App Cards Grid (anchored to bottom with mt-auto) -->
-      <div class="mt-auto mb-4">
-        <div class="text-sm text-cyan-200 mb-3 uppercase tracking-wide">
+      <!-- App Launcher Grid -->
+      <div class="mt-auto">
+        <div class="mb-3 text-xs md:text-sm text-gray-700 tagline">
           Launch a module:
         </div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 max-w-7xl mx-auto">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 max-w-7xl">
           <!-- Oyster app -->
           <a href="https://oyster-app-5trn4.ondigitalocean.app/" target="_blank" rel="noopener noreferrer"
-             class="card relative rounded-2xl p-4 group bg-white/5 backdrop-blur-xl border border-cyan-500/30
-                    hover:border-cyan-400 hover:bg-white/10
-                    transition-transform transition-colors duration-200
-                    transform origin-bottom hover:scale-125 hover:-translate-y-1 hover:z-20">
+             class="app-card relative rounded-2xl p-4 group">
             <div class="flex items-center gap-2 mb-2">
-              <div class="text-3xl text-cyan-400 group-hover:scale-110 transition-transform">Oyster</div>
-              <h3 class="text-base font-bold text-cyan-300">EAC Sandbox</h3>
+              <div class="text-lg md:text-2xl font-semibold text-gray-900 group-hover:underline underline-offset-4">
+                Oyster
+              </div>
+              <h3 class="font-semibold text-gray-600">EAC Sandbox</h3>
             </div>
-            <p class="text-[11px] leading-snug text-gray-300">
+            <p class="text-[11px] leading-snug text-gray-600">
               Financial project planning for multiple users
-              <span class="text-cyan-300">[admin@admin.com / Test1234!]</span>.
+              <span class="text-gray-900 font-mono">[admin@admin.com / Test1234!]</span>.
             </p>
-            <div class="mt-3 text-cyan-400 font-semibold text-xs group-hover:text-white">
-              Open
+            <div class="mt-3 text-xs font-semibold text-gray-900">
+              Open &rarr;
             </div>
           </a>
 
           <!-- King Prawn app -->
           <a href="https://king-prawn-app-8wlzi.ondigitalocean.app/" target="_blank" rel="noopener noreferrer"
-             class="card relative rounded-2xl p-4 group bg-white/5 backdrop-blur-xl border border-cyan-500/30
-                    hover:border-cyan-400 hover:bg-white/10
-                    transition-transform transition-colors duration-200
-                    transform origin-bottom hover:scale-125 hover:-translate-y-1 hover:z-20">
+             class="app-card relative rounded-2xl p-4 group">
             <div class="flex items-center gap-2 mb-2">
-              <div class="text-3xl text-cyan-400 group-hover:scale-110 transition-transform">King Prawn</div>
-              <h3 class="text-base font-bold text-cyan-300">Timekeeping App</h3>
+              <div class="text-lg md:text-2xl font-semibold text-gray-900 group-hover:underline underline-offset-4">
+                King Prawn
+              </div>
+              <h3 class="font-semibold text-gray-600">Timekeeping App</h3>
             </div>
-            <p class="text-[11px] leading-snug text-gray-300">
+            <p class="text-[11px] leading-snug text-gray-600">
               A simple timekeeping app
-              <span class="text-cyan-300">[john.tester@ledgersummit.com / Test123!]</span>.
+              <span class="text-gray-900 font-mono">[john.tester@ledgersummit.com / Test123!]</span>.
             </p>
-            <div class="mt-3 text-cyan-400 font-semibold text-xs group-hover:text-white">
-              Open
+            <div class="mt-3 text-xs font-semibold text-gray-900">
+              Open &rarr;
             </div>
           </a>
 
           <!-- Stingray app -->
           <a href="https://stingray-app-k8jzl.ondigitalocean.app/" target="_blank" rel="noopener noreferrer"
-             class="card relative rounded-2xl p-4 group bg-white/5 backdrop-blur-xl border border-cyan-500/30
-                    hover:border-cyan-400 hover:bg-white/10
-                    transition-transform transition-colors duration-200
-                    transform origin-bottom hover:scale-125 hover:-translate-y-1 hover:z-20">
+             class="app-card relative rounded-2xl p-4 group">
             <div class="flex items-center gap-2 mb-2">
-              <div class="text-3xl text-cyan-400 group-hover:scale-110 transition-transform">Stingray</div>
-              <h3 class="text-base font-bold text-cyan-300">Grants Planning</h3>
+              <div class="text-lg md:text-2xl font-semibold text-gray-900 group-hover:underline underline-offset-4">
+                Stingray
+              </div>
+              <h3 class="font-semibold text-gray-600">Grants Planning</h3>
             </div>
-            <p class="text-[11px] leading-snug text-gray-300">
+            <p class="text-[11px] leading-snug text-gray-600">
               Grants budget planning
-              <span class="text-cyan-300">[admin@admin.com / Test123!]</span>.
+              <span class="text-gray-900 font-mono">[admin@admin.com / Test123!]</span>.
             </p>
-            <div class="mt-3 text-cyan-400 font-semibold text-xs group-hover:text-white">
-              Open
+            <div class="mt-3 text-xs font-semibold text-gray-900">
+              Open &rarr;
             </div>
           </a>
 
           <!-- Orca app -->
           <a href="https://orca-app-bneex.ondigitalocean.app/" target="_blank" rel="noopener noreferrer"
-             class="card relative rounded-2xl p-4 group bg-white/5 backdrop-blur-xl border border-cyan-500/30
-                    hover:border-cyan-400 hover:bg-white/10
-                    transition-transform transition-colors duration-200
-                    transform origin-bottom hover:scale-125 hover:-translate-y-1 hover:z-20">
+             class="app-card relative rounded-2xl p-4 group">
             <div class="flex items-center gap-2 mb-2">
-              <div class="text-3xl text-cyan-400 group-hover:scale-110 transition-transform">Orca</div>
-              <h3 class="text-base font-bold text-cyan-300">Consolidated P&L</h3>
+              <div class="text-lg md:text-2xl font-semibold text-gray-900 group-hover:underline underline-offset-4">
+                Orca
+              </div>
+              <h3 class="font-semibold text-gray-600">Consolidated P&amp;L</h3>
             </div>
-            <p class="text-[11px] leading-snug text-gray-300">
-              Consolidated P&L planning (bottom-up portfolios).
+            <p class="text-[11px] leading-snug text-gray-600">
+              Consolidated P&amp;L planning (bottom-up portfolios).
             </p>
-            <div class="mt-3 text-cyan-400 font-semibold text-xs group-hover:text-white">
-              Open
+            <div class="mt-3 text-xs font-semibold text-gray-900">
+              Open &rarr;
             </div>
           </a>
 
-          <!-- Seal app (visuals) -->
+          <!-- Seal app -->
           <a href="https://seal-app-9756y.ondigitalocean.app/#visuals" target="_blank" rel="noopener noreferrer"
-             class="card relative rounded-2xl p-4 group bg-white/5 backdrop-blur-xl border border-cyan-500/30
-                    hover:border-cyan-400 hover:bg-white/10
-                    transition-transform transition-colors duration-200
-                    transform origin-bottom hover:scale-125 hover:-translate-y-1 hover:z-20">
+             class="app-card relative rounded-2xl p-4 group">
             <div class="flex items-center gap-2 mb-2">
-              <div class="text-3xl text-cyan-400 group-hover:scale-110 transition-transform">Seal</div>
-              <h3 class="text-base font-bold text-cyan-300">Detailed EAC</h3>
+              <div class="text-lg md:text-2xl font-semibold text-gray-900 group-hover:underline underline-offset-4">
+                Seal
+              </div>
+              <h3 class="font-semibold text-gray-600">Detailed EAC</h3>
             </div>
-            <p class="text-[11px] leading-snug text-gray-300">
+            <p class="text-[11px] leading-snug text-gray-600">
               Clean visuals and board-ready summaries for your EAC planning.
             </p>
-            <div class="mt-3 text-cyan-400 font-semibold text-xs group-hover:text-white">
-              Open
+            <div class="mt-3 text-xs font-semibold text-gray-900">
+              Open &rarr;
             </div>
           </a>
         </div>
@@ -199,45 +656,129 @@
   </div>
 
   <script>
-    const chaos = document.getElementById('chaos');
-    const clarity = document.getElementById('clarity');
+    // Buildings & drones
+    const buildingsLayer = document.getElementById("buildings-layer");
+    const dronesLayer = document.getElementById("drones-layer");
 
-    // Floating keyword bubbles
-    const keywords = [
-      { text: 'Automation', icon: 'Gear' },
-      { text: 'Artificial Intelligence', icon: 'Robot' },
-      { text: 'Finance Easy', icon: 'Money Bag' },
-      { text: 'Accounting Quick', icon: 'Chart Increasing' },
-      { text: 'Project EAC', icon: 'Chart Line' },
-      { text: 'No More Spreadsheets', icon: 'Broom' },
-      { text: 'Real-Time Dashboards', icon: 'Megaphone' },
-      { text: 'Scenario Planning', icon: 'Brain' }
+    const buildingConfigs = [
+      { x: -620, z: -260, h: 340 },
+      { x: -480, z: -140, h: 260 },
+      { x: -320, z: -360, h: 420 },
+      { x: -160, z: -220, h: 300 },
+      { x:   10, z: -420, h: 440 },
+      { x:  180, z: -260, h: 320 },
+      { x:  340, z: -360, h: 390 },
+      { x:  520, z: -220, h: 270 },
+      { x:  680, z: -320, h: 410 },
+      { x: -760, z: -360, h: 360 },
+      { x:  840, z: -420, h: 400 },
     ];
-    const bands = [15, 28, 41, 54, 67, 80];
-    keywords.forEach((kw, index) => {
-      const el = document.createElement('div');
-      el.className = 'keyword';
-      const band = bands[index % bands.length];
-      el.style.top = band + 'vh';
-      el.style.left = '-10vw';
-      el.style.animationDelay = (index * 2) + 's';
-      el.innerHTML = `
-        <span>${kw.icon}</span>
-        <span>${kw.text}</span>
-      `;
-      chaos.appendChild(el);
+
+    buildingConfigs.forEach((b, i) => {
+      const el = document.createElement("div");
+      el.className = "building";
+      const w = 80 + (i % 3) * 14;
+      el.style.setProperty("--x", b.x + "px");
+      el.style.setProperty("--z", b.z + "px");
+      el.style.setProperty("--h", b.h + "px");
+      el.style.width = w + "px";
+      el.style.height = b.h + "px";
+      el.style.animationDelay = (i * 0.7) + "s";
+      buildingsLayer.appendChild(el);
     });
 
-    // Right side: clean dashboards flying out
-    const dashBands = [-10, -3, 4, 11, 18];
-    for (let i = 0; i < 15; i++) {
-      const dash = document.createElement('div');
-      dash.className = 'dashboard';
-      const offset = dashBands[i % dashBands.length];
-      dash.style.setProperty('--dash-offset-y', offset + 'vh');
-      dash.style.animationDelay = (i * 0.8) + 's';
-      clarity.appendChild(dash);
+    const drones = [
+      { label: "EAC", dx: -480, dy: -120, dz: -340, delay: 0 },
+      { label: "GL MAP", dx: -180, dy: -80, dz: -300, delay: 2 },
+      { label: "FORECAST", dx:  80, dy: -140, dz: -360, delay: 4 },
+      { label: "WIP", dx:  320, dy: -110, dz: -320, delay: 6 },
+      { label: "SCENARIO", dx: -60, dy: -40, dz: -260, delay: 8 },
+      { label: "AUTOMATE", dx: 520, dy: -120, dz: -380, delay: 10 },
+    ];
+
+    drones.forEach((d) => {
+      const el = document.createElement("div");
+      el.className = "data-drone";
+      el.textContent = d.label;
+      el.style.setProperty("--dx", d.dx + "px");
+      el.style.setProperty("--dy", d.dy + "px");
+      el.style.setProperty("--dz", d.dz + "px");
+      el.style.animationDelay = d.delay + "s";
+      dronesLayer.appendChild(el);
+    });
+
+    // Keyword orbit
+    const keywordRing = document.getElementById("keyword-ring");
+    const keywords = [
+      { text: "Automation", icon: "◻︎" },
+      { text: "AI Co-pilot", icon: "◎" },
+      { text: "No More Spreadsheets", icon: "✕" },
+      { text: "Real-Time Dashboards", icon: "▤" },
+      { text: "Scenario Planning", icon: "△" },
+      { text: "Project EAC", icon: "↗︎" },
+      { text: "Month-End in Minutes", icon: "⏱" },
+      { text: "Ledger Summit", icon: "⛰" }
+    ];
+
+    keywords.forEach((kw, i) => {
+      const el = document.createElement("div");
+      el.className = "keyword";
+      const angle = (360 / keywords.length) * i;
+      el.style.setProperty("--angle", angle + "deg");
+      el.style.animationDelay = (i * 1.4) + "s";
+      el.innerHTML = `
+        <span class="icon">${kw.icon}</span>
+        <span>${kw.text}</span>
+      `;
+      keywordRing.appendChild(el);
+    });
+
+    // ===== Handwriting hero text: type, hold, fade, loop =====
+    const heroEl = document.getElementById("hero-hand-text");
+    const fullText = [
+      "Finance Automation, Drawn in Black & White",
+      "A clean line between chaos and clarity.",
+      "Your planning, forecasting, and EACs – rendered with the precision of a technical drawing."
+    ].join("\n");
+
+    const TYPE_SPEED = 30;    // ms per character (fast but visible)
+    const HOLD_TIME  = 5000;  // 5s fully visible
+    const FADE_TIME  = 5000;  // 5s fade-out
+
+    function runTypingLoop() {
+      heroEl.classList.remove("fade-out");
+      heroEl.style.opacity = 1;
+      heroEl.textContent = "";
+
+      let i = 0;
+      const len = fullText.length;
+
+      const typingInterval = setInterval(() => {
+        heroEl.textContent = fullText.slice(0, i);
+        i++;
+
+        if (i > len) {
+          clearInterval(typingInterval);
+
+          // Hold for 5 seconds
+          setTimeout(() => {
+            // Trigger fade-out
+            heroEl.classList.add("fade-out");
+
+            // After fade completes, clear and restart
+            setTimeout(() => {
+              heroEl.textContent = "";
+              heroEl.style.opacity = 0;
+              heroEl.classList.remove("fade-out");
+              // Small pause before restarting
+              setTimeout(runTypingLoop, 200);
+            }, FADE_TIME);
+          }, HOLD_TIME);
+        }
+      }, TYPE_SPEED);
     }
+
+    window.addEventListener("load", runTypingLoop);
   </script>
 </body>
 </html>
