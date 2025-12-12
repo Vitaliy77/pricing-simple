@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Finance Automation Hub with AI</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Handwriting font -->
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&display=swap" rel="stylesheet">
   <style>
@@ -13,7 +12,6 @@
       --ink: #111827;
       --paper: #fdfcf7;
       --line-light: #d1d5db;
-      --line-mid: #9ca3af;
     }
     body {
       margin: 0;
@@ -23,7 +21,6 @@
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
 
-    /* ===== TILTED NOTEBOOK PAGE ===== */
     .notebook-plane {
       position: fixed;
       bottom: -8vh;
@@ -39,49 +36,38 @@
       border-radius: 12px;
     }
     .notebook-plane::before {
-      content: "";
-      position: absolute;
-      top: 0; bottom: 0; left: 8%;
-      width: 2px;
-      background: rgba(239, 68, 68, 0.55);
-      pointer-events: none;
+      content: ""; position: absolute; top: 0; bottom: 0; left: 8%; width: 2px;
+      background: rgba(239, 68, 68, 0.55); pointer-events: none;
     }
     .notebook-plane::after {
-      content: "";
-      position: absolute;
-      left: 4%; top: 14%;
-      width: 10px; height: 68%;
+      content: ""; position: absolute; left: 4%; top: 14%; width: 10px; height: 68%;
       background-image: radial-gradient(circle, #d1d5db 0, #d1d5db 2px, transparent 2px);
-      background-size: 12px 40px;
-      background-repeat: repeat-y;
-      opacity: 0.75;
-      pointer-events: none;
+      background-size: 12px 40px; background-repeat: repeat-y; opacity: 0.75; pointer-events: none;
     }
 
-    /* ===== HANDWRITTEN NOTE ON THE PAGE ===== */
+    /* Blue handwritten note — moved up 1 inch */
     .notebook-writing-layer {
       position: absolute;
-      top: 50%;      /* was 55% – ~½ inch higher */
-      right: 10%;
+      top: 43%;           /* moved up from 58% → now perfect */
+      right: 8%;
       width: 36%;
       color: #2563eb;
       font-family: "Caveat", cursive;
-      font-size: 1.6rem;
-      line-height: 28px;
+      font-size: 1.7rem;
+      line-height: 32px;
       white-space: pre-line;
       text-align: right;
       transform-origin: top right;
       pointer-events: none;
       z-index: 2;
+      text-shadow: 0 1px 2px rgba(255,255,255,0.9);
     }
 
-
-
-    /* ===== GEAR-LIKE AI CORE ===== */
+    /* Gear core — moved another inch left & down */
     .gear-core {
       position: fixed;
-      top: 26%;
-      left: 50%;
+      top: 39%;           /* was 28% → moved down */
+      left: 36%;          /* was 46% → moved left */
       width: 230px;
       height: 230px;
       transform: translateX(-50%);
@@ -92,108 +78,33 @@
       justify-content: center;
     }
     .gear-core::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      border-radius: 50%;
+      content: ""; position: absolute; inset: 0; border-radius: 50%;
       background: conic-gradient(from 0deg, transparent 0deg 10deg, var(--ink) 10deg 14deg, transparent 14deg 20deg);
       -webkit-mask: radial-gradient(circle at center, transparent 0 70%, #000 70% 100%);
       mask: radial-gradient(circle at center, transparent 0 70%, #000 70% 100%);
-      opacity: 0.9;
-      animation: gearRotate 22s linear infinite;
+      opacity: 0.9; animation: gearRotate 22s linear infinite;
     }
-    .gear-inner {
-      position: absolute;
-      inset: 18%;
-      border-radius: 50%;
-      background: radial-gradient(circle at 30% 20%, #ffffff 0, #f9fafb 45%, transparent 90%);
-      border: 1.5px solid var(--ink);
-      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.18);
-    }
-    .gear-inner::before {
-      content: "";
-      position: absolute;
-      inset: 18%;
-      border-radius: 50%;
-      background: repeating-linear-gradient(135deg, rgba(0, 0, 0, 0.18) 0, rgba(0, 0, 0, 0.18) 1px, transparent 1px, transparent 5px);
-      opacity: 0.12;
-    }
-    .gear-inner::after {
-      content: "";
-      position: absolute;
-      inset: 42%;
-      border-radius: 50%;
-      border: 1.5px solid var(--ink);
-      background: #ffffff;
-      box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.04);
-    }
+    .gear-inner { position: absolute; inset: 18%; border-radius: 50%; background: radial-gradient(circle at 30% 20%, #ffffff 0, #f9fafb 45%, transparent 90%); border: 1.5px solid var(--ink); box-shadow: 0 16px 36px rgba(0, 0, 0, 0.18); }
+    .gear-inner::before { content: ""; position: absolute; inset: 18%; border-radius: 50%; background: repeating-linear-gradient(135deg, rgba(0, 0, 0, 0.18) 0, rgba(0, 0, 0, 0.18) 1px, transparent 1px, transparent 5px); opacity: 0.12; }
+    .gear-inner::after { content: ""; position: absolute; inset: 42%; border-radius: 50%; border: 1.5px solid var(--ink); background: #ffffff; box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.04); }
     .gear-sat { position: absolute; inset: 0; animation: satOrbit 18s linear infinite; transform-origin: center; }
     .gear-sat.sat-2 { animation-duration: 24s; animation-direction: reverse; }
     .gear-sat.sat-3 { animation-duration: 28s; }
-    .gear-sat-ring {
-      position: absolute;
-      width: 80px; height: 80px;
-      border-radius: 50%;
-      top: 50%; left: 50%;
-      margin: -40px;
-      transform: translateX(125px);
-    }
-    .gear-sat-ring::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      border-radius: 50%;
-      background: conic-gradient(from 0deg, transparent 0deg 12deg, var(--ink) 12deg 16deg, transparent 16deg 24deg);
-      -webkit-mask: radial-gradient(circle at center, transparent 0 68%, #000 68% 100%);
-      mask: radial-gradient(circle at center, transparent 0 68%, #000 68% 100%);
-      opacity: 0.85;
-      animation: gearRotate 12s linear infinite;
-    }
-    .gear-sat-ring::after {
-      content: "";
-      position: absolute;
-      inset: 28%;
-      border-radius: 50%;
-      background: #ffffff;
-      border: 1.2px solid var(--ink);
-    }
+    .gear-sat-ring { position: absolute; width: 80px; height: 80px; border-radius: 50%; top: 50%; left: 50%; margin: -40px; transform: translateX(125px); }
+    .gear-sat-ring::before { content: ""; position: absolute; inset: 0; border-radius: 50%; background: conic-gradient(from 0deg, transparent 0deg 12deg, var(--ink) 12deg 16deg, transparent 16deg 24deg); -webkit-mask: radial-gradient(circle at center, transparent 0 68%, #000 68% 100%); mask: radial-gradient(circle at center, transparent 0 68%, #000 68% 100%); opacity: 0.85; animation: gearRotate 12s linear infinite; }
+    .gear-sat-ring::after { content: ""; position: absolute; inset: 28%; border-radius: 50%; background: #ffffff; border: 1.2px solid var(--ink); }
     @keyframes gearRotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
     @keyframes satOrbit { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
-    /* ===== CONTENT ===== */
-    .content-shell {
-      position: relative;
-      z-index: 4;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-    }
+    .content-shell { position: relative; z-index: 4; min-height: 100vh; display: flex; flex-direction: column; }
     .page-container { max-width: 960px; }
-    .frosted-panel {
-      background: #ffffff;
-      border-radius: 24px;
-      border: 1px solid var(--line-light);
-      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.06);
-    }
-    .app-card {
-      transform-origin: bottom;
-      transform: perspective(900px) rotateX(9deg) translateY(0);
-      transition: transform 220ms ease, box-shadow 220ms ease, border-color 220ms ease, background 220ms ease;
-      background: #ffffff;
-      border: 1px solid var(--line-light);
-      display: flex;
-      flex-direction: column;
-      height: 100%;
-    }
-    .app-card:hover {
-      transform: perspective(900px) rotateX(0deg) translateY(-6px) scale(1.03);
-      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.12);
-      border-color: var(--ink);
-      background: repeating-linear-gradient(-4deg, #ffffff 0, #ffffff 5px, #f9fafb 5px, #f9fafb 9px);
-    }
+    .frosted-panel { background: #ffffff; border-radius: 24px; border: 1px solid var(--line-light); box-shadow: 0 18px 40px rgba(0, 0, 0, 0.06); }
+    .app-card { transform-origin: bottom; transform: perspective(900px) rotateX(9deg) translateY(0); transition: transform 220ms ease, box-shadow 220ms ease, border-color 220ms ease, background 220ms ease; background: #ffffff; border: 1px solid var(--line-light); display: flex; flex-direction: column; height: 100%; }
+    .app-card:hover { transform: perspective(900px) rotateX(0deg) translateY(-6px) scale(1.03); box-shadow: 0 20px 40px rgba(0, 0, 0, 0.12); border-color: var(--ink); background: repeating-linear-gradient(-4deg, #ffffff 0, #ffffff 5px, #f9fafb 5px, #f9fafb 9px); }
     .tagline { letter-spacing: 0.16em; text-transform: uppercase; }
+
     #hero-hand-text {
-      font-family: "Caveat", "Segoe Script", system-ui, sans-serif;
+      font-family: "Caveat", cursive;
       font-size: 1.7rem;
       line-height: 1.3;
       white-space: pre-line;
@@ -207,7 +118,7 @@
 </head>
 <body>
 
-  <!-- Tilted notebook page with handwritten note directly on it -->
+  <!-- Tilted notebook page with blue note (now perfectly positioned) -->
   <div class="notebook-plane">
     <div class="notebook-writing-layer">
 AI automation and improvement.
@@ -217,7 +128,7 @@ We know it works – the power of AI is just a click away.
     </div>
   </div>
 
-  <!-- Gear-like AI core -->
+  <!-- Gear core — moved further left & down -->
   <div class="gear-core">
     <div class="gear-inner"></div>
     <div class="gear-sat sat-1"><div class="gear-sat-ring"></div></div>
@@ -225,10 +136,9 @@ We know it works – the power of AI is just a click away.
     <div class="gear-sat sat-3"><div class="gear-sat-ring"></div></div>
   </div>
 
-  <!-- Main content -->
+  <!-- Main content — hero near top -->
   <div class="content-shell">
-    <div class="container page-container mx-auto px-6 md:px-8 pt-24 pb-10 flex-1 flex flex-col">
-      <!-- Hero panel -->
+    <div class="container page-container mx-auto px-6 md:px-8 pt-6 pb-10 flex-1 flex flex-col">
       <div class="frosted-panel px-6 md:px-10 pt-8 pb-6 mb-4">
         <div class="text-center mb-6">
           <div id="hero-hand-text"></div>
@@ -248,72 +158,25 @@ We know it works – the power of AI is just a click away.
           Launch a module:
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-          <!-- EAC Sandbox -->
           <a href="https://oyster-app-5trn4.ondigitalocean.app/" target="_blank" rel="noopener noreferrer" class="app-card relative rounded-2xl p-4 group">
-            <div>
-              <h3 class="font-semibold text-gray-900 mb-2">EAC Sandbox</h3>
-              <p class="text-[11px] leading-snug text-gray-600">
-                Financial project planning for multiple users
-                <span class="text-gray-900 font-mono">[admin@admin.com / Test1234!]</span>.
-              </p>
-            </div>
-            <div class="mt-4 flex justify-end">
-              <span class="text-xs font-semibold text-gray-900">Open →</span>
-            </div>
+            <div><h3 class="font-semibold text-gray-900 mb-2">EAC Sandbox</h3><p class="text-[11px] leading-snug text-gray-600">Financial project planning for multiple users <span class="text-gray-900 font-mono">[admin@admin.com / Test1234!]</span>.</p></div>
+            <div class="mt-4 flex justify-end"><span class="text-xs font-semibold text-gray-900">Open →</span></div>
           </a>
-
-          <!-- Timekeeping App -->
           <a href="https://king-prawn-app-8wlzi.ondigitalocean.app/" target="_blank" rel="noopener noreferrer" class="app-card relative rounded-2xl p-4 group">
-            <div>
-              <h3 class="font-semibold text-gray-900 mb-2">Timekeeping App</h3>
-              <p class="text-[11px] leading-snug text-gray-600">
-                Simple timekeeping for project teams
-                <span class="text-gray-900 font-mono">[john.tester@ledgersummit.com / Test123!]</span>.
-              </p>
-            </div>
-            <div class="mt-4 flex justify-end">
-              <span class="text-xs font-semibold text-gray-900">Open →</span>
-            </div>
+            <div><h3 class="font-semibold text-gray-900 mb-2">Timekeeping App</h3><p class="text-[11px] leading-snug text-gray-600">Simple timekeeping for project teams <span class="text-gray-900 font-mono">[john.tester@... / Test123!]</span>.</p></div>
+            <div class="mt-4 flex justify-end"><span class="text-xs font-semibold text-gray-900">Open →</span></div>
           </a>
-
-          <!-- Grants Planning -->
           <a href="https://stingray-app-k8jzl.ondigitalocean.app/" target="_blank" rel="noopener noreferrer" class="app-card relative rounded-2xl p-4 group">
-            <div>
-              <h3 class="font-semibold text-gray-900 mb-2">Grants Planning</h3>
-              <p class="text-[11px] leading-snug text-gray-600">
-                Grants budget planning with clear funding and cost structure
-                <span class="text-gray-900 font-mono">[admin@admin.com / Test123!]</span>.
-              </p>
-            </div>
-            <div class="mt-4 flex justify-end">
-              <span class="text-xs font-semibold text-gray-900">Open →</span>
-            </div>
+            <div><h3 class="font-semibold text-gray-900 mb-2">Grants Planning</h3><p class="text-[11px] leading-snug text-gray-600">Grants budget planning with clear funding and cost structure <span class="text-gray-900 font-mono">[admin@admin.com / Test123!]</span>.</p></div>
+            <div class="mt-4 flex justify-end"><span class="text-xs font-semibold text-gray-900">Open →</span></div>
           </a>
-
-          <!-- Consolidated P&L -->
           <a href="https://orca-app-bneex.ondigitalocean.app/" target="_blank" rel="noopener noreferrer" class="app-card relative rounded-2xl p-4 group">
-            <div>
-              <h3 class="font-semibold text-gray-900 mb-2">Consolidated P&L</h3>
-              <p class="text-[11px] leading-snug text-gray-600">
-                Consolidated P&L planning from bottom-up portfolios.
-              </p>
-            </div>
-            <div class="mt-4 flex justify-end">
-              <span class="text-xs font-semibold text-gray-900">Open →</span>
-            </div>
+            <div><h3 class="font-semibold text-gray-900 mb-2">Consolidated P&L</h3><p class="text-[11px] leading-snug text-gray-600">Consolidated P&L planning from bottom-up portfolios.</p></div>
+            <div class="mt-4 flex justify-end"><span class="text-xs font-semibold text-gray-900">Open →</span></div>
           </a>
-
-          <!-- Detailed EAC -->
           <a href="https://seal-app-9756y.ondigitalocean.app/#visuals" target="_blank" rel="noopener noreferrer" class="app-card relative rounded-2xl p-4 group">
-            <div>
-              <h3 class="font-semibold text-gray-900 mb-2">Detailed EAC</h3>
-              <p class="text-[11px] leading-snug text-gray-600">
-                Clean visuals and board-ready summaries for your EAC planning.
-              </p>
-            </div>
-            <div class="mt-4 flex justify-end">
-              <span class="text-xs font-semibold text-gray-900">Open →</span>
-            </div>
+            <div><h3 class="font-semibold text-gray-900 mb-2">Detailed EAC</h3><p class="text-[11px] leading-snug text-gray-600">Clean visuals and board-ready summaries for your EAC planning.</p></div>
+            <div class="mt-4 flex justify-end"><span class="text-xs font-semibold text-gray-900">Open →</span></div>
           </a>
         </div>
       </div>
@@ -322,35 +185,78 @@ We know it works – the power of AI is just a click away.
 
   <script>
     const heroEl = document.getElementById("hero-hand-text");
-    const fullText = [
-      "Finance Automation, Drawn in Black & White",
-      "A clean line between chaos and clarity.",
-      "Your planning, forecasting, and EACs – rendered with the precision of a technical drawing."
-    ].join("\n");
-    const TYPE_SPEED = 30;
+    const blueEl = document.querySelector(".notebook-writing-layer");
+
+    const blackText = "Finance Automation, Drawn in Black & White\nA clean line between chaos and clarity.\nYour accounting, finance planning, and forecasting – rendered with the precision of a technical drawing.";
+    const blueText = "AI automation and improvement.\n\nHow about simple and inexpensive solution based on AI?\nWe know it works – the power of AI is just a click away.";
+
+    const TYPE_SPEED_BLACK = 35;
+    const TYPE_SPEED_BLUE = 32;
     const HOLD_TIME = 5000;
     const FADE_TIME = 5000;
 
-    function runTypingLoop() {
-      heroEl.style.opacity = 1;
-      heroEl.textContent = "";
-      let i = 0;
-      const typing = setInterval(() => {
-        heroEl.textContent = fullText.slice(0, ++i);
-        if (i > fullText.length) {
-          clearInterval(typing);
-          setTimeout(() => {
-            heroEl.style.transition = "opacity 5s";
-            heroEl.style.opacity = 0;
-            setTimeout(() => {
-              heroEl.style.transition = "";
-              runTypingLoop();
-            }, 5200);
-          }, HOLD_TIME);
+    function buildSpans(el, text, handwritten) {
+      el.innerHTML = "";
+      const chars = [];
+      const lines = text.split("\n");
+      lines.forEach((line, i) => {
+        for (let ch of line) {
+          const outer = document.createElement("span");
+          outer.style.display = "inline-block";
+          const inner = document.createElement("span");
+          inner.textContent = ch === " " ? "\u00A0" : ch;
+          inner.style.opacity = "0";
+          if (handwritten) {
+            inner.style.transform = "scaleX(0.3) translateY(0.45em) rotate(-4deg)";
+            inner.style.transformOrigin = "left center";
+            inner.style.transition = "opacity 160ms ease-out, transform 220ms ease-out";
+          } else {
+            inner.style.transition = "opacity 80ms steps(1, end)";
+          }
+          outer.appendChild(inner);
+          el.appendChild(outer);
+          chars.push(inner);
         }
-      }, TYPE_SPEED);
+        if (i < lines.length - 1) el.appendChild(document.createElement("br"));
+      });
+      return chars;
     }
-    window.addEventListener("load", runTypingLoop);
+
+    function typeAndFade(el, text, mode, done) {
+      const handwritten = mode === "hand";
+      el.style.transition = "";
+      el.style.opacity = 1;
+      const chars = buildSpans(el, text, handwritten);
+      let i = 0;
+      function next() {
+        if (i >= chars.length) {
+          setTimeout(() => {
+            el.style.transition = `opacity ${FADE_TIME}ms`;
+            el.style.opacity = 0;
+            setTimeout(() => {
+              el.innerHTML = "";
+              el.style.transition = "";
+              if (done) done();
+            }, FADE_TIME + 100);
+          }, HOLD_TIME);
+          return;
+        }
+        const span = chars[i++];
+        span.style.opacity = "1";
+        if (handwritten) span.style.transform = "scaleX(1) translateY(0) rotate(0deg)";
+        const delay = handwritten ? TYPE_SPEED_BLUE + Math.random() * 45 : TYPE_SPEED_BLACK;
+        setTimeout(next, delay);
+      }
+      next();
+    }
+
+    function runSequence() {
+      typeAndFade(heroEl, blackText, "type", () => {
+        typeAndFade(blueEl, blueText, "hand", runSequence);
+      });
+    }
+
+    window.addEventListener("load", runSequence);
   </script>
 </body>
 </html>
