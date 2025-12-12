@@ -1,13 +1,419 @@
-/* P&L sticky header + first column */
-#plWrap { overflow: auto; }
-#plTable { border-collapse: separate; border-spacing: 0; }
-#plTable th, #plTable td { white-space: nowrap; }
-#plTable thead th {
-  position: sticky; top: 0; z-index: 2; background: #fff;
-  box-shadow: 0 1px 0 rgba(0,0,0,0.06);
+/* ────────────────────────────── */
+/* Base styles */
+/* ────────────────────────────── */
+body {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  font-size: 14px;
+  line-height: 1.4;
+  background-color: #f1f5f9; /* slate-100 */
+  color: #0f172a; /* slate-900 */
 }
-#plTable .sticky-col {
-  position: sticky; left: 0; z-index: 3; background: #fff;
-  box-shadow: 1px 0 0 rgba(0,0,0,0.06);
+
+/* Default text inside the main app shell */
+.app-root {
+  font-size: 14px;
 }
-#plTable thead th.sticky-col { z-index: 4; }
+
+/* Small helper for microcopy / helper text */
+.app-microcopy {
+  font-size: 14px;
+  color: #6b7280;
+}
+
+/* Standard label text */
+.app-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
+}
+
+/* ────────────────────────────── */
+/* TOP MENU – MODERN GLASS + EQUAL-WIDTH TABS */
+/* ────────────────────────────── */
+.top-menu {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: rgba(30, 64, 175, 0.9); /* deep blue with 90% opacity */
+  backdrop-filter: blur(10px);
+}
+
+/* Cleaner horizontal scrollbar */
+.top-menu .flex {
+  scrollbar-width: thin;
+}
+.top-menu .flex::-webkit-scrollbar {
+  height: 6px;
+}
+.top-menu .flex::-webkit-scrollbar-thumb {
+  border-radius: 9999px;
+}
+
+/* TAB BUTTON BASE STYLE – FULLY REPLACED */
+.tab-btn {
+  flex: 1 0 0; /* equal width tabs */
+  min-width: 7rem;
+  box-sizing: border-box;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.45rem 0.75rem;
+  white-space: nowrap;
+  font-size: 0.875rem;
+  font-weight: 500;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  line-height: 1.2;
+  text-align: center;
+
+  color: #e5e7eb;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(0, 0, 0, 0.85);
+  border-radius: 9999px;
+
+  cursor: pointer;
+  position: relative;
+  transform-origin: center bottom;
+
+  transition:
+    background-color 150ms ease,
+    transform 150ms ease,
+    box-shadow 150ms ease,
+    font-weight 150ms ease;
+}
+
+/* Small icon in tabs */
+.tab-icon {
+  width: 14px;
+  height: 14px;
+  margin-right: 0.35rem;
+  flex-shrink: 0;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.7;
+}
+
+/* Focus handling */
+.tab-btn:focus {
+  outline: none;
+}
+.tab-btn:focus-visible {
+  box-shadow: 0 0 0 2px #93c5fd;
+}
+
+/* Hover state – ~12–15% size bump, bold */
+.tab-btn:hover {
+  background: rgba(255, 255, 255, 0.16);
+  font-weight: 600;
+  transform: scale(1.12);
+  z-index: 10;
+  box-shadow:
+    0 8px 16px rgba(15, 23, 42, 0.35),
+    0 0 0 1px rgba(15, 23, 42, 0.5);
+}
+
+/* Active tab (current view) */
+.tab-btn.active,
+.tab-btn[aria-selected="true"] {
+  background: rgba(248, 250, 252, 0.98);
+  color: #1e293b;
+  font-weight: 700;
+  transform: scale(1.12);
+  box-shadow:
+    0 10px 18px rgba(15, 23, 42, 0.45),
+    0 0 0 1px rgba(15, 23, 42, 0.7);
+}
+
+/* Underline indicator for active tab */
+.tab-btn.active::after,
+.tab-btn[aria-selected="true"]::after {
+  content: "";
+  position: absolute;
+  left: 18%;
+  right: 18%;
+  bottom: -6px;
+  height: 3px;
+  border-radius: 9999px;
+  background: linear-gradient(to right, #93c5fd, #1d4ed8);
+  opacity: 0.95;
+}
+
+/* Mouse-down “press” – slightly stronger pop than hover */
+.tab-btn:active {
+  transform: scale(1.15);
+}
+
+/* ────────────────────────────── */
+/* APP HEADER – MATCH TOP MENU STYLE */
+/* ────────────────────────────── */
+.app-header {
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid #e2e8f0;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
+}
+
+.app-header .app-title span:first-child {
+  letter-spacing: 0.02em;
+}
+
+/* ────────────────────────────── */
+/* Full-width card – main panels */
+/* ────────────────────────────── */
+.full-width-card {
+  width: 100%;
+  margin-top: 1rem;
+  margin-bottom: 1.5rem;
+  background-color: #ffffff;
+  border-radius: 0.75rem;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
+  overflow: hidden;
+  padding-left: 1.5rem;
+  padding-right: 1.5rem;
+}
+@media (min-width: 1024px) {
+  .full-width-card {
+    padding-left: 2rem;
+    padding-right: 2rem;
+  }
+}
+.full-width-card-tight {
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
+/* ────────────────────────────── */
+/* Generic table styling */
+/* ────────────────────────────── */
+.table-shell {
+  overflow: auto;
+  border-radius: 0.75rem;
+  border: 1px solid #e2e8f0;
+  background-color: #ffffff;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+.data-table thead {
+  background-color: #f8fafc;
+}
+.data-table th {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background-color: #f8fafc;
+  font-weight: 600;
+  color: #475569;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 0.25rem 0.5rem;
+  text-align: left;
+}
+.data-table td {
+  border-bottom: 1px solid #f1f5f9;
+  padding: 0.25rem 0.5rem;
+  vertical-align: middle;
+}
+.data-table tbody tr:nth-child(odd) {
+  background-color: rgba(248, 250, 252, 0.7);
+}
+.data-table tbody tr:hover {
+  background-color: #eff6ff;
+}
+.table-number {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ────────────────────────────── */
+/* P&L / Consolidated P&L – sticky header + first column */
+/* Works for #plTable and #conTable */
+/* ────────────────────────────── */
+
+/* Wrappers with scroll */
+#plWrap,
+#conWrap {
+  position: relative;
+  width: 100%;
+  max-height: 520px;
+  overflow-x: auto;
+  overflow-y: auto;
+  background-color: #f8fafc;
+}
+
+/* Base table configuration */
+#plTable,
+#conTable {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Remove crazy cell stretching */
+#plTable th,
+#plTable td,
+#conTable th,
+#conTable td {
+  white-space: nowrap;
+  padding: 4px 6px;
+  background-clip: padding-box;
+}
+
+/* Sticky header row */
+#plTable thead th,
+#conTable thead th {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background-color: #f8fafc;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.06);
+  border-bottom: 1px solid #e2e8f0;
+}
+
+/* Sticky first column (both header + body) */
+#plTable th:first-child,
+#plTable td:first-child,
+#conTable th:first-child,
+#conTable td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 25;
+  background-color: #ffffff;
+  box-shadow: 1px 0 0 rgba(0, 0, 0, 0.06);
+}
+
+/* First cell in header needs to be above others */
+#plTable thead th:first-child,
+#conTable thead th:first-child {
+  z-index: 30;
+}
+
+/* Row striping + hover for P&L */
+#plTable tbody tr:nth-child(odd),
+#conTable tbody tr:nth-child(odd) {
+  background-color: rgba(248, 250, 252, 0.7);
+}
+#plTable tbody tr:hover,
+#conTable tbody tr:hover {
+  background-color: #eff6ff;
+}
+
+/* Right-align numeric cells in P&L – your JS already does this,
+   but this keeps it consistent in case you add more rows later */
+#plTable td:nth-child(n + 2),
+#conTable td:nth-child(n + 2) {
+  text-align: right;
+}
+
+/* ────────────────────────────── */
+/* Review / Revenue Table – Scrollable + Sticky Columns */
+/* (if used elsewhere) */
+/* ────────────────────────────── */
+.rev-table-wrapper {
+  position: relative;
+  width: 100%;
+  max-height: 520px;
+  overflow-y: auto;
+  overflow-x: auto;
+  background-color: #f8fafc;
+}
+.rev-table th,
+.rev-table td {
+  padding: 2px 4px;
+  white-space: nowrap;
+  background-clip: padding-box;
+}
+.rev-sticky-1,
+.rev-sticky-2,
+.rev-sticky-3 {
+  position: sticky;
+  z-index: 5;
+  background-color: #f8fafc;
+}
+.rev-table thead .rev-sticky-1,
+.rev-table thead .rev-sticky-2,
+.rev-table thead .rev-sticky-3 {
+  z-index: 6;
+}
+.rev-col-project { width: 12rem; }
+.rev-col-type    { width: 10rem; }
+.rev-col-desc    { width: 18rem; }
+
+/* ────────────────────────────── */
+/* Sticky columns for Cost Budget (if you use #costTable) */
+/* ────────────────────────────── */
+.cost-grid-sticky {
+  position: sticky;
+  background-color: #ffffff;
+  z-index: 10;
+  border-right: 1px solid #e2e8f0;
+}
+.cost-col-1 { left: 0; min-width: 160px; width: 160px; }
+.cost-col-2 { left: 160px; min-width: 220px; width: 220px; }
+.cost-col-3 { left: 380px; min-width: 260px; width: 260px; }
+.cost-grid-sticky.cost-col-1 { z-index: 30; }
+.cost-grid-sticky.cost-col-2 { z-index: 29; }
+.cost-grid-sticky.cost-col-3 { z-index: 28; }
+.cost-grid-sticky.bg-slate-50 { background-color: #f8fafc; }
+
+#costTable th,
+#costTable td {
+  padding-top: 2px;
+  padding-bottom: 2px;
+  line-height: 1.2;
+  font-size: 12px;
+}
+#costTable tbody tr:nth-child(even) { background-color: #f8fafc; }
+#costTable tbody tr:hover { background-color: #e0f2fe; }
+
+/* ────────────────────────────── */
+/* Utility: horizontal scroll (respects card padding) */
+/* ────────────────────────────── */
+.scroll-x,
+.overflow-x-auto {
+  margin-left: -1.5rem;
+  margin-right: -1.5rem;
+  padding-left: 1.5rem;
+  padding-right: 1.5rem;
+}
+@media (min-width: 1024px) {
+  .scroll-x,
+  .overflow-x-auto {
+    margin-left: -2rem;
+    margin-right: -2rem;
+    padding-left: 2rem;
+    padding-right: 2rem;
+  }
+}
+
+/* ────────────────────────────── */
+/* Prevent tables from blowing up width */
+/* ────────────────────────────── */
+.full-width-card table,
+.full-width-card .data-table,
+.full-width-card .pnl-table {
+  width: 100% !important;
+  min-width: unset !important;
+  max-width: 100% !important;
+  table-layout: auto;
+}
+
+/* ────────────────────────────── */
+/* Print tweaks */
+/* ────────────────────────────── */
+@media print {
+  @page { margin: 10mm; }
+  body { background-color: #ffffff; }
+  .nav-bar, .top-menu, .no-print { display: none !important; }
+  .card, .full-width-card {
+    box-shadow: none;
+    border: 1px solid #cbd5e1;
+    margin-top: 1rem;
+  }
+}
