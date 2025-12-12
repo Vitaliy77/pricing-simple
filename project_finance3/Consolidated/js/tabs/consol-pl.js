@@ -1,15 +1,26 @@
 // js/tabs/consol-pl.js
 // Consolidated P&L — pulls from Supabase, no line_code
+
 import { $ } from '../lib/dom.js';
 import { client } from '../api/supabase.js';
 
-let activeScenarioId = sessionStorage.getItem('activeScenarioId') || null;
-export function reloadConsol() { loadAndRender(rootEl, state.year); }   // expose
-
-// Your scenario ID
+// Scenario used for indirect & add-backs
 const SCENARIO_ID = '3857bc3c-78d5-42f6-8fbb-493ce34063f2';
 
-export const template = /*html*/`
+// Active scenario (for scenario_lines overlays)
+let activeScenarioId = sessionStorage.getItem('activeScenarioId') || null;
+
+// Track root + year so reloadConsol works
+let rootEl = null;
+let currentYear = new Date().getUTCFullYear();
+
+export function reloadConsol() {
+  if (rootEl) {
+    loadAndRender(rootEl, currentYear);
+  }
+}
+
+export const template = /*html*/ `
   <div class="bg-white rounded-xl shadow-sm p-5 space-y-4">
     <div class="flex items-center justify-between">
       <div>
@@ -34,37 +45,61 @@ export const template = /*html*/`
   </div>
 `;
 
+/**
+ * Apply scenario_lines deltas on top of base P&L
+ * lines: [{ ym, rev_pct, rev_delta, cost_pct, cost_delta, oh_delta, ... }]
+ */
 function applyScenarioToBase(base, lines, year) {
-  const monthKeys = Array.from({length:12},(_,i)=>`${year}-${String(i+1).padStart(2,'0')}`);
+  const monthKeys = Array.from({ length: 12 }, (_, i) =>
+    `${year}-${String(i + 1).padStart(2, '0')}`
+  );
+
   const lineMap = {};
-  lines.forEach(l => {
-    const m = l.ym.slice(0,7);
-    lineMap[m] = lineMap[m] || {rev_delta:0,rev_pct:0,cost_delta:0,cost_pct:0,oh_delta:0};
+  (lines || []).forEach(l => {
+    const m = String(l.ym).slice(0, 7); // '2025-04-01' → '2025-04'
+    if (!m) return;
+    if (!lineMap[m]) {
+      lineMap[m] = {
+        rev_delta: 0,
+        rev_pct: 0,
+        cost_delta: 0,
+        cost_pct: 0,
+        oh_delta: 0
+      };
+    }
     Object.assign(lineMap[m], l);
   });
 
   monthKeys.forEach(m => {
     const l = lineMap[m] || {};
     const rev = base.revenue[m] || 0;
-    const dc  = (base.labor[m]||0)+(base.subs[m]||0)+(base.equipment[m]||0)+(base.materials[m]||0)+(base.odc[m]||0);
+    const dc =
+      (base.labor[m] || 0) +
+      (base.subs[m] || 0) +
+      (base.equipment[m] || 0) +
+      (base.materials[m] || 0) +
+      (base.odc[m] || 0);
 
-    // % first, then $
-    const revAdj = rev * (l.rev_pct/100) + l.rev_delta;
-    const costAdj = dc * (l.cost_pct/100) + l.cost_delta;
+    const revAdj = rev * (l.rev_pct / 100) + (l.rev_delta || 0);
+    const costAdj = dc * (l.cost_pct / 100) + (l.cost_delta || 0);
 
     base.revenue[m] = rev + revAdj;
-    // distribute costAdj proportionally (simple)
+
     const totalDc = dc || 1;
-    ['labor','subs','equipment','materials','odc'].forEach(k => {
+    ['labor', 'subs', 'equipment', 'materials', 'odc'].forEach(k => {
       if (base[k][m] !== undefined) {
-        base[k][m] = (base[k][m] || 0) + (base[k][m]/totalDc)*costAdj;
+        const cur = base[k][m] || 0;
+        base[k][m] = cur + (cur / totalDc) * costAdj;
       }
     });
-    base.indirect[m] = (base.indirect[m]||0) + l.oh_delta;
+
+    base.indirect[m] = (base.indirect[m] || 0) + (l.oh_delta || 0);
   });
 }
 
 export async function init(root) {
+  rootEl = root;
+
   const sel = root.querySelector('#conYear');
   const reloadBtn = root.querySelector('#conReload');
   const nowY = new Date().getUTCFullYear();
@@ -77,8 +112,17 @@ export async function init(root) {
     sel.appendChild(opt);
   }
 
-  reloadBtn.onclick = () => setTimeout(() => loadAndRender(root, Number(sel.value)), 0);
-  sel.onchange = () => setTimeout(() => loadAndRender(root, Number(sel.value)), 0);
+  currentYear = nowY;
+
+  reloadBtn.onclick = () => {
+    currentYear = Number(sel.value);
+    setTimeout(() => loadAndRender(root, currentYear), 0);
+  };
+
+  sel.onchange = () => {
+    currentYear = Number(sel.value);
+    setTimeout(() => loadAndRender(root, currentYear), 0);
+  };
 
   setTimeout(() => loadAndRender(root, nowY), 0);
 }
@@ -95,79 +139,101 @@ async function loadAndRender(root, year) {
   const end = `${year + 1}-01-01`;
   const months = buildMonths(year);
   const base = makeEmptyPnl(months);
-  
-  if (activeScenarioId) {
-  const { data: lines } = await client
-    .from('scenario_lines')
-    .select('*')
-    .eq('scenario_id', activeScenarioId);
-  applyScenarioToBase(base, lines || [], state.year);
-}
 
   try {
-    // A) Try plan_monthly_pl
+    //
+    // 1) EAC views – baseline for all months
+    //
+    const { data: costRows, error: costErr } = await client
+      .from('vw_eac_monthly_pl')
+      .select('ym, labor, equip, materials, subs, total_cost')
+      .gte('ym', start)
+      .lt('ym', end);
+
+    if (costErr) throw costErr;
+
+    const { data: revRows, error: revErr } = await client
+      .from('vw_eac_revenue_monthly')
+      .select('ym, revenue')
+      .gte('ym', start)
+      .lt('ym', end);
+
+    if (revErr) throw revErr;
+
+    const costMap = {};
+    for (const r of costRows || []) {
+      const k = ymKey(r.ym);
+      if (!k) continue;
+      const cur = costMap[k] || {
+        labor: 0,
+        equip: 0,
+        materials: 0,
+        subs: 0,
+        total_cost: 0
+      };
+      cur.labor += Number(r.labor || 0);
+      cur.equip += Number(r.equip || 0);
+      cur.materials += Number(r.materials || 0);
+      cur.subs += Number(r.subs || 0);
+      cur.total_cost += Number(r.total_cost || 0);
+      costMap[k] = cur;
+    }
+
+    const revMap = {};
+    for (const r of revRows || []) {
+      const k = ymKey(r.ym);
+      if (!k) continue;
+      revMap[k] = (revMap[k] || 0) + Number(r.revenue || 0);
+    }
+
+    for (const m of months) {
+      add(base, 'revenue', m, Number(revMap[m] || 0));
+      add(base, 'labor', m, Number(costMap[m]?.labor || 0));
+      add(base, 'subs', m, Number(costMap[m]?.subs || 0));
+      add(base, 'equipment', m, Number(costMap[m]?.equip || 0));
+      add(base, 'materials', m, Number(costMap[m]?.materials || 0));
+
+      const known =
+        (costMap[m]?.labor || 0) +
+        (costMap[m]?.subs || 0) +
+        (costMap[m]?.equip || 0) +
+        (costMap[m]?.materials || 0);
+
+      const odc = Math.max(
+        0,
+        (costMap[m]?.total_cost || 0) - known
+      );
+      add(base, 'odc', m, odc);
+    }
+
+    //
+    // 2) plan_monthly_pl – overlay / override EAC where explicit plan exists
+    //
     const { data: planRows, error: planErr } = await client
       .from('plan_monthly_pl')
       .select('project_id, ym, revenue, labor, subs, equipment, materials, odc')
       .gte('ym', start)
       .lt('ym', end);
 
-    if (!planErr && planRows?.length > 0) {
+    if (planErr) {
+      console.warn('plan_monthly_pl error, using only EAC views', planErr);
+    } else if (planRows?.length) {
       for (const r of planRows) {
         const m = ymKey(r.ym);
-        add(base, 'revenue', m, Number(r.revenue || 0));
-        add(base, 'labor', m, Number(r.labor || 0));
-        add(base, 'subs', m, Number(r.subs || 0));
-        add(base, 'equipment', m, Number(r.equipment || 0));
-        add(base, 'materials', m, Number(r.materials || 0));
-        add(base, 'odc', m, Number(r.odc || 0));
-      }
-    } else {
-      // B) Fallback to EAC views
-      const { data: costRows } = await client
-        .from('vw_eac_monthly_pl')
-        .select('ym, labor, equip, materials, subs, total_cost')
-        .gte('ym', start)
-        .lt('ym', end);
-
-      const { data: revRows } = await client
-        .from('vw_eac_revenue_monthly')
-        .select('ym, revenue')
-        .gte('ym', start)
-        .lt('ym', end);
-
-      const costMap = {};
-      for (const r of (costRows || [])) {
-        const k = ymKey(r.ym);
-        const cur = costMap[k] || { labor:0, equip:0, materials:0, subs:0, total_cost:0 };
-        cur.labor += Number(r.labor || 0);
-        cur.equip += Number(r.equip || 0);
-        cur.materials += Number(r.materials || 0);
-        cur.subs += Number(r.subs || 0);
-        cur.total_cost += Number(r.total_cost || 0);
-        costMap[k] = cur;
-      }
-
-      const revMap = {};
-      for (const r of (revRows || [])) {
-        const k = ymKey(r.ym);
-        revMap[k] = (revMap[k] || 0) + Number(r.revenue || 0);
-      }
-
-      for (const m of months) {
-        add(base, 'revenue', m, Number(revMap[m] || 0));
-        add(base, 'labor', m, Number(costMap[m]?.labor || 0));
-        add(base, 'subs', m, Number(costMap[m]?.subs || 0));
-        add(base, 'equipment', m, Number(costMap[m]?.equip || 0));
-        add(base, 'materials', m, Number(costMap[m]?.materials || 0));
-        const known = (costMap[m]?.labor||0) + (costMap[m]?.subs||0) +
-                      (costMap[m]?.equip||0) + (costMap[m]?.materials||0);
-        const odc = Math.max(0, (costMap[m]?.total_cost || 0) - known);
-        add(base, 'odc', m, odc);
+        if (!m) continue;
+        // Override EAC with plan for that month
+        base.revenue[m]   = Number(r.revenue   ?? base.revenue[m]   ?? 0);
+        base.labor[m]     = Number(r.labor     ?? base.labor[m]     ?? 0);
+        base.subs[m]      = Number(r.subs      ?? base.subs[m]      ?? 0);
+        base.equipment[m] = Number(r.equipment ?? base.equipment[m] ?? 0);
+        base.materials[m] = Number(r.materials ?? base.materials[m] ?? 0);
+        base.odc[m]       = Number(r.odc       ?? base.odc[m]       ?? 0);
       }
     }
 
-    // C) Load Indirect
+    //
+    // 3) Indirect costs (scenario-based)
+    //
     const { data: indirectRows } = await client
       .from('indirect_lines')
       .select('ym, amount')
@@ -175,27 +241,44 @@ async function loadAndRender(root, year) {
       .gte('ym', start)
       .lt('ym', end);
 
-    for (const r of (indirectRows || [])) {
+    for (const r of indirectRows || []) {
       const m = ymKey(r.ym);
+      if (!m) continue;
       add(base, 'indirect', m, Number(r.amount || 0));
     }
 
-    // D) Load Add-backs — NO line_code!
+    //
+    // 4) Add-backs / adjustments (scenario-based)
+    //
     const { data: addbackRows } = await client
       .from('addback_lines')
-      .select('ym, amount')  // ← ONLY ym, amount
+      .select('ym, amount')
       .eq('scenario_id', SCENARIO_ID)
       .gte('ym', start)
       .lt('ym', end);
 
-    for (const r of (addbackRows || [])) {
+    for (const r of addbackRows || []) {
       const m = ymKey(r.ym);
+      if (!m) continue;
       add(base, 'adjustments', m, Number(r.amount || 0));
+    }
+
+    //
+    // 5) Scenario lines (if you ever add them) — apply *after* base is fully built
+    //
+    if (activeScenarioId) {
+      const { data: lines } = await client
+        .from('scenario_lines')
+        .select('*')
+        .eq('scenario_id', activeScenarioId);
+
+      if (lines?.length) {
+        applyScenarioToBase(base, lines, year);
+      }
     }
 
     renderTable(root, base, months, year);
     msg.textContent = `Loaded from Supabase (scenario: ${SCENARIO_ID}).`;
-
   } catch (err) {
     console.error('consol-pl error', err);
     msg.textContent = 'Error: ' + (err?.message || err);
@@ -203,14 +286,32 @@ async function loadAndRender(root, year) {
 }
 
 function buildMonths(year) {
-  return Array.from({ length: 12 }, (_, i) => `${year}-${String(i + 1).padStart(2, '0')}`);
+  return Array.from(
+    { length: 12 },
+    (_, i) => `${year}-${String(i + 1).padStart(2, '0')}`
+  );
 }
 
 function makeEmptyPnl(months) {
-  const base = { revenue: {}, labor: {}, subs: {}, equipment: {}, materials: {}, odc: {}, indirect: {}, adjustments: {} };
+  const base = {
+    revenue: {},
+    labor: {},
+    subs: {},
+    equipment: {},
+    materials: {},
+    odc: {},
+    indirect: {},
+    adjustments: {}
+  };
   months.forEach(m => {
-    base.revenue[m] = 0; base.labor[m] = 0; base.subs[m] = 0; base.equipment[m] = 0;
-    base.materials[m] = 0; base.odc[m] = 0; base.indirect[m] = 0; base.adjustments[m] = 0;
+    base.revenue[m] = 0;
+    base.labor[m] = 0;
+    base.subs[m] = 0;
+    base.equipment[m] = 0;
+    base.materials[m] = 0;
+    base.odc[m] = 0;
+    base.indirect[m] = 0;
+    base.adjustments[m] = 0;
   });
   return base;
 }
@@ -220,27 +321,55 @@ function add(base, bucket, month, val) {
   base[bucket][month] = (base[bucket][month] || 0) + Number(val || 0);
 }
 
+/**
+ * Normalize various ym formats to 'YYYY-MM'
+ */
 function ymKey(ym) {
-  try { return String(ym).slice(0, 7); } catch { return null; }
+  if (!ym) return null;
+  const s = String(ym);
+  // Common cases: '2025-04-01', '2025-04'
+  if (/^\d{4}-\d{2}$/.test(s)) return s;
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 7);
+  // Fallback: try Date parse
+  const d = new Date(s);
+  if (!isNaN(d)) {
+    const y = d.getUTCFullYear();
+    const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+    return `${y}-${m}`;
+  }
+  return null;
 }
 
 function renderTable(root, base, months, year) {
   const table = root.querySelector('#conTable');
   if (!table) return;
 
-  const directByM = {}; const grossByM = {}; const opByM = {}; const adjProfByM = {};
+  const directByM = {};
+  const grossByM = {};
+  const opByM = {};
+  const adjProfByM = {};
+
   months.forEach(m => {
-    const dc = (base.labor[m]||0) + (base.subs[m]||0) + (base.equipment[m]||0) + (base.materials[m]||0) + (base.odc[m]||0);
+    const dc =
+      (base.labor[m] || 0) +
+      (base.subs[m] || 0) +
+      (base.equipment[m] || 0) +
+      (base.materials[m] || 0) +
+      (base.odc[m] || 0);
     directByM[m] = dc;
-    const gp = (base.revenue[m]||0) - dc;
+
+    const gp = (base.revenue[m] || 0) - dc;
     grossByM[m] = gp;
-    const op = gp - (base.indirect[m]||0);
+
+    const op = gp - (base.indirect[m] || 0);
     opByM[m] = op;
-    const adj = (base.adjustments[m]||0);
+
+    const adj = base.adjustments[m] || 0;
     adjProfByM[m] = op + adj;
   });
 
   const tot = obj => months.reduce((s, m) => s + Number(obj[m] || 0), 0);
+
   const revenueTot = tot(base.revenue);
   const laborTot = tot(base.labor);
   const subsTot = tot(base.subs);
@@ -256,7 +385,9 @@ function renderTable(root, base, months, year) {
 
   let html = '<thead><tr>';
   html += `<th class="p-2 text-left sticky left-0 bg-white w-56">Line</th>`;
-  months.forEach(m => html += `<th class="p-2 text-right">${monthLabel(m)}</th>`);
+  months.forEach(m => {
+    html += `<th class="p-2 text-right">${monthLabel(m)}</th>`;
+  });
   html += `<th class="p-2 text-right">Total</th>`;
   html += '</tr></thead><tbody>';
 
@@ -285,7 +416,9 @@ function renderTable(root, base, months, year) {
 function row(label, obj, total, months, bold = false) {
   let tr = `<tr class="${bold ? 'font-semibold bg-slate-50' : ''}">`;
   tr += `<td class="p-2 sticky left-0 bg-white">${label}</td>`;
-  months.forEach(m => { tr += `<td class="p-2 text-right">${fmt(obj[m])}</td>`; });
+  months.forEach(m => {
+    tr += `<td class="p-2 text-right">${fmt(obj[m])}</td>`;
+  });
   tr += `<td class="p-2 text-right">${fmt(total)}</td>`;
   tr += '</tr>';
   return tr;
@@ -297,11 +430,21 @@ function pctRow(label, numByMonth, revByMonth, months) {
   months.forEach(m => {
     const num = numByMonth[m] || 0;
     const rev = revByMonth[m] || 0;
-    tr += `<td class="p-1 text-right">${rev ? ((num / rev) * 100).toFixed(1) + '%' : ''}</td>`;
+    tr += `<td class="p-1 text-right">${
+      rev ? ((num / rev) * 100).toFixed(1) + '%' : ''
+    }</td>`;
   });
-  const numTot = months.reduce((s,m)=> s + Number(numByMonth[m]||0), 0);
-  const revTot = months.reduce((s,m)=> s + Number(revByMonth[m]||0), 0);
-  tr += `<td class="p-1 text-right">${revTot ? ((numTot / revTot) * 100).toFixed(1) + '%' : ''}</td>`;
+  const numTot = months.reduce(
+    (s, m) => s + Number(numByMonth[m] || 0),
+    0
+  );
+  const revTot = months.reduce(
+    (s, m) => s + Number(revByMonth[m] || 0),
+    0
+  );
+  tr += `<td class="p-1 text-right">${
+    revTot ? ((numTot / revTot) * 100).toFixed(1) + '%' : ''
+  }</td>`;
   tr += '</tr>';
   return tr;
 }
@@ -317,7 +460,11 @@ function monthLabel(ym) {
 
 function fmt(v) {
   const n = Number(v || 0);
-  return n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+  return n.toLocaleString('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 0
+  });
 }
 
 export const loader = init;
