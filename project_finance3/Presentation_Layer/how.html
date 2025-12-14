@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ledger Summit — How We Do It</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&display=swap" rel="stylesheet" />
+
+  <!-- Use the SAME stylesheet as about.html -->
+  <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body class="bg-white text-slate-900">
+
+  <!-- Notebook background -->
+  <div class="notebook-plane notebook-static" aria-hidden="true"></div>
+
+  <div class="min-h-screen flex flex-col relative z-10">
+
+    <!-- NAV (same as About) -->
+    <header class="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur">
+      <div class="page-wrap py-4 flex justify-between items-center">
+        <a href="about.html" class="flex items-center gap-3">
+          <div class="h-10 w-10 rounded-full border-2 border-slate-900 flex items-center justify-center text-xs font-bold bg-white/80">LS</div>
+          <div>
+            <div class="text-sm font-semibold uppercase text-slate-600">Ledger Summit</div>
+            <div class="text-xs text-slate-500">AI implementation that actually works — for finance &amp; operations</div>
+          </div>
+        </a>
+
+        <nav class="hidden md:flex gap-6 text-sm">
+          <a class="navlink" href="about.html">About</a>
+          <a class="navlink is-active" href="how.html">How we do it</a>
+          <a class="navlink" href="tools.html">Tools</a>
+          <a class="navlink" href="about.html#contact">Contact</a>
+        </nav>
+
+        <a class="cta hidden sm:inline-flex" href="about.html#contact">Book a consultation</a>
+      </div>
+    </header>
+
+    <main class="flex-1 py-12">
+      <div class="page-wrap">
+        <div class="stack">
+
+          <!-- SECTION 1: HERO -->
+          <section class="section two-col" data-seq>
+            <div class="left-stack">
+              <div class="exec-card observe">
+                <span class="kicker">How we do it</span>
+                <h1 class="title">AI that transforms workflows.</h1>
+
+                <p class="lead">
+                  We don’t sell “AI transformation.” We deliver targeted, practical implementation
+                  that makes finance, accounting, planning, and operations feel lighter — one high-impact workflow at a time.
+                </p>
+
+                <p class="lead">
+                  Our approach comes from 20+ years leading corporate finance and operations teams.
+                  We know where friction lives: broken handoffs, manual validation, fragile spreadsheets,
+                  and approvals lost in email chains.
+                </p>
+
+                <p class="lead">
+                  The outcome isn’t hype — it’s flow. Clean inputs. Clear owners. Reliable outputs.
+                  Less rework. More control.
+                </p>
+              </div>
+            </div>
+
+            <div class="right-col">
+              <div class="hand-block observe-hand"
+                   data-q="What’s different about your approach?"
+                   data-a="We implement the workflow, not just the tool. That’s where the time, errors, and control issues actually live."></div>
+
+              <div class="hand-block observe-hand"
+                   data-q="Is this a big transformation project?"
+                   data-a="No. One workflow first. Stable, trusted, adopted. Then we expand only when the team feels the relief."></div>
+
+              <div class="hand-block observe-hand"
+                   data-q="Where does AI actually show up?"
+                   data-a="Extraction, validation, routing, anomaly checks, and clear summaries — with guardrails, approvals, and audit trails built in."></div>
+            </div>
+          </section>
+
+          <!-- SECTION 2: DIAGNOSE -->
+          <section class="section two-col peek-next peek-fade" data-seq>
+            <div class="left-stack">
+              <div class="exec-card observe">
+                <span class="kicker">Step 1</span>
+                <h2 class="title" style="font-size:2.35rem;">Diagnose</h2>
+
+                <p class="lead">
+                  We start with a focused review of a single workflow that’s costing you the most time,
+                  accuracy, or control.
+                </p>
+
+                <p class="lead">
+                  We map the current state — inputs, handoffs, approvals, exceptions, and rework.
+                  No vague audits. Just the bottlenecks that matter.
+                </p>
+
+                <div class="steps" style="margin-top:1.25rem;">
+                  <div class="step">
+                    <div class="st">Pick one workflow</div>
+                    <div class="sd">The one creating the most rework, delays, or risk.</div>
+                  </div>
+                  <div class="step">
+                    <div class="st">Map reality</div>
+                    <div class="sd">Who touches it, where it breaks, what “special cases” cause chaos.</div>
+                  </div>
+                  <div class="step">
+                    <div class="st">Define success</div>
+                    <div class="sd">Faster cycle time, fewer errors, clearer ownership, stronger controls.</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="right-col">
+              <div class="hand-block observe-hand"
+                   data-q="What does “diagnose” look like?"
+                   data-a="A fast, practical map of the workflow: where inputs come from, who approves, where exceptions pile up, and what causes rework."></div>
+
+              <div class="hand-block observe-hand"
+                   data-q="How do we choose the right workflow?"
+                   data-a="Start where the pain is loudest: month-end close, forecasting inputs, approvals, vendor payments, or project reporting."></div>
+
+              <div class="hand-block observe-hand"
+                   data-q="Will this slow us down?"
+                   data-a="No. The goal is momentum: clarity in days, not weeks — then implementation."></div>
+            </div>
+          </section>
+
+          <!-- SECTION 3: IMPLEMENT -->
+          <section class="section two-col peek-next peek-fade" data-seq>
+            <div class="left-stack">
+              <div class="exec-card observe">
+                <span class="kicker">Step 2</span>
+                <h2 class="title" style="font-size:2.35rem;">Implement with AI</h2>
+
+                <p class="lead">
+                  We automate the repeatable, error-prone parts using modern AI — and we keep humans
+                  exactly where they belong: on decisions, not data entry.
+                </p>
+
+                <div class="steps">
+                  <div class="step">
+                    <div class="st">Extract &amp; validate</div>
+                    <div class="sd">Intelligent extraction and validation to reduce manual entry errors.</div>
+                  </div>
+                  <div class="step">
+                    <div class="st">Route &amp; assign</div>
+                    <div class="sd">Smart routing, clear owners, and fewer “who has this?” emails.</div>
+                  </div>
+                  <div class="step">
+                    <div class="st">Detect anomalies</div>
+                    <div class="sd">Predictive checks for unusual values, policy violations, and missing support.</div>
+                  </div>
+                  <div class="step">
+                    <div class="st">Summarize decisions</div>
+                    <div class="sd">Natural-language summaries that make complex choices easy to review.</div>
+                  </div>
+                </div>
+
+                <p class="lead" style="margin-top:1.25rem;">
+                  Guardrails are built in from day one: audit trails, approvals, and oversight where it belongs.
+                </p>
+              </div>
+            </div>
+
+            <div class="right-col">
+              <div class="hand-block observe-hand"
+                   data-q="Will AI create new risks?"
+                   data-a="Not if it’s designed correctly. We add validations, approvals, and audit trails — so control increases as work decreases."></div>
+
+              <div class="hand-block observe-hand"
+                   data-q="Do we have to rip out our systems?"
+                   data-a="No. We work with what you have. The win usually lives in the workflow between systems."></div>
+
+              <div class="hand-block observe-hand"
+                   data-q="What changes for the team?"
+                   data-a="Less manual prep. Fewer handoffs. Cleaner reviews. People spend time on judgement, not busywork."></div>
+            </div>
+          </section>
+
+          <!-- SECTION 4: SCALE + YOU LEAVE WITH -->
+          <section class="section two-col" data-seq>
+            <div class="left-stack">
+              <div class="exec-card observe">
+                <span class="kicker">Step 3</span>
+                <h2 class="title" style="font-size:2.35rem;">Scale calmly</h2>
+
+                <p class="lead">
+                  Once the first workflow runs smoothly and your team trusts it, we expand to the next —
+                  compounding efficiency without introducing chaos.
+                </p>
+
+                <p class="lead">
+                  You walk away from the first conversation with:
+                </p>
+
+                <div class="steps">
+                  <div class="step">
+                    <div class="st">Workflow map</div>
+                    <div class="sd">A clear “current state” map you can share internally.</div>
+                  </div>
+                  <div class="step">
+                    <div class="st">Quick-win shortlist</div>
+                    <div class="sd">Prioritized opportunities with the biggest payoff first.</div>
+                  </div>
+                  <div class="step">
+                    <div class="st">Start-here plan</div>
+                    <div class="sd">A concrete implementation plan your team can adopt immediately.</div>
+                  </div>
+                </div>
+
+                <p class="lead" style="margin-top:1.25rem;">
+                  Not more dashboards. Not endless decks. Real, measurable relief — one process at a time.
+                </p>
+
+                <p class="lead" style="margin-top:1.25rem;">
+                  <span class="font-semibold text-slate-900">Ready to make one workflow feel lighter?</span><br />
+                  <a class="card-link" href="about.html#contact">Book a consultation</a>
+                </p>
+
+                <p class="lead" style="margin-top:1rem;">
+                  <span class="text-slate-700">
+                    We’ve done this for forecasting, month-end close, vendor payments, and capital planning.
+                    The pattern is the same: targeted AI + disciplined process = lasting improvement.
+                  </span>
+                </p>
+              </div>
+            </div>
+
+            <div class="right-col">
+              <div class="hand-block observe-hand"
+                   data-q="What do we get after the first conversation?"
+                   data-a="A workflow map, quick wins, and a start-here plan your team can act on immediately — without disruption."></div>
+
+              <div class="hand-block observe-hand"
+                   data-q="How fast do results show up?"
+                   data-a="Fast enough to feel it. The first workflow delivers relief, then each next one compounds it."></div>
+
+              <div class="hand-block observe-hand"
+                   data-q="What if we’re not sure where to start?"
+                   data-a="That’s normal. We’ll help you pick the workflow with the highest impact and lowest friction."></div>
+            </div>
+          </section>
+
+        </div>
+
+        <div style="margin-top:3.5rem;"></div>
+      </div>
+    </main>
+
+    <footer class="footer">© 2025 Ledger Summit</footer>
+  </div>
+
+  <script>
+    /**
+     * Same “only type the section I’m currently at” behavior as the fixed About page.
+     * - Scroll => cancel typing, clear writing, schedule typing for current section.
+     * - Start typing after 5 seconds of being on that section.
+     */
+
+    const SECTIONS = Array.from(document.querySelectorAll("section[data-seq]"));
+    const START_DELAY_MS = 5000;
+    const SCROLL_SETTLE_MS = 180;
+
+    let activeSection = null;
+    let scheduledStartTimer = null;
+    let scrollSettleTimer = null;
+    let typingToken = 0;
+
+    function clearSectionWriting(section){
+      if (!section) return;
+      const blocks = section.querySelectorAll(".observe-hand");
+      blocks.forEach(b => {
+        b.innerHTML = "";
+        b.style.opacity = 0;
+      });
+      section.dataset.typed = "";
+    }
+
+    function clearAllWriting(){
+      SECTIONS.forEach(clearSectionWriting);
+    }
+
+    function splitIntoSentences(text) {
+      const parts = [];
+      const lines = (text || "").split("\n");
+      lines.forEach((line) => {
+        const s = line.trim();
+        if (!s) return;
+        const matches = s.match(/[^.!?]+[.!?]+|[^.!?]+$/g);
+        if (matches) matches.forEach(m => parts.push(m.trim()));
+        else parts.push(s);
+      });
+      return parts;
+    }
+
+    function buildCharsInto(container, text) {
+      const chars = [];
+      for (const ch of text) {
+        const s = document.createElement("span");
+        s.className = "char";
+        s.textContent = ch === " " ? "\u00A0" : ch;
+        container.appendChild(s);
+        chars.push(s);
+      }
+      return chars;
+    }
+
+    function buildHandBlock(el, qText, aText) {
+      el.innerHTML = "";
+      el.style.opacity = 1;
+
+      const qWrap = document.createElement("div");
+      qWrap.className = "hand-q";
+      el.appendChild(qWrap);
+
+      const aWrap = document.createElement("div");
+      aWrap.className = "hand-a";
+      el.appendChild(aWrap);
+
+      const sequence = [];
+
+      function addSentence(target, sentence) {
+        if (target.childNodes.length) target.appendChild(document.createTextNode(" "));
+        const group = document.createElement("span");
+        target.appendChild(group);
+        const chars = buildCharsInto(group, sentence);
+        sequence.push(chars);
+      }
+
+      splitIntoSentences(qText).forEach(s => addSentence(qWrap, s));
+      splitIntoSentences(aText).forEach(s => addSentence(aWrap, s));
+
+      return sequence;
+    }
+
+    function typeChars(chars, token, cb) {
+      let i = 0;
+      (function tick(){
+        if (token !== typingToken) return;
+        if (i >= chars.length) return cb && cb();
+        chars[i].style.opacity = "1";
+        i++;
+        setTimeout(tick, 26 + Math.random() * 34);
+      })();
+    }
+
+    function typeSentenceGroups(groups, token, cb) {
+      let g = 0;
+      (function nextGroup(){
+        if (token !== typingToken) return;
+        if (g >= groups.length) return cb && cb();
+        typeChars(groups[g], token, () => {
+          g++;
+          setTimeout(nextGroup, 380);
+        });
+      })();
+    }
+
+    function runSectionSequential(section){
+      if (!section) return;
+      if (section.dataset.typed === "1") return;
+      section.dataset.typed = "1";
+
+      const blocks = Array.from(section.querySelectorAll(".observe-hand"));
+      let idx = 0;
+
+      const token = ++typingToken;
+
+      function nextBlock(){
+        if (token !== typingToken) return;
+        if (idx >= blocks.length) return;
+
+        const el = blocks[idx++];
+        const groups = buildHandBlock(el, el.dataset.q || "", el.dataset.a || "");
+        typeSentenceGroups(groups, token, () => setTimeout(nextBlock, 550));
+      }
+
+      nextBlock();
+    }
+
+    function getCurrentSection(){
+      const centerY = window.innerHeight * 0.5;
+      let best = null;
+      let bestDist = Infinity;
+
+      for (const s of SECTIONS){
+        const r = s.getBoundingClientRect();
+        if (r.bottom < 0 || r.top > window.innerHeight) continue;
+        const sCenter = r.top + r.height / 2;
+        const dist = Math.abs(sCenter - centerY);
+        if (dist < bestDist){
+          bestDist = dist;
+          best = s;
+        }
+      }
+      return best || SECTIONS[0] || null;
+    }
+
+    function scheduleTypingFor(section){
+      if (!section) return;
+
+      if (scheduledStartTimer) clearTimeout(scheduledStartTimer);
+      scheduledStartTimer = null;
+
+      typingToken++; // cancel in-flight typing
+      clearAllWriting();
+
+      activeSection = section;
+
+      scheduledStartTimer = setTimeout(() => {
+        if (activeSection === section){
+          runSectionSequential(section);
+        }
+      }, START_DELAY_MS);
+    }
+
+    function onScroll(){
+      if (scrollSettleTimer) clearTimeout(scrollSettleTimer);
+      scrollSettleTimer = setTimeout(() => {
+        const current = getCurrentSection();
+        // Per your request: scroll again => disappear + restart even if same section
+        scheduleTypingFor(current);
+      }, SCROLL_SETTLE_MS);
+    }
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+
+    window.addEventListener("load", () => {
+      scheduleTypingFor(getCurrentSection());
+    });
+  </script>
+
+</body>
+</html>
