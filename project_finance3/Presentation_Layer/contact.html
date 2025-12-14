@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Contact — Ledger Summit</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body class="bg-white text-slate-900">
+
+  <!-- NAV -->
+  <header class="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur">
+    <div class="page-wrap py-4 flex justify-between items-center">
+      <a href="about.html" class="flex items-center gap-3">
+        <div class="h-10 w-10 rounded-full border-2 border-slate-900 flex items-center justify-center text-xs font-bold bg-white">
+          LS
+        </div>
+        <span class="text-sm font-semibold uppercase text-slate-600">Ledger Summit</span>
+      </a>
+
+      <nav class="hidden md:flex gap-6 text-sm">
+        <a class="navlink" href="about.html">About</a>
+        <a class="navlink" href="about.html#services">Services</a>
+        <a class="navlink" href="tools.html">Tools</a>
+        <a class="navlink" href="blog.html">Blog</a>
+        <a class="navlink is-active" href="contact.html">Contact</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- MAIN -->
+  <main class="py-16">
+    <div class="page-wrap max-w-3xl">
+
+      <h1 class="text-3xl md:text-4xl font-semibold mb-4">
+        Your business deserves expert financial leadership.
+      </h1>
+
+      <p class="text-slate-700 leading-relaxed mb-6">
+        Ledger Summit helps finance and operations teams bring clarity, structure, and calm
+        to complex accounting and financial workflows.
+      </p>
+
+      <p class="text-slate-700 leading-relaxed mb-10">
+        Whether you’re exploring options, seeking guidance, or ready to improve a specific
+        process, we’re here to help.
+      </p>
+
+      <!-- FORM -->
+      <div class="bg-slate-50 border border-slate-200 rounded-2xl p-6 md:p-8">
+
+        <h2 class="text-lg font-semibold mb-2">Get in touch</h2>
+        <p class="text-sm text-slate-600 mb-6">
+          Ask anything and book a free consultation.  
+          You’ll hear back from someone who understands finance and operations.
+        </p>
+
+        <form class="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+          <div>
+            <label class="block text-sm font-medium mb-1">Name *</label>
+            <input type="text" required class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900" />
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium mb-1">Email *</label>
+            <input type="email" required class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900" />
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium mb-1">Company *</label>
+            <input type="text" required class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900" />
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium mb-1">Phone</label>
+            <input type="tel" class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900" />
+          </div>
+
+          <div class="md:col-span-2">
+            <label class="block text-sm font-medium mb-1">How can we help?</label>
+            <textarea rows="4" class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900"></textarea>
+          </div>
+
+          <div class="md:col-span-2 mt-2">
+            <button type="submit" class="cta">
+              Book a free consultation
+            </button>
+          </div>
+
+        </form>
+      </div>
+    </div>
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="border-t border-slate-200 py-8 text-sm">
+    <div class="page-wrap flex flex-col md:flex-row justify-between items-start gap-6">
+
+      <div class="flex items-center gap-3">
+        <div class="h-8 w-8 rounded-full border-2 border-slate-900 flex items-center justify-center text-xs font-bold">
+          LS
+        </div>
+        <span class="text-slate-600">Ledger Summit</span>
+      </div>
+
+      <div class="flex gap-6">
+        <a href="#" class="footer-link">YouTube</a>
+        <a href="#" class="footer-link">LinkedIn</a>
+      </div>
+
+      <div class="flex gap-4 text-slate-500">
+        <a href="about.html">About</a>
+        <a href="tools.html">Tools</a>
+        <a href="blog.html">Blog</a>
+        <a href="contact.html">Contact</a>
+      </div>
+    </div>
+
+    <div class="page-wrap mt-6 text-xs text-slate-400">
+      © 2025 Ledger Summit · All rights reserved · <a href="#">Manage consent</a>
+    </div>
+  </footer>
+
+</body>
+</html>
