@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ledger Summit — AI implementation that actually works</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body class="bg-white text-slate-900">
+
+  <!-- Notebook background -->
+  <div class="notebook-plane notebook-static" aria-hidden="true"></div>
+
+  <div class="min-h-screen flex flex-col relative z-10">
+
+    <!-- NAV -->
+    <header class="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur">
+      <div class="page-wrap py-4 flex justify-between items-center">
+        <a href="about.html" class="flex items-center gap-3">
+          <div class="h-10 w-10 rounded-full border-2 border-slate-900 flex items-center justify-center text-xs font-bold bg-white/80">LS</div>
+          <div>
+            <div class="text-sm font-semibold uppercase text-slate-600">Ledger Summit</div>
+            <div class="text-xs text-slate-500">AI implementation that actually works — for finance &amp; operations</div>
+          </div>
+        </a>
+
+        <nav class="hidden md:flex gap-6 text-sm">
+          <a class="navlink is-active" href="about.html">About</a>
+          <a class="navlink" href="how.html">How we do it</a>
+          <a class="navlink" href="tools.html">Tools</a>
+          <a class="navlink" href="contact.html">Contact us</a>
+        </nav>
+
+        <a class="cta hidden sm:inline-flex" href="contact.html">Book a consultation</a>
+      </div>
+    </header>
+
+    <main class="flex-1 py-12">
+      <div class="page-wrap">
+        <div class="stack">
+
+          <!-- SECTION 1 -->
+          <section class="section two-col" data-seq>
+            <div class="left-stack">
+              <div class="exec-card observe">
+                <span class="kicker">Ledger Summit</span>
+                <h1 class="title">AI does more. Much more.</h1>
+
+                <p class="lead">
+                  After 20+ years in corporate finance and operations, I’ve lived what you’re living.
+                  You’ve invested in tools. You’ve heard the AI promises.
+                </p>
+
+                <p class="lead">
+                  Yet month-end still feels heavy. Forecasts still live in fragile spreadsheets.
+                  Approvals still chase people across inboxes.
+                  And every new “solution” seems to add more noise than relief.
+                </p>
+
+                <p class="lead">
+                  The gap isn’t effort — it’s design.
+                  We fix one workflow at a time, so improvements are real, repeatable, and calm.
+                  No transformation theater. No endless roadmaps.
+                  Just targeted AI implementation that makes finance and operations feel lighter.
+                </p>
+              </div>
+            </div>
+
+            <div class="right-col">
+              <div class="hand-block observe-hand"
+                   data-q="We bought the tool… why is the work still manual?"
+                   data-a="Because the work is still in the workflow: handoffs, approvals, and exceptions. We implement those steps — not just the tool."></div>
+
+              <div class="hand-block observe-hand"
+                   data-q="Will this become another big initiative that never finishes?"
+                   data-a="No. We start with one workflow — then expand only after the first works."></div>
+
+              <div class="hand-block observe-hand"
+                   data-q="If we automate, will we lose control or create new errors?"
+                   data-a="Automation without guardrails is risk. We build validation, ownership, and approvals into the process so control increases."></div>
+            </div>
+          </section>
+
+          <!-- SECTION 2 -->
+          <section id="how" class="section two-col peek-next peek-fade" data-seq>
+            <div class="left-stack">
+              <div class="exec-card observe">
+                <span class="kicker">How it works — one workflow at a time</span>
+                <h2 class="title" style="font-size:2.35rem;">How it works — one workflow at a time</h2>
+
+                <div class="steps">
+                  <div class="step">
+                    <div class="st">Diagnose</div>
+                    <div class="sd">
+                      A focused review of where time, accuracy, or control breaks down — inputs, handoffs, approvals, exceptions.
+                    </div>
+                  </div>
+                  <div class="step">
+                    <div class="st">Implement</div>
+                    <div class="sd">
+                      Automate the repeatable parts and add clear guardrails: validation, ownership, reliable outputs.
+                    </div>
+                  </div>
+                  <div class="step">
+                    <div class="st">Scale</div>
+                    <div class="sd">
+                      Once one workflow runs smoothly, we expand — compounding gains without chaos.
+                    </div>
+                  </div>
+                </div>
+
+                <p class="lead" style="margin-top:1.25rem;">
+                  You walk away from the first conversation with a clear “start here” plan your team can actually adopt.
+                </p>
+
+                <p class="lead" style="margin-top:1.1rem;">
+                  <span class="font-semibold text-slate-900">What you get:</span>
+                  A practical workflow map, a prioritized quick-win list, and an implementation plan that sticks.
+                  Not more dashboards. Not vague strategy decks.
+                  Real relief — one process at a time.
+                </p>
+              </div>
+            </div>
+
+            <div class="right-col">
+              <div class="hand-block observe-hand"
+                   data-q="So what would you fix first?"
+                   data-a="The workflow that touches the most people and creates the most rework — often month-end close, forecasting inputs, or approvals."></div>
+
+              <div class="hand-block observe-hand"
+                   data-q="What do we walk away with?"
+                   data-a="A workflow map, a quick-win shortlist, and a clear ‘start here’ plan your team can adopt without disruption."></div>
+
+              <div class="hand-block observe-hand"
+                   data-q="How do we keep it safe?"
+                   data-a="By design: validation checks, clear owners, and approvals that are audit-friendly by default."></div>
+            </div>
+          </section>
+
+          <!-- SECTION 3 -->
+          <section class="section two-col" data-seq>
+            <div class="left-stack">
+              <div class="exec-card observe">
+                <span class="kicker">See it in action</span>
+                <h2 class="title" style="font-size:2.35rem;">See it in action</h2>
+
+                <p class="lead">
+                  We maintain a small set of live, working tools built on real finance and operations workflows — no demos, no theater.
+                </p>
+
+                <p class="lead">
+                  <a class="card-link" href="tools.html">Explore the tools →</a>
+                </p>
+
+                <p class="lead">
+                  When you can see it working, your team can believe it.
+                </p>
+
+                <p class="lead" style="margin-top:1.25rem;">
+                  <span class="font-semibold text-slate-900">Ready for one workflow to feel lighter?</span><br />
+                  <a class="card-link" href="contact.html">Book a consultation</a>
+                </p>
+              </div>
+            </div>
+
+            <div class="right-col">
+              <div class="hand-block observe-hand"
+                   data-q="No theater."
+                   data-a="Just working workflows and applications."></div>
+
+              <div class="hand-block observe-hand"
+                   data-q="When it’s visible…"
+                   data-a="…it becomes adoptable."></div>
+            </div>
+          </section>
+
+        </div>
+
+        <div id="contact" style="margin-top:3.5rem;"></div>
+      </div>
+    </main>
+
+    <footer class="footer">© 2025 Ledger Summit</footer>
+  </div>
+
+  <script>
+    /**
+     * Behavior:
+     * - Only ONE section types at a time (the one closest to the viewport center).
+     * - If the user scrolls, cancel pending typing + stop current typing,
+     *   clear writing, then (after a short pause) start typing the new active section.
+     * - Adds a 5s delay before typing after scroll settles.
+     */
+
+    const SECTIONS = Array.from(document.querySelectorAll("section[data-seq]"));
+    const START_DELAY_MS = 5000;     // your 5 seconds
+    const SCROLL_SETTLE_MS = 180;    // how quickly we react to scroll changes
+
+    // --- Typing engine state ---
+    let activeSection = null;
+    let scheduledStartTimer = null;
+    let scrollSettleTimer = null;
+
+    // Used to cancel in-flight typing loops
+    let typingToken = 0;
+
+    function clearSectionWriting(section){
+      if (!section) return;
+      const blocks = section.querySelectorAll(".observe-hand");
+      blocks.forEach(b => {
+        b.innerHTML = "";
+        b.style.opacity = 0; // hide when not active
+      });
+      section.dataset.typed = ""; // allow retyping later
+    }
+
+    function clearAllWriting(){
+      SECTIONS.forEach(clearSectionWriting);
+    }
+
+    function splitIntoSentences(text) {
+      const parts = [];
+      const lines = (text || "").split("\n");
+      lines.forEach((line) => {
+        const s = line.trim();
+        if (!s) return;
+        const matches = s.match(/[^.!?]+[.!?]+|[^.!?]+$/g);
+        if (matches) matches.forEach(m => parts.push(m.trim()));
+        else parts.push(s);
+      });
+      return parts;
+    }
+
+    function buildCharsInto(container, text) {
+      const chars = [];
+      for (const ch of text) {
+        const s = document.createElement("span");
+        s.className = "char";
+        s.textContent = ch === " " ? "\u00A0" : ch;
+        container.appendChild(s);
+        chars.push(s);
+      }
+      return chars;
+    }
+
+    function buildHandBlock(el, qText, aText) {
+      el.innerHTML = "";
+      el.style.opacity = 1;
+
+      const qWrap = document.createElement("div");
+      qWrap.className = "hand-q";
+      el.appendChild(qWrap);
+
+      const aWrap = document.createElement("div");
+      aWrap.className = "hand-a";
+      el.appendChild(aWrap);
+
+      const sequence = [];
+
+      function addSentence(target, sentence) {
+        if (target.childNodes.length) target.appendChild(document.createTextNode(" "));
+        const group = document.createElement("span");
+        target.appendChild(group);
+        const chars = buildCharsInto(group, sentence);
+        sequence.push(chars);
+      }
+
+      splitIntoSentences(qText).forEach(s => addSentence(qWrap, s));
+      splitIntoSentences(aText).forEach(s => addSentence(aWrap, s));
+
+      return sequence;
+    }
+
+    function typeChars(chars, token, cb) {
+      let i = 0;
+      (function tick(){
+        if (token !== typingToken) return; // cancelled
+        if (i >= chars.length) return cb && cb();
+        chars[i].style.opacity = "1";
+        i++;
+        setTimeout(tick, 26 + Math.random() * 34);
+      })();
+    }
+
+    function typeSentenceGroups(groups, token, cb) {
+      let g = 0;
+      (function nextGroup(){
+        if (token !== typingToken) return; // cancelled
+        if (g >= groups.length) return cb && cb();
+        typeChars(groups[g], token, () => {
+          g++;
+          setTimeout(nextGroup, 380);
+        });
+      })();
+    }
+
+    function runSectionSequential(section){
+      if (!section) return;
+      if (section.dataset.typed === "1") return;
+      section.dataset.typed = "1";
+
+      const blocks = Array.from(section.querySelectorAll(".observe-hand"));
+      let idx = 0;
+
+      // new token for this run
+      const token = ++typingToken;
+
+      function nextBlock(){
+        if (token !== typingToken) return; // cancelled
+        if (idx >= blocks.length) return;
+
+        const el = blocks[idx++];
+        const groups = buildHandBlock(el, el.dataset.q || "", el.dataset.a || "");
+
+        typeSentenceGroups(groups, token, () => {
+          setTimeout(nextBlock, 550);
+        });
+      }
+
+      nextBlock();
+    }
+
+    // Pick the section closest to the viewport center
+    function getCurrentSection(){
+      const centerY = window.innerHeight * 0.5;
+      let best = null;
+      let bestDist = Infinity;
+
+      for (const s of SECTIONS){
+        const r = s.getBoundingClientRect();
+        // ignore sections far off-screen
+        if (r.bottom < 0 || r.top > window.innerHeight) continue;
+
+        const sCenter = r.top + r.height / 2;
+        const dist = Math.abs(sCenter - centerY);
+        if (dist < bestDist){
+          bestDist = dist;
+          best = s;
+        }
+      }
+      return best || SECTIONS[0] || null;
+    }
+
+    function scheduleTypingFor(section){
+      if (!section) return;
+
+      // cancel any pending timers and any current typing
+      if (scheduledStartTimer) clearTimeout(scheduledStartTimer);
+      scheduledStartTimer = null;
+
+      // stop current typing and clear all writing first
+      typingToken++; // cancels in-flight loops
+      clearAllWriting();
+
+      activeSection = section;
+
+      // schedule new typing after delay
+      scheduledStartTimer = setTimeout(() => {
+        // only type if still the active one
+        if (activeSection === section){
+          runSectionSequential(section);
+        }
+      }, START_DELAY_MS);
+    }
+
+    // Scroll behavior:
+    // If user scrolls, we quickly re-evaluate which section is current,
+    // cancel everything, and schedule typing for the new one.
+    function onScroll(){
+      if (scrollSettleTimer) clearTimeout(scrollSettleTimer);
+      scrollSettleTimer = setTimeout(() => {
+        const current = getCurrentSection();
+        if (current && current !== activeSection){
+          scheduleTypingFor(current);
+        } else if (current && current === activeSection){
+          // If user scrolls but stays in same section, still restart (your request: scroll => disappear + restart)
+          scheduleTypingFor(current);
+        }
+      }, SCROLL_SETTLE_MS);
+    }
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+
+    // Initial load: start from the section in view
+    window.addEventListener("load", () => {
+      const current = getCurrentSection();
+      scheduleTypingFor(current);
+    });
+  </script>
+
+</body>
+</html>
