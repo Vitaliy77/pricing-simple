@@ -346,4 +346,9 @@ html, body { margin: 0; padding: 0; }
 .home-intro.is-shifted .right-col{
   opacity: 1;
   transform: translateX(-40);
+
+  .no-right-shift .home-intro.is-shifted .right-col{
+  transform: translateX(60px);
+}
+
 }
