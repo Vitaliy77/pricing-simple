@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Ledger Summit — AI implementation that actually works</title>
+  <title>Ledger Summit — About</title>
 
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -13,7 +13,6 @@
 </head>
 
 <body class="bg-white text-slate-900">
-
   <!-- Notebook background -->
   <div class="notebook-plane notebook-static" aria-hidden="true"></div>
 
@@ -35,7 +34,7 @@
           <a class="navlink is-active" href="about.html">About</a>
           <a class="navlink" href="how.html">How we do it</a>
           <a class="navlink" href="tools.html">Tools</a>
-          <a class="navlink" href="contact.html">Contact us</a>
+          <a class="navlink" href="contact.html">Contact</a>
         </nav>
 
         <a class="cta hidden sm:inline-flex" href="contact.html">Book a consultation</a>
@@ -46,8 +45,8 @@
       <div class="page-wrap">
         <div class="stack">
 
-          <!-- SECTION 1 -->
-          <section class="section two-col" data-seq>
+          <!-- SECTION 1 (INTRO: center → slide left after 5s, then writing types) -->
+          <section class="section two-col intro-shift" data-seq data-intro>
             <div class="left-stack">
               <div class="exec-card observe">
                 <span class="kicker">Ledger Summit</span>
@@ -193,15 +192,17 @@
   <script>
     /**
      * Behavior:
-     * - Only ONE section types at a time (the one closest to the viewport center).
-     * - If the user scrolls, cancel pending typing + stop current typing,
-     *   clear writing, then (after a short pause) start typing the new active section.
-     * - Adds a 5s delay before typing after scroll settles.
+     * - Intro section (data-intro) does: wait 5s → slide left → type writing.
+     * - After that, normal scroll behavior applies:
+     *   closest section to viewport center types (after 5s delay).
+     * - If the user scrolls, cancel pending typing, clear writing, then restart after delay.
      */
 
     const SECTIONS = Array.from(document.querySelectorAll("section[data-seq]"));
+    const INTRO_SECTION = document.querySelector("section[data-intro]");
     const START_DELAY_MS = 5000;     // your 5 seconds
     const SCROLL_SETTLE_MS = 180;    // how quickly we react to scroll changes
+    const INTRO_SLIDE_MS = 900;      // should match CSS transition duration
 
     // --- Typing engine state ---
     let activeSection = null;
@@ -335,7 +336,6 @@
 
       for (const s of SECTIONS){
         const r = s.getBoundingClientRect();
-        // ignore sections far off-screen
         if (r.bottom < 0 || r.top > window.innerHeight) continue;
 
         const sCenter = r.top + r.height / 2;
@@ -361,37 +361,58 @@
 
       activeSection = section;
 
-      // schedule new typing after delay
       scheduledStartTimer = setTimeout(() => {
-        // only type if still the active one
         if (activeSection === section){
           runSectionSequential(section);
         }
       }, START_DELAY_MS);
     }
 
-    // Scroll behavior:
-    // If user scrolls, we quickly re-evaluate which section is current,
-    // cancel everything, and schedule typing for the new one.
+    // Scroll behavior
     function onScroll(){
       if (scrollSettleTimer) clearTimeout(scrollSettleTimer);
       scrollSettleTimer = setTimeout(() => {
+        // If intro is running (not shifted yet), don't start scroll-typing.
+        if (INTRO_SECTION && !INTRO_SECTION.classList.contains("is-shifted")) return;
+
         const current = getCurrentSection();
-        if (current && current !== activeSection){
-          scheduleTypingFor(current);
-        } else if (current && current === activeSection){
-          // If user scrolls but stays in same section, still restart (your request: scroll => disappear + restart)
-          scheduleTypingFor(current);
-        }
+        if (!current) return;
+
+        // Always restart typing on scroll settle (your existing behavior)
+        scheduleTypingFor(current);
       }, SCROLL_SETTLE_MS);
     }
 
     window.addEventListener("scroll", onScroll, { passive: true });
 
-    // Initial load: start from the section in view
+    // --- Intro slide + delayed typing on initial load ---
     window.addEventListener("load", () => {
-      const current = getCurrentSection();
-      scheduleTypingFor(current);
+      // If no intro section, just run the normal behavior.
+      if (!INTRO_SECTION){
+        const current = getCurrentSection();
+        scheduleTypingFor(current);
+        return;
+      }
+
+      // 1) Hide intro writing immediately
+      INTRO_SECTION.querySelectorAll(".observe-hand").forEach(b => { b.innerHTML = ""; b.style.opacity = 0; });
+
+      // 2) Cancel any typing and clear everything
+      typingToken++;
+      clearAllWriting();
+      if (scheduledStartTimer) clearTimeout(scheduledStartTimer);
+      scheduledStartTimer = null;
+
+      // 3) Wait 5s, slide, then type intro
+      setTimeout(() => {
+        INTRO_SECTION.classList.add("is-shifted");
+
+        setTimeout(() => {
+          activeSection = INTRO_SECTION;
+          runSectionSequential(INTRO_SECTION);
+        }, INTRO_SLIDE_MS);
+
+      }, START_DELAY_MS);
     });
   </script>
 
