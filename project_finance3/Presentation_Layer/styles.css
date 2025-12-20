@@ -347,3 +347,35 @@ html, body { margin: 0; padding: 0; }
   opacity: 1;
   transform: translateX(-2in);
 }
+/* =========================
+   Intro slide behavior (reusable)
+   - Left stack starts centered
+   - After delay, slides left
+   - Right handwriting fades/types in
+   ========================= */
+
+/* Center the left column at load */
+.intro-shift .left-stack{
+  transform: translateX(clamp(160px, 18vw, 320px));
+  transition: transform 900ms cubic-bezier(.2,.9,.2,1);
+  will-change: transform;
+}
+
+/* Hide the right col until shift */
+.intro-shift .right-col{
+  opacity: 0;
+  transform: translateX(48px); /* start slightly to the right */
+  transition: opacity 900ms ease, transform 900ms ease;
+  will-change: opacity, transform;
+}
+
+/* After delay: left stack slides into place */
+.intro-shift.is-shifted .left-stack{
+  transform: translateX(0);
+}
+
+/* After delay: right col appears AND moves LEFT (your current offset) */
+.intro-shift.is-shifted .right-col{
+  opacity: 1;
+  transform: translateX(calc(-1.5in - 1cm)); /* <- adjust here anytime */
+}
