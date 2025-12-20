@@ -4,20 +4,15 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Ledger Summit — AI implementation that actually works</title>
-
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&display=swap" rel="stylesheet" />
-
   <link rel="stylesheet" href="styles.css" />
 </head>
-
 <body class="bg-white text-slate-900 no-right-shift">
   <!-- Notebook background -->
   <div class="notebook-plane notebook-static" aria-hidden="true"></div>
-
   <div class="min-h-screen flex flex-col relative z-10">
-
     <!-- NAV -->
     <header class="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur">
       <div class="page-wrap py-4 flex justify-between items-center">
@@ -28,7 +23,6 @@
             <div class="text-xs text-slate-500">AI implementation that actually works — for finance &amp; operations</div>
           </div>
         </a>
-
         <nav class="hidden md:flex gap-6 text-sm">
           <a class="navlink is-active" href="index.html">Home</a>
           <a class="navlink" href="about.html">About</a>
@@ -36,75 +30,63 @@
           <a class="navlink" href="tools.html">Tools</a>
           <a class="navlink" href="contact.html">Contact</a>
         </nav>
-
         <a class="cta hidden sm:inline-flex" href="contact.html">Book a consultation</a>
       </div>
     </header>
-
     <main class="flex-1 py-12">
       <div class="page-wrap">
         <div class="stack">
-
           <!-- HERO (center → slide left, then write appears on right) -->
           <section class="section two-col home-intro" data-intro>
             <div class="left-stack">
               <div class="exec-card">
                 <span class="kicker">Ledger Summit</span>
                 <h1 class="title">AI implementation that actually works — for finance &amp; operations</h1>
-
                 <p class="lead">
                   Proven across startups, high-growth companies, and Fortune 500 enterprises.
                 </p>
-
                 <p class="lead">
                   We’ve worked with organizations of all sizes — from small to large —
                   to deliver targeted AI automation that reduces manual work and improves financial processes.
                 </p>
-
                 <div class="steps" style="margin-top:1.25rem;">
                   <div class="step">
                     <div class="st">Targeted automation</div>
-                    <div class="sd">We stremline the workflow, not just “add AI”.</div>
+                    <div class="sd">We streamline the workflow, not just “add AI”.</div>
                   </div>
                   <div class="step">
                     <div class="st">Audit-ready by design</div>
-                    <div class="sd">Controls, rules, and validationss built in from the start.</div>
+                    <div class="sd">Controls, rules, and validations built in from the start.</div>
                   </div>
                   <div class="step">
                     <div class="st">Implemented in weeks</div>
                     <div class="sd">Start with one workflow, then compound the wins.</div>
                   </div>
                 </div>
-
                 <p class="lead" style="margin-top:1.25rem;">
                   <a class="card-link" href="contact.html">Book a consultation →</a>
                 </p>
               </div>
             </div>
-
             <div class="right-col">
               <div class="hand-block observe-hand"
                    data-q="What does “AI implementation” mean here?"
                    data-a="Practical automation inside real finance workflows: clean and reliable."></div>
-
               <div class="hand-block observe-hand"
                    data-q="Where do teams feel it first?"
                    data-a="Month-end close, forecasting, reconciliations, approvals, and exception
                 — the repeatable work that creates the most drag."></div>
-
               <div class="hand-block observe-hand"
                    data-q="What’s the promise?"
                    data-a="Smart AI implementation that is practical and economical."></div>
             </div>
           </section>
-
           <!-- CLIENT REVIEWS -->
           <section class="section two-col" data-seq>
             <div class="left-stack">
               <div class="exec-card observe">
                 <span class="kicker">Client Reviews</span>
                 <h2 class="title" style="font-size:2.35rem;">What clients say</h2>
-
                 <div class="steps" style="margin-top:1.25rem;">
                   <div class="step">
                     <div class="sd" style="font-size:1.05rem; line-height:1.65;">
@@ -114,7 +96,6 @@
                       <div style="margin-top:.6rem; font-weight:800; letter-spacing:.02em;">— Doug M., CFO.</div>
                     </div>
                   </div>
-
                   <div class="step">
                     <div class="sd" style="font-size:1.05rem; line-height:1.65;">
                       “Month-end close went from 10–15 days of stress and long hours to a consistent 5-day process with fewer errors and full audit trails”
@@ -122,148 +103,122 @@
                     </div>
                   </div>
                 </div>
-
                 <p class="lead" style="margin-top:1.25rem;">
                   Want outcomes like this? <a class="card-link" href="contact.html">Book a consultation</a>.
                 </p>
               </div>
             </div>
-
             <div class="right-col">
               <div class="hand-block observe-hand"
                    data-q="Cash flow clarity"
                    data-a="Daily visibility. 13-week + 52-week. Less spreadsheet fragility."></div>
-
               <div class="hand-block observe-hand"
                    data-q="Close faster"
                    data-a="4 days instead of 8–10 — with fewer errors and full audit trails."></div>
             </div>
           </section>
-
           <!-- CASE STUDIES -->
           <section class="section two-col" data-seq>
             <div class="left-stack">
               <div class="exec-card observe">
                 <span class="kicker">Case Studies</span>
                 <h2 class="title" style="font-size:2.35rem;">Real work. Real outcomes.</h2>
-
                 <h3 class="title" style="font-size:1.65rem; margin-top:1.25rem;">Automated Cash Flow Forecasting</h3>
                 <p class="lead">
                   One client needed better visibility into liquidity without spending hours pulling data manually.
                   We built an AI-driven solution that:
                 </p>
-
                 <div class="steps">
-                  
                   <div class="step"><div class="sd">Starts with current bank balances
                   Pulls accounts receivable and payable directly from their ERP
                   Incorporates average client payment history and vendor terms
                   Factors in recurring inflows/outflows and one-time items
                   Generates accurate short-term (13-week) and long-term (12-month) rolling forecasts</div></div>
                 </div>
-
                 <p class="lead" style="margin-top:1.1rem;">
                   The result: a reliable cash position view updated daily.
                 </p>
-
                 <h3 class="title" style="font-size:1.65rem; margin-top:1.35rem;">Project Financial Planning</h3>
                 <p class="lead">
                   See it yourself — try our live EAC Sandbox and Detailed EAC tools to experience multi-user project planning with clean visuals and board-ready summaries.
                 </p>
                 <p class="lead"><a class="card-link" href="tools.html">Explore the Project Planning Tools →</a></p>
-
                 <h3 class="title" style="font-size:1.65rem; margin-top:1.35rem;">Accelerated Month-End Close</h3>
                 <p class="lead">
                   For multiple clients, we automated reconciliation, accrual calculations, and exception handling —
                   cutting close time by 60–90% while improving accuracy and control.
                 </p>
-
                 <h3 class="title" style="font-size:1.65rem; margin-top:1.35rem;">Budget vs. Actual KPI Analysis</h3>
                 <p class="lead">
                   Automated variance analysis with drill-down into key drivers — giving finance teams clearer insight and more time for strategic partnership.
                 </p>
               </div>
             </div>
-
             <div class="right-col">
               <div class="hand-block observe-hand"
                    data-q="Forecasting"
                    data-a="ERP + bank balances + behavior patterns → rolling forecasts leadership can use."></div>
-
               <div class="hand-block observe-hand"
                    data-q="Month-end"
                    data-a="Recons + accruals + exception handling → 60–90% faster close."></div>
-
               <div class="hand-block observe-hand"
                    data-q="KPIs"
                    data-a="Automated variance + driver drill-down → more time for real decisions."></div>
             </div>
           </section>
-
           <!-- CREDENTIALS + REACH -->
           <section class="section two-col" data-seq>
             <div class="left-stack">
               <div class="exec-card observe">
                 <span class="kicker">Our Team</span>
                 <h2 class="title" style="font-size:2.35rem;">Credentials you can trust</h2>
-
                 <div class="steps" style="margin-top:1.25rem;">
                   <div class="step"><div class="sd">MBA, CPA, PMP certifications across leadership</div></div>
                   <div class="step"><div class="sd">20+ years of hands-on corporate finance, accounting, and operations experience</div></div>
                   <div class="step"><div class="sd">Proven track record delivering results in Fortune 500 and high-growth environments</div></div>
                   <div class="step"><div class="sd">Recognized with industry awards for process improvement and financial excellence</div></div>
                 </div>
-
                 <h3 class="title" style="font-size:1.65rem; margin-top:1.35rem;">Achievements &amp; Reach</h3>
                 <div class="steps">
                   <div class="step"><div class="sd">20 years serving finance and operations teams across industries</div></div>
                   <div class="step"><div class="sd">Experience ranging from emerging businesses to Fortune 500 corporations</div></div>
                   <div class="step"><div class="sd">YouTube channel with thousands of views sharing practical finance and AI improvements</div></div>
                 </div>
-
                 <p class="lead" style="margin-top:1.35rem;">
                   <span class="font-semibold text-slate-900">Ready for one workflow to feel lighter?</span><br />
                   Book a consultation. You’ll walk away with a clear, prioritized plan your team can actually adopt —
                   no endless roadmaps, just real progress.
                 </p>
-
                 <p class="lead" style="margin-top:1.1rem;">
                   <a class="card-link" href="contact.html">Book a consultation →</a>
                 </p>
               </div>
             </div>
-
             <div class="right-col">
               <div class="hand-block observe-hand"
                    data-q="Credibility"
                    data-a="Operators first. Credentials + lived workflows."></div>
-
               <div class="hand-block observe-hand"
                    data-q="Adoption"
                    data-a="Designed to stick with the team you already have."></div>
             </div>
           </section>
-
         </div>
       </div>
     </main>
-
     <footer class="footer">© 2025 Ledger Summit</footer>
   </div>
-
   <script>
     /**
      * Home intro behavior:
-     * - Left panel loads centered.
-     * - After 5 seconds, it slides left.
-     * - Then handwritten text appears on the right (typed sequentially).
+     * - Body starts with .intro-mode (centers left columns, hides right)
+     * - After 5 seconds, switch to .intro-done (slides left, reveals right)
+     * - Then handwritten text types in
      */
-    const INTRO = document.querySelector("[data-intro]");
     const INTRO_DELAY_MS = 5000;
 
-    // --- Typing engine (same feel as About/How, but scoped to the intro only) ---
+    // --- Typing engine (unchanged) ---
     let typingToken = 0;
-
     function splitIntoSentences(text) {
       const parts = [];
       const lines = (text || "").split("\n");
@@ -276,7 +231,6 @@
       });
       return parts;
     }
-
     function buildCharsInto(container, text) {
       const chars = [];
       for (const ch of text) {
@@ -288,21 +242,16 @@
       }
       return chars;
     }
-
     function buildHandBlock(el, qText, aText) {
       el.innerHTML = "";
       el.style.opacity = 1;
-
       const qWrap = document.createElement("div");
       qWrap.className = "hand-q";
       el.appendChild(qWrap);
-
       const aWrap = document.createElement("div");
       aWrap.className = "hand-a";
       el.appendChild(aWrap);
-
       const sequence = [];
-
       function addSentence(target, sentence) {
         if (target.childNodes.length) target.appendChild(document.createTextNode(" "));
         const group = document.createElement("span");
@@ -310,24 +259,20 @@
         const chars = buildCharsInto(group, sentence);
         sequence.push(chars);
       }
-
       splitIntoSentences(qText).forEach(s => addSentence(qWrap, s));
       splitIntoSentences(aText).forEach(s => addSentence(aWrap, s));
-
       return sequence;
     }
-
     function typeChars(chars, token, cb) {
       let i = 0;
       (function tick(){
-        if (token !== typingToken) return; // cancelled
+        if (token !== typingToken) return;
         if (i >= chars.length) return cb && cb();
         chars[i].style.opacity = "1";
         i++;
         setTimeout(tick, 26 + Math.random() * 34);
       })();
     }
-
     function typeSentenceGroups(groups, token, cb) {
       let g = 0;
       (function nextGroup(){
@@ -339,37 +284,37 @@
         });
       })();
     }
-
     function runIntroWriting(){
-      if (!INTRO) return;
-      const blocks = Array.from(INTRO.querySelectorAll(".observe-hand"));
+      const blocks = Array.from(document.querySelectorAll(".observe-hand"));
       if (!blocks.length) return;
-
       const token = ++typingToken;
       let idx = 0;
-
       function nextBlock(){
         if (token !== typingToken) return;
         if (idx >= blocks.length) return;
-
         const el = blocks[idx++];
         const groups = buildHandBlock(el, el.dataset.q || "", el.dataset.a || "");
-
         typeSentenceGroups(groups, token, () => setTimeout(nextBlock, 550));
       }
-
       nextBlock();
     }
 
-    // Start: keep right column hidden + clear any writing
-    if (INTRO){
-      INTRO.querySelectorAll(".observe-hand").forEach(b => { b.innerHTML = ""; b.style.opacity = 0; });
-      setTimeout(() => {
-        INTRO.classList.add("is-shifted");
-        // let the slide finish, then type
-        setTimeout(runIntroWriting, 900);
-      }, INTRO_DELAY_MS);
-    }
+    // === NEW PAGE-WIDE INTRO MODE ===
+    document.body.classList.add("intro-mode");
+
+    // Clear any existing handwriting on load
+    document.querySelectorAll(".observe-hand").forEach(b => {
+      b.innerHTML = "";
+      b.style.opacity = 0;
+    });
+
+    setTimeout(() => {
+      document.body.classList.remove("intro-mode");
+      document.body.classList.add("intro-done");
+
+      // Let the slide animation finish, then start typing
+      setTimeout(runIntroWriting, 900);
+    }, INTRO_DELAY_MS);
   </script>
 </body>
 </html>
