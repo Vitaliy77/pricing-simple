@@ -1,5 +1,4 @@
 html, body { margin: 0; padding: 0; }
-
 :root{
   --ink: #111827;
   --paper: #fdfcf7;
@@ -83,7 +82,7 @@ html, body { margin: 0; padding: 0; }
   display:grid;
   align-items: start;
   row-gap: 1.75rem;
-  column-gap: 5mm; /* ✅ true gap */
+  column-gap: 5mm; /* true gap */
 }
 @media (min-width: 768px){
   .two-col{
@@ -205,9 +204,6 @@ html, body { margin: 0; padding: 0; }
   gap: 1rem;
   padding-top: .2rem;
   min-height: 520px;
-
-  /* IMPORTANT: don't set a global translate here,
-     otherwise it fights the Home intro animation */
   transform: none;
 }
 
@@ -223,8 +219,6 @@ html, body { margin: 0; padding: 0; }
   white-space: pre-line;
   line-height: 1.18;
   max-width: 560px;
-
-  /* ✅ keep it off the right edge */
   padding-right: 0.25in;
   box-sizing: border-box;
 }
@@ -315,67 +309,56 @@ html, body { margin: 0; padding: 0; }
   }
 }
 
-/* =========================
-   Home intro behavior
-   - Left stack starts centered
-   - After delay, slides left
-   - Right handwriting fades/types in
-   ========================= */
+/* =========================================================
+   PAGE-WIDE INTRO MODE:
+   - When body has .intro-mode, ALL sections' left columns
+     start centered and ALL right columns are hidden.
+   - When body has .intro-done, everything shifts left and
+     the right columns can appear/typing can start.
+   ========================================================= */
 
-/* Center the left column at load */
-.home-intro .left-stack{
+/* Intro state (everything centered / right hidden) */
+body.intro-mode section[data-seq] .left-stack,
+body.intro-mode section[data-intro] .left-stack{
   transform: translateX(clamp(160px, 18vw, 320px));
   transition: transform 900ms cubic-bezier(.2,.9,.2,1);
   will-change: transform;
 }
 
-/* Hide the right col until shift */
-.home-intro .right-col{
+body.intro-mode section[data-seq] .right-col,
+body.intro-mode section[data-intro] .right-col{
   opacity: 0;
-  transform: translateX(48px); /* start slightly to the right */
+  transform: translateX(48px);
   transition: opacity 900ms ease, transform 900ms ease;
   will-change: opacity, transform;
 }
 
-/* After delay: left stack slides into place */
-.home-intro.is-shifted .left-stack{
+/* After intro completes (everything returns left / right shows) */
+body.intro-done section[data-seq] .left-stack,
+body.intro-done section[data-intro] .left-stack{
   transform: translateX(0);
 }
 
-/* After delay: right col appears AND moves LEFT by 1.5 inches */
-.home-intro.is-shifted .right-col{
+body.intro-done section[data-seq] .right-col,
+body.intro-done section[data-intro] .right-col{
   opacity: 1;
-  transform: translateX(-2in);
-}
-/* =========================
-   Intro slide behavior (reusable)
-   - Left stack starts centered
-   - After delay, slides left
-   - Right handwriting fades/types in
-   ========================= */
-
-/* Center the left column at load */
-.intro-shift .left-stack{
-  transform: translateX(clamp(160px, 18vw, 320px));
-  transition: transform 900ms cubic-bezier(.2,.9,.2,1);
-  will-change: transform;
+  transform: translateX(calc(-1.5in - 1cm)); /* your offset */
 }
 
-/* Hide the right col until shift */
-.intro-shift .right-col{
-  opacity: 0;
-  transform: translateX(48px); /* start slightly to the right */
-  transition: opacity 900ms ease, transform 900ms ease;
-  will-change: opacity, transform;
-}
+/* Mobile safeguard: don't center/shift columns on small screens */
+@media (max-width: 980px){
+  body.intro-mode section[data-seq] .left-stack,
+  body.intro-mode section[data-intro] .left-stack{
+    transform: none;
+  }
+  body.intro-mode section[data-seq] .right-col,
+  body.intro-mode section[data-intro] .right-col{
+    opacity: 1;
+    transform: none;
+  }
 
-/* After delay: left stack slides into place */
-.intro-shift.is-shifted .left-stack{
-  transform: translateX(0);
-}
-
-/* After delay: right col appears AND moves LEFT (your current offset) */
-.intro-shift.is-shifted .right-col{
-  opacity: 1;
-  transform: translateX(calc(-1.5in - 1cm)); /* <- adjust here anytime */
+  body.intro-done section[data-seq] .right-col,
+  body.intro-done section[data-intro] .right-col{
+    transform: none;
+  }
 }
