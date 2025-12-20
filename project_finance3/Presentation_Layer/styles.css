@@ -345,5 +345,5 @@ html, body { margin: 0; padding: 0; }
 /* After delay: right col appears AND moves LEFT by 1.5 inches */
 .home-intro.is-shifted .right-col{
   opacity: 1;
-  transform: translateX(-2.5in);
+  transform: translateX(-2in);
 }
