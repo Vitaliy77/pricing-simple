@@ -313,3 +313,37 @@ html, body { margin: 0; padding: 0; }
     padding-right: 0.25in;
   }
 }
+/* =========================
+   Home intro behavior
+   - Left stack starts centered
+   - After delay, slides left
+   - Right handwriting fades/types in
+   ========================= */
+
+.no-right-shift .right-col{
+  transform: none !important;
+}
+
+/* Center the left column at load */
+.home-intro .left-stack{
+  transform: translateX(clamp(160px, 18vw, 320px));
+  transition: transform 900ms cubic-bezier(.2,.9,.2,1);
+  will-change: transform;
+}
+
+/* Hide the right col until shift */
+.home-intro .right-col{
+  opacity: 0;
+  transform: translateX(48px);
+  transition: opacity 900ms ease, transform 900ms ease;
+  will-change: opacity, transform;
+}
+
+/* After delay */
+.home-intro.is-shifted .left-stack{
+  transform: translateX(0);
+}
+.home-intro.is-shifted .right-col{
+  opacity: 1;
+  transform: translateX(0);
+}
