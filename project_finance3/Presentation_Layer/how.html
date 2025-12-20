@@ -9,18 +9,16 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&display=swap" rel="stylesheet" />
 
-  <!-- Use the SAME stylesheet as about.html -->
   <link rel="stylesheet" href="styles.css" />
 </head>
 
 <body class="bg-white text-slate-900">
-
   <!-- Notebook background -->
   <div class="notebook-plane notebook-static" aria-hidden="true"></div>
 
   <div class="min-h-screen flex flex-col relative z-10">
 
-    <!-- NAV (same as About) -->
+    <!-- NAV -->
     <header class="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur">
       <div class="page-wrap py-4 flex justify-between items-center">
         <a href="index.html" class="flex items-center gap-3">
@@ -36,10 +34,10 @@
           <a class="navlink" href="about.html">About</a>
           <a class="navlink is-active" href="how.html">How we do it</a>
           <a class="navlink" href="tools.html">Tools</a>
-          <a class="navlink" href="about.html#contact">Contact</a>
+          <a class="navlink" href="contact.html">Contact</a>
         </nav>
 
-        <a class="cta hidden sm:inline-flex" href="about.html#contact">Book a consultation</a>
+        <a class="cta hidden sm:inline-flex" href="contact.html">Book a consultation</a>
       </div>
     </header>
 
@@ -47,8 +45,8 @@
       <div class="page-wrap">
         <div class="stack">
 
-          <!-- SECTION 1: HERO -->
-          <section class="section two-col" data-seq>
+          <!-- SECTION 1: HERO (INTRO: center → slide left after 5s, then writing types) -->
+          <section class="section two-col intro-shift" data-seq data-intro>
             <div class="left-stack">
               <div class="exec-card observe">
                 <span class="kicker">How we do it</span>
@@ -83,7 +81,7 @@
 
               <div class="hand-block observe-hand"
                    data-q="Where does AI actually show up?"
-                   data-a="Data mining, process design, development, and deployment."></div>
+                   data-a="In data mining, workflow design, automation development, and safe deployment — with guardrails."></div>
             </div>
           </section>
 
@@ -225,7 +223,7 @@
 
                 <p class="lead" style="margin-top:1.25rem;">
                   <span class="font-semibold text-slate-900">Ready to make one workflow feel lighter?</span><br />
-                  <a class="card-link" href="about.html#contact">Book a consultation</a>
+                  <a class="card-link" href="contact.html">Book a consultation</a>
                 </p>
 
                 <p class="lead" style="margin-top:1rem;">
@@ -263,14 +261,19 @@
 
   <script>
     /**
-     * Same “only type the section I’m currently at” behavior as the fixed About page.
-     * - Scroll => cancel typing, clear writing, schedule typing for current section.
-     * - Start typing after 5 seconds of being on that section.
+     * Behavior (same as the updated About page):
+     * - Intro section (data-intro + intro-shift):
+     *     wait 5s → slide left → type writing.
+     * - After that, normal scroll behavior applies:
+     *     closest section to viewport center types (after 5s delay).
+     * - If the user scrolls: cancel typing, clear writing, then restart after delay.
      */
 
     const SECTIONS = Array.from(document.querySelectorAll("section[data-seq]"));
+    const INTRO_SECTION = document.querySelector("section[data-intro]");
     const START_DELAY_MS = 5000;
     const SCROLL_SETTLE_MS = 180;
+    const INTRO_SLIDE_MS = 900; // should match CSS transition in styles.css
 
     let activeSection = null;
     let scheduledStartTimer = null;
@@ -397,6 +400,7 @@
       for (const s of SECTIONS){
         const r = s.getBoundingClientRect();
         if (r.bottom < 0 || r.top > window.innerHeight) continue;
+
         const sCenter = r.top + r.height / 2;
         const dist = Math.abs(sCenter - centerY);
         if (dist < bestDist){
@@ -428,8 +432,13 @@
     function onScroll(){
       if (scrollSettleTimer) clearTimeout(scrollSettleTimer);
       scrollSettleTimer = setTimeout(() => {
+        // If intro is running (not shifted yet), don't start scroll-typing.
+        if (INTRO_SECTION && !INTRO_SECTION.classList.contains("is-shifted")) return;
+
         const current = getCurrentSection();
-        // Per your request: scroll again => disappear + restart even if same section
+        if (!current) return;
+
+        // Per your request: scroll => disappear + restart even if same section
         scheduleTypingFor(current);
       }, SCROLL_SETTLE_MS);
     }
@@ -437,7 +446,30 @@
     window.addEventListener("scroll", onScroll, { passive: true });
 
     window.addEventListener("load", () => {
-      scheduleTypingFor(getCurrentSection());
+      if (!INTRO_SECTION){
+        scheduleTypingFor(getCurrentSection());
+        return;
+      }
+
+      // Hide intro writing immediately
+      INTRO_SECTION.querySelectorAll(".observe-hand").forEach(b => { b.innerHTML = ""; b.style.opacity = 0; });
+
+      // Cancel typing and clear everything
+      typingToken++;
+      clearAllWriting();
+      if (scheduledStartTimer) clearTimeout(scheduledStartTimer);
+      scheduledStartTimer = null;
+
+      // Wait 5s, slide, then type intro
+      setTimeout(() => {
+        INTRO_SECTION.classList.add("is-shifted");
+
+        setTimeout(() => {
+          activeSection = INTRO_SECTION;
+          runSectionSequential(INTRO_SECTION);
+        }, INTRO_SLIDE_MS);
+
+      }, START_DELAY_MS);
     });
   </script>
 
