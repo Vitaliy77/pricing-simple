@@ -206,8 +206,9 @@ html, body { margin: 0; padding: 0; }
   padding-top: .2rem;
   min-height: 520px;
 
-  /* keep your left shift */
-  transform: translateX(-1.9in);
+  /* IMPORTANT: don't set a global translate here,
+     otherwise it fights the Home intro animation */
+  transform: none;
 }
 
 /* Handwriting */
@@ -270,7 +271,7 @@ html, body { margin: 0; padding: 0; }
 }
 .card-link:hover{ color: rgba(15,23,42,0.72); }
 
-/* Nav styles (if you don’t already have them in styles.css) */
+/* Nav styles */
 .navlink{
   color: rgba(71,85,105,1);
   padding-bottom: 2px;
@@ -313,16 +314,13 @@ html, body { margin: 0; padding: 0; }
     padding-right: 0.25in;
   }
 }
+
 /* =========================
    Home intro behavior
    - Left stack starts centered
    - After delay, slides left
    - Right handwriting fades/types in
    ========================= */
-
-.no-right-shift .right-col{
-  transform: none !important;
-}
 
 /* Center the left column at load */
 .home-intro .left-stack{
@@ -334,21 +332,18 @@ html, body { margin: 0; padding: 0; }
 /* Hide the right col until shift */
 .home-intro .right-col{
   opacity: 0;
-  transform: translateX(48px);
+  transform: translateX(48px); /* start slightly to the right */
   transition: opacity 900ms ease, transform 900ms ease;
   will-change: opacity, transform;
 }
 
-/* After delay */
+/* After delay: left stack slides into place */
 .home-intro.is-shifted .left-stack{
   transform: translateX(0);
 }
+
+/* After delay: right col appears AND moves LEFT by 1.5 inches */
 .home-intro.is-shifted .right-col{
   opacity: 1;
-  transform: translateX(-40);
-
-  .no-right-shift .home-intro.is-shifted .right-col{
-  transform: translateX(60px);
-}
-
+  transform: translateX(-1.5in);
 }
