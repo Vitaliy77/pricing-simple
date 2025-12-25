@@ -18,8 +18,6 @@
       --paper: #fdfcf7;
       --line-light: #d1d5db;
       --brand-blue: #2563eb;
-
-      /* ONE place to control all small dots */
       --dot-size: 10px;
     }
 
@@ -155,9 +153,6 @@
       opacity: 0.85;
       animation: gearRotate 12s linear infinite;
     }
-
-    
-    /* Restore orbit dot to original larger size */
     .gear-sat-ring::after {
       content: "";
       position: absolute;
@@ -167,13 +162,12 @@
       border: 1.2px solid var(--ink);
     }
 
-
     @keyframes gearRotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
     @keyframes satOrbit { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
     /* ====== Content layer ====== */
     .content-shell { position: relative; z-index: 4; min-height: 100vh; display: flex; flex-direction: column; }
-    .page-container { max-width: 960px; }
+    .page-container { max-width: 1100px; } /* a bit wider so 6 cards fit better */
 
     .frosted-panel {
       background: #ffffff;
@@ -202,11 +196,8 @@
       background: repeating-linear-gradient(-4deg, #ffffff 0, #ffffff 5px, #f9fafb 5px, #f9fafb 9px);
     }
 
-    /* Border mode requested */
     .app-card.border-blue { border: 4px solid var(--brand-blue); }
     .app-card.border-black { border: 3px solid var(--ink); }
-
-    /* “hit” motion: ~5mm */
 
     .tools-grid.is-touring .app-card:hover{
       transform: perspective(900px) rotateX(9deg) translateY(0);
@@ -216,7 +207,6 @@
     }
 
     .app-card.is-hit{
-
       transform: perspective(900px) rotateX(9deg) translateY(19px);
     }
 
@@ -234,10 +224,8 @@
       opacity: 0;
     }
 
-    /* Header above everything */
     header { position: sticky; top: 0; z-index: 50; }
 
-    /* Nav styles */
     .navlink{
       color: rgba(71,85,105,1);
       padding-bottom: 2px;
@@ -262,10 +250,8 @@
     }
     .cta:hover{ background: rgba(30,41,59,1); }
 
-    /* ===== Jumping dot ===== */
     .tools-grid{ position: relative; }
 
-    /* Jumping dot matches the orbit-dot size (80px ring with inset 28% => ~35px dot) */
     .jump-dot{
       position: absolute;
       width: 35px;
@@ -279,12 +265,10 @@
       opacity: 0;
       transform: translate(-50%, -50%);
     }
-
   </style>
 </head>
 
 <body>
-
   <!-- Tilted notebook page + blue note layer -->
   <div class="notebook-plane" aria-hidden="true">
     <div class="notebook-writing-layer"></div>
@@ -299,7 +283,6 @@
   </div>
 
   <div class="content-shell">
-
     <!-- Sticky nav -->
     <header class="border-b border-slate-200 bg-white/90 backdrop-blur">
       <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between gap-4">
@@ -365,60 +348,77 @@
       <div class="mt-auto">
         <div class="mb-3 text-xs md:text-sm text-gray-700 tagline">Launch a module:</div>
 
-        <div class="tools-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+        <!-- NOTE:
+             - shifted grid slightly right via `ml-6 md:ml-10`
+             - tightened cards via `p-3` + smaller text
+             - added 6th tool card: "AI automation and improvement"
+        -->
+        <div class="tools-grid ml-6 md:ml-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
           <div class="jump-dot" aria-hidden="true"></div>
 
-          <a href="https://oyster-app-5trn4.ondigitalocean.app/" target="_blank" rel="noopener noreferrer" class="app-card relative p-4 group">
+          <a href="https://oyster-app-5trn4.ondigitalocean.app/" target="_blank" rel="noopener noreferrer" class="app-card relative p-3 group">
             <div>
-              <h3 class="font-semibold text-gray-900 mb-2">EAC Sandbox</h3>
-              <p class="text-[11px] leading-snug text-gray-600">
+              <h3 class="font-semibold text-gray-900 mb-1.5">EAC Sandbox</h3>
+              <p class="text-[10.5px] leading-snug text-gray-600">
                 Financial project planning for multiple users
                 <span class="text-gray-900 font-mono">[admin@admin.com / Test1234!]</span>.
               </p>
             </div>
-            <div class="mt-4 flex justify-end"><span class="text-xs font-semibold text-gray-900">Open →</span></div>
+            <div class="mt-3 flex justify-end"><span class="text-xs font-semibold text-gray-900">Open →</span></div>
           </a>
 
-          <a href="https://king-prawn-app-8wlzi.ondigitalocean.app/" target="_blank" rel="noopener noreferrer" class="app-card relative p-4 group">
+          <a href="https://king-prawn-app-8wlzi.ondigitalocean.app/" target="_blank" rel="noopener noreferrer" class="app-card relative p-3 group">
             <div>
-              <h3 class="font-semibold text-gray-900 mb-2">Timekeeping App</h3>
-              <p class="text-[11px] leading-snug text-gray-600">
+              <h3 class="font-semibold text-gray-900 mb-1.5">Timekeeping App</h3>
+              <p class="text-[10.5px] leading-snug text-gray-600">
                 Simple timekeeping for project teams
                 <span class="text-gray-900 font-mono">[john.tester@... / Test123!]</span>.
               </p>
             </div>
-            <div class="mt-4 flex justify-end"><span class="text-xs font-semibold text-gray-900">Open →</span></div>
+            <div class="mt-3 flex justify-end"><span class="text-xs font-semibold text-gray-900">Open →</span></div>
           </a>
 
-          <a href="https://stingray-app-k8jzl.ondigitalocean.app/" target="_blank" rel="noopener noreferrer" class="app-card relative p-4 group">
+          <a href="https://stingray-app-k8jzl.ondigitalocean.app/" target="_blank" rel="noopener noreferrer" class="app-card relative p-3 group">
             <div>
-              <h3 class="font-semibold text-gray-900 mb-2">Grants Planning</h3>
-              <p class="text-[11px] leading-snug text-gray-600">
+              <h3 class="font-semibold text-gray-900 mb-1.5">Grants Planning</h3>
+              <p class="text-[10.5px] leading-snug text-gray-600">
                 Grants budget planning with clear funding and cost structure
                 <span class="text-gray-900 font-mono">[admin@admin.com / Test123!]</span>.
               </p>
             </div>
-            <div class="mt-4 flex justify-end"><span class="text-xs font-semibold text-gray-900">Open →</span></div>
+            <div class="mt-3 flex justify-end"><span class="text-xs font-semibold text-gray-900">Open →</span></div>
           </a>
 
-          <a href="https://orca-app-bneex.ondigitalocean.app/" target="_blank" rel="noopener noreferrer" class="app-card relative p-4 group">
+          <a href="https://orca-app-bneex.ondigitalocean.app/" target="_blank" rel="noopener noreferrer" class="app-card relative p-3 group">
             <div>
-              <h3 class="font-semibold text-gray-900 mb-2">Consolidated P&amp;L</h3>
-              <p class="text-[11px] leading-snug text-gray-600">
+              <h3 class="font-semibold text-gray-900 mb-1.5">Consolidated P&amp;L</h3>
+              <p class="text-[10.5px] leading-snug text-gray-600">
                 Consolidated P&amp;L planning from bottom-up portfolios.
               </p>
             </div>
-            <div class="mt-4 flex justify-end"><span class="text-xs font-semibold text-gray-900">Open →</span></div>
+            <div class="mt-3 flex justify-end"><span class="text-xs font-semibold text-gray-900">Open →</span></div>
           </a>
 
-          <a href="https://seal-app-9756y.ondigitalocean.app/#visuals" target="_blank" rel="noopener noreferrer" class="app-card relative p-4 group">
+          <a href="https://seal-app-9756y.ondigitalocean.app/#visuals" target="_blank" rel="noopener noreferrer" class="app-card relative p-3 group">
             <div>
-              <h3 class="font-semibold text-gray-900 mb-2">Detailed EAC</h3>
-              <p class="text-[11px] leading-snug text-gray-600">
+              <h3 class="font-semibold text-gray-900 mb-1.5">Detailed EAC</h3>
+              <p class="text-[10.5px] leading-snug text-gray-600">
                 Clean visuals and board-ready summaries for your EAC planning.
               </p>
             </div>
-            <div class="mt-4 flex justify-end"><span class="text-xs font-semibold text-gray-900">Open →</span></div>
+            <div class="mt-3 flex justify-end"><span class="text-xs font-semibold text-gray-900">Open →</span></div>
+          </a>
+
+          <!-- NEW TOOL -->
+          <a href="https://walrus-app-3c9rq.ondigitalocean.app/" target="_blank" rel="noopener noreferrer" class="app-card relative p-3 group">
+            <div>
+              <h3 class="font-semibold text-gray-900 mb-1.5">AI automation &amp; improvement</h3>
+              <p class="text-[10.5px] leading-snug text-gray-600">
+                How about a simple, inexpensive solution based on AI?
+                <span class="text-gray-900 font-semibold"> We know it works</span> — the power of AI is just a click away.
+              </p>
+            </div>
+            <div class="mt-3 flex justify-end"><span class="text-xs font-semibold text-gray-900">Open →</span></div>
           </a>
         </div>
       </div>
@@ -503,143 +503,118 @@
     }
 
     function typeAndFade(el, text, mode, done, onTyped) {
-    const handwritten = mode === "hand";
-    el.style.transition = "";
-    el.style.opacity = 1;
+      const handwritten = mode === "hand";
+      el.style.transition = "";
+      el.style.opacity = 1;
 
-    const chars = buildSpans(el, text, handwritten);
-    let i = 0;
-    let typedFired = false;
+      const chars = buildSpans(el, text, handwritten);
+      let i = 0;
+      let typedFired = false;
 
-    function next() {
-      if (i >= chars.length) {
-        // ✅ typing JUST finished (last letter is now visible)
-        if (!typedFired && typeof onTyped === "function") {
-          typedFired = true;
-          onTyped();
-        }
-
-        setTimeout(() => {
-          el.style.transition = `opacity ${FADE_TIME}ms`;
-          el.style.opacity = 0;
+      function next() {
+        if (i >= chars.length) {
+          if (!typedFired && typeof onTyped === "function") {
+            typedFired = true;
+            onTyped();
+          }
 
           setTimeout(() => {
-            el.innerHTML = "";
-            el.style.transition = "";
-            if (done) done();
-          }, FADE_TIME + 100);
+            el.style.transition = `opacity ${FADE_TIME}ms`;
+            el.style.opacity = 0;
 
-        }, HOLD_TIME);
+            setTimeout(() => {
+              el.innerHTML = "";
+              el.style.transition = "";
+              if (done) done();
+            }, FADE_TIME + 100);
 
-        return;
+          }, HOLD_TIME);
+
+          return;
+        }
+
+        const span = chars[i++];
+        span.style.opacity = "1";
+        if (handwritten) span.style.transform = "scaleX(1) translateY(0) rotate(0deg)";
+        const delay = handwritten ? TYPE_SPEED_BLUE + Math.random() * 45 : TYPE_SPEED_BLACK;
+        setTimeout(next, delay);
       }
 
-      const span = chars[i++];
-      span.style.opacity = "1";
-      if (handwritten) span.style.transform = "scaleX(1) translateY(0) rotate(0deg)";
-      const delay = handwritten ? TYPE_SPEED_BLUE + Math.random() * 45 : TYPE_SPEED_BLACK;
-      setTimeout(next, delay);
-    }
-
-    next();
-  }
-
-    // ===== Jumping dot tour (runs once each cycle start) =====
-    function centerOf(el, relativeTo){
-      const r = el.getBoundingClientRect();
-      const p = relativeTo.getBoundingClientRect();
-      return {
-        x: (r.left - p.left) + r.width / 2,
-        y: (r.top  - p.top)  + r.height / 2
-      };
+      next();
     }
 
     function runDotTourOnce(){
-  dotEl.style.opacity = "0";
-
-  if (!gridEl || !dotEl || appCards.length === 0) return;
-
-  // clear any old "hit"
-  appCards.forEach(c => c.classList.remove("is-hit"));
-
-  const gridRect = () => gridEl.getBoundingClientRect();
-
-  function topCenterOfCard(card){
-    const r = card.getBoundingClientRect();
-    const g = gridRect();
-    return {
-      x: (r.left - g.left) + r.width / 2,
-      y: (r.top  - g.top)  + 6   // slightly inside the top edge so it "hits" the card
-    };
-  }
-
-  function setDot(pos){
-    dotEl.style.left = pos.x + "px";
-    dotEl.style.top  = pos.y + "px";
-  }
-
-  // Arc motion: y moves in a semi-circle bump (sin curve)
-  function animateArc(from, to, durationMs, arcHeightPx, done){
-    dotEl.style.opacity = "1";
-
-    const start = performance.now();
-
-    function frame(now){
-      const t = Math.min(1, (now - start) / durationMs);
-      const x = from.x + (to.x - from.x) * t;
-
-      // baseline linear y + arc upward in the middle
-      const baseY = from.y + (to.y - from.y) * t;
-      const arc = Math.sin(Math.PI * t) * arcHeightPx; // 0 -> peak -> 0
-      const y = baseY - arc;
-
-      setDot({x, y});
-
-      if (t < 1) requestAnimationFrame(frame);
-      else done && done();
-    }
-
-    requestAnimationFrame(frame);
-  }
-
-  dotEl.style.opacity = "1";
-
-  // start at first card
-  let i = 0;
-  let current = topCenterOfCard(appCards[0]);
-  setDot(current);
-  appCards[0].classList.add("is-hit");
-
-  const hopMs = 650;         // actual arc travel time
-  const pauseMs = 150;       // so total ~1s per box
-  const arcHeight = 34;      // how "high" the semi-circle jumps
-
-  function hopNext(){
-    // remove previous hit before moving
-    appCards.forEach(c => c.classList.remove("is-hit"));
-
-    i++;
-    if (i >= appCards.length){
-      // done: fade out
       dotEl.style.opacity = "0";
-      return;
+      if (!gridEl || !dotEl || appCards.length === 0) return;
+
+      appCards.forEach(c => c.classList.remove("is-hit"));
+
+      const gridRect = () => gridEl.getBoundingClientRect();
+
+      function topCenterOfCard(card){
+        const r = card.getBoundingClientRect();
+        const g = gridRect();
+        return {
+          x: (r.left - g.left) + r.width / 2,
+          y: (r.top  - g.top)  + 6
+        };
+      }
+
+      function setDot(pos){
+        dotEl.style.left = pos.x + "px";
+        dotEl.style.top  = pos.y + "px";
+      }
+
+      function animateArc(from, to, durationMs, arcHeightPx, done){
+        dotEl.style.opacity = "1";
+        const start = performance.now();
+
+        function frame(now){
+          const t = Math.min(1, (now - start) / durationMs);
+          const x = from.x + (to.x - from.x) * t;
+          const baseY = from.y + (to.y - from.y) * t;
+          const arc = Math.sin(Math.PI * t) * arcHeightPx;
+          const y = baseY - arc;
+          setDot({x, y});
+
+          if (t < 1) requestAnimationFrame(frame);
+          else done && done();
+        }
+
+        requestAnimationFrame(frame);
+      }
+
+      let i = 0;
+      let current = topCenterOfCard(appCards[0]);
+      setDot(current);
+      appCards[0].classList.add("is-hit");
+
+      const hopMs = 650;
+      const pauseMs = 150;
+      const arcHeight = 34;
+
+      function hopNext(){
+        appCards.forEach(c => c.classList.remove("is-hit"));
+
+        i++;
+        if (i >= appCards.length){
+          dotEl.style.opacity = "0";
+          return;
+        }
+
+        const next = topCenterOfCard(appCards[i]);
+
+        animateArc(current, next, hopMs, arcHeight, () => {
+          appCards[i].classList.add("is-hit");
+          current = next;
+          setTimeout(hopNext, pauseMs);
+        });
+      }
+
+      setTimeout(hopNext, 1000);
     }
 
-    const next = topCenterOfCard(appCards[i]);
-
-    animateArc(current, next, hopMs, arcHeight, () => {
-      // "hit" the card at the end
-      appCards[i].classList.add("is-hit");
-      current = next;
-      setTimeout(hopNext, pauseMs);
-    });
-  }
-
-  setTimeout(hopNext, 1000); // wait 1s on first box, then start hopping
-}
-
-
-      function runSequence() {
+    function runSequence() {
       setCardBorders("blue");
 
       typeAndFade(
@@ -647,19 +622,14 @@
         blackText,
         "type",
         () => {
-          // after hold+fade (leave this as-is)
           setCardBorders("black");
           typeAndFade(blueEl, blueText, "hand", runSequence);
         },
         () => {
-          // ✅ typing finished (last character appeared)
-          setTimeout(() => {
-            runDotTourOnce();
-          }, 3500);
+          setTimeout(() => { runDotTourOnce(); }, 3500);
         }
       );
     }
-
 
     window.addEventListener("load", runSequence);
   </script>
