@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ledger Summit — Q&amp;A</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+
+  <style>
+    /* Horizontal (non-tilted) paper area just for Q&A page */
+    .qa-paper {
+      position: relative;
+      border-radius: 24px;
+      border: 1px solid rgba(15, 23, 42, 0.12);
+      background: rgba(255, 255, 255, 0.88);
+      overflow: hidden;
+    }
+    .qa-paper::before{
+      content:"";
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+      /* subtle horizontal lines */
+      background:
+        repeating-linear-gradient(
+          0deg,
+          rgba(15, 23, 42, 0.06) 0px,
+          rgba(15, 23, 42, 0.06) 1px,
+          transparent 1px,
+          transparent 28px
+        );
+      opacity: 0.55;
+    }
+    .qa-paper-inner{
+      position: relative;
+      padding: 28px;
+    }
+
+    /* Make hand blocks look good in a single-column list */
+    .qa-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 16px;
+      margin-top: 18px;
+    }
+
+    /* Ensure chars are invisible until typed (works with your existing .char too) */
+    .char { opacity: 0; transition: opacity 0.05s linear; }
+  </style>
+</head>
+
+<body class="bg-white text-slate-900">
+  <!-- Notebook background -->
+  <div class="notebook-plane notebook-static" aria-hidden="true"></div>
+
+  <div class="min-h-screen flex flex-col relative z-10">
+    <!-- NAV -->
+    <header class="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur">
+      <div class="page-wrap py-4 flex justify-between items-center">
+        <a href="index.html" class="flex items-center gap-3">
+          <div class="h-10 w-10 rounded-full border-2 border-slate-900 flex items-center justify-center text-xs font-bold bg-white/80">LS</div>
+          <div>
+            <div class="text-sm font-semibold uppercase text-slate-600">Ledger Summit</div>
+            <div class="text-xs text-slate-500">AI implementation that actually works — for finance &amp; operations</div>
+          </div>
+        </a>
+
+        <nav class="hidden md:flex gap-6 text-sm">
+          <a class="navlink" href="index.html">Home</a>
+          <a class="navlink" href="about.html">About</a>
+          <a class="navlink" href="how.html">How we do it</a>
+          <a class="navlink" href="tools.html">Tools</a>
+          <a class="navlink" href="contact.html">Contact</a>
+          <a class="navlink is-active" href="qa.html">Q&amp;A</a>
+        </nav>
+
+        <a class="cta hidden sm:inline-flex" href="contact.html">Book a consultation</a>
+      </div>
+    </header>
+
+    <main class="flex-1 py-12">
+      <!-- Full-width content area -->
+      <div class="w-full px-6 lg:px-12">
+        <div class="mx-auto max-w-none flex flex-col gap-6">
+
+          <section class="w-full">
+            <div class="exec-card w-full mx-auto">
+              <span class="kicker">Q&amp;A</span>
+              <h1 class="title">Answers to the questions teams actually ask</h1>
+              <p class="lead">
+                A quick scan of what “AI implementation” means in practice — and how we keep it safe, adoptable, and useful.
+              </p>
+            </div>
+          </section>
+
+          <section class="w-full">
+            <div class="qa-paper shadow-sm">
+              <div class="qa-paper-inner">
+                <div class="qa-grid" id="qaGrid">
+                  <!-- Blocks are injected + typed by JS -->
+                </div>
+              </div>
+            </div>
+          </section>
+
+        </div>
+      </div>
+    </main>
+
+    <footer class="footer">© 2025 Ledger Summit</footer>
+  </div>
+
+  <script>
+    // All Q&A from Home + About + How
+    const QA = [
+      // ===== HOME =====
+      { q: "What does “AI implementation” mean here?", a: "Practical automation inside real finance workflows: clean and reliable." },
+      { q: "Where do teams feel it first?", a: "Month-end close, forecasting, reconciliations, approvals, and exception — the repeatable work that creates the most drag." },
+      { q: "What’s the promise?", a: "Smart AI implementation that is practical and economical." },
+
+      { q: "Cash flow clarity", a: "Daily visibility. 13-week + 52-week. Less spreadsheet fragility." },
+      { q: "Close faster", a: "4 days instead of 8–10 — with fewer errors and full audit trails." },
+
+      { q: "Forecasting", a: "ERP + bank balances + behavior patterns → rolling forecasts leadership can use." },
+      { q: "Month-end", a: "Recons + accruals + exception handling → 60–90% faster close." },
+      { q: "KPIs", a: "Automated variance + driver drill-down → more time for real decisions." },
+
+      { q: "Credibility", a: "Operators first. Credentials + lived workflows." },
+      { q: "Adoption", a: "Designed to stick with the team you already have." },
+
+      // ===== ABOUT =====
+      { q: "We bought the tool… why is the work still manual?", a: "Because the work is still in the workflow: handoffs, approvals, and exceptions. We implement those steps — not just the tool." },
+      { q: "Will this become another big initiative that never finishes?", a: "No. We start with one workflow — then expand only after the first works." },
+      { q: "If we automate, will we lose control or create new errors?", a: "Automation without guardrails is risk. We build validation, ownership, and approvals into the process so control increases." },
+
+      { q: "So what would you fix first?", a: "The workflow that touches the most people and creates the most rework — often month-end close, forecasting inputs, or approvals." },
+      { q: "What do we walk away with?", a: "A workflow map, a quick-win shortlist, and a clear ‘start here’ plan your team can adopt without disruption." },
+      { q: "How do we keep it safe?", a: "By design: validation checks, clear owners, and approvals that are audit-friendly by default." },
+
+      { q: "No theater.", a: "Just working workflows and applications." },
+      { q: "When it’s visible…", a: "…it becomes adoptable." },
+
+      // ===== HOW =====
+      { q: "What’s different about your approach?", a: "We implement the workflow, not just the tool. That’s where the time, errors, and control issues actually live." },
+      { q: "Is this a big transformation project?", a: "No. One workflow first. Stable, trusted, adopted. Then we expand only when the team feels the relief." },
+      { q: "Where does AI actually show up?", a: "In data mining, workflow design, automation development, and safe deployment — with guardrails." },
+
+      { q: "What does “diagnose” look like?", a: "A fast, practical map of the workflow: where inputs come from, who approves, where exceptions pile up, and what causes rework." },
+      { q: "How do we choose the right workflow?", a: "Start where the pain is loudest: month-end close, forecasting inputs, approvals, vendor payments, or project reporting." },
+      { q: "Will this slow us down?", a: "No. The goal is momentum: clarity in days, not weeks — then implementation." },
+
+      { q: "Will AI create new risks?", a: "Not if it’s designed correctly. We add validations, approvals, and audit trails — so control increases as work decreases." },
+      { q: "Do we have to rip out our systems?", a: "No. We work with what you have. The win usually lives in the workflow between systems." },
+      { q: "What changes for the team?", a: "Less manual prep. Fewer handoffs. Cleaner reviews. People spend time on judgement, not busywork." },
+
+      { q: "What do we get after the first conversation?", a: "A workflow map, quick wins, and a start-here plan your team can act on immediately — without disruption." },
+      { q: "How fast do results show up?", a: "Fast enough to feel it. The first workflow delivers relief, then each next one compounds it." },
+      { q: "What if we’re not sure where to start?", a: "That’s normal. We’ll help you pick the workflow with the highest impact and lowest friction." },
+    ];
+
+    // --- Typing engine (letter-by-letter, sequential blocks) ---
+    const grid = document.getElementById("qaGrid");
+
+    function buildCharsInto(container, text) {
+      const chars = [];
+      for (const ch of text) {
+        const s = document.createElement("span");
+        s.className = "char";
+        s.textContent = ch === " " ? "\u00A0" : ch;
+        container.appendChild(s);
+        chars.push(s);
+      }
+      return chars;
+    }
+
+    function makeBlock(qText, aText) {
+      const el = document.createElement("div");
+      el.className = "hand-block";
+      el.style.opacity = "1";
+
+      const qWrap = document.createElement("div");
+      qWrap.className = "hand-q";
+      el.appendChild(qWrap);
+
+      const aWrap = document.createElement("div");
+      aWrap.className = "hand-a";
+      el.appendChild(aWrap);
+
+      // Build all characters hidden; typing will reveal them
+      const qChars = buildCharsInto(qWrap, qText);
+      const aChars = buildCharsInto(aWrap, aText);
+
+      return { el, qChars, aChars };
+    }
+
+    function typeChars(chars, cb) {
+      let i = 0;
+      (function tick(){
+        if (i >= chars.length) return cb && cb();
+        chars[i].style.opacity = "1";
+        i++;
+        setTimeout(tick, 18 + Math.random() * 22);
+      })();
+    }
+
+    function run() {
+      // Build blocks in the DOM first (so layout is stable), but keep chars hidden
+      const blocks = QA.map(({q, a}) => {
+        const b = makeBlock(q, a);
+        grid.appendChild(b.el);
+        return b;
+      });
+
+      // Type each block (Q then A) sequentially
+      let idx = 0;
+      (function next(){
+        if (idx >= blocks.length) return;
+        const b = blocks[idx++];
+
+        typeChars(b.qChars, () => {
+          // small pause between Q and A
+          setTimeout(() => {
+            typeChars(b.aChars, () => {
+              // pause before next block
+              setTimeout(next, 260);
+            });
+          }, 180);
+        });
+      })();
+    }
+
+    window.addEventListener("load", run);
+  </script>
+</body>
+</html>
