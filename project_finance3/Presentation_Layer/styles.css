@@ -6,18 +6,17 @@ html, body { margin: 0; padding: 0; }
   --brand-blue: #2563eb;
 }
 
-/* ===== Notebook background ===== */
+/* ===== Notebook background (HORIZONTAL across site) ===== */
 .notebook-plane{
   position: fixed;
-  bottom: -8vh;
-  right: -8vw;
-  width: 150vw;
-  height: 150vh;
+  inset: -10vh -10vw;   /* cover everything */
+  width: auto;
+  height: auto;
   background-color: var(--paper);
   background-image: linear-gradient(#e5e7eb 1px, transparent 1px);
   background-size: 100% 28px;
-  transform-origin: bottom right;
-  transform: rotateX(15deg) rotateZ(-15deg);
+  transform: none;          /* <-- no tilt */
+  transform-origin: initial;
   box-shadow: 0 40px 90px rgba(0, 0, 0, 0.20);
   border-radius: 12px;
   z-index: 0;
@@ -207,10 +206,10 @@ html, body { margin: 0; padding: 0; }
   transform: none;
 }
 
-/* Handwriting */
+/* ===== Handwriting (GLOBAL — horizontal, not tilted) ===== */
 .hand-block{
-  transform-origin: top right;
-  transform: rotateX(15deg) rotateZ(-15deg);
+  transform: none;                 /* <-- remove tilt */
+  transform-origin: initial;
   text-shadow: 0 1px 2px rgba(255,255,255,0.9);
   font-family: "Caveat", cursive;
   opacity: 0;
@@ -231,7 +230,7 @@ html, body { margin: 0; padding: 0; }
   margin-top: .35rem;
   color: rgba(15,23,42,0.92);
   font-size: 1.30rem;
-  text-align: right;
+  text-align: left;  /* recommended for horizontal */
   opacity: 0.98;
 }
 @media (min-width:640px){
@@ -304,17 +303,14 @@ html, body { margin: 0; padding: 0; }
   .hand-block{
     max-width: 100%;
     margin-left: 0;
-    transform-origin: top left;
+    transform: none;
+    transform-origin: initial;
     padding-right: 0.25in;
   }
 }
 
 /* =========================================================
-   PAGE-WIDE INTRO MODE:
-   - When body has .intro-mode, ALL sections' left columns
-     start centered and ALL right columns are hidden.
-   - When body has .intro-done, everything shifts left and
-     the right columns can appear/typing can start.
+   PAGE-WIDE INTRO MODE (kept for compatibility; harmless if unused)
    ========================================================= */
 
 /* Intro state (everything centered / right hidden) */
