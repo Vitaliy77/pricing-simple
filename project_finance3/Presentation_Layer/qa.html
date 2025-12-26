@@ -37,7 +37,6 @@
           transparent 30px
         );
       opacity: 0.55;
-      /* keep it crisp and horizontal */
       transform: none !important;
     }
 
@@ -49,14 +48,22 @@
       gap: 18px;
     }
 
-    /* If your styles.css defines .hand-block with a background/border,
-       we override it here to keep it "written on the page". */
+    /* CRITICAL: override global .hand-block right-alignment + max-width
+       so writing starts at the left edge of qa-stage (1 inch from screen). */
     .qa-grid .hand-block {
       background: transparent !important;
       border: none !important;
       box-shadow: none !important;
-      padding: 0 !important;
       border-radius: 0 !important;
+
+      /* override global placement constraints */
+      margin-left: 0 !important;     /* <-- remove push-to-right */
+      margin-right: 0 !important;
+      max-width: none !important;    /* <-- allow full width */
+      width: 100% !important;        /* <-- fill the column */
+      padding: 0 !important;         /* <-- remove global padding-right */
+      box-sizing: border-box !important;
+
       opacity: 1 !important;
     }
 
@@ -68,16 +75,17 @@
       line-height: 1.2;
       letter-spacing: 0.01em;
       margin-bottom: 6px;
-    }
-    .qa-grid .hand-a {
-    font-family: "Caveat", cursive;
-    font-weight: 600;
-    font-size: 28px;
-    line-height: 1.25;
-    color: rgba(15, 23, 42, 0.88);
-    text-align: left; /* add this */
+      text-align: left;
     }
 
+    .qa-grid .hand-a {
+      font-family: "Caveat", cursive;
+      font-weight: 600;
+      font-size: 28px;
+      line-height: 1.25;
+      color: rgba(15, 23, 42, 0.88);
+      text-align: left;
+    }
 
     /* Ensure chars are invisible until typed */
     .char { opacity: 0; transition: opacity 0.05s linear; }
@@ -95,7 +103,7 @@
 </head>
 
 <body class="bg-white text-slate-900">
-  <!-- Notebook background (leave as-is globally) -->
+  <!-- Notebook background -->
   <div class="notebook-plane notebook-static" aria-hidden="true"></div>
 
   <div class="min-h-screen flex flex-col relative z-10">
@@ -111,13 +119,14 @@
           </div>
         </a>
 
+        <!-- Keep nav order consistent across pages -->
         <nav class="hidden md:flex gap-6 text-sm">
           <a class="navlink" href="index.html">Home</a>
           <a class="navlink" href="about.html">About</a>
           <a class="navlink" href="how.html">How we do it</a>
           <a class="navlink" href="tools.html">Tools</a>
-          <a class="navlink" href="contact.html">Contact</a>
           <a class="navlink is-active" href="qa.html">Q&amp;A</a>
+          <a class="navlink" href="contact.html">Contact</a>
         </nav>
 
         <a class="cta hidden sm:inline-flex" href="contact.html">Book a consultation</a>
@@ -125,11 +134,8 @@
     </header>
 
     <main class="flex-1 py-12">
-      <!-- Write directly on the background -->
       <div class="qa-stage">
-        <div class="qa-grid" id="qaGrid">
-          <!-- Blocks injected + typed -->
-        </div>
+        <div class="qa-grid" id="qaGrid"></div>
       </div>
     </main>
 
