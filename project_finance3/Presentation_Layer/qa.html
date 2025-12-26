@@ -11,53 +11,93 @@
   <link rel="stylesheet" href="styles.css" />
 
   <style>
-    /* Horizontal (non-tilted) paper area just for Q&A page */
-    .qa-paper {
+    /* Q&A writing should sit directly on the page (no white card). */
+    .qa-stage {
       position: relative;
-      border-radius: 24px;
-      border: 1px solid rgba(15, 23, 42, 0.12);
-      background: rgba(255, 255, 255, 0.88);
-      overflow: hidden;
+      width: 100%;
+      /* about 1 inch from left and right */
+      padding-left: 1in;
+      padding-right: 1in;
+      padding-top: 24px;
+      padding-bottom: 40px;
     }
-    .qa-paper::before{
-      content:"";
-      position:absolute;
-      inset:0;
-      pointer-events:none;
-      /* subtle horizontal lines */
+
+    /* Horizontal paper lines overlay (transparent, not a white block) */
+    .qa-stage::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
       background:
         repeating-linear-gradient(
           0deg,
           rgba(15, 23, 42, 0.06) 0px,
           rgba(15, 23, 42, 0.06) 1px,
           transparent 1px,
-          transparent 28px
+          transparent 30px
         );
       opacity: 0.55;
-    }
-    .qa-paper-inner{
-      position: relative;
-      padding: 28px;
+      /* keep it crisp and horizontal */
+      transform: none !important;
     }
 
-    /* Make hand blocks look good in a single-column list */
+    /* The actual typed content layer */
     .qa-grid {
+      position: relative; /* sits above ::before lines */
       display: grid;
       grid-template-columns: 1fr;
-      gap: 16px;
-      margin-top: 18px;
+      gap: 18px;
     }
 
-    /* Ensure chars are invisible until typed (works with your existing .char too) */
+    /* If your styles.css defines .hand-block with a background/border,
+       we override it here to keep it "written on the page". */
+    .qa-grid .hand-block {
+      background: transparent !important;
+      border: none !important;
+      box-shadow: none !important;
+      padding: 0 !important;
+      border-radius: 0 !important;
+      opacity: 1 !important;
+    }
+
+    /* Make the writing look like it belongs on the page */
+    .qa-grid .hand-q {
+      font-family: "Caveat", cursive;
+      font-weight: 700;
+      font-size: 34px;
+      line-height: 1.2;
+      letter-spacing: 0.01em;
+      margin-bottom: 6px;
+    }
+    .qa-grid .hand-a {
+      font-family: "Caveat", cursive;
+      font-weight: 600;
+      font-size: 28px;
+      line-height: 1.25;
+      color: rgba(15, 23, 42, 0.88);
+    }
+
+    /* Ensure chars are invisible until typed */
     .char { opacity: 0; transition: opacity 0.05s linear; }
+
+    /* On small screens, don't force 1 inch padding */
+    @media (max-width: 640px) {
+      .qa-stage {
+        padding-left: 18px;
+        padding-right: 18px;
+      }
+      .qa-grid .hand-q { font-size: 30px; }
+      .qa-grid .hand-a { font-size: 24px; }
+    }
   </style>
 </head>
 
 <body class="bg-white text-slate-900">
-  <!-- Notebook background -->
+  <!-- Notebook background (leave as-is globally) -->
   <div class="notebook-plane notebook-static" aria-hidden="true"></div>
 
   <div class="min-h-screen flex flex-col relative z-10">
+
     <!-- NAV -->
     <header class="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur">
       <div class="page-wrap py-4 flex justify-between items-center">
@@ -83,30 +123,10 @@
     </header>
 
     <main class="flex-1 py-12">
-      <!-- Full-width content area -->
-      <div class="w-full px-6 lg:px-12">
-        <div class="mx-auto max-w-none flex flex-col gap-6">
-
-          <section class="w-full">
-            <div class="exec-card w-full mx-auto">
-              <span class="kicker">Q&amp;A</span>
-              <h1 class="title">Answers to the questions teams actually ask</h1>
-              <p class="lead">
-                A quick scan of what “AI implementation” means in practice — and how we keep it safe, adoptable, and useful.
-              </p>
-            </div>
-          </section>
-
-          <section class="w-full">
-            <div class="qa-paper shadow-sm">
-              <div class="qa-paper-inner">
-                <div class="qa-grid" id="qaGrid">
-                  <!-- Blocks are injected + typed by JS -->
-                </div>
-              </div>
-            </div>
-          </section>
-
+      <!-- Write directly on the background -->
+      <div class="qa-stage">
+        <div class="qa-grid" id="qaGrid">
+          <!-- Blocks injected + typed -->
         </div>
       </div>
     </main>
@@ -115,7 +135,6 @@
   </div>
 
   <script>
-    // All Q&A from Home + About + How
     const QA = [
       // ===== HOME =====
       { q: "What does “AI implementation” mean here?", a: "Practical automation inside real finance workflows: clean and reliable." },
@@ -162,7 +181,6 @@
       { q: "What if we’re not sure where to start?", a: "That’s normal. We’ll help you pick the workflow with the highest impact and lowest friction." },
     ];
 
-    // --- Typing engine (letter-by-letter, sequential blocks) ---
     const grid = document.getElementById("qaGrid");
 
     function buildCharsInto(container, text) {
@@ -180,7 +198,6 @@
     function makeBlock(qText, aText) {
       const el = document.createElement("div");
       el.className = "hand-block";
-      el.style.opacity = "1";
 
       const qWrap = document.createElement("div");
       qWrap.className = "hand-q";
@@ -190,7 +207,6 @@
       aWrap.className = "hand-a";
       el.appendChild(aWrap);
 
-      // Build all characters hidden; typing will reveal them
       const qChars = buildCharsInto(qWrap, qText);
       const aChars = buildCharsInto(aWrap, aText);
 
@@ -208,24 +224,20 @@
     }
 
     function run() {
-      // Build blocks in the DOM first (so layout is stable), but keep chars hidden
       const blocks = QA.map(({q, a}) => {
         const b = makeBlock(q, a);
         grid.appendChild(b.el);
         return b;
       });
 
-      // Type each block (Q then A) sequentially
       let idx = 0;
       (function next(){
         if (idx >= blocks.length) return;
         const b = blocks[idx++];
 
         typeChars(b.qChars, () => {
-          // small pause between Q and A
           setTimeout(() => {
             typeChars(b.aChars, () => {
-              // pause before next block
               setTimeout(next, 260);
             });
           }, 180);
