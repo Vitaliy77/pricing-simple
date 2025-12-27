@@ -37,51 +37,76 @@
     }
 
     /* =========================
-       Case Studies: Case 1 "fade-to-continue" + others header-only until opened
+       Case Studies: article behavior
        ========================= */
+    .cs-card.is-open { outline: 2px solid rgba(148,163,184,0.55); outline-offset: 2px; }
+    .cs-card.is-collapsed .cs-body { display: none; }
+    .cs-head { cursor: pointer; }
+
+    /* Case 1: show intro + fade-bottom "continue" area; clicking it opens rest */
     .cs-fade2 {
       position: relative;
       opacity: 0.55;
-      line-height: 1.6;
-      max-height: calc(1.6em * 2.15);
+      line-height: 1.7;
+      max-height: calc(1.7em * 2.25); /* ~2 lines */
       overflow: hidden;
       user-select: none;
       cursor: pointer;
+      margin-top: 0.65rem;
+      padding-bottom: 0.2rem;
     }
     .cs-fade2::after {
       content: "";
       position: absolute;
       left: 0; right: 0; bottom: 0;
-      height: 75%;
+      height: 80%;
       background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0.96));
       pointer-events: none;
     }
 
     .cs-rest {
       display: none;
-      margin-top: 0.9rem;
-      padding-top: 0.9rem;
+      margin-top: 1rem;
+      padding-top: 1rem;
       border-top: 1px solid rgba(226,232,240,1);
     }
-    .cs-rest-inner {
-      max-height: 420px;
+
+    /* Scroll inside expanded article (keeps the box sane) */
+    .cs-article-scroll {
+      max-height: 440px;
       overflow: auto;
       padding-right: 0.35rem;
     }
 
-    .cs-card.is-open { outline: 2px solid rgba(148,163,184,0.55); outline-offset: 2px; }
-    .cs-card.is-collapsed .cs-body { display: none; }
-    .cs-head { cursor: pointer; }
+    /* “WSJ article” feel: simple paragraphs, no special boxes inside */
+    .cs-article p {
+      margin-top: 0.85rem;
+      line-height: 1.75;
+      font-size: 1.02rem;
+      color: rgb(15 23 42); /* slate-900 */
+    }
+    .cs-article .muted {
+      color: rgb(71 85 105); /* slate-600 */
+      font-size: 0.95rem;
+      margin-top: 0.6rem;
+    }
+    .cs-article h4 {
+      margin-top: 1.15rem;
+      font-weight: 800;
+      letter-spacing: .01em;
+      color: rgb(15 23 42);
+    }
 
-    /* Case 1: intro is always visible; rest reveals only when opened via fade click */
+    /* Case 1: rest only visible when open */
     .cs1 .cs-rest { display: none; }
     .cs1.is-open .cs-rest { display: block; }
 
-    /* Other cases: header-only by default; open shows full body (scrollable) */
-    .cs-other .cs-body { display: none; margin-top: 0.85rem; }
+    /* Other cases: header-only by default; open shows body */
+    .cs-other .cs-body { display: none; margin-top: 0.9rem; }
     .cs-other.is-open .cs-body { display: block; }
-    .cs-other.is-open .cs-body .cs-rest { display: block; }
+    .cs-other.is-open .cs-rest { display: block; }
 
+    /* Avoid click hijack on links */
     .no-hijack a { position: relative; z-index: 1; }
   </style>
 </head>
@@ -220,7 +245,7 @@
               <span class="kicker">Case Studies</span>
               <h2 class="title" style="font-size:2.35rem;">Real work. Real outcomes.</h2>
 
-              <!-- Case Study 1 -->
+              <!-- Case Study 1 (intro + fade; rest opens as plain article) -->
               <div class="cs-card cs1 mt-6 rounded-3xl border border-slate-200 bg-white/70 p-5" data-cs="cs1">
                 <div class="cs-head">
                   <div class="text-sm font-semibold uppercase tracking-wide text-slate-600">Case Study 1</div>
@@ -229,65 +254,51 @@
                   </h3>
                 </div>
 
-                <div class="cs-body">
-                  <div class="mt-3">
-                    <div class="text-sm font-bold text-slate-900">Problem Definition</div>
-                    <p class="lead" style="margin-top:.35rem;">
-                      A growing retailer with multiple locations faced delays in month-end close due to manual bank reconciliations in NetSuite.
-                      Teams downloaded statements and exports, then matched transactions in spreadsheets—typically 10–15 hours per account monthly,
-                      leading to errors and late variance discovery.
+                <div class="cs-body cs-article">
+                  <p>
+                    A growing retailer with multiple locations faced delays in month-end closes due to manual bank reconciliations in their NetSuite ERP.
+                    Teams downloaded statements and exports, then matched transactions in spreadsheets—typically taking 10–15 hours per account monthly,
+                    leading to errors and undetected variances until audits.
+                  </p>
+
+                  <p>
+                    We created a custom Node.js backend using Express.js and NetSuite’s SuiteTalk REST API for direct, secure data pulls.
+                    We integrated Plaid for bank feeds and built an AI matching engine (TensorFlow.js) that auto-matched 95%+ of transactions
+                    based on learned patterns, flagging exceptions intelligently with a clean audit trail.
+                  </p>
+
+                  <!-- This is the "transparent line" you click to open -->
+                  <div class="cs-fade2" data-reveal="cs1" title="Click to continue reading">
+                    <p>
+                      Rollout included OAuth setup, data mapping and testing, then a secure review dashboard and scaling for multi-account environments.
+                      Client-requested tweaks (like custom tolerances) shipped quickly post-launch.
                     </p>
-
-                    <div class="text-sm font-bold text-slate-900" style="margin-top:.9rem;">Solution &amp; Implementation</div>
-                    <p class="lead" style="margin-top:.35rem;">
-                      We built a custom Node.js (Express) backend using NetSuite SuiteTalk REST API for secure pulls, integrated bank feeds,
-                      and an AI matching engine (TensorFlow.js) that auto-matched 95%+ transactions and flagged exceptions with audit trails.
-                    </p>
-
-                    <div class="mt-3 cs-fade2" data-reveal="cs1" title="Click to continue reading">
-                      <p class="lead">
-                        Rollout included OAuth, mapping, testing, a secure review dashboard, then multi-account scaling with configurable tolerances.
-                        Post-launch tweaks shipped quickly as new edge cases emerged.
-                      </p>
-                    </div>
-
-                    <div class="mt-2 text-xs text-slate-500">Click the faded text to continue.</div>
                   </div>
 
                   <div class="cs-rest">
-                    <div class="cs-rest-inner">
-                      <div class="steps">
-                        <div class="step">
-                          <div class="st">Tech Details</div>
-                          <div class="sd">
-                            <ul class="list-disc pl-5">
-                              <li>Weeks 1–2: OAuth setup, API integrations, and initial data mapping/testing.</li>
-                              <li>Weeks 3–4: Matching algorithm development + secure React dashboard for review and certification.</li>
-                              <li>Weeks 5–6: Advanced rules, performance tuning, and multi-account scaling.</li>
-                            </ul>
-                            Deployed on DigitalOcean; client-requested tweaks were deployed in days.
-                          </div>
-                        </div>
+                    <div class="cs-article-scroll">
+                      <p class="muted">Tech Details</p>
+                      <p>
+                        Weeks 1–2: OAuth setup, API integrations, and initial data mapping/testing.
+                        Weeks 3–4: Matching algorithm development with ML for patterns; secure React dashboard for reviews and certifications.
+                        Weeks 5–6 (for multi-account scaling): Advanced rules and performance tuning. Deployed on DigitalOcean for cost-effective scaling.
+                        Post-launch tweaks were deployed in days.
+                      </p>
 
-                        <div class="step">
-                          <div class="st">Recommendation</div>
-                          <div class="sd">
-                            Transition to tailored automation to achieve near-real-time reconciliations, minimize errors,
-                            and redirect team capacity toward analysis and decision support.
-                          </div>
-                        </div>
+                      <p class="muted">Recommendation</p>
+                      <p>
+                        Transition to this tailored automation to achieve near-real-time reconciliations, minimize errors, and redirect team focus to strategic finance.
+                      </p>
 
-                        <div class="step">
-                          <div class="st">Impact</div>
-                          <div class="sd">
-                            Time saved: 120+ hours annually per account (95%+ automation).<br />
-                            Estimated savings: $12,000+ per account (at $100/hour loaded cost).<br />
-                            Error reduction: ~90%, with full audit trails.
-                          </div>
-                        </div>
-                      </div>
+                      <p class="muted">Impact</p>
+                      <p>
+                        Time saved: 120+ hours annually per account (95%+ automation).
+                        Estimated savings: $12,000+ per account (at $100/hour loaded cost).
+                        Error reduction: ~90%, with full audit trails.
+                      </p>
                     </div>
-                    <div class="mt-3 text-xs text-slate-500">Click outside this case studies box to collapse.</div>
+
+                    <p class="muted">Click outside this case studies box to collapse.</p>
                   </div>
                 </div>
               </div>
@@ -297,53 +308,63 @@
                 <div class="text-sm font-semibold uppercase tracking-wide text-slate-600">More case studies (click a title)</div>
 
                 <div class="mt-3 grid gap-3">
-                  <!-- Case Study 2 -->
+
+                  <!-- Case Study 2 (full text restored in article style from your original) -->
                   <div class="cs-card cs-other rounded-2xl border border-slate-200 bg-white/60 p-4" data-cs="cs2">
                     <div class="cs-head">
-                      <div class="font-semibold text-slate-900">Case Study 2: Real-Time Cash Flow Forecasting (Sage Intacct)</div>
+                      <div class="font-semibold text-slate-900">
+                        Case Study 2: Real-Time Cash Flow Forecasting for a Professional Services Firm (Integrated with Sage Intacct)
+                      </div>
                     </div>
-                    <div class="cs-body">
-                      <div class="text-sm font-bold text-slate-900 mt-3">Problem Definition</div>
-                      <p class="lead" style="margin-top:.35rem;">
-                        A services firm manually consolidated AP/AR, payroll, and Sage Intacct data weekly via spreadsheets.
-                        Inconsistencies and delays increased liquidity risk amid variable client payments.
-                      </p>
 
-                      <div class="text-sm font-bold text-slate-900" style="margin-top:.9rem;">Solution &amp; Implementation</div>
-                      <p class="lead" style="margin-top:.35rem;">
-                        Custom Node.js app with PostgreSQL backend. Used Sage Intacct API for live syncs, plus connectors for payroll/CRM.
-                        Incorporated OpenAI for driver-based predictions and scenario modeling.
-                      </p>
-
+                    <div class="cs-body cs-article">
                       <div class="cs-rest">
-                        <div class="cs-rest-inner">
-                          <div class="steps">
-                            <div class="step">
-                              <div class="st">Tech Details</div>
-                              <div class="sd">
-                                <ul class="list-disc pl-5">
-                                  <li>Weeks 1–2: API authentication, mapping, initial syncs.</li>
-                                  <li>Weeks 3–4: Forecasting engine build with AI predictions.</li>
-                                  <li>Weeks 5–6: Interactive dashboards for 13-week rolling views and what-ifs.</li>
-                                </ul>
-                                Hosted with automated backups; rapid iterations post-go-live ensured alignment to unique drivers.
-                              </div>
-                            </div>
-                            <div class="step">
-                              <div class="st">Impact</div>
-                              <div class="sd">
-                                Time saved: 260+ hours annually.<br />
-                                Estimated savings: $26,000.<br />
-                                Forecast accuracy: improved 25–30%.
-                              </div>
-                            </div>
-                          </div>
+                        <div class="cs-article-scroll">
+                          <p class="muted">Problem Definition</p>
+                          <p>
+                            A services firm manually consolidated AP/AR, payroll, and Sage Intacct data weekly via spreadsheets for cash flow planning.
+                            Inconsistencies and delays risked liquidity issues amid variable client payments and economic uncertainty.
+                          </p>
+
+                          <p class="muted">Quantitative Analysis</p>
+                          <p>
+                            The process took 20+ hours weekly, yielding forecasts with 15–20% variance from actuals—potentially causing overdrafts or missed investments.
+                          </p>
+
+                          <p class="muted">Qualitative Factors</p>
+                          <p>
+                            Unpredictable billing cycles and external pressures (client delays) made static planning inadequate for proactive management.
+                          </p>
+
+                          <p class="muted">Solution &amp; Implementation</p>
+                          <p>
+                            Custom Node.js app with PostgreSQL backend. Used Sage Intacct API for live syncs, plus connectors for payroll/CRM.
+                            Incorporated OpenAI for driver-based predictions and scenario modeling.
+                          </p>
+
+                          <p class="muted">Tech Details</p>
+                          <p>
+                            Weeks 1–2: API authentication, data mapping, and initial syncs.
+                            Weeks 3–4: Forecasting engine build with AI predictions.
+                            Weeks 5–6: Interactive dashboards (Chart.js) for 13-week rolling views and what-ifs.
+                            Hosted on AWS with automated backups; rapid iterations post-go-live ensured alignment with unique drivers.
+                          </p>
+
+                          <p class="muted">Recommendation</p>
+                          <p>
+                            Adopt this AI-enhanced tool for accurate, agile forecasting that supports growth without cash surprises.
+                          </p>
+
+                          <p class="muted">Impact</p>
+                          <p>
+                            Time saved: 260+ hours annually. Estimated savings: $26,000. Forecast accuracy improved 25–30%.
+                          </p>
                         </div>
                       </div>
                     </div>
                   </div>
 
-                  <!-- Case Study 3 -->
+                  <!-- Case Study 3 (your full updated text, article style) -->
                   <div class="cs-card cs-other rounded-2xl border border-slate-200 bg-white/60 p-4" data-cs="cs3">
                     <div class="cs-head">
                       <div class="font-semibold text-slate-900">
@@ -351,60 +372,62 @@
                       </div>
                     </div>
 
-                    <div class="cs-body">
-                      <div class="text-sm font-bold text-slate-900 mt-3">Problem Definition</div>
-                      <p class="lead" style="margin-top:.35rem;">
-                        Project managers relied on manual spreadsheets to compile actuals, forecast remaining expenses, and calculate EAC—consuming 8–12 hours/month/project.
-                        Without real-time Dynamics 365 integration, insights lagged and forecasts suffered from mismatched data, increasing overrun risk and revenue-recognition friction.
-                      </p>
-
-                      <div class="text-sm font-bold text-slate-900" style="margin-top:.9rem;">Solution &amp; Implementation</div>
-                      <p class="lead" style="margin-top:.35rem;">
-                        We built a custom EAC and project planning system integrated with Dynamics 365 to pull real-time costs and commitments,
-                        enable PM forecasting inputs, load indirects, apply revenue-recognition formulas, and produce projected revenue, margin, and EAC.
-                      </p>
-
+                    <div class="cs-body cs-article">
                       <div class="cs-rest">
-                        <div class="cs-rest-inner">
-                          <div class="steps">
-                            <div class="step">
-                              <div class="st">Key Capabilities</div>
-                              <div class="sd">
-                                <ul class="list-disc pl-5">
-                                  <li>Charts for burn rates and variance trends</li>
-                                  <li>Forecast vs actual comparisons</li>
-                                  <li>Exception alerts and anomaly detection</li>
-                                  <li>Commentary for narrative explanations</li>
-                                  <li>Mobile dashboards and notifications</li>
-                                </ul>
-                              </div>
-                            </div>
+                        <div class="cs-article-scroll">
+                          <p class="muted">Problem Definition</p>
+                          <p>
+                            Project managers in a mid-sized engineering and construction firm relied on manual spreadsheets to compile actual costs,
+                            forecast remaining expenses, and calculate Estimate at Completion (EAC). This process consumed 8–12 hours per month per project,
+                            often leading to outdated insights, delayed variance detection, and inaccurate revenue recognition under percentage-of-completion methods.
+                            Without real-time integration to their ERP (Dynamics 365), forecasts were prone to errors from mismatched data, hindering proactive
+                            decision-making and risking budget overruns.
+                          </p>
 
-                            <div class="step">
-                              <div class="st">Tech Details</div>
-                              <div class="sd">
-                                <ul class="list-disc pl-5">
-                                  <li>Weeks 1–2: ERP integration, mapping, prototype</li>
-                                  <li>Weeks 3–4: Core EAC engine + graphs</li>
-                                  <li>Weeks 5–6: Alerts, anomaly rules, mobile optimizations</li>
-                                  <li>Weeks 7–8: Training, tuning, go-live with parallel testing</li>
-                                </ul>
-                              </div>
-                            </div>
+                          <p class="muted">Solution &amp; Implementation</p>
+                          <p>
+                            We developed a custom EAC and project planning system that seamlessly integrated with Dynamics 365 to pull real-time actual costs
+                            (labor, materials, equipment, subcontractors, and commitments). The core tool empowered project managers to input forward-looking forecasts:
+                            planned hours for employees and subcontractors, and costs for equipment, materials, and other direct expenses.
+                          </p>
 
-                            <div class="step">
-                              <div class="st">Impact</div>
-                              <div class="sd">
-                                Reduced forecasting time to under 2 hours/project/month; improved accuracy and reduced overruns by an estimated 15–20%.
-                              </div>
-                            </div>
-                          </div>
+                          <p>
+                            The system automatically loaded indirect costs (e.g., overhead allocations) and applied configurable revenue recognition formulas
+                            (such as cost-to-cost percentage of completion) to calculate projected revenue, gross margin, and EAC.
+                          </p>
+
+                          <p>
+                            Additional functionalities transformed it into a comprehensive project financial management platform: interactive charts and graphs for
+                            trend analysis (cost burn rates, variance over time), side-by-side comparisons of forecasts vs. actuals from Dynamics 365, exception reporting
+                            and variance alerts to flag potential overruns early, anomaly detection for unusual spending patterns, commentary sections for narrative explanations,
+                            and mobile-accessible dashboards for on-the-go updates.
+                          </p>
+
+                          <p>
+                            Built with a Node.js backend for robust ERP integration and data processing, paired with a responsive React frontend for intuitive user interaction.
+                          </p>
+
+                          <p class="muted">Tech Details</p>
+                          <p>
+                            Weeks 1–2: ERP integration setup (secure API pulls from Dynamics 365 Project Operations data), data mapping for actuals, and initial prototyping
+                            of the forecasting interface. Weeks 3–4: Core dashboard development, including EAC calculations, revenue formula engine, graphs, and client feedback
+                            iterations for usability. Weeks 5–6: Advanced features rollout (exception alerts, anomaly rules, commentary tools), mobile optimizations, and push
+                            notifications for critical variances. Weeks 7–8: User training, performance tuning, and go-live with parallel testing against manual processes.
+                          </p>
+
+                          <p class="muted">Impact</p>
+                          <p>
+                            Reduced monthly forecasting time from 8–12 hours to under 2 hours per project. Annual time savings: 110+ hours per project.
+                            Improved forecast accuracy led to earlier intervention on variances, reducing overruns by an estimated 15–20%.
+                            Estimated financial savings: $11,000+ per project annually. Enhanced revenue recognition compliance and overall project profitability through
+                            real-time, data-driven insights.
+                          </p>
                         </div>
                       </div>
                     </div>
                   </div>
 
-                  <!-- UPDATED Case Study 4 -->
+                  <!-- Case Study 4 (your full updated text, article style) -->
                   <div class="cs-card cs-other rounded-2xl border border-slate-200 bg-white/60 p-4" data-cs="cs4">
                     <div class="cs-head">
                       <div class="font-semibold text-slate-900">
@@ -412,67 +435,62 @@
                       </div>
                     </div>
 
-                    <div class="cs-body">
-                      <div class="text-sm font-bold text-slate-900 mt-3">Problem Definition</div>
-                      <p class="lead" style="margin-top:.35rem;">
-                        A mid-sized manufacturer spent 16–20 hours per monthly/quarterly close cycle manually exporting SAP GL data, mapping accounts to
-                        statement line items, consolidating adjustments, and drafting management narratives. This error-prone process delayed reporting,
-                        audit prep, and decisions. Without structured driver analysis, reviews often missed root causes behind variances.
-                      </p>
-
-                      <div class="text-sm font-bold text-slate-900" style="margin-top:.9rem;">Solution &amp; Implementation</div>
-                      <p class="lead" style="margin-top:.35rem;">
-                        We built a one-click financial statement generation platform with secure SAP integration to automate report pulls, apply dynamic mappings,
-                        and produce formatted P&amp;L, balance sheet, and cash flow on demand—paired with driver-based analytics, impact scoring, and AI narratives.
-                      </p>
-
+                    <div class="cs-body cs-article">
                       <div class="cs-rest">
-                        <div class="cs-rest-inner">
-                          <div class="steps">
-                            <div class="step">
-                              <div class="st">Key Features</div>
-                              <div class="sd">
-                                <ul class="list-disc pl-5">
-                                  <li>Dynamic, database-stored mappings with version control and compliance checks</li>
-                                  <li><b>Impact-weighted variance explanations</b> prioritized by dollar impact</li>
-                                  <li>Historical trend analysis with AI-generated insights on driver changes</li>
-                                  <li>Guardrails/validation rules using historical benchmarks</li>
-                                  <li>Closed-loop learning: actuals vs narratives/forecasts to refine assumptions</li>
-                                  <li>AI-assisted narrative insights with action-oriented recommendations</li>
-                                  <li>Interactive dashboards, audit trails, and one-click export to PDF/Excel</li>
-                                </ul>
-                                Built on a Node.js service with serverless deployment for instant, scalable execution.
-                              </div>
-                            </div>
+                        <div class="cs-article-scroll">
+                          <p class="muted">Problem Definition</p>
+                          <p>
+                            A mid-sized manufacturer spent 16–20 hours per monthly/quarterly close cycle manually exporting SAP GL data, mapping accounts to financial
+                            statement line items, consolidating adjustments, and drafting management narratives. This error-prone process delayed financial reporting,
+                            audit preparation, and strategic decisions. Without structured driver analysis, management reviews often failed to pinpoint the root causes
+                            behind variances, limiting actionable insights into revenue and cost performance.
+                          </p>
 
-                            <div class="step">
-                              <div class="st">Tech Details</div>
-                              <div class="sd">
-                                <ul class="list-disc pl-5">
-                                  <li>Weeks 1–3: SAP connections, dynamic mapping engine, historical import, driver identification, automation testing</li>
-                                  <li>Weeks 4–5: On-demand generation, compliance/validation checks, impact scoring, AI narratives, guardrails</li>
-                                  <li>Weeks 6–7: Closed-loop feedback, weekly actionable insights module, audit trails, customizations</li>
-                                  <li>Week 8: Training, parallel testing, full serverless deployment</li>
-                                </ul>
-                              </div>
-                            </div>
+                          <p class="muted">Solution &amp; Implementation</p>
+                          <p>
+                            We developed an one-click financial statement generation platform with secure SAP integration to automate report pulls, apply dynamic mappings,
+                            and produce fully formatted P&amp;L, balance sheet, and cash flow statements on demand.
+                          </p>
 
-                            <div class="step">
-                              <div class="st">Impact</div>
-                              <div class="sd">
-                                Reduced statement prep from 16–20 hours to under 2 hours per cycle.<br />
-                                Annual time savings: 450+ hours.<br />
-                                Estimated annual savings: $45,000+.<br />
-                                Accelerated close cycles, improved audit readiness, and enabled proactive management of high-impact drivers.
-                              </div>
-                            </div>
-                          </div>
+                          <p>
+                            The system incorporated advanced driver-based analytics by mapping the company’s revenue recognition formula and identifying key drivers
+                            (e.g., sales volumes, pricing, product mix, customer segments). We quantified the relative financial impact of each driver through sensitivity
+                            analysis and historical correlations. The same methodology was applied to direct costs (e.g., material usage, labor efficiency, production yields)
+                            and indirect costs (e.g., overhead allocation drivers, facility utilization).
+                          </p>
+
+                          <p>
+                            Key features included: dynamic, database-stored mappings with version control and compliance checks for audit readiness; impact-weighted variance
+                            explanations prioritized by dollar impact on key metrics; historical trend analysis with AI-generated insights; guardrails and validation rules;
+                            closed-loop learning to refine assumptions and highlight recurring patterns; AI-assisted narrative insights with action-oriented recommendations;
+                            interactive dashboards, audit trails, and one-click export to PDF/Excel.
+                          </p>
+
+                          <p>
+                            Built on a Node.js service with serverless deployment for instant, scalable execution.
+                          </p>
+
+                          <p class="muted">Tech Details</p>
+                          <p>
+                            Weeks 1–3: Secure SAP API connections, dynamic mapping engine development, historical data import, driver identification, and automation testing.
+                            Weeks 4–5: On-demand generation features, compliance/validation checks, impact scoring logic, and AI narrative integration with initial guardrails.
+                            Weeks 6–7: Closed-loop feedback mechanisms, weekly actionable insights module, audit trail enhancements, and client-specific customizations.
+                            Week 8: User training, parallel testing against manual processes, and full serverless deployment.
+                          </p>
+
+                          <p class="muted">Impact</p>
+                          <p>
+                            Reduced statement preparation time from 16–20 hours to under 2 hours per cycle. Annual time savings: 450+ hours.
+                            Accelerated close cycles, improved audit readiness, and enabled proactive management of high-impact drivers.
+                            Estimated annual savings: $45,000+ through labor efficiency, faster decisions, and enhanced margin visibility.
+                            Elevated reporting from compliance-focused output to a strategic tool delivering weekly actionable insights on revenue and cost levers.
+                          </p>
                         </div>
                       </div>
                     </div>
                   </div>
 
-                  <!-- UPDATED Case Study 5 -->
+                  <!-- Case Study 5 (your full updated text, article style) -->
                   <div class="cs-card cs-other rounded-2xl border border-slate-200 bg-white/60 p-4" data-cs="cs5">
                     <div class="cs-head">
                       <div class="font-semibold text-slate-900">
@@ -480,67 +498,55 @@
                       </div>
                     </div>
 
-                    <div class="cs-body">
-                      <div class="text-sm font-bold text-slate-900 mt-3">Problem Definition</div>
-                      <p class="lead" style="margin-top:.35rem;">
-                        A fast-growing technology firm spent 12–18 hours per monthly/quarterly close cycle manually reviewing Oracle statements,
-                        dissecting variances, and preparing management reports. Subtle anomalies were overlooked, root causes surfaced late,
-                        and management lacked a structured way to prioritize variances by financial impact—driving reactive decisions and weaker forecasting.
-                      </p>
-
-                      <div class="text-sm font-bold text-slate-900" style="margin-top:.9rem;">Solution &amp; Implementation</div>
-                      <p class="lead" style="margin-top:.35rem;">
-                        We built an AI-powered financial analysis platform that automated Oracle extraction and delivered driver-based variance analytics.
-                        The system mapped revenue recognition logic and key drivers, quantified driver impact via sensitivity analysis/correlations,
-                        applied guardrails, and continuously learned from actuals vs forecasts to improve accuracy and highlight recurring miss patterns.
-                      </p>
-
+                    <div class="cs-body cs-article">
                       <div class="cs-rest">
-                        <div class="cs-rest-inner">
-                          <div class="steps">
-                            <div class="step">
-                              <div class="st">Key Features</div>
-                              <div class="sd">
-                                <ul class="list-disc pl-5">
-                                  <li><b>Impact-weighted variance detection</b> prioritized by dollar impact on revenue, margin, EBITDA</li>
-                                  <li>Historical trend analysis with explanatory narratives</li>
-                                  <li>Guardrails/validation rules for realistic inputs</li>
-                                  <li>Closed-loop learning: monthly actuals feed back into assumptions</li>
-                                  <li>Action-oriented weekly plans with recommendations on controllable drivers</li>
-                                  <li>Interactive visualizations, natural-language explanations, forecasting, risk alerts</li>
-                                </ul>
-                                Built on a Node.js pipeline with AI prompts generating contextual narratives and integrated dashboards.
-                              </div>
-                            </div>
+                        <div class="cs-article-scroll">
+                          <p class="muted">Problem Definition</p>
+                          <p>
+                            A fast-growing technology firm spent 12–18 hours per monthly/quarterly close cycle manually reviewing Oracle financial statements,
+                            dissecting variances, and preparing management reports. This labor-intensive process often overlooked subtle anomalies, delayed identification
+                            of root causes, and provided limited actionable insights into key revenue and cost drivers. Without a structured approach to prioritize variances
+                            by financial impact, management struggled to focus on high-leverage items, leading to reactive decision-making and less accurate forecasting.
+                          </p>
 
-                            <div class="step">
-                              <div class="st">Tech Details</div>
-                              <div class="sd">
-                                <ul class="list-disc pl-5">
-                                  <li>Weeks 1–2: Oracle extraction, driver mapping, historical import, baseline prompts</li>
-                                  <li>Weeks 3–4: Impact scoring engine, narratives/alerts, initial guardrails</li>
-                                  <li>Weeks 5–6: Closed-loop feedback, weekly action plans, anomaly refinements, prompt tuning</li>
-                                  <li>Weeks 7–8: Training, parallel testing, deployment + monitoring</li>
-                                </ul>
-                              </div>
-                            </div>
+                          <p class="muted">Solution &amp; Implementation</p>
+                          <p>
+                            We developed an AI-powered financial analysis platform with automated Oracle statement extraction and advanced driver-based variance analytics.
+                            The system began by mapping the company’s core revenue recognition formula and identifying primary drivers (e.g., billable hours, subscription ARR,
+                            utilization rates, pricing tiers). We quantified the relative financial impact of each driver using sensitivity analysis and historical correlations.
+                            The same approach was applied to direct labor costs (headcount, rates, overtime, productivity) and indirect costs (overhead bases, facility expenses).
+                          </p>
 
-                            <div class="step">
-                              <div class="st">Impact</div>
-                              <div class="sd">
-                                Reduced review/reporting time from 12–18 hours to under 4 hours per cycle.<br />
-                                Annual time savings: 220+ hours.<br />
-                                Estimated annual savings: $22,000+.<br />
-                                Improved forecast accuracy and enabled proactive weekly interventions on high-impact revenue/cost levers.
-                              </div>
-                            </div>
-                          </div>
+                          <p>
+                            Key features included: impact-weighted variance detection prioritized by dollar impact on revenue, gross margin, and EBITDA; historical trend analysis
+                            with AI-generated narratives; guardrails and validation rules for realistic inputs; closed-loop learning via monthly actuals vs forecasts feeding back into
+                            the model to refine assumptions and highlight recurring miss patterns; action-oriented weekly plans with recommendations on controllable drivers; interactive
+                            visualizations, natural-language variance explanations, trend forecasting, and risk alerts.
+                          </p>
+
+                          <p>
+                            Built on a Node.js pipeline for reliable data extraction and processing, with AI prompts generating contextual narratives integrated into intuitive dashboards.
+                          </p>
+
+                          <p class="muted">Tech Details</p>
+                          <p>
+                            Weeks 1–2: Oracle extraction setup, revenue/cost driver mapping, historical data import, and baseline AI prompts for variance detection.
+                            Weeks 3–4: Impact scoring engine, dashboards with narratives/alerts, initial guardrails. Weeks 5–6: Closed-loop feedback, weekly action plan modules,
+                            anomaly refinements, client-specific prompt tuning. Weeks 7–8: Training, parallel testing vs manual reviews, deployment with performance monitoring.
+                          </p>
+
+                          <p class="muted">Impact</p>
+                          <p>
+                            Reduced financial review and reporting time from 12–18 hours to under 4 hours per cycle. Annual time savings: 220+ hours.
+                            Improved forecast accuracy and earlier identification of high-impact issues, enabling proactive interventions. Estimated annual savings: $22,000+.
+                            Transformed finance from backward-looking reporting to a strategic function delivering weekly actionable insights on revenue and cost levers.
+                          </p>
                         </div>
                       </div>
                     </div>
                   </div>
 
-                  <!-- Case Study 6 -->
+                  <!-- Case Study 6 (your full updated text, article style) -->
                   <div class="cs-card cs-other rounded-2xl border border-slate-200 bg-white/60 p-4" data-cs="cs6">
                     <div class="cs-head">
                       <div class="font-semibold text-slate-900">
@@ -548,61 +554,42 @@
                       </div>
                     </div>
 
-                    <div class="cs-body">
-                      <div class="text-sm font-bold text-slate-900 mt-3">Problem Definition</div>
-                      <p class="lead" style="margin-top:.35rem;">
-                        A growing service-based company struggled with elevated DSO due to manual weekly exports and aging reports.
-                        Tracking overdue invoices consumed 6–10 hours per week, causing delayed follow-ups, inconsistent escalation, and prolonged payment cycles.
-                        Without real-time visibility or predictive insights, collections stayed reactive—creating cash flow constraints and higher bad debt risk.
-                      </p>
-
-                      <div class="text-sm font-bold text-slate-900" style="margin-top:.9rem;">Solution &amp; Implementation</div>
-                      <p class="lead" style="margin-top:.35rem;">
-                        We implemented a real-time AR monitoring system with continuous synchronization from Acumatica, adding predictive baselines,
-                        automated escalation workflows, AI-driven prioritization, and multi-channel collaboration (Slack/email, dispute tracking, commentary logs).
-                      </p>
-
+                    <div class="cs-body cs-article">
                       <div class="cs-rest">
-                        <div class="cs-rest-inner">
-                          <div class="steps">
-                            <div class="step">
-                              <div class="st">Key Enhancements</div>
-                              <div class="sd">
-                                <ul class="list-disc pl-5">
-                                  <li><b>Historical analysis &amp; predictive insights:</b> customer-specific baselines and delay prediction</li>
-                                  <li><b>Automated escalation workflows:</b> proactive outreach + progressive follow-ups</li>
-                                  <li><b>AI prioritization:</b> risk scoring and prioritized queues</li>
-                                  <li><b>Collaboration:</b> Slack/email notifications, dispute tracking, shared notes</li>
-                                  <li><b>Dashboards:</b> aging visuals, alerts, incentives, dispute tools</li>
-                                </ul>
-                              </div>
-                            </div>
+                        <div class="cs-article-scroll">
+                          <p class="muted">Problem Definition</p>
+                          <p>
+                            A growing service-based company faced challenges with elevated Days Sales Outstanding (DSO) due to manual weekly exports and aging reports for overdue
+                            invoice tracking. This process consumed 6–10 hours per week across multiple clients, leading to delayed follow-ups, inconsistent escalation, and prolonged
+                            payment cycles. Without real-time visibility or predictive insights, collections efforts were reactive, resulting in cash flow constraints and increased risk
+                            of bad debt.
+                          </p>
 
-                            <div class="step">
-                              <div class="st">Tech Details</div>
-                              <div class="sd">
-                                <ul class="list-disc pl-5">
-                                  <li>Weeks 1–3: API sync, historical import, baseline dashboards</li>
-                                  <li>Weeks 4–5: Risk scoring, predictive delay detection, escalation rules</li>
-                                  <li>Week 6: Notifications, dispute tracking, outreach templates, analytics</li>
-                                  <li>Weeks 7–8: Training, testing, go-live</li>
-                                </ul>
-                              </div>
-                            </div>
+                          <p class="muted">Solution &amp; Implementation</p>
+                          <p>
+                            We implemented a real-time AR monitoring system with continuous data synchronization from Acumatica, providing instant access to aging reports, invoice details,
+                            and customer payment histories. The system added historical analysis and predictive insights, automated escalation workflows, AI-driven prioritization, and
+                            multi-channel communication (Slack/email), plus dispute tracking and commentary logs for collaboration.
+                          </p>
 
-                            <div class="step">
-                              <div class="st">Impact</div>
-                              <div class="sd">
-                                Reduced manual tracking time by 90%+ (320+ hours annually). Improved DSO by 20–30%. Estimated savings: $32,000+.
-                              </div>
-                            </div>
-                          </div>
+                          <p class="muted">Tech Details</p>
+                          <p>
+                            Weeks 1–3: API sync with Acumatica, historical import for payment cycle analysis, baseline dashboards. Weeks 4–5: AI model for risk scoring, predictive delay detection,
+                            prioritized queues, escalation rules. Week 6: Slack/email integrations, dispute tracking, proactive outreach templates, analytics. Weeks 7–8: Training, workflow testing,
+                            go-live with parallel monitoring.
+                          </p>
+
+                          <p class="muted">Impact</p>
+                          <p>
+                            Reduced manual tracking time by over 90%, saving 320+ hours annually. Achieved 20–30% improvement in DSO. Estimated annual savings: $32,000+.
+                            Improved cash flow predictability and strengthened client relationships via proactive communication.
+                          </p>
                         </div>
                       </div>
                     </div>
                   </div>
 
-                  <!-- Case Study 7 -->
+                  <!-- Case Study 7 (your full updated text, article style) -->
                   <div class="cs-card cs-other rounded-2xl border border-slate-200 bg-white/60 p-4" data-cs="cs7">
                     <div class="cs-head">
                       <div class="font-semibold text-slate-900">
@@ -610,55 +597,34 @@
                       </div>
                     </div>
 
-                    <div class="cs-body">
-                      <div class="text-sm font-bold text-slate-900 mt-3">Problem Definition</div>
-                      <p class="lead" style="margin-top:.35rem;">
-                        A mid-sized manufacturing and distribution company used complex quarterly spreadsheets for budgeting/forecasting.
-                        Each cycle required 20–30 hours of manual entry and consolidation, limiting scenario planning in a volatile market.
-                      </p>
-
-                      <div class="text-sm font-bold text-slate-900" style="margin-top:.9rem;">Solution &amp; Implementation</div>
-                      <p class="lead" style="margin-top:.35rem;">
-                        We built a driver-based FP&amp;A platform integrated with Infor for real-time actuals and operational drivers, enabling unlimited scenarios,
-                        collaboration, AI-assisted baselines, dashboards, alerts, and validation controls.
-                      </p>
-
+                    <div class="cs-body cs-article">
                       <div class="cs-rest">
-                        <div class="cs-rest-inner">
-                          <div class="steps">
-                            <div class="step">
-                              <div class="st">Key Features</div>
-                              <div class="sd">
-                                <ul class="list-disc pl-5">
-                                  <li>Unlimited scenarios + side-by-side comparisons</li>
-                                  <li>Real-time collaboration + audit trails</li>
-                                  <li>AI-assisted forecasting + anomaly highlighting</li>
-                                  <li>Dashboards, sensitivity analysis, what-if simulations</li>
-                                  <li>Rolling forecasts + variance alerts</li>
-                                  <li>Validation controls for data integrity</li>
-                                </ul>
-                              </div>
-                            </div>
+                        <div class="cs-article-scroll">
+                          <p class="muted">Problem Definition</p>
+                          <p>
+                            A mid-sized manufacturing and distribution company relied on complex quarterly spreadsheet models for budgeting and forecasting. Each cycle required 20–30 hours
+                            of manual data entry, formula maintenance, and consolidation across departments, leaving little time for meaningful scenario planning. In a volatile market with
+                            fluctuating raw material costs, labor rates, and demand, the lack of flexible what-if capabilities limited agility and led to reactive adjustments.
+                          </p>
 
-                            <div class="step">
-                              <div class="st">Tech Details</div>
-                              <div class="sd">
-                                <ul class="list-disc pl-5">
-                                  <li>Weeks 1–3: Integration, historical import, driver engine, validations</li>
-                                  <li>Weeks 4–5: Scenarios + collaboration</li>
-                                  <li>Week 6: Reporting + AI module + dashboards</li>
-                                  <li>Weeks 7–8: Training, parallel testing, deployment</li>
-                                </ul>
-                              </div>
-                            </div>
+                          <p class="muted">Solution &amp; Implementation</p>
+                          <p>
+                            We built a custom FP&amp;A platform with Infor integration to pull real-time actuals, commitments, and operational drivers. Budgeting shifted to a driver-based model:
+                            users input drivers and the system produced detailed P&amp;L, balance sheet, and cash flow projections. It enabled unlimited scenarios, real-time collaboration, AI-assisted
+                            baselines, dashboards, rolling forecasts, variance alerts, and validation controls.
+                          </p>
 
-                            <div class="step">
-                              <div class="st">Impact</div>
-                              <div class="sd">
-                                Reduced budgeting time to under 8 hours/cycle; annual savings 115+ hours; estimated savings $11,500+.
-                              </div>
-                            </div>
-                          </div>
+                          <p class="muted">Tech Details</p>
+                          <p>
+                            Weeks 1–3: Infor integration, historical import, driver engine, validation controls. Weeks 4–5: scenario management and collaboration. Week 6: reporting suite,
+                            what-if simulations, AI forecasting, dashboards. Weeks 7–8: training, optimization, parallel testing, deployment.
+                          </p>
+
+                          <p class="muted">Impact</p>
+                          <p>
+                            Reduced quarterly budgeting time from 20–30 hours to under 8 hours per cycle. Annual time savings: 115+ hours. Improved forecast agility and scenario planning.
+                            Estimated annual savings: $11,500+. Reduced errors and improved cross-department alignment.
+                          </p>
                         </div>
                       </div>
                     </div>
@@ -766,6 +732,7 @@
         const clickedFade = t.closest("[data-reveal='cs1']");
 
         if (isCase1) {
+          // Only open case 1 when the user clicks the transparent “continue” area (or the header).
           if (clickedFade || t.closest(".cs-head")) {
             openOne(card);
             e.stopPropagation();
@@ -773,12 +740,14 @@
           return;
         }
 
+        // Other cases: click header (or inside open body) opens & focuses that case
         if (t.closest(".cs-head") || t.closest(".cs-body")) {
           openOne(card);
           e.stopPropagation();
         }
       });
 
+      // Clicking outside the entire Case Studies area collapses everything
       document.addEventListener("click", (e) => {
         const t = e.target;
         if (!(t instanceof Element)) return;
