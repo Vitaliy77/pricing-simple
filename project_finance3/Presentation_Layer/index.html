@@ -10,30 +10,66 @@
   <link rel="stylesheet" href="styles.css" />
 
   <style>
-    /* --- "WSJ blur" effect + modal --- */
-    .blur-fade {
-      position: relative;
-      filter: blur(2.5px);
-      opacity: 0.75;
-      user-select: none;
-      pointer-events: none; /* keeps the blur section non-interactive */
+    /* ========= Case Studies: inline "WSJ blur" + expand-in-place ========= */
+
+    /* clickable teaser area (problem + first solution line + 2 blurred lines) */
+    .cs-teaser {
+      cursor: pointer;
+      border-radius: 1.5rem; /* matches rounded-3xl */
     }
-    .blur-fade::after {
+
+    /* blur for teaser continuation (exactly 2 lines visible, blurred) */
+    .cs-blur2 {
+      position: relative;
+      filter: blur(2.2px);
+      opacity: 0.78;
+      user-select: none;
+      pointer-events: none; /* click should be captured by parent teaser */
+      line-height: 1.6;
+      max-height: calc(1.6em * 2.15); /* ~2 lines */
+      overflow: hidden;
+    }
+    /* fade-out like paywall */
+    .cs-blur2::after {
       content: "";
       position: absolute;
       left: 0; right: 0; bottom: 0;
-      height: 62%;
-      background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0.92));
+      height: 70%;
+      background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0.95));
     }
 
-    .case-modal {
-      position: fixed;
-      inset: 0;
-      z-index: 1000;
+    /* Full content wrapper inside the same card */
+    .cs-full {
+      display: none;
+      margin-top: 0.85rem;
+      padding-top: 0.85rem;
+      border-top: 1px solid rgba(226,232,240,1); /* slate-200 */
+    }
+
+    /* When expanded: show full; make it scrollable within the case card area */
+    .cs-card.is-open .cs-full {
+      display: block;
+    }
+    .cs-card.is-open .cs-full-inner {
+      max-height: 420px; /* scroll down if needed */
+      overflow: auto;
+      padding-right: 0.35rem; /* room for scrollbar */
+    }
+
+    /* When another case opens: collapse others to just header */
+    .cs-card.is-collapsed .cs-body {
       display: none;
     }
-    .case-modal.is-open {
-      display: block;
+
+    /* make the "header-only" state still look clickable */
+    .cs-head {
+      cursor: pointer;
+    }
+
+    /* subtle active ring (optional, looks nice even without changing your theme) */
+    .cs-card.is-open {
+      outline: 2px solid rgba(148,163,184,0.6); /* slate-400-ish */
+      outline-offset: 2px;
     }
   </style>
 </head>
@@ -70,7 +106,7 @@
       <div class="w-full px-6 lg:px-12">
         <div class="mx-auto max-w-none flex flex-col gap-12">
 
-          <!-- HERO (centered, 40% smaller by width vs full) -->
+          <!-- HERO (centered, ~40% smaller by width vs full) -->
           <section class="w-full">
             <div class="exec-card mx-auto w-full max-w-4xl">
               <span class="kicker">Ledger Summit</span>
@@ -115,7 +151,7 @@
             </div>
           </section>
 
-          <!-- CLIENT REVIEWS (full-width, centered) -->
+          <!-- CLIENT REVIEWS -->
           <section class="w-full">
             <div class="exec-card w-full mx-auto">
               <span class="kicker">Client Reviews</span>
@@ -145,138 +181,649 @@
             </div>
           </section>
 
-          <!-- CASE STUDIES: block left + image right (full width together) -->
+          <!-- CASE STUDIES: left block + right image -->
           <section class="w-full">
             <div class="w-full grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
               <!-- Left: block -->
-              <div class="exec-card w-full h-full">
+              <div class="exec-card w-full h-full" id="caseStudiesArea">
                 <span class="kicker">Case Studies</span>
                 <h2 class="title" style="font-size:2.35rem;">Real work. Real outcomes.</h2>
 
-                <!-- Study 1 (preview + blur + click to open modal) -->
-                <div class="mt-6 rounded-3xl border border-slate-200 bg-white/70 p-5">
-                  <div class="flex items-start justify-between gap-4">
+                <!-- Case Study 1 -->
+                <div class="cs-card mt-6 rounded-3xl border border-slate-200 bg-white/70 p-5" data-cs="cs1">
+                  <div class="cs-head flex items-start justify-between gap-4">
                     <div>
                       <div class="text-sm font-semibold uppercase tracking-wide text-slate-600">Case Study 1</div>
                       <h3 class="title" style="font-size:1.45rem; margin-top:.25rem;">Automated Monthly Bank Reconciliation (NetSuite)</h3>
                     </div>
-                    <button
-                      class="cta"
-                      type="button"
-                      data-open="cs1"
-                      aria-haspopup="dialog"
-                      aria-controls="modal-cs1"
-                    >
-                      Read →
-                    </button>
                   </div>
 
-                  <div class="mt-3">
-                    <div class="text-sm font-bold text-slate-900">Problem</div>
-                    <p class="lead" style="margin-top:.35rem;">
-                      Manual bank reconciliations across multiple accounts were delaying close and creating avoidable errors.
-                    </p>
-
-                    <div class="text-sm font-bold text-slate-900" style="margin-top:.85rem;">Solution</div>
-                    <p class="lead" style="margin-top:.35rem;">
-                      Built a custom Node.js + NetSuite integration with bank feeds and an AI matching engine to auto-match transactions.
-                    </p>
-
-                    <!-- blurred continuation -->
-                    <div class="mt-3 blur-fade">
-                      <p class="lead">
-                        The app securely pulled data via SuiteTalk REST, learned patterns over time, and flagged true exceptions with audit trails.
-                        Rollout included OAuth, mapping, a review dashboard, and multi-account scaling.
+                  <!-- Body collapses when other is opened -->
+                  <div class="cs-body">
+                    <div class="mt-3 cs-teaser">
+                      <div class="text-sm font-bold text-slate-900">Problem</div>
+                      <p class="lead" style="margin-top:.35rem;">
+                        Manual reconciliations across multiple locations delayed month-end close and drove avoidable errors.
                       </p>
-                      <p class="lead">
-                        Impact included 95%+ automation, major time savings per account, and sharply reduced reconciliation errors.
+
+                      <div class="text-sm font-bold text-slate-900" style="margin-top:.85rem;">Solution</div>
+                      <p class="lead" style="margin-top:.35rem;">
+                        Custom Node.js + Express service using NetSuite SuiteTalk REST API, bank feeds, and an AI matching engine to auto-match 95%+ of transactions.
                       </p>
+
+                      <!-- 2 blurred lines only (clicking the teaser opens inline expansion) -->
+                      <div class="mt-3 cs-blur2">
+                        <p class="lead">
+                          Deployed a secure review dashboard for approvals and exceptions, with full audit trails and configurable tolerances.
+                          Phased rollout: OAuth, mappings, testing, then multi-account scaling and performance tuning.
+                        </p>
+                      </div>
+
+                      <div class="mt-2 text-xs text-slate-500">
+                        Click to read the full case study.
+                      </div>
                     </div>
 
-                    <div class="mt-3 text-xs text-slate-500">
-                      *Click “Read →” to view full details.
+                    <!-- Full content (same card, scrollable if needed) -->
+                    <div class="cs-full">
+                      <div class="cs-full-inner">
+                        <div class="steps">
+                          <div class="step">
+                            <div class="st">Problem Definition</div>
+                            <div class="sd">
+                              A growing retailer with multiple locations faced delays in month-end closes due to manual bank reconciliations in NetSuite ERP.
+                              Teams downloaded statements and exports, then matched transactions in spreadsheets—typically taking 10–15 hours per account monthly,
+                              leading to errors (often 5–10%) and undetected variances until audits.
+                            </div>
+                          </div>
+
+                          <div class="step">
+                            <div class="st">Quantitative Analysis</div>
+                            <div class="sd">
+                              Manual effort consumed 120+ hours annually per account, risking cash flow discrepancies and tying up resources needed for analysis.
+                            </div>
+                          </div>
+
+                          <div class="step">
+                            <div class="st">Qualitative Factors</div>
+                            <div class="sd">
+                              Frustration from repetitive tasks reduced morale; seasonal volume spikes amplified error risks and compliance concerns.
+                            </div>
+                          </div>
+
+                          <div class="step">
+                            <div class="st">Solution &amp; Implementation</div>
+                            <div class="sd">
+                              Custom Node.js backend using Express.js and NetSuite’s SuiteTalk REST API for direct, secure data pulls.
+                              Integrated Plaid for bank feeds and built an AI matching engine (TensorFlow.js) that auto-matched 95%+ transactions
+                              based on learned patterns, flagging exceptions intelligently.
+                            </div>
+                          </div>
+
+                          <div class="step">
+                            <div class="st">Tech Details</div>
+                            <div class="sd">
+                              <ul class="list-disc pl-5">
+                                <li>Weeks 1–2: OAuth setup, API integrations, and initial data mapping/testing.</li>
+                                <li>Weeks 3–4: Matching algorithm development with ML for patterns; secure React dashboard for reviews/certifications.</li>
+                                <li>Weeks 5–6: Advanced rules and performance tuning for multi-account scaling.</li>
+                              </ul>
+                              Deployed on DigitalOcean; client-requested tweaks (e.g., custom tolerances) shipped in days.
+                            </div>
+                          </div>
+
+                          <div class="step">
+                            <div class="st">Recommendation</div>
+                            <div class="sd">
+                              Transition to tailored automation to achieve near-real-time reconciliations, minimize errors, and refocus the team on strategic finance.
+                            </div>
+                          </div>
+
+                          <div class="step">
+                            <div class="st">Impact</div>
+                            <div class="sd">
+                              Time saved: 120+ hours annually per account (95%+ automation).<br />
+                              Estimated savings: $12,000+ per account (at $100/hour loaded cost).<br />
+                              Error reduction: ~90%, with full audit trails.
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="mt-3 text-xs text-slate-500">
+                        Click outside the case studies area to collapse.
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                <!-- Study 2 (preview + blur + click to open modal) -->
-                <div class="mt-4 rounded-3xl border border-slate-200 bg-white/70 p-5">
-                  <div class="flex items-start justify-between gap-4">
+                <!-- Case Study 2 -->
+                <div class="cs-card mt-4 rounded-3xl border border-slate-200 bg-white/70 p-5" data-cs="cs2">
+                  <div class="cs-head flex items-start justify-between gap-4">
                     <div>
                       <div class="text-sm font-semibold uppercase tracking-wide text-slate-600">Case Study 2</div>
                       <h3 class="title" style="font-size:1.45rem; margin-top:.25rem;">Real-Time Cash Flow Forecasting (Sage Intacct)</h3>
                     </div>
-                    <button
-                      class="cta"
-                      type="button"
-                      data-open="cs2"
-                      aria-haspopup="dialog"
-                      aria-controls="modal-cs2"
-                    >
-                      Read →
-                    </button>
                   </div>
 
-                  <div class="mt-3">
-                    <div class="text-sm font-bold text-slate-900">Problem</div>
-                    <p class="lead" style="margin-top:.35rem;">
-                      Weekly spreadsheet consolidation across AP/AR, payroll, and ERP data caused delays and unreliable forecasts.
-                    </p>
-
-                    <div class="text-sm font-bold text-slate-900" style="margin-top:.85rem;">Solution</div>
-                    <p class="lead" style="margin-top:.35rem;">
-                      Deployed a Node.js + PostgreSQL forecasting app with live ERP syncs and AI-driven scenario modeling.
-                    </p>
-
-                    <!-- blurred continuation -->
-                    <div class="mt-3 blur-fade">
-                      <p class="lead">
-                        Delivered 13-week rolling views, what-if drivers, dashboards, and fast iteration after go-live.
-                        Accuracy improved materially while planning time dropped.
+                  <div class="cs-body">
+                    <div class="mt-3 cs-teaser">
+                      <div class="text-sm font-bold text-slate-900">Problem</div>
+                      <p class="lead" style="margin-top:.35rem;">
+                        Weekly spreadsheet consolidation across AP/AR, payroll, and ERP data created delays and forecasts that drifted from reality.
                       </p>
-                      <p class="lead">
-                        Impact included hundreds of hours saved annually and stronger liquidity confidence.
+
+                      <div class="text-sm font-bold text-slate-900" style="margin-top:.85rem;">Solution</div>
+                      <p class="lead" style="margin-top:.35rem;">
+                        A Node.js + PostgreSQL app with live Sage Intacct syncs, connectors for payroll/CRM, and AI-assisted driver-based scenarios.
                       </p>
+
+                      <div class="mt-3 cs-blur2">
+                        <p class="lead">
+                          Delivered 13-week rolling views, what-if modeling, and interactive dashboards; iterations post-go-live aligned to unique business drivers.
+                          Reduced manual effort and improved forecast accuracy meaningfully.
+                        </p>
+                      </div>
+
+                      <div class="mt-2 text-xs text-slate-500">
+                        Click to read the full case study.
+                      </div>
                     </div>
 
-                    <div class="mt-3 text-xs text-slate-500">
-                      *Click “Read →” to view full details.
+                    <div class="cs-full">
+                      <div class="cs-full-inner">
+                        <div class="steps">
+                          <div class="step">
+                            <div class="st">Problem Definition</div>
+                            <div class="sd">
+                              A services firm manually consolidated AP/AR, payroll, and Sage Intacct data weekly via spreadsheets for cash flow planning.
+                              Inconsistencies and delays risked liquidity issues amid variable client payments and economic uncertainty.
+                            </div>
+                          </div>
+
+                          <div class="step">
+                            <div class="st">Quantitative Analysis</div>
+                            <div class="sd">
+                              The process took 20+ hours weekly, yielding forecasts with 15–20% variance from actuals—risking overdrafts or missed investments.
+                            </div>
+                          </div>
+
+                          <div class="step">
+                            <div class="st">Qualitative Factors</div>
+                            <div class="sd">
+                              Unpredictable billing cycles and client delays made static planning inadequate for proactive management.
+                            </div>
+                          </div>
+
+                          <div class="step">
+                            <div class="st">Solution &amp; Implementation</div>
+                            <div class="sd">
+                              Custom Node.js app with PostgreSQL backend. Used Sage Intacct API for live syncs, plus connectors for payroll/CRM.
+                              Incorporated OpenAI API for driver-based predictions and scenario modeling.
+                            </div>
+                          </div>
+
+                          <div class="step">
+                            <div class="st">Tech Details</div>
+                            <div class="sd">
+                              <ul class="list-disc pl-5">
+                                <li>Weeks 1–2: API authentication, data mapping, and initial syncs.</li>
+                                <li>Weeks 3–4: Forecasting engine build with AI predictions.</li>
+                                <li>Weeks 5–6: Interactive dashboards for 13-week rolling views and what-ifs.</li>
+                              </ul>
+                              Hosted with automated backups; rapid iterations post-go-live ensured alignment with unique drivers.
+                            </div>
+                          </div>
+
+                          <div class="step">
+                            <div class="st">Recommendation</div>
+                            <div class="sd">
+                              Adopt the AI-enhanced tool for accurate, agile forecasting that supports growth without cash surprises.
+                            </div>
+                          </div>
+
+                          <div class="step">
+                            <div class="st">Impact</div>
+                            <div class="sd">
+                              Time saved: 260+ hours annually.<br />
+                              Estimated savings: $26,000.<br />
+                              Forecast accuracy: improved 25–30%.
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="mt-3 text-xs text-slate-500">
+                        Click outside the case studies area to collapse.
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                <!-- Remaining case studies: compact list of names -->
+                <!-- Remaining case studies (same behavior: header-only until opened) -->
                 <div class="mt-6 rounded-3xl border border-slate-200 bg-white/70 p-5">
-                  <div class="text-sm font-semibold uppercase tracking-wide text-slate-600">More case studies</div>
-                  <div class="mt-3 grid gap-2">
-                    <button class="text-left group" type="button" data-open="cs3" aria-haspopup="dialog" aria-controls="modal-cs3">
-                      <div class="font-semibold text-slate-900 group-hover:underline">Case Study 3: Dynamic Project Financial Dashboards (Dynamics 365)</div>
-                      <div class="text-sm text-slate-600">Live variance alerts, mobile-friendly dashboards, anomaly detection.</div>
-                    </button>
+                  <div class="text-sm font-semibold uppercase tracking-wide text-slate-600">More case studies (click a title)</div>
 
-                    <button class="text-left group" type="button" data-open="cs4" aria-haspopup="dialog" aria-controls="modal-cs4">
-                      <div class="font-semibold text-slate-900 group-hover:underline">Case Study 4: One-Click Financial Statements (SAP)</div>
-                      <div class="text-sm text-slate-600">Automated pulls, dynamic mappings, audit trails, AI narratives.</div>
-                    </button>
+                  <div class="mt-3 grid gap-3">
+                    <!-- CS3 -->
+                    <div class="cs-card rounded-2xl border border-slate-200 bg-white/60 p-4" data-cs="cs3">
+                      <div class="cs-head">
+                        <div class="font-semibold text-slate-900">Case Study 3: Dynamic Project Financial Dashboards (Dynamics 365)</div>
+                        <div class="text-sm text-slate-600">Problem + Solution teaser with inline expand.</div>
+                      </div>
 
-                    <button class="text-left group" type="button" data-open="cs5" aria-haspopup="dialog" aria-controls="modal-cs5">
-                      <div class="font-semibold text-slate-900 group-hover:underline">Case Study 5: AI-Powered Statement Analysis (Oracle)</div>
-                      <div class="text-sm text-slate-600">Variance detection, trend signals, risk flags, dashboards.</div>
-                    </button>
+                      <div class="cs-body">
+                        <div class="mt-3 cs-teaser">
+                          <div class="text-sm font-bold text-slate-900">Problem</div>
+                          <p class="lead" style="margin-top:.35rem;">
+                            PMs spent 8–12 hours monthly per project compiling variances, delaying insight and fueling avoidable overruns.
+                          </p>
+                          <div class="text-sm font-bold text-slate-900" style="margin-top:.85rem;">Solution</div>
+                          <p class="lead" style="margin-top:.35rem;">
+                            Real-time Dynamics 365 data pulls into React dashboards with alerts, commentary, and anomaly detection.
+                          </p>
+                          <div class="mt-3 cs-blur2">
+                            <p class="lead">
+                              Mobile-first views for on-site teams, automated notifications, and rules tuned to historical project patterns.
+                              Faster corrective action and better bid discipline.
+                            </p>
+                          </div>
+                          <div class="mt-2 text-xs text-slate-500">Click to read the full case study.</div>
+                        </div>
 
-                    <button class="text-left group" type="button" data-open="cs6" aria-haspopup="dialog" aria-controls="modal-cs6">
-                      <div class="font-semibold text-slate-900 group-hover:underline">Case Study 6: Real-Time AR Monitoring (Acumatica)</div>
-                      <div class="text-sm text-slate-600">Continuous sync, AI prioritization for collections, alerts.</div>
-                    </button>
+                        <div class="cs-full">
+                          <div class="cs-full-inner">
+                            <div class="steps">
+                              <div class="step">
+                                <div class="st">Problem Definition</div>
+                                <div class="sd">
+                                  Project managers manually compiled budget variances from Dynamics 365, spending 8–12 hours monthly per project.
+                                  Delayed visibility contributed to late intervention and cost overruns.
+                                </div>
+                              </div>
+                              <div class="step">
+                                <div class="st">Quantitative Analysis</div>
+                                <div class="sd">
+                                  100–140 hours annually per project in manual tracking; lagged detection increased overrun risk.
+                                </div>
+                              </div>
+                              <div class="step">
+                                <div class="st">Qualitative Factors</div>
+                                <div class="sd">
+                                  Field teams needed mobile access; delayed data hindered timely decisions amid labor/material volatility.
+                                </div>
+                              </div>
+                              <div class="step">
+                                <div class="st">Solution &amp; Implementation</div>
+                                <div class="sd">
+                                  Node.js backend pulling live Dynamics 365 project data (jobs, cost codes). React front end with interactive variance alerts,
+                                  inline commentary, and AI-driven anomaly detection to flag potential overruns early.
+                                </div>
+                              </div>
+                              <div class="step">
+                                <div class="st">Tech Details</div>
+                                <div class="sd">
+                                  <ul class="list-disc pl-5">
+                                    <li>Weeks 1–2: Integration, data flow, prototyping.</li>
+                                    <li>Weeks 3–4: Dashboard build + usability feedback loops.</li>
+                                    <li>Weeks 5–6: Mobile optimizations, alerts, advanced anomaly rules.</li>
+                                  </ul>
+                                  Dockerized deployment with fast post-launch enhancements.
+                                </div>
+                              </div>
+                              <div class="step">
+                                <div class="st">Recommendation</div>
+                                <div class="sd">
+                                  Deploy live dashboards to gain instant visibility, speed corrections, and reduce overrun risk.
+                                </div>
+                              </div>
+                              <div class="step">
+                                <div class="st">Impact</div>
+                                <div class="sd">
+                                  Time saved: 110+ hours annually per project.<br />
+                                  Estimated savings: $11,000+ per project.<br />
+                                  Improved early-warning visibility and decision speed.
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                          <div class="mt-3 text-xs text-slate-500">Click outside the case studies area to collapse.</div>
+                        </div>
+                      </div>
+                    </div>
 
-                    <button class="text-left group" type="button" data-open="cs7" aria-haspopup="dialog" aria-controls="modal-cs7">
-                      <div class="font-semibold text-slate-900 group-hover:underline">Case Study 7: Budgeting &amp; Scenario Forecasting (Infor)</div>
-                      <div class="text-sm text-slate-600">Driver-based modeling, unlimited scenarios, collaboration.</div>
-                    </button>
+                    <!-- CS4 -->
+                    <div class="cs-card rounded-2xl border border-slate-200 bg-white/60 p-4" data-cs="cs4">
+                      <div class="cs-head">
+                        <div class="font-semibold text-slate-900">Case Study 4: One-Click Financial Statement Generation (SAP)</div>
+                        <div class="text-sm text-slate-600">Problem + Solution teaser with inline expand.</div>
+                      </div>
+
+                      <div class="cs-body">
+                        <div class="mt-3 cs-teaser">
+                          <div class="text-sm font-bold text-slate-900">Problem</div>
+                          <p class="lead" style="margin-top:.35rem;">
+                            Manual SAP GL mapping for statements took 16–20 hours per cycle and increased audit risk.
+                          </p>
+                          <div class="text-sm font-bold text-slate-900" style="margin-top:.85rem;">Solution</div>
+                          <p class="lead" style="margin-top:.35rem;">
+                            Automated SAP pulls with dynamic mappings, compliance checks, and AI-assisted narratives.
+                          </p>
+                          <div class="mt-3 cs-blur2">
+                            <p class="lead">
+                              On-demand generation with serverless scale, full audit trails, and rapid updates for new GL codes.
+                              Faster close, cleaner reporting.
+                            </p>
+                          </div>
+                          <div class="mt-2 text-xs text-slate-500">Click to read the full case study.</div>
+                        </div>
+
+                        <div class="cs-full">
+                          <div class="cs-full-inner">
+                            <div class="steps">
+                              <div class="step">
+                                <div class="st">Problem Definition</div>
+                                <div class="sd">
+                                  A manufacturer manually mapped SAP GL accounts to generate P&amp;L, Balance Sheet, and Cash Flow statements,
+                                  requiring 16–20 hours per cycle across multiple staff.
+                                </div>
+                              </div>
+                              <div class="step">
+                                <div class="st">Quantitative Analysis</div>
+                                <div class="sd">
+                                  400–500 hours annually; mapping errors caused misstatements and delayed audits/decisions.
+                                </div>
+                              </div>
+                              <div class="step">
+                                <div class="st">Qualitative Factors</div>
+                                <div class="sd">
+                                  Regulatory updates and complex costing required faster, more compliant reporting without pulling focus from operations.
+                                </div>
+                              </div>
+                              <div class="step">
+                                <div class="st">Solution &amp; Implementation</div>
+                                <div class="sd">
+                                  Node.js service automating SAP report pulls with configurable, database-stored dynamic mappings.
+                                  Integrated GPT for AI-assisted narrative insights and explanations.
+                                </div>
+                              </div>
+                              <div class="step">
+                                <div class="st">Tech Details</div>
+                                <div class="sd">
+                                  <ul class="list-disc pl-5">
+                                    <li>Weeks 1–3: Secure connections, mapping logic, automation testing.</li>
+                                    <li>Weeks 4–5: On-demand generation, compliance checks, narrative AI.</li>
+                                    <li>Week 6: Audit trail enhancements, client customizations.</li>
+                                  </ul>
+                                  Serverless deployment for instant, on-demand runs.
+                                </div>
+                              </div>
+                              <div class="step">
+                                <div class="st">Recommendation</div>
+                                <div class="sd">
+                                  Automate statement production for instant outputs aligned to compliance needs.
+                                </div>
+                              </div>
+                              <div class="step">
+                                <div class="st">Impact</div>
+                                <div class="sd">
+                                  Time saved: 450+ hours annually.<br />
+                                  Estimated savings: $45,000.
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                          <div class="mt-3 text-xs text-slate-500">Click outside the case studies area to collapse.</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- CS5 -->
+                    <div class="cs-card rounded-2xl border border-slate-200 bg-white/60 p-4" data-cs="cs5">
+                      <div class="cs-head">
+                        <div class="font-semibold text-slate-900">Case Study 5: AI-Powered Financial Statement Analysis (Oracle)</div>
+                        <div class="text-sm text-slate-600">Problem + Solution teaser with inline expand.</div>
+                      </div>
+
+                      <div class="cs-body">
+                        <div class="mt-3 cs-teaser">
+                          <div class="text-sm font-bold text-slate-900">Problem</div>
+                          <p class="lead" style="margin-top:.35rem;">
+                            Manual statement review took 12–18 hours per cycle and could miss subtle anomalies.
+                          </p>
+                          <div class="text-sm font-bold text-slate-900" style="margin-top:.85rem;">Solution</div>
+                          <p class="lead" style="margin-top:.35rem;">
+                            Automated extraction + AI variance detection, trends, and risk highlighting in dashboards.
+                          </p>
+                          <div class="mt-3 cs-blur2">
+                            <p class="lead">
+                              Alerts for unusual movements, narrative summaries for leadership, and prompt tuning based on feedback.
+                              Faster decisions with fewer blind spots.
+                            </p>
+                          </div>
+                          <div class="mt-2 text-xs text-slate-500">Click to read the full case study.</div>
+                        </div>
+
+                        <div class="cs-full">
+                          <div class="cs-full-inner">
+                            <div class="steps">
+                              <div class="step">
+                                <div class="st">Problem Definition</div>
+                                <div class="sd">
+                                  A tech firm manually reviewed Oracle ERP financial statements, taking 12–18 hours per cycle to validate data,
+                                  spot trends, and check variances—often missing subtle anomalies.
+                                </div>
+                              </div>
+                              <div class="step">
+                                <div class="st">Quantitative Analysis</div>
+                                <div class="sd">
+                                  200–250 hours annually spent on repetitive analysis, increasing risk of overlooked issues.
+                                </div>
+                              </div>
+                              <div class="step">
+                                <div class="st">Qualitative Factors</div>
+                                <div class="sd">
+                                  Rapid product cycles and investor scrutiny demanded deeper, faster insights than manual processes could sustain.
+                                </div>
+                              </div>
+                              <div class="step">
+                                <div class="st">Solution &amp; Implementation</div>
+                                <div class="sd">
+                                  Node.js pipeline for statement fetching, paired with custom AI prompts for variance detection, trend forecasting,
+                                  and risk highlighting—integrated into interactive dashboards and alerts.
+                                </div>
+                              </div>
+                              <div class="step">
+                                <div class="st">Tech Details</div>
+                                <div class="sd">
+                                  <ul class="list-disc pl-5">
+                                    <li>Weeks 1–2: Data extraction + baseline prompts.</li>
+                                    <li>Weeks 3–4: Dashboard integration + narratives and alerts.</li>
+                                    <li>Weeks 5–6: Refinements for anomaly flagging and client-tuned prompts.</li>
+                                  </ul>
+                                </div>
+                              </div>
+                              <div class="step">
+                                <div class="st">Recommendation</div>
+                                <div class="sd">Use AI to uncover risks and opportunities faster with consistent repeatability.</div>
+                              </div>
+                              <div class="step">
+                                <div class="st">Impact</div>
+                                <div class="sd">
+                                  Time saved: 220+ hours annually.<br />
+                                  Estimated savings: $22,000.
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                          <div class="mt-3 text-xs text-slate-500">Click outside the case studies area to collapse.</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- CS6 -->
+                    <div class="cs-card rounded-2xl border border-slate-200 bg-white/60 p-4" data-cs="cs6">
+                      <div class="cs-head">
+                        <div class="font-semibold text-slate-900">Case Study 6: Real-Time Accounts Receivable Monitoring (Acumatica)</div>
+                        <div class="text-sm text-slate-600">Problem + Solution teaser with inline expand.</div>
+                      </div>
+
+                      <div class="cs-body">
+                        <div class="mt-3 cs-teaser">
+                          <div class="text-sm font-bold text-slate-900">Problem</div>
+                          <p class="lead" style="margin-top:.35rem;">
+                            Weekly exports for overdue tracking consumed 6–10 hours per client and kept DSO elevated.
+                          </p>
+                          <div class="text-sm font-bold text-slate-900" style="margin-top:.85rem;">Solution</div>
+                          <p class="lead" style="margin-top:.35rem;">
+                            Continuous sync + AI risk scoring to prioritize collections with automated alerts.
+                          </p>
+                          <div class="mt-3 cs-blur2">
+                            <p class="lead">
+                              Slack/email notifications, dispute tracking, and fast rule tuning improved collections focus.
+                              Stronger cash discipline without spreadsheet work.
+                            </p>
+                          </div>
+                          <div class="mt-2 text-xs text-slate-500">Click to read the full case study.</div>
+                        </div>
+
+                        <div class="cs-full">
+                          <div class="cs-full-inner">
+                            <div class="steps">
+                              <div class="step">
+                                <div class="st">Problem Definition</div>
+                                <div class="sd">
+                                  A distributor relied on weekly Acumatica exports for overdue invoice tracking, consuming significant hours and contributing to high DSO.
+                                </div>
+                              </div>
+                              <div class="step">
+                                <div class="st">Quantitative Analysis</div>
+                                <div class="sd">
+                                  300+ hours annually lost; delayed collections strained cash flow and increased bad debt exposure.
+                                </div>
+                              </div>
+                              <div class="step">
+                                <div class="st">Qualitative Factors</div>
+                                <div class="sd">
+                                  Disputes and varied terms complicated prioritization; teams needed a reliable queue of next-best actions.
+                                </div>
+                              </div>
+                              <div class="step">
+                                <div class="st">Solution &amp; Implementation</div>
+                                <div class="sd">
+                                  Node.js cron jobs for continuous sync, AI prioritization (predictive scoring) for collections, and automated alerts.
+                                </div>
+                              </div>
+                              <div class="step">
+                                <div class="st">Tech Details</div>
+                                <div class="sd">
+                                  <ul class="list-disc pl-5">
+                                    <li>Weeks 1–3: API sync setup, aging reports, baseline dashboard.</li>
+                                    <li>Weeks 4–5: AI risk scoring and personalized workflows.</li>
+                                    <li>Week 6: Notifications + dispute tracking integrations.</li>
+                                  </ul>
+                                </div>
+                              </div>
+                              <div class="step">
+                                <div class="st">Recommendation</div>
+                                <div class="sd">Automate monitoring to slash DSO and stabilize cash inflows.</div>
+                              </div>
+                              <div class="step">
+                                <div class="st">Impact</div>
+                                <div class="sd">
+                                  Time saved: 320+ hours annually.<br />
+                                  Estimated savings: $32,000 (with 20–30% DSO improvement).
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                          <div class="mt-3 text-xs text-slate-500">Click outside the case studies area to collapse.</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- CS7 -->
+                    <div class="cs-card rounded-2xl border border-slate-200 bg-white/60 p-4" data-cs="cs7">
+                      <div class="cs-head">
+                        <div class="font-semibold text-slate-900">Case Study 7: Budgeting &amp; Scenario Forecasting (Infor)</div>
+                        <div class="text-sm text-slate-600">Problem + Solution teaser with inline expand.</div>
+                      </div>
+
+                      <div class="cs-body">
+                        <div class="mt-3 cs-teaser">
+                          <div class="text-sm font-bold text-slate-900">Problem</div>
+                          <p class="lead" style="margin-top:.35rem;">
+                            Quarterly spreadsheet budget updates took 20–30 hours and limited scenario planning.
+                          </p>
+                          <div class="text-sm font-bold text-slate-900" style="margin-top:.85rem;">Solution</div>
+                          <p class="lead" style="margin-top:.35rem;">
+                            A collaborative FP&amp;A tool with driver-based models, unlimited scenarios, and AI-assisted forecasts.
+                          </p>
+                          <div class="mt-3 cs-blur2">
+                            <p class="lead">
+                              Real-time collaboration, validation controls, and reporting templates improved governance and speed.
+                              More resilient planning under volatility.
+                            </p>
+                          </div>
+                          <div class="mt-2 text-xs text-slate-500">Click to read the full case study.</div>
+                        </div>
+
+                        <div class="cs-full">
+                          <div class="cs-full-inner">
+                            <div class="steps">
+                              <div class="step">
+                                <div class="st">Problem Definition</div>
+                                <div class="sd">
+                                  A healthcare provider manually updated Infor budgets quarterly via spreadsheets, taking 20–30 hours per cycle amid shifting volumes and regulations.
+                                </div>
+                              </div>
+                              <div class="step">
+                                <div class="st">Quantitative Analysis</div>
+                                <div class="sd">
+                                  100–120 hours annually, limiting scenario planning and increasing risk of overruns.
+                                </div>
+                              </div>
+                              <div class="step">
+                                <div class="st">Qualitative Factors</div>
+                                <div class="sd">
+                                  Demand variability required driver-based planning and rapid what-if adjustments.
+                                </div>
+                              </div>
+                              <div class="step">
+                                <div class="st">Solution &amp; Implementation</div>
+                                <div class="sd">
+                                  Custom Node.js FP&amp;A tool with Infor API integration, driver-based modeling, unlimited scenarios, and AI-assisted forecasts.
+                                </div>
+                              </div>
+                              <div class="step">
+                                <div class="st">Tech Details</div>
+                                <div class="sd">
+                                  <ul class="list-disc pl-5">
+                                    <li>Weeks 1–3: Integration, core modeling, validation.</li>
+                                    <li>Weeks 4–5: Scenario tools, collaborative features.</li>
+                                    <li>Week 6: Alerts, what-if simulations, reporting customizations.</li>
+                                  </ul>
+                                </div>
+                              </div>
+                              <div class="step">
+                                <div class="st">Recommendation</div>
+                                <div class="sd">Shift to dynamic planning for resilience and better allocation decisions.</div>
+                              </div>
+                              <div class="step">
+                                <div class="st">Impact</div>
+                                <div class="sd">
+                                  Time saved: 115+ hours annually.<br />
+                                  Estimated savings: $11,500.
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                          <div class="mt-3 text-xs text-slate-500">Click outside the case studies area to collapse.</div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
-                <!-- Keep this at the bottom (as you requested) -->
+                <!-- Keep this at the bottom -->
                 <h3 class="title" style="font-size:1.65rem; margin-top:1.35rem;">Project Financial Planning</h3>
                 <p class="lead">
                   See it yourself — try our live EAC Sandbox and Detailed EAC tools to experience multi-user project planning with clean visuals and board-ready summaries.
@@ -298,10 +845,9 @@
             </div>
           </section>
 
-          <!-- CREDENTIALS: block left + image right (full width together) -->
+          <!-- CREDENTIALS -->
           <section class="w-full">
             <div class="w-full grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
-              <!-- Left: block -->
               <div class="exec-card w-full h-full">
                 <span class="kicker">Our Team</span>
                 <h2 class="title" style="font-size:2.35rem;">Credentials you can trust</h2>
@@ -331,7 +877,6 @@
                 </p>
               </div>
 
-              <!-- Right: image -->
               <div class="w-full h-full">
                 <img
                   src="degrees.jpg"
@@ -350,364 +895,61 @@
     <footer class="footer">© 2025 Ledger Summit</footer>
   </div>
 
-  <!-- Modals (full text) -->
-  <div id="caseModalRoot">
-    <!-- Modal template style: click backdrop or X or ESC to close -->
-
-    <!-- CS1 -->
-    <div id="modal-cs1" class="case-modal" role="dialog" aria-modal="true" aria-labelledby="modal-cs1-title">
-      <div class="absolute inset-0 bg-black/40" data-close></div>
-      <div class="relative mx-auto my-10 w-[92%] max-w-3xl">
-        <div class="exec-card w-full">
-          <div class="flex items-start justify-between gap-4">
-            <div>
-              <span class="kicker">Case Study 1</span>
-              <h3 id="modal-cs1-title" class="title" style="font-size:1.85rem;">Automated Monthly Bank Reconciliation for a Mid-Sized Retailer</h3>
-            </div>
-            <button class="cta" type="button" data-close aria-label="Close case study">Close ✕</button>
-          </div>
-
-          <div class="steps" style="margin-top:1rem;">
-            <div class="step">
-              <div class="st">Problem Definition</div>
-              <div class="sd">
-                A growing retailer with multiple locations faced delays in month-end closes due to manual bank reconciliations in NetSuite.
-                Teams downloaded statements and exports, then matched transactions in spreadsheets—taking ~10–15 hours per account monthly and driving errors.
-              </div>
-            </div>
-
-            <div class="step">
-              <div class="st">Quantitative Analysis</div>
-              <div class="sd">120+ hours annually per account, plus increased risk of cash discrepancies and audit findings.</div>
-            </div>
-
-            <div class="step">
-              <div class="st">Qualitative Factors</div>
-              <div class="sd">Repetitive work reduced morale; seasonal volume spikes amplified exceptions and compliance concerns.</div>
-            </div>
-
-            <div class="step">
-              <div class="st">Solution &amp; Implementation</div>
-              <div class="sd">
-                Custom Node.js backend (Express) using NetSuite SuiteTalk REST API for secure pulls. Integrated Plaid for bank feeds.
-                Implemented an AI matching engine to auto-match 95%+ of transactions, flagging exceptions with clear audit trails.
-              </div>
-            </div>
-
-            <div class="step">
-              <div class="st">Tech Details</div>
-              <div class="sd">
-                <ul class="list-disc pl-5">
-                  <li>Weeks 1–2: OAuth setup, API integrations, data mapping/testing.</li>
-                  <li>Weeks 3–4: Matching engine + secure review dashboard.</li>
-                  <li>Weeks 5–6: Multi-account scaling, rules, performance tuning.</li>
-                </ul>
-                Deployed on DigitalOcean; post-launch tweaks shipped quickly (e.g., custom tolerances).
-              </div>
-            </div>
-
-            <div class="step">
-              <div class="st">Impact</div>
-              <div class="sd">
-                Time saved: 120+ hours annually per account (95%+ automation).<br/>
-                Estimated savings: $12,000+ per account (assuming $100/hr loaded cost).<br/>
-                Error reduction: ~90% with full audit trails.
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- CS2 -->
-    <div id="modal-cs2" class="case-modal" role="dialog" aria-modal="true" aria-labelledby="modal-cs2-title">
-      <div class="absolute inset-0 bg-black/40" data-close></div>
-      <div class="relative mx-auto my-10 w-[92%] max-w-3xl">
-        <div class="exec-card w-full">
-          <div class="flex items-start justify-between gap-4">
-            <div>
-              <span class="kicker">Case Study 2</span>
-              <h3 id="modal-cs2-title" class="title" style="font-size:1.85rem;">Real-Time Cash Flow Forecasting for a Professional Services Firm</h3>
-            </div>
-            <button class="cta" type="button" data-close aria-label="Close case study">Close ✕</button>
-          </div>
-
-          <div class="steps" style="margin-top:1rem;">
-            <div class="step">
-              <div class="st">Problem Definition</div>
-              <div class="sd">
-                A services firm manually consolidated AP/AR, payroll, and Sage Intacct data weekly via spreadsheets.
-                Inconsistencies and delays increased liquidity risk amid variable client payments.
-              </div>
-            </div>
-
-            <div class="step">
-              <div class="st">Quantitative Analysis</div>
-              <div class="sd">20+ hours weekly, with forecasts often 15–20% off actuals.</div>
-            </div>
-
-            <div class="step">
-              <div class="st">Qualitative Factors</div>
-              <div class="sd">Unpredictable billing cycles made static planning inadequate for proactive management.</div>
-            </div>
-
-            <div class="step">
-              <div class="st">Solution &amp; Implementation</div>
-              <div class="sd">
-                Custom Node.js app with PostgreSQL, live Sage Intacct syncs, and connectors for payroll/CRM.
-                Added AI-assisted driver predictions and scenario modeling.
-              </div>
-            </div>
-
-            <div class="step">
-              <div class="st">Tech Details</div>
-              <div class="sd">
-                <ul class="list-disc pl-5">
-                  <li>Weeks 1–2: Authentication, mapping, initial syncs.</li>
-                  <li>Weeks 3–4: Forecasting engine + AI predictions.</li>
-                  <li>Weeks 5–6: Interactive dashboards for 13-week rolling views and what-ifs.</li>
-                </ul>
-                Hosted with automated backups; rapid iterations post-go-live.
-              </div>
-            </div>
-
-            <div class="step">
-              <div class="st">Impact</div>
-              <div class="sd">
-                Time saved: 260+ hours annually.<br/>
-                Estimated savings: $26,000.<br/>
-                Forecast accuracy: improved ~25–30%.
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- CS3 -->
-    <div id="modal-cs3" class="case-modal" role="dialog" aria-modal="true" aria-labelledby="modal-cs3-title">
-      <div class="absolute inset-0 bg-black/40" data-close></div>
-      <div class="relative mx-auto my-10 w-[92%] max-w-3xl">
-        <div class="exec-card w-full">
-          <div class="flex items-start justify-between gap-4">
-            <div>
-              <span class="kicker">Case Study 3</span>
-              <h3 id="modal-cs3-title" class="title" style="font-size:1.85rem;">Dynamic Project Financial Dashboards for a Construction Company</h3>
-            </div>
-            <button class="cta" type="button" data-close>Close ✕</button>
-          </div>
-
-          <div class="steps" style="margin-top:1rem;">
-            <div class="step">
-              <div class="st">Problem Definition</div>
-              <div class="sd">
-                PMs manually compiled budget variance reports from Dynamics 365, delaying insights and contributing to late detection of overruns.
-              </div>
-            </div>
-            <div class="step">
-              <div class="st">Solution &amp; Implementation</div>
-              <div class="sd">
-                Node.js backend pulling real-time Dynamics 365 project data; React dashboards with variance alerts, inline commentary,
-                and anomaly detection to flag risks earlier. Mobile-friendly for on-site teams.
-              </div>
-            </div>
-            <div class="step">
-              <div class="st">Impact</div>
-              <div class="sd">
-                Time saved: ~110+ hours annually per project. Faster corrective actions and better forecasting discipline.
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- CS4 -->
-    <div id="modal-cs4" class="case-modal" role="dialog" aria-modal="true" aria-labelledby="modal-cs4-title">
-      <div class="absolute inset-0 bg-black/40" data-close></div>
-      <div class="relative mx-auto my-10 w-[92%] max-w-3xl">
-        <div class="exec-card w-full">
-          <div class="flex items-start justify-between gap-4">
-            <div>
-              <span class="kicker">Case Study 4</span>
-              <h3 id="modal-cs4-title" class="title" style="font-size:1.85rem;">One-Click Financial Statement Generation for a Manufacturer</h3>
-            </div>
-            <button class="cta" type="button" data-close>Close ✕</button>
-          </div>
-
-          <div class="steps" style="margin-top:1rem;">
-            <div class="step">
-              <div class="st">Problem Definition</div>
-              <div class="sd">
-                Manual GL mapping in SAP for statements consumed significant staff time and increased audit friction.
-              </div>
-            </div>
-            <div class="step">
-              <div class="st">Solution &amp; Implementation</div>
-              <div class="sd">
-                Node.js service automating SAP pulls with database-stored dynamic mappings, compliance checks, and AI-assisted narratives.
-                Serverless deployment for on-demand generation with full audit trails.
-              </div>
-            </div>
-            <div class="step">
-              <div class="st">Impact</div>
-              <div class="sd">Time saved: ~450+ hours annually; faster close and more consistent reporting outputs.</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- CS5 -->
-    <div id="modal-cs5" class="case-modal" role="dialog" aria-modal="true" aria-labelledby="modal-cs5-title">
-      <div class="absolute inset-0 bg-black/40" data-close></div>
-      <div class="relative mx-auto my-10 w-[92%] max-w-3xl">
-        <div class="exec-card w-full">
-          <div class="flex items-start justify-between gap-4">
-            <div>
-              <span class="kicker">Case Study 5</span>
-              <h3 id="modal-cs5-title" class="title" style="font-size:1.85rem;">AI-Powered Financial Statement Analysis for a Tech Company</h3>
-            </div>
-            <button class="cta" type="button" data-close>Close ✕</button>
-          </div>
-
-          <div class="steps" style="margin-top:1rem;">
-            <div class="step">
-              <div class="st">Problem Definition</div>
-              <div class="sd">
-                Manual variance review and trend checks in Oracle took 12–18 hours per cycle and could miss subtle anomalies.
-              </div>
-            </div>
-            <div class="step">
-              <div class="st">Solution &amp; Implementation</div>
-              <div class="sd">
-                Automated extraction pipeline paired with AI prompts for variance detection, risk flags, and trend signals,
-                embedded into dashboards with alerting.
-              </div>
-            </div>
-            <div class="step">
-              <div class="st">Impact</div>
-              <div class="sd">Time saved: ~220+ hours annually; faster detection of issues and clearer executive narratives.</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- CS6 -->
-    <div id="modal-cs6" class="case-modal" role="dialog" aria-modal="true" aria-labelledby="modal-cs6-title">
-      <div class="absolute inset-0 bg-black/40" data-close></div>
-      <div class="relative mx-auto my-10 w-[92%] max-w-3xl">
-        <div class="exec-card w-full">
-          <div class="flex items-start justify-between gap-4">
-            <div>
-              <span class="kicker">Case Study 6</span>
-              <h3 id="modal-cs6-title" class="title" style="font-size:1.85rem;">Real-Time Accounts Receivable Monitoring for a Distributor</h3>
-            </div>
-            <button class="cta" type="button" data-close>Close ✕</button>
-          </div>
-
-          <div class="steps" style="margin-top:1rem;">
-            <div class="step">
-              <div class="st">Problem Definition</div>
-              <div class="sd">
-                Weekly exports for aging and collections prioritization consumed hours and slowed cash conversion.
-              </div>
-            </div>
-            <div class="step">
-              <div class="st">Solution &amp; Implementation</div>
-              <div class="sd">
-                Continuous sync jobs plus AI prioritization (risk scoring), automated alerts, and dispute tracking integrations.
-              </div>
-            </div>
-            <div class="step">
-              <div class="st">Impact</div>
-              <div class="sd">Hundreds of hours saved annually and meaningful DSO improvement with better prioritization.</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- CS7 -->
-    <div id="modal-cs7" class="case-modal" role="dialog" aria-modal="true" aria-labelledby="modal-cs7-title">
-      <div class="absolute inset-0 bg-black/40" data-close></div>
-      <div class="relative mx-auto my-10 w-[92%] max-w-3xl">
-        <div class="exec-card w-full">
-          <div class="flex items-start justify-between gap-4">
-            <div>
-              <span class="kicker">Case Study 7</span>
-              <h3 id="modal-cs7-title" class="title" style="font-size:1.85rem;">Advanced Budgeting &amp; Scenario Forecasting for a Healthcare Provider</h3>
-            </div>
-            <button class="cta" type="button" data-close>Close ✕</button>
-          </div>
-
-          <div class="steps" style="margin-top:1rem;">
-            <div class="step">
-              <div class="st">Problem Definition</div>
-              <div class="sd">
-                Spreadsheet-driven quarterly budget updates limited scenario planning and wasted time amid demand and regulatory shifts.
-              </div>
-            </div>
-            <div class="step">
-              <div class="st">Solution &amp; Implementation</div>
-              <div class="sd">
-                Node.js FP&amp;A tool with API integration, driver-based models, collaborative scenarios, and AI-assisted forecasts.
-              </div>
-            </div>
-            <div class="step">
-              <div class="st">Impact</div>
-              <div class="sd">Faster cycles, better what-if readiness, and more consistent budget governance.</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-  </div>
-
   <script>
     (function () {
-      const modals = Array.from(document.querySelectorAll(".case-modal"));
+      const area = document.getElementById("caseStudiesArea");
+      if (!area) return;
 
-      function closeAll() {
-        modals.forEach(m => m.classList.remove("is-open"));
-        document.body.style.overflow = "";
+      const cards = Array.from(area.querySelectorAll(".cs-card"));
+
+      function collapseAll() {
+        cards.forEach(c => {
+          c.classList.remove("is-open");
+          c.classList.remove("is-collapsed");
+        });
       }
 
-      function openByKey(key) {
-        const el = document.getElementById("modal-" + key);
-        if (!el) return;
-        closeAll();
-        el.classList.add("is-open");
-        document.body.style.overflow = "hidden";
+      function openCard(card) {
+        // Collapse others to header-only
+        cards.forEach(c => {
+          if (c === card) {
+            c.classList.add("is-open");
+            c.classList.remove("is-collapsed");
+          } else {
+            c.classList.remove("is-open");
+            c.classList.add("is-collapsed");
+          }
+        });
       }
 
-      // Open buttons
-      document.addEventListener("click", (e) => {
+      // Click handling inside the case studies area:
+      // - clicking a card header opens it (and collapses others)
+      // - clicking teaser area also opens it
+      area.addEventListener("click", (e) => {
         const t = e.target;
         if (!(t instanceof Element)) return;
 
-        const openKey = t.closest("[data-open]")?.getAttribute("data-open");
-        if (openKey) {
-          openByKey(openKey);
-          return;
-        }
+        const card = t.closest(".cs-card");
+        if (!card) return;
 
-        // Close buttons/backdrop
-        if (t.matches("[data-close]") || t.closest("[data-close]")) {
-          closeAll();
-          return;
-        }
+        // Open when clicking header OR teaser OR inside the card (but not on links)
+        if (t.closest("a")) return; // don't hijack clicks on links
+        openCard(card);
+        e.stopPropagation();
       });
 
-      // ESC to close
+      // Click outside the case studies area collapses everything
+      document.addEventListener("click", (e) => {
+        const t = e.target;
+        if (!(t instanceof Element)) return;
+        if (!area.contains(t)) collapseAll();
+      });
+
+      // Optional: ESC collapses
       document.addEventListener("keydown", (e) => {
-        if (e.key === "Escape") closeAll();
+        if (e.key === "Escape") collapseAll();
       });
     })();
   </script>
-
-  <!-- No animation / no intro script on Home -->
 </body>
 </html>
