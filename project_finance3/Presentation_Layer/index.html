@@ -18,7 +18,7 @@
       overflow-y: hidden;
       -webkit-overflow-scrolling: touch;
       scroll-snap-type: x mandatory;
-      padding-bottom: 0.25rem; /* room for scrollbar */
+      padding-bottom: 0.25rem;
     }
     .t-track {
       display: grid;
@@ -29,27 +29,25 @@
     }
     .t-card {
       scroll-snap-align: start;
-      border-radius: 1.5rem; /* rounded-3xl feel */
-      border: 1px solid rgba(226,232,240,1); /* slate-200 */
+      border-radius: 1.5rem;
+      border: 1px solid rgba(226,232,240,1);
       background: rgba(255,255,255,0.70);
       padding: 1.15rem;
       min-height: 180px;
     }
 
     /* =========================
-       Case studies: paywall "fade" (no blur) + expand inline
+       Case Studies: Case 1 "fade-to-continue" + others header-only until opened
        ========================= */
-    /* The fading "continuation" (2 lines) */
     .cs-fade2 {
       position: relative;
-      opacity: 0.55;             /* semi-transparent */
+      opacity: 0.55;
       line-height: 1.6;
-      max-height: calc(1.6em * 2.15); /* ~2 lines */
+      max-height: calc(1.6em * 2.15);
       overflow: hidden;
       user-select: none;
       cursor: pointer;
     }
-    /* fade-out to white like disappearing text */
     .cs-fade2::after {
       content: "";
       position: absolute;
@@ -59,7 +57,6 @@
       pointer-events: none;
     }
 
-    /* Full content area (scrollable) */
     .cs-rest {
       display: none;
       margin-top: 0.9rem;
@@ -72,28 +69,24 @@
       padding-right: 0.35rem;
     }
 
-    /* Card states */
-    .cs-card { cursor: default; }
     .cs-card.is-open { outline: 2px solid rgba(148,163,184,0.55); outline-offset: 2px; }
     .cs-card.is-collapsed .cs-body { display: none; }
     .cs-head { cursor: pointer; }
 
-    /* For case study 1: show intro + fade2 always, and only reveal the "rest" on click */
+    /* Case 1: intro is always visible; rest reveals only when opened via fade click */
     .cs1 .cs-rest { display: none; }
     .cs1.is-open .cs-rest { display: block; }
 
-    /* For other case studies: by default header only; open shows full body (including intro/rest) */
+    /* Other cases: header-only by default; open shows full body (scrollable) */
     .cs-other .cs-body { display: none; margin-top: 0.85rem; }
     .cs-other.is-open .cs-body { display: block; }
     .cs-other.is-open .cs-body .cs-rest { display: block; }
 
-    /* small helper */
     .no-hijack a { position: relative; z-index: 1; }
   </style>
 </head>
 
 <body class="bg-white text-slate-900">
-  <!-- Notebook background -->
   <div class="notebook-plane notebook-static" aria-hidden="true"></div>
 
   <div class="min-h-screen flex flex-col relative z-10">
@@ -123,7 +116,7 @@
       <div class="w-full px-6 lg:px-12">
         <div class="mx-auto max-w-none flex flex-col gap-12">
 
-          <!-- HERO (centered, ~40% smaller by width vs full) -->
+          <!-- HERO -->
           <section class="w-full">
             <div class="exec-card mx-auto w-full max-w-4xl">
               <span class="kicker">Ledger Summit</span>
@@ -136,18 +129,9 @@
               </p>
 
               <div class="steps" style="margin-top:1.25rem;">
-                <div class="step">
-                  <div class="st">Targeted automation</div>
-                  <div class="sd">We streamline the workflow, not just “add AI”.</div>
-                </div>
-                <div class="step">
-                  <div class="st">Audit-ready by design</div>
-                  <div class="sd">Controls, rules, and validations built in from the start.</div>
-                </div>
-                <div class="step">
-                  <div class="st">Implemented in weeks</div>
-                  <div class="sd">Start with one workflow, then compound the wins.</div>
-                </div>
+                <div class="step"><div class="st">Targeted automation</div><div class="sd">We streamline the workflow, not just “add AI”.</div></div>
+                <div class="step"><div class="st">Audit-ready by design</div><div class="sd">Controls, rules, and validations built in from the start.</div></div>
+                <div class="step"><div class="st">Implemented in weeks</div><div class="sd">Start with one workflow, then compound the wins.</div></div>
               </div>
 
               <p class="lead" style="margin-top:1.25rem;">
@@ -155,7 +139,6 @@
               </p>
             </div>
 
-            <!-- Image under the first block (match centered width) -->
             <div class="mt-6 mx-auto w-full max-w-4xl">
               <img
                 src="AI_Workflow.jpg"
@@ -166,7 +149,7 @@
             </div>
           </section>
 
-          <!-- CLIENT REVIEWS (horizontal scroll row) -->
+          <!-- TESTIMONIALS -->
           <section class="w-full">
             <div class="exec-card w-full mx-auto">
               <span class="kicker">Client Reviews</span>
@@ -219,7 +202,7 @@
             </div>
           </section>
 
-          <!-- SECOND PICTURE moved down after testimonials -->
+          <!-- SECOND IMAGE -->
           <section class="w-full">
             <div class="w-full">
               <img
@@ -231,13 +214,13 @@
             </div>
           </section>
 
-          <!-- CASE STUDIES (same "box feel" as first box: centered max width) -->
+          <!-- CASE STUDIES (centered like hero) -->
           <section class="w-full">
             <div class="exec-card mx-auto w-full max-w-4xl no-hijack" id="caseStudiesArea">
               <span class="kicker">Case Studies</span>
               <h2 class="title" style="font-size:2.35rem;">Real work. Real outcomes.</h2>
 
-              <!-- Case Study 1: intro + fading continuation; clicking fade reveals ONLY the rest (not re-reading the intro) -->
+              <!-- Case Study 1 (unchanged here) -->
               <div class="cs-card cs1 mt-6 rounded-3xl border border-slate-200 bg-white/70 p-5" data-cs="cs1">
                 <div class="cs-head">
                   <div class="text-sm font-semibold uppercase tracking-wide text-slate-600">Case Study 1</div>
@@ -261,7 +244,6 @@
                       and an AI matching engine (TensorFlow.js) that auto-matched 95%+ transactions and flagged exceptions with audit trails.
                     </p>
 
-                    <!-- “disappearing” continuation (2 lines). Clicking THIS reveals rest. -->
                     <div class="mt-3 cs-fade2" data-reveal="cs1" title="Click to continue reading">
                       <p class="lead">
                         Rollout included OAuth, mapping, testing, a secure review dashboard, then multi-account scaling with configurable tolerances.
@@ -269,12 +251,9 @@
                       </p>
                     </div>
 
-                    <div class="mt-2 text-xs text-slate-500">
-                      Click the faded text to continue.
-                    </div>
+                    <div class="mt-2 text-xs text-slate-500">Click the faded text to continue.</div>
                   </div>
 
-                  <!-- Rest of the text only (scrollable) -->
                   <div class="cs-rest">
                     <div class="cs-rest-inner">
                       <div class="steps">
@@ -286,7 +265,7 @@
                               <li>Weeks 3–4: Matching algorithm development + secure React dashboard for review and certification.</li>
                               <li>Weeks 5–6: Advanced rules, performance tuning, and multi-account scaling.</li>
                             </ul>
-                            Deployed on DigitalOcean for cost-effective scaling. Client-requested tweaks were deployed in days.
+                            Deployed on DigitalOcean; client-requested tweaks were deployed in days.
                           </div>
                         </div>
 
@@ -308,24 +287,21 @@
                         </div>
                       </div>
                     </div>
-                    <div class="mt-3 text-xs text-slate-500">
-                      Click outside this case studies box to collapse.
-                    </div>
+                    <div class="mt-3 text-xs text-slate-500">Click outside this case studies box to collapse.</div>
                   </div>
                 </div>
               </div>
 
-              <!-- Other case studies: headers only until clicked, then full case appears; others collapse to headers -->
+              <!-- Headers-only list -->
               <div class="mt-6 rounded-3xl border border-slate-200 bg-white/70 p-5">
                 <div class="text-sm font-semibold uppercase tracking-wide text-slate-600">More case studies (click a title)</div>
 
                 <div class="mt-3 grid gap-3">
-                  <!-- CS2 -->
+                  <!-- Case Study 2 (kept as-is from prior version) -->
                   <div class="cs-card cs-other rounded-2xl border border-slate-200 bg-white/60 p-4" data-cs="cs2">
                     <div class="cs-head">
                       <div class="font-semibold text-slate-900">Case Study 2: Real-Time Cash Flow Forecasting (Sage Intacct)</div>
                     </div>
-
                     <div class="cs-body">
                       <div class="text-sm font-bold text-slate-900 mt-3">Problem Definition</div>
                       <p class="lead" style="margin-top:.35rem;">
@@ -353,7 +329,6 @@
                                 Hosted with automated backups; rapid iterations post-go-live ensured alignment to unique drivers.
                               </div>
                             </div>
-
                             <div class="step">
                               <div class="st">Impact</div>
                               <div class="sd">
@@ -368,34 +343,57 @@
                     </div>
                   </div>
 
-                  <!-- CS3 -->
+                  <!-- UPDATED Case Study 3 -->
                   <div class="cs-card cs-other rounded-2xl border border-slate-200 bg-white/60 p-4" data-cs="cs3">
                     <div class="cs-head">
-                      <div class="font-semibold text-slate-900">Case Study 3: Dynamic Project Financial Dashboards (Dynamics 365)</div>
+                      <div class="font-semibold text-slate-900">
+                        Case Study 3: Advanced Project Forecasting and EAC Management (Integrated with Dynamics 365)
+                      </div>
                     </div>
 
                     <div class="cs-body">
                       <div class="text-sm font-bold text-slate-900 mt-3">Problem Definition</div>
                       <p class="lead" style="margin-top:.35rem;">
-                        Project managers manually compiled budget variances, spending 8–12 hours monthly per project and delaying insight.
+                        Project managers in a mid-sized engineering and construction firm relied on manual spreadsheets to compile actual costs,
+                        forecast remaining expenses, and calculate Estimate at Completion (EAC). This process consumed 8–12 hours per month per project,
+                        leading to outdated insights, delayed variance detection, and inaccurate revenue recognition under percentage-of-completion methods.
+                        Without real-time integration to Dynamics 365, forecasts were prone to mismatched data and errors, hindering proactive decisions and risking overruns.
                       </p>
 
                       <div class="text-sm font-bold text-slate-900" style="margin-top:.9rem;">Solution &amp; Implementation</div>
                       <p class="lead" style="margin-top:.35rem;">
-                        Node.js backend pulling real-time Dynamics 365 project data, paired with a React dashboard featuring variance alerts,
-                        commentary, and anomaly detection to flag overruns early.
+                        We developed a custom EAC and project planning system integrated with Dynamics 365 to pull real-time actual costs
+                        (labor, materials, equipment, subcontractors, commitments). PMs entered forward-looking forecasts for planned hours and direct costs,
+                        while the system loaded indirects, applied configurable revenue recognition formulas (e.g., cost-to-cost POC),
+                        and calculated projected revenue, margin, and EAC.
                       </p>
 
                       <div class="cs-rest">
                         <div class="cs-rest-inner">
                           <div class="steps">
                             <div class="step">
+                              <div class="st">Key Capabilities</div>
+                              <div class="sd">
+                                <ul class="list-disc pl-5">
+                                  <li>Interactive charts and graphs (burn rates, variance trends).</li>
+                                  <li>Side-by-side comparisons: forecasts vs. Dynamics 365 actuals.</li>
+                                  <li>Exception reporting and variance alerts for early overrun detection.</li>
+                                  <li>Anomaly detection for unusual spending patterns.</li>
+                                  <li>Commentary sections for narrative explanations on variances.</li>
+                                  <li>Mobile-accessible dashboards for on-the-go updates.</li>
+                                </ul>
+                                Built with a Node.js backend for ERP integration/data processing and a responsive React frontend for intuitive PM workflows.
+                              </div>
+                            </div>
+
+                            <div class="step">
                               <div class="st">Tech Details</div>
                               <div class="sd">
                                 <ul class="list-disc pl-5">
-                                  <li>Weeks 1–2: Integration + prototyping.</li>
-                                  <li>Weeks 3–4: Dashboard development with client feedback loops.</li>
-                                  <li>Weeks 5–6: Mobile optimizations, notifications, advanced anomaly rules.</li>
+                                  <li>Weeks 1–2: Secure Dynamics 365 integration, mapping, and forecasting UI prototype.</li>
+                                  <li>Weeks 3–4: EAC calculations, revenue engine, graphs, usability iterations.</li>
+                                  <li>Weeks 5–6: Alerts, anomaly rules, commentary tools, mobile optimizations, notifications.</li>
+                                  <li>Weeks 7–8: Training, tuning, go-live with parallel testing vs. manual processes.</li>
                                 </ul>
                               </div>
                             </div>
@@ -403,8 +401,11 @@
                             <div class="step">
                               <div class="st">Impact</div>
                               <div class="sd">
-                                Time saved: 110+ hours annually per project.<br />
-                                Estimated savings: $11,000+ per project.
+                                Reduced monthly forecasting time from 8–12 hours to under 2 hours per project.<br />
+                                Annual time savings: 110+ hours per project.<br />
+                                Overrun reduction: estimated 15–20% from earlier intervention on variances.<br />
+                                Estimated savings: $11,000+ per project annually.<br />
+                                Improved revenue recognition compliance and overall profitability via real-time, data-driven insights.
                               </div>
                             </div>
                           </div>
@@ -413,7 +414,7 @@
                     </div>
                   </div>
 
-                  <!-- CS4 -->
+                  <!-- Case Study 4 (kept) -->
                   <div class="cs-card cs-other rounded-2xl border border-slate-200 bg-white/60 p-4" data-cs="cs4">
                     <div class="cs-head">
                       <div class="font-semibold text-slate-900">Case Study 4: One-Click Financial Statement Generation (SAP)</div>
@@ -459,7 +460,7 @@
                     </div>
                   </div>
 
-                  <!-- CS5 -->
+                  <!-- Case Study 5 (kept) -->
                   <div class="cs-card cs-other rounded-2xl border border-slate-200 bg-white/60 p-4" data-cs="cs5">
                     <div class="cs-head">
                       <div class="font-semibold text-slate-900">Case Study 5: AI-Powered Financial Statement Analysis (Oracle)</div>
@@ -504,33 +505,53 @@
                     </div>
                   </div>
 
-                  <!-- CS6 -->
+                  <!-- UPDATED Case Study 6 -->
                   <div class="cs-card cs-other rounded-2xl border border-slate-200 bg-white/60 p-4" data-cs="cs6">
                     <div class="cs-head">
-                      <div class="font-semibold text-slate-900">Case Study 6: Real-Time Accounts Receivable Monitoring (Acumatica)</div>
+                      <div class="font-semibold text-slate-900">
+                        Case Study 6: Intelligent Accounts Receivable Monitoring and Collections Acceleration (Integrated with Acumatica)
+                      </div>
                     </div>
 
                     <div class="cs-body">
                       <div class="text-sm font-bold text-slate-900 mt-3">Problem Definition</div>
                       <p class="lead" style="margin-top:.35rem;">
-                        Weekly exports for overdue tracking consumed 6–10 hours per client and slowed collections, keeping DSO elevated.
+                        A growing service-based company struggled with elevated DSO due to manual weekly exports and aging reports.
+                        Tracking overdue invoices consumed 6–10 hours per week, causing delayed follow-ups, inconsistent escalation, and prolonged payment cycles.
+                        Without real-time visibility or predictive insights, collections stayed reactive—creating cash flow constraints and higher bad debt risk.
                       </p>
 
                       <div class="text-sm font-bold text-slate-900" style="margin-top:.9rem;">Solution &amp; Implementation</div>
                       <p class="lead" style="margin-top:.35rem;">
-                        Continuous data sync plus AI prioritization (risk scoring) and automated alerts for collections workflows.
+                        We implemented a real-time AR monitoring system with continuous synchronization from Acumatica, providing instant access to aging,
+                        invoices, and customer payment histories. The system added predictive baselines, automated escalation workflows,
+                        AI-driven prioritization, and multi-channel collaboration (Slack/email, dispute tracking, commentary logs).
                       </p>
 
                       <div class="cs-rest">
                         <div class="cs-rest-inner">
                           <div class="steps">
                             <div class="step">
+                              <div class="st">Key Enhancements</div>
+                              <div class="sd">
+                                <ul class="list-disc pl-5">
+                                  <li><b>Historical analysis &amp; predictive insights:</b> customer-specific payment baselines and delay prediction.</li>
+                                  <li><b>Automated escalation workflows:</b> proactive outreach and progressive follow-ups (reminders → PM/collections involvement).</li>
+                                  <li><b>AI-driven prioritization:</b> risk scoring by history, age, amount, and behavior; prioritized queues.</li>
+                                  <li><b>Multi-channel communication:</b> Slack/email notifications, dispute tracking, shared notes.</li>
+                                  <li><b>Best-practice features:</b> dashboards, aging visualizations, exception alerts, incentive tracking, fast dispute tools.</li>
+                                </ul>
+                              </div>
+                            </div>
+
+                            <div class="step">
                               <div class="st">Tech Details</div>
                               <div class="sd">
                                 <ul class="list-disc pl-5">
-                                  <li>Weeks 1–3: API sync setup, aging reports, baseline dashboard.</li>
-                                  <li>Weeks 4–5: AI model for risk scoring + prioritized work queues.</li>
-                                  <li>Week 6: Slack/email notifications + dispute tracking integrations.</li>
+                                  <li>Weeks 1–3: Acumatica API sync, historical import, baseline dashboards, real-time monitoring foundation.</li>
+                                  <li>Weeks 4–5: Risk scoring model, predictive delay detection, queues, escalation rules with feedback.</li>
+                                  <li>Week 6: Slack/email integrations, dispute tracking, outreach templates, analytics rollout.</li>
+                                  <li>Weeks 7–8: Training, workflow testing, go-live with parallel monitoring.</li>
                                 </ul>
                               </div>
                             </div>
@@ -538,8 +559,10 @@
                             <div class="step">
                               <div class="st">Impact</div>
                               <div class="sd">
-                                Time saved: 320+ hours annually.<br />
-                                Estimated savings: $32,000 (with 20–30% DSO improvement).
+                                Reduced manual tracking time by 90%+ (320+ hours annually).<br />
+                                Improved DSO by 20–30% via earlier identification and resolution of delays.<br />
+                                Estimated annual savings: $32,000+ (labor, reduced financing needs, minimized bad debt risk).<br />
+                                Improved cash predictability and stronger client relationships through proactive communication.
                               </div>
                             </div>
                           </div>
@@ -548,34 +571,54 @@
                     </div>
                   </div>
 
-                  <!-- CS7 -->
+                  <!-- UPDATED Case Study 7 -->
                   <div class="cs-card cs-other rounded-2xl border border-slate-200 bg-white/60 p-4" data-cs="cs7">
                     <div class="cs-head">
-                      <div class="font-semibold text-slate-900">Case Study 7: Budgeting &amp; Scenario Forecasting (Infor)</div>
+                      <div class="font-semibold text-slate-900">
+                        Case Study 7: Driver-Based Budgeting and Advanced Scenario Forecasting (Integrated with Infor)
+                      </div>
                     </div>
 
                     <div class="cs-body">
                       <div class="text-sm font-bold text-slate-900 mt-3">Problem Definition</div>
                       <p class="lead" style="margin-top:.35rem;">
-                        Quarterly spreadsheet budget updates took 20–30 hours per cycle and limited scenario planning amid volatility.
+                        A mid-sized manufacturing and distribution company used complex quarterly spreadsheets for budgeting/forecasting.
+                        Each cycle required 20–30 hours of manual entry and consolidation, leaving little time for scenario planning.
+                        Volatility in materials, labor, and demand made the lack of flexible what-if capabilities a major constraint.
                       </p>
 
                       <div class="text-sm font-bold text-slate-900" style="margin-top:.9rem;">Solution &amp; Implementation</div>
                       <p class="lead" style="margin-top:.35rem;">
-                        Custom Node.js FP&amp;A tool with Infor API integration, driver-based modeling, unlimited scenarios,
-                        real-time collaboration, and AI-assisted forecasts.
+                        We built a custom FP&amp;A platform integrated with Infor to pull real-time actuals, commitments, and operational drivers.
+                        Users input key drivers and the system generated projections across P&amp;L, balance sheet, and cash flow,
+                        enabling unlimited scenarios, collaboration, and AI-assisted baselines with anomaly highlighting.
                       </p>
 
                       <div class="cs-rest">
                         <div class="cs-rest-inner">
                           <div class="steps">
                             <div class="step">
+                              <div class="st">Key Features</div>
+                              <div class="sd">
+                                <ul class="list-disc pl-5">
+                                  <li>Unlimited scenarios with side-by-side comparisons.</li>
+                                  <li>Real-time collaboration with version tracking, commentary, and audit trails.</li>
+                                  <li>AI-assisted forecasting from historical trends and driver correlations.</li>
+                                  <li>Dashboards with variance analysis, sensitivity analysis, and what-if simulations.</li>
+                                  <li>Rolling forecasts and variance alerts.</li>
+                                  <li>Validation controls to prevent formula errors and ensure data integrity.</li>
+                                </ul>
+                              </div>
+                            </div>
+
+                            <div class="step">
                               <div class="st">Tech Details</div>
                               <div class="sd">
                                 <ul class="list-disc pl-5">
-                                  <li>Weeks 1–3: Integration, core modeling, validation controls.</li>
-                                  <li>Weeks 4–5: Scenario tools + collaborative workflows.</li>
-                                  <li>Week 6: Reporting customizations + what-if simulations.</li>
+                                  <li>Weeks 1–3: Infor integration, historical import, driver engine build, validation controls, prototype.</li>
+                                  <li>Weeks 4–5: Scenario management + collaboration features; usability iterations.</li>
+                                  <li>Week 6: Reporting suite, advanced what-if simulations, AI module, dashboards rollout.</li>
+                                  <li>Weeks 7–8: Training, performance optimization, parallel testing vs. spreadsheets, deployment.</li>
                                 </ul>
                               </div>
                             </div>
@@ -583,8 +626,11 @@
                             <div class="step">
                               <div class="st">Impact</div>
                               <div class="sd">
-                                Time saved: 115+ hours annually.<br />
-                                Estimated savings: $11,500.
+                                Reduced quarterly budgeting time from 20–30 hours to under 8 hours per cycle.<br />
+                                Annual time savings: 115+ hours.<br />
+                                Better scenario planning and faster, data-driven decisions in volatile conditions.<br />
+                                Estimated annual savings: $11,500+.<br />
+                                Reduced errors and improved cross-department alignment, positioning finance as a proactive strategic partner.
                               </div>
                             </div>
                           </div>
@@ -596,7 +642,7 @@
                 </div>
               </div>
 
-              <!-- Keep this at the bottom -->
+              <!-- Keep tools CTA -->
               <h3 class="title" style="font-size:1.65rem; margin-top:1.35rem;">Project Financial Planning</h3>
               <p class="lead">
                 See it yourself — try our live EAC Sandbox and Detailed EAC tools to experience multi-user project planning with clean visuals and board-ready summaries.
@@ -677,60 +723,43 @@
             c.classList.add("is-open");
             c.classList.remove("is-collapsed");
           } else {
-            // collapse others to header-only
             c.classList.remove("is-open");
             c.classList.add("is-collapsed");
           }
         });
       }
 
-      // Clicking headers should open that case and collapse others
       area.addEventListener("click", (e) => {
         const t = e.target;
         if (!(t instanceof Element)) return;
-
-        // don't hijack link clicks
         if (t.closest("a")) return;
 
         const card = t.closest(".cs-card");
         if (!card) return;
 
-        // Special rule: Case 1 only opens when clicking the faded continuation (or header if already open)
         const isCase1 = card.classList.contains("cs1");
         const clickedFade = t.closest("[data-reveal='cs1']");
 
         if (isCase1) {
-          if (clickedFade) {
-            // reveal rest without re-showing intro (intro stays; rest appears)
+          if (clickedFade || t.closest(".cs-head")) {
             openOne(card);
             e.stopPropagation();
-            return;
           }
-          // allow clicking header to focus/open (but rest still hidden until fade click)
-          if (t.closest(".cs-head")) {
-            openOne(card);
-            e.stopPropagation();
-            return;
-          }
-          // otherwise do nothing for CS1 clicks
           return;
         }
 
-        // For all other case studies: clicking header opens full case, collapsing others
         if (t.closest(".cs-head") || t.closest(".cs-body")) {
           openOne(card);
           e.stopPropagation();
         }
       });
 
-      // Click outside the case studies area collapses everything
       document.addEventListener("click", (e) => {
         const t = e.target;
         if (!(t instanceof Element)) return;
         if (!area.contains(t)) collapseAll();
       });
 
-      // ESC collapses (optional)
       document.addEventListener("keydown", (e) => {
         if (e.key === "Escape") collapseAll();
       });
