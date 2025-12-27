@@ -4,20 +4,15 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Ledger Summit — About</title>
-
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&display=swap" rel="stylesheet" />
-
   <link rel="stylesheet" href="styles.css" />
 </head>
-
 <body class="bg-white text-slate-900">
   <!-- Notebook background -->
   <div class="notebook-plane notebook-static" aria-hidden="true"></div>
-
   <div class="min-h-screen flex flex-col relative z-10">
-
     <!-- NAV -->
     <header class="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur">
       <div class="page-wrap py-4 flex justify-between items-center">
@@ -28,7 +23,6 @@
             <div class="text-xs text-slate-500">AI implementation that actually works — for finance &amp; operations</div>
           </div>
         </a>
-
         <nav class="hidden md:flex gap-6 text-sm">
           <a class="navlink" href="index.html">Home</a>
           <a class="navlink is-active" href="about.html">About</a>
@@ -37,33 +31,28 @@
           <a class="navlink" href="qa.html">Q&amp;A</a>
           <a class="navlink" href="contact.html">Contact</a>
         </nav>
-
         <a class="cta hidden sm:inline-flex" href="contact.html">Book a consultation</a>
       </div>
     </header>
-
     <main class="flex-1 py-12">
       <!-- Full-width content area -->
       <div class="w-full px-6 lg:px-12">
         <div class="mx-auto max-w-none flex flex-col gap-12">
-
           <!-- SECTION 1 -->
           <section class="w-full">
-            <div class="exec-card w-full mx-auto">
+            <!-- TEXT BLOCK: now constrained to same width as image -->
+            <div class="exec-card max-w-4xl mx-auto w-full">
               <span class="kicker">Ledger Summit</span>
               <h1 class="title">AI does more today. Much more tomorrow.</h1>
-
               <p class="lead">
                 After 20+ years in corporate finance and operations, I’ve lived what you’re living.
                 You’ve invested in tools. You’ve heard the AI promises.
               </p>
-
               <p class="lead">
                 Yet month-end still feels heavy. Forecasts still live in fragile spreadsheets.
                 Approvals still chase people across inboxes.
                 And every new “solution” seems to add more noise than relief.
               </p>
-
               <p class="lead">
                 The gap isn’t effort — it’s design.
                 We fix one workflow at a time, so improvements are real, repeatable, and calm.
@@ -71,8 +60,7 @@
                 Just targeted AI implementation that makes finance and operations feel lighter.
               </p>
             </div>
-
-            <!-- Image under the first block (same width as the block) -->
+            <!-- Image under the first block -->
             <div class="mt-6 w-full">
               <img
                 src="gap.png?v=202512251955"
@@ -80,17 +68,16 @@
                 class="w-full max-w-4xl mx-auto h-auto rounded-3xl border border-slate-200 shadow-sm bg-white"
                 loading="lazy"
                 decoding="async"
-                onerror="this.onerror=null; this.src='./gap.png?v=202512251955';"
               />
             </div>
           </section>
 
           <!-- SECTION 2 -->
           <section id="how" class="w-full">
-            <div class="exec-card w-full mx-auto">
+            <!-- TEXT BLOCK: now same max width as first image -->
+            <div class="exec-card max-w-4xl mx-auto w-full">
               <span class="kicker">How it works — one workflow at a time</span>
               <h2 class="title" style="font-size:2.35rem;">How it works — one workflow at a time</h2>
-
               <div class="steps">
                 <div class="step">
                   <div class="st">Diagnose</div>
@@ -111,11 +98,9 @@
                   </div>
                 </div>
               </div>
-
               <p class="lead" style="margin-top:1.25rem;">
                 You walk away from the first conversation with a clear “start here” plan your team can actually adopt.
               </p>
-
               <p class="lead" style="margin-top:1.1rem;">
                 <span class="font-semibold text-slate-900">What you get:</span>
                 A practical workflow map, a prioritized quick-win list, and an implementation plan that sticks.
@@ -125,54 +110,45 @@
             </div>
           </section>
 
-          <!-- SECTION 3 (block left + image right, full width together) -->
+          <!-- SECTION 3 (text left + full robot image right) -->
           <section class="w-full">
-            <div class="w-full grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
-              <!-- Left: block -->
-              <div class="exec-card w-full h-full">
+            <div class="w-full grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-12 items-start">
+              <!-- Left: text block (also constrained) -->
+              <div class="exec-card max-w-4xl mx-auto lg:mx-0 w-full h-full">
                 <span class="kicker">See it in action</span>
                 <h2 class="title" style="font-size:2.35rem;">See it in action</h2>
-
                 <p class="lead">
                   We maintain a small set of live, working tools built on real finance and operations workflows — no demos, no theater.
                 </p>
-
                 <p class="lead">
                   <a class="card-link" href="tools.html">Explore the tools →</a>
                 </p>
-
                 <p class="lead">
                   When you can see it working, your team can believe it.
                 </p>
-
                 <p class="lead" style="margin-top:1.25rem;">
                   <span class="font-semibold text-slate-900">Ready for one workflow to feel lighter?</span><br />
                   <a class="card-link" href="contact.html">Book a consultation</a>
                 </p>
               </div>
 
-              <!-- Right: image -->
-              <div class="w-full h-full">
+              <!-- Right: robot image — full visible, height controlled -->
+              <div class="w-full flex items-center justify-center">
                 <img
                   src="robotAI.jpg?v=202512251955"
                   alt="Robot AI illustration"
-                  class="w-full h-full max-h-96 lg:max-h-screen/2 object-cover rounded-3xl border border-slate-200 shadow-sm bg-white"
+                  class="w-full max-w-lg h-auto max-h-96 lg:max-h-[70vh] object-contain rounded-3xl border border-slate-200 shadow-sm bg-white"
                   loading="lazy"
                   decoding="async"
                 />
               </div>
             </div>
           </section>
-
         </div>
-
         <div id="contact" style="margin-top:3.5rem;"></div>
       </div>
     </main>
-
     <footer class="footer">© 2025 Ledger Summit</footer>
   </div>
-
-  <!-- No animation / no typing script on About -->
 </body>
 </html>
